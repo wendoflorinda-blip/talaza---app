@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
+const CATEGORY_OPTIONS = {
+  loja: ['Roupas','Calçados','Ateliês','Farmácias','Supermercados','Cosméticos','Móveis','Material Escolar','Material de Construção','Automóveis','Peças','Informática','Eletrónica','Armazéns','Joalharias','Outras'],
+  empresa: ['Construção','Tecnologia','Saúde','Educação','Agricultura','Consultoria','Energia','Telecomunicações','Financeiras','Indústria','Outras'],
+  servico: ['Fotógrafos','Videomakers','Designers','Programadores','Eletricistas','Canalizadores','Mecânicos','Advogados','Arquitetos','Contabilistas','Professores','Costureiras','Pintores','Jardineiros','Limpeza','Outros'],
+  transporte: ['Táxis','Mototáxis','Transporte Interprovincial','Transporte Escolar','Entrega ao Domicílio','Estafetas','Mudanças','Aluguer de Viaturas','Empresas de Transporte','Logística'],
+};
+
 export default function PostBusiness() {
   const router = useRouter();
   const [userId, setUserId] = useState(null);
@@ -20,7 +27,10 @@ export default function PostBusiness() {
     supabase.from('provinces').select('*').then(({ data }) => setProvinces(data || []));
   }, []);
 
-  function update(field, value) { setForm(f => ({ ...f, [field]: value })); }
+  function update(field, value) {
+    if (field === 'type') setForm(f => ({ ...f, type: value, category: '' }));
+    else setForm(f => ({ ...f, [field]: value }));
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -50,7 +60,13 @@ export default function PostBusiness() {
         </select>
 
         <input className="input" placeholder="Nome do negócio" value={form.name} onChange={e => update('name', e.target.value)} required />
-        <input className="input" placeholder="Categoria (ex: Roupas, Eletricista)" value={form.category} onChange={e => update('category', e.target.value)} required />
+
+        <label style={{ fontSize: 12, fontWeight: 600 }}>Categoria</label>
+        <select className="input" value={form.category} onChange={e => update('category', e.target.value)} required>
+          <option value="">Selecione a categoria</option>
+          {CATEGORY_OPTIONS[form.type].map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+
         <textarea className="input" placeholder="Descrição breve" value={form.description} onChange={e => update('description', e.target.value)} rows={3} />
 
         <select className="input" value={form.province_id} onChange={e => update('province_id', e.target.value)} required>
