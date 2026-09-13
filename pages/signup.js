@@ -23,14 +23,13 @@ export default function Signup() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const { data, error: authError } = await supabase.auth.signUp({ email, password });
-    if (authError) { setError(authError.message); setLoading(false); return; }
-
-    const userId = data.user?.id;
-    if (userId) {
-      await supabase.from('profiles').insert({ id: userId, full_name: fullName, usage_type: usage });
-    }
+    const { error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName, usage_type: usage } },
+    });
     setLoading(false);
+    if (authError) { setError(authError.message); return; }
     if (usage === 'trabalhar') router.push('/jobs/candidate');
     else if (usage === 'negocio' || usage === 'empresa' || usage === 'transporte') router.push('/post-business');
     else router.push('/');
