@@ -1,78 +1,388 @@
-import { useEffect, useState } from 'react';
+        import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 
 export default function Home() {
   const [countries, setCountries] = useState([]);
   const [provinces, setProvinces] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [businesses, setBusinesses] = useState([]);
+
   const [countryId, setCountryId] = useState('');
   const [provinceId, setProvinceId] = useState('');
   const [query, setQuery] = useState('');
-  const [businesses, setBusinesses] = useState([]);
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Carregar países
   useEffect(() => {
-    supabase.from('countries').select('*').eq('is_active', true).then(({ data }) => {
+    async function loadCountries() {
+      const { data, error } = await supabase
+        .from('countries')
+        .select('id, name')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error(error);
+        setError('Não foi possível carregar os países.');
+        return;
+      }
+
       setCountries(data || []);
-      if (data && data.length) setCountryId(data[0].id);
-    });
+
+      if (data && data.length > 0) {
+        setCountryId(data[0].id);
+      }
+    }
+
+    loadCountries();
   }, []);
 
+  // Carregar províncias do país selecionado
   useEffect(() => {
     if (!countryId) return;
-    supabase.from('provinces').select('*').eq('country_id', countryId).eq('is_active', true)
-      .then(({ data }) => setProvinces(data || []));
+
+    async function loadProvinces() {
+      const { data, error } = await supabase
+        .from('provinces')
+        .select('id, name')
+        .eq('country_id', countryId)
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      setProvinces(data || []);
+      setProvinceId('');
+    }
+
+    loadProvinces();
   }, [countryId]);
 
+  // Carregar categorias
+  useEffect(() => {
+    async function loadCategories() {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('id, name')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      setCategories(data || []);
+    }
+
+    loadCategories();
+  }, []);
+
+  // Carregar negócios
   useEffect(() => {
     if (!countryId) return;
-    let req = supabase.from('businesses').select('*').eq('country_id', countryId)
-      .order('is_premium', { ascending: false }).limit(12);
-    if (provinceId) req = req.eq('province_id', provinceId);
-    if (query) req = req.ilike('name', `%${query}%`);
-    req.then(({ data }) => setBusinesses(data || []));
+
+    async function loadBusinesses() {
+      setLoading(true);
+
+      let request = supabase
+        .from('businesses')
+        .select(`
+          id,
+          name,
+          description,
+          municipality,
+          neighborhood,
+          logo_url,
+          category_id,
+          subcategory_id
+        `)
+        .eq('country_id', countryId)
+        .eq('is_active', true)
+        .eq('approval_status', 'approved')
+        .order('created_at', { ascending: false });
+
+      if (provinceId) {
+        request = request.eq('province_id', provinceId);
+      }
+
+      if (query.trim()) {
+        request = request.ilike('name', `%${query.trim()}%`);
+      }
+
+      const { data, error } = await request;
+
+      if (error) {
+        console.error(error);
+        setBusinesses([]);
+        setLoading(false);
+        return;
+      }
+
+      setBusinesses(data || []);
+      setLoading(false);
+    }
+
+    loadBusinesses();
   }, [countryId, provinceId, query]);
 
   return (
     <div className="container">
+
+      {/* Cabeçalho */}
       <nav className="topnav">
         <div className="logo">T</div>
+
         <b>Talaza</b>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <Link href="/login" className="btn btn-ghost">Entrar</Link>
-          <Link href="/signup" className="btn btn-brand">Criar conta</Link>
+
+        <div
+          style={{
+            marginLeft: 'auto',
+            display: 'flex',
+            gap: 8
+          }}
+        >
+          <Link href="/login" className="btn btn-ghost">
+            Entrar
+          </Link>
+
+          <Link href="/signup" className="btn btn-brand">
+            Criar conta
+          </Link>
         </div>
       </nav>
 
-      <h1 style={{ fontSize: 26 }}>O que você procura hoje?</h1>
+      {/* Introdução */}
+      <h1 style={{ fontSize: 26 }}>
+        O que você procura hoje?
+      </h1>
+
       <p style={{ color: 'var(--ink-soft)' }}>
-        Encontre oportunidades, empresas, lojas, profissionais e serviços de forma rápida, organizada e confiável.
+        Encontre negócios, produtos, serviços e oportunidades
+        de forma rápida e organizada.
       </p>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '18px 0', alignItems: 'center' }}>
-        <select className="input" style={{ width: 160, marginBottom: 0 }} value={countryId} onChange={e => setCountryId(e.target.value)}>
-          {countries.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+      {/* País, província e pesquisa */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 10,
+          flexWrap: 'wrap',
+          margin: '18px 0',
+          alignItems: 'center'
+        }}
+      >
+
+        <select
+          className="input"
+          style={{
+            width: 160,
+            marginBottom: 0
+          }}
+          value={countryId}
+          onChange={(e) => setCountryId(e.target.value)}
+        >
+          {countries.map((country) => (
+            <option
+              key={country.id}
+              value={country.id}
+            >
+              {country.name}
+            </option>
+          ))}
         </select>
-        <select className="input" style={{ width: 180, marginBottom: 0 }} value={provinceId} onChange={e => setProvinceId(e.target.value)}>
-          <option value="">Todas as províncias</option>
-          {provinces.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+
+        <select
+          className="input"
+          style={{
+            width: 180,
+            marginBottom: 0
+          }}
+          value={provinceId}
+          onChange={(e) => setProvinceId(e.target.value)}
+        >
+          <option value="">
+            Todas as províncias
+          </option>
+
+          {provinces.map((province) => (
+            <option
+              key={province.id}
+              value={province.id}
+            >
+              {province.name}
+            </option>
+          ))}
         </select>
-        <input className="input" style={{ flex: 1, minWidth: 200, marginBottom: 0 }} placeholder="Pesquisar por nome…"
-          value={query} onChange={e => setQuery(e.target.value)} />
-        <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>🌍 Mais países em breve</span>
+
+        <input
+          className="input"
+          style={{
+            flex: 1,
+            minWidth: 200,
+            marginBottom: 0
+          }}
+          placeholder="Pesquisar por nome…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+
+        <span
+          style={{
+            fontSize: 11,
+            color: 'var(--ink-faint)'
+          }}
+        >
+          🌍 Mais países em breve
+        </span>
+
       </div>
 
-      <Link href="/post-business" className="btn btn-gold" style={{ marginBottom: 24 }}>Divulgar o meu negócio</Link>
+      {/* Divulgar negócio */}
+      <Link
+        href="/post-business"
+        className="btn btn-gold"
+        style={{ marginBottom: 24 }}
+      >
+        Divulgar o meu negócio
+      </Link>
 
-      <div className="grid">
-        {businesses.map(b => (
-          <Link key={b.id} href={`/businesses/${b.id}`} className="card">
-            {b.is_premium && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold-dark)' }}>👑 PREMIUM</span>}
-            <h3 style={{ fontSize: 15, margin: '6px 0 2px' }}>{b.name}</h3>
-            <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{b.category}</div>
-          </Link>
-        ))}
-        {businesses.length === 0 && <p style={{ color: 'var(--ink-faint)' }}>Ainda não há negócios cadastrados aqui — seja o primeiro.</p>}
+      {/* Categorias */}
+      <div style={{ marginBottom: 28 }}>
+        <h2 style={{ fontSize: 19 }}>
+          Categorias
+        </h2>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: 10,
+            marginTop: 12
+          }}
+        >
+          {categories.map((category) => (
+            <div
+              key={category.id}
+              className="card"
+              style={{
+                cursor: 'pointer'
+              }}
+            >
+              <strong style={{ fontSize: 14 }}>
+                {category.name}
+              </strong>
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* Negócios */}
+      <div>
+
+        <h2 style={{ fontSize: 19 }}>
+          Negócios
+        </h2>
+
+        {loading && (
+          <p style={{ color: 'var(--ink-faint)' }}>
+            A carregar…
+          </p>
+        )}
+
+        {!loading && businesses.length === 0 && (
+          <p style={{ color: 'var(--ink-faint)' }}>
+            Ainda não há negócios cadastrados nesta região.
+          </p>
+        )}
+
+        {!loading && businesses.length > 0 && (
+          <div className="grid">
+
+            {businesses.map((business) => (
+              <Link
+                key={business.id}
+                href={`/businesses/${business.id}`}
+                className="card"
+              >
+
+                {business.logo_url && (
+                  <img
+                    src={business.logo_url}
+                    alt={business.name}
+                    style={{
+                      width: '100%',
+                      height: 140,
+                      objectFit: 'cover',
+                      borderRadius: 8,
+                      marginBottom: 8
+                    }}
+                  />
+                )}
+
+                <h3
+                  style={{
+                    fontSize: 15,
+                    margin: '6px 0 4px'
+                  }}
+                >
+                  {business.name}
+                </h3>
+
+                {business.description && (
+                  <p
+                    style={{
+                      fontSize: 12,
+                      color: 'var(--ink-soft)',
+                      margin: '4px 0'
+                    }}
+                  >
+                    {business.description}
+                  </p>
+                )}
+
+                {(business.municipality ||
+                  business.neighborhood) && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: 'var(--ink-faint)',
+                      marginTop: 6
+                    }}
+                  >
+                    {business.municipality}
+                    {business.municipality &&
+                    business.neighborhood
+                      ? ' · '
+                      : ''}
+                    {business.neighborhood}
+                  </div>
+                )}
+
+              </Link>
+            ))}
+
+          </div>
+        )}
+
+      </div>
+
+      {error && (
+        <p
+          style={{
+            color: '#D92D20',
+            fontSize: 13,
+            marginTop: 20
+          }}
+        >
+          {error}
+        </p>
+      )}
+
     </div>
   );
-}
+}    
