@@ -1,4 +1,4 @@
-        import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 
@@ -15,128 +15,135 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Carregar países
   useEffect(() => {
-    async function loadCountries() {
-      const { data, error } = await supabase
-        .from('countries')
-        .select('id, name')
-        .order('name', { ascending: true });
-
-      if (error) {
-        console.error(error);
-        setError('Não foi possível carregar os países.');
-        return;
-      }
-
-      setCountries(data || []);
-
-      if (data && data.length > 0) {
-        setCountryId(data[0].id);
-      }
-    }
-
     loadCountries();
+    loadCategories();
   }, []);
 
-  // Carregar províncias do país selecionado
+  async function loadCountries() {
+    const { data, error } = await supabase
+      .from('countries')
+      .select('id, name')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error(error);
+      setError('Não foi possível carregar os países.');
+      return;
+    }
+
+    setCountries(data || []);
+
+    if (data && data.length > 0) {
+      setCountryId(data[0].id);
+    }
+  }
+
+  async function loadCategories() {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('id, name')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setCategories(data || []);
+  }
+
   useEffect(() => {
     if (!countryId) return;
-
-    async function loadProvinces() {
-      const { data, error } = await supabase
-        .from('provinces')
-        .select('id, name')
-        .eq('country_id', countryId)
-        .order('name', { ascending: true });
-
-      if (error) {
-        console.error(error);
-        return;
-      }
-
-      setProvinces(data || []);
-      setProvinceId('');
-    }
 
     loadProvinces();
   }, [countryId]);
 
-  // Carregar categorias
-  useEffect(() => {
-    async function loadCategories() {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('id, name')
-        .order('name', { ascending: true });
+  async function loadProvinces() {
+    const { data, error } = await supabase
+      .from('provinces')
+      .select('id, name')
+      .eq('country_id', countryId)
+      .order('name', { ascending: true });
 
-      if (error) {
-        console.error(error);
-        return;
-      }
-
-      setCategories(data || []);
+    if (error) {
+      console.error(error);
+      return;
     }
 
-    loadCategories();
-  }, []);
+    setProvinces(data || []);
+    setProvinceId('');
+  }
 
-  // Carregar negócios
   useEffect(() => {
     if (!countryId) return;
-
-    async function loadBusinesses() {
-      setLoading(true);
-
-      let request = supabase
-        .from('businesses')
-        .select(`
-          id,
-          name,
-          description,
-          municipality,
-          neighborhood,
-          logo_url,
-          category_id,
-          subcategory_id
-        `)
-        .eq('country_id', countryId)
-        .eq('is_active', true)
-        .eq('approval_status', 'approved')
-        .order('created_at', { ascending: false });
-
-      if (provinceId) {
-        request = request.eq('province_id', provinceId);
-      }
-
-      if (query.trim()) {
-        request = request.ilike('name', `%${query.trim()}%`);
-      }
-
-      const { data, error } = await request;
-
-      if (error) {
-        console.error(error);
-        setBusinesses([]);
-        setLoading(false);
-        return;
-      }
-
-      setBusinesses(data || []);
-      setLoading(false);
-    }
 
     loadBusinesses();
   }, [countryId, provinceId, query]);
 
+  async function loadBusinesses() {
+    setLoading(true);
+
+    let request = supabase
+      .from('businesses')
+      .select(`
+        id,
+        name,
+        description,
+        municipality,
+        neighborhood,
+        logo_url,
+        category_id,
+        subcategory_id
+      `)
+      .eq('country_id', countryId)
+      .eq('is_active', true)
+      .eq('approval_status', 'approved')
+      .order('created_at', { ascending: false });
+
+    if (provinceId) {
+      request = request.eq('province_id', provinceId);
+    }
+
+    if (query.trim()) {
+      request = request.ilike(
+        'name',
+        `%${query.trim()}%`
+      );
+    }
+
+    const { data, error } = await request;
+
+    if (error) {
+      console.error(error);
+      setBusinesses([]);
+      setLoading(false);
+      return;
+    }
+
+    setBusinesses(data || []);
+    setLoading(false);
+  }
+
   return (
     <div className="container">
 
-      {/* Cabeçalho */}
+      {/* CABEÇALHO */}
       <nav className="topnav">
-        <div className="logo">T</div>
 
-        <b>Talaza</b>
+        <Link
+          href="/"
+          style={{
+            textDecoration: 'none',
+            color: 'inherit',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}
+        >
+          <div className="logo">T</div>
+          <b>Talaza</b>
+        </Link>
 
         <div
           style={{
@@ -145,27 +152,34 @@ export default function Home() {
             gap: 8
           }}
         >
-          <Link href="/login" className="btn btn-ghost">
+          <Link
+            href="/login"
+            className="btn btn-ghost"
+          >
             Entrar
           </Link>
 
-          <Link href="/signup" className="btn btn-brand">
+          <Link
+            href="/signup"
+            className="btn btn-brand"
+          >
             Criar conta
           </Link>
         </div>
+
       </nav>
 
-      {/* Introdução */}
+      {/* INTRODUÇÃO */}
       <h1 style={{ fontSize: 26 }}>
         O que você procura hoje?
       </h1>
 
       <p style={{ color: 'var(--ink-soft)' }}>
         Encontre negócios, produtos, serviços e oportunidades
-        de forma rápida e organizada.
+        de forma rápida, organizada e confiável.
       </p>
 
-      {/* País, província e pesquisa */}
+      {/* PAÍS + PROVÍNCIA + PESQUISA */}
       <div
         style={{
           display: 'flex',
@@ -241,7 +255,7 @@ export default function Home() {
 
       </div>
 
-      {/* Divulgar negócio */}
+      {/* BOTÃO DO VENDEDOR */}
       <Link
         href="/post-business"
         className="btn btn-gold"
@@ -250,8 +264,9 @@ export default function Home() {
         Divulgar o meu negócio
       </Link>
 
-      {/* Categorias */}
+      {/* CATEGORIAS */}
       <div style={{ marginBottom: 28 }}>
+
         <h2 style={{ fontSize: 19 }}>
           Categorias
         </h2>
@@ -265,23 +280,28 @@ export default function Home() {
             marginTop: 12
           }}
         >
+
           {categories.map((category) => (
-            <div
+            <Link
               key={category.id}
+              href={`/category?id=${category.id}`}
               className="card"
               style={{
-                cursor: 'pointer'
+                textDecoration: 'none',
+                color: 'inherit'
               }}
             >
               <strong style={{ fontSize: 14 }}>
                 {category.name}
               </strong>
-            </div>
+            </Link>
           ))}
+
         </div>
+
       </div>
 
-      {/* Negócios */}
+      {/* NEGÓCIOS */}
       <div>
 
         <h2 style={{ fontSize: 19 }}>
@@ -301,13 +321,19 @@ export default function Home() {
         )}
 
         {!loading && businesses.length > 0 && (
+
           <div className="grid">
 
             {businesses.map((business) => (
+
               <Link
                 key={business.id}
                 href={`/businesses/${business.id}`}
                 className="card"
+                style={{
+                  textDecoration: 'none',
+                  color: 'inherit'
+                }}
               >
 
                 {business.logo_url && (
@@ -347,6 +373,7 @@ export default function Home() {
 
                 {(business.municipality ||
                   business.neighborhood) && (
+
                   <div
                     style={{
                       fontSize: 11,
@@ -355,18 +382,23 @@ export default function Home() {
                     }}
                   >
                     {business.municipality}
+
                     {business.municipality &&
                     business.neighborhood
                       ? ' · '
                       : ''}
+
                     {business.neighborhood}
                   </div>
+
                 )}
 
               </Link>
+
             ))}
 
           </div>
+
         )}
 
       </div>
@@ -385,4 +417,18 @@ export default function Home() {
 
     </div>
   );
-}    
+}
+        
+        
+
+           
+      
+        
+            
+
+                
+                      
+
+                
+
+  
