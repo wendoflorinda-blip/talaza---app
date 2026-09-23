@@ -61,31 +61,7 @@ export default function Province() {
     setLoading(false);
   }
 
-  async function handleProvinceSelect(provinceId) {
-    const { data: userData } =
-      await supabase.auth.getUser();
-
-    if (!userData?.user) {
-      router.replace('/login');
-      return;
-    }
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        country_id: country,
-        province_id: provinceId,
-      })
-      .eq('id', userData.user.id);
-
-    if (error) {
-      console.error(error);
-      setError(
-        'Não foi possível guardar a sua província.'
-      );
-      return;
-    }
-
+  function handleProvinceSelect(provinceId) {
     router.push({
       pathname: '/start',
       query: {
@@ -103,10 +79,7 @@ export default function Province() {
         paddingBottom: 50,
       }}
     >
-
-      {/* CABEÇALHO */}
       <nav className="topnav">
-
         <Link
           href="/"
           style={{
@@ -120,7 +93,6 @@ export default function Province() {
           <div className="logo">T</div>
           <b>Talaza</b>
         </Link>
-
       </nav>
 
       <div
@@ -129,7 +101,6 @@ export default function Province() {
           marginTop: 34,
         }}
       >
-
         <div
           style={{
             fontSize: 13,
@@ -157,7 +128,6 @@ export default function Province() {
         >
           Escolha a região onde pretende explorar a Talaza.
         </p>
-
       </div>
 
       {loading && (
@@ -234,7 +204,14 @@ export default function Province() {
           ← Voltar aos países
         </Link>
       </div>
-
     </div>
   );
-}    
+}
+    
+        
+        
+          
+        
+              
+              
+          
