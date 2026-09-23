@@ -1,90 +1,97 @@
 
-  import { useRouter } from 'next/router';
+             import { useRouter } from 'next/router';
 import Link from 'next/link';
 
 export default function Start() {
   const router = useRouter();
-
   const { country, province } = router.query;
 
   if (!country || !province) {
     return (
       <div
-        className="container"
         style={{
-          maxWidth: 700,
-          textAlign: 'center',
-          paddingTop: 60,
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#F5F7F6',
+          padding: 24,
         }}
       >
-        <p>A preparar a Talaza…</p>
+        <p style={{ color: '#075B4E', fontWeight: 600 }}>
+          A preparar a Talaza…
+        </p>
       </div>
     );
   }
-
-  const signupUrl = {
-    pathname: '/signup',
-    query: {
-      country,
-      province,
-      next: 'explore',
-    },
-  };
 
   return (
     <div
       style={{
         minHeight: '100vh',
         background: '#F5F7F6',
+        paddingBottom: 50,
       }}
     >
       <div
         className="container"
         style={{
-          maxWidth: 760,
-          paddingBottom: 50,
+          maxWidth: 820,
+          paddingTop: 20,
         }}
       >
-        <nav className="topnav">
+        <nav
+          className="topnav"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 0',
+          }}
+        >
           <Link
             href="/"
             style={{
               textDecoration: 'none',
-              color: 'inherit',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
+              color: '#075B4E',
+              fontWeight: 900,
+              fontSize: 24,
+              letterSpacing: 1,
             }}
           >
-            <div
-              className="logo"
-              style={{
-                background: '#075B4E',
-                color: '#E6A900',
-              }}
-            >
-              T
-            </div>
+            TALAZA
+          </Link>
 
-            <b>Talaza</b>
+          <Link
+            href="/country"
+            style={{
+              textDecoration: 'none',
+              color: '#075B4E',
+              fontSize: 14,
+              fontWeight: 700,
+            }}
+          >
+            Alterar localização
           </Link>
         </nav>
 
         <div
           style={{
             textAlign: 'center',
-            marginTop: 50,
+            marginTop: 55,
+            marginBottom: 35,
           }}
         >
           <div
             style={{
               display: 'inline-block',
-              padding: '7px 14px',
-              borderRadius: 30,
+              padding: '8px 14px',
+              borderRadius: 999,
               background: '#EAF4F1',
               color: '#075B4E',
               fontSize: 13,
-              fontWeight: 700,
+              fontWeight: 800,
+              marginBottom: 16,
             }}
           >
             A sua região está definida
@@ -92,8 +99,10 @@ export default function Start() {
 
           <h1
             style={{
-              fontSize: 30,
-              margin: '18px 0 10px',
+              margin: 0,
+              color: '#17342F',
+              fontSize: 'clamp(30px, 6vw, 44px)',
+              lineHeight: 1.15,
             }}
           >
             O que você deseja fazer?
@@ -101,9 +110,10 @@ export default function Start() {
 
           <p
             style={{
-              color: '#596B68',
-              maxWidth: 520,
-              margin: '0 auto 34px',
+              maxWidth: 560,
+              margin: '16px auto 0',
+              color: '#66736F',
+              fontSize: 16,
               lineHeight: 1.6,
             }}
           >
@@ -114,48 +124,52 @@ export default function Start() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: 18,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))',
+            gap: 20,
           }}
         >
+          {/* EXPLORAR */}
           <Link
-            href={signupUrl}
-            className="card"
+            href={{
+              pathname: '/explore',
+              query: {
+                country,
+                province,
+              },
+            }}
             style={{
               textDecoration: 'none',
-              color: 'inherit',
-              padding: 28,
-              minHeight: 230,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              border: '2px solid #075B4E',
               background: '#FFFFFF',
+              border: '2px solid #075B4E',
+              borderRadius: 24,
+              padding: 30,
+              color: '#17342F',
+              boxShadow: '0 12px 30px rgba(0, 70, 60, 0.08)',
+              transition: 'transform 0.2s ease',
             }}
           >
             <div
               style={{
-                width: 52,
-                height: 52,
+                width: 54,
+                height: 54,
                 borderRadius: 16,
                 background: '#075B4E',
-                color: '#E6A900',
+                color: '#FFFFFF',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: 25,
-                marginBottom: 16,
+                marginBottom: 20,
               }}
             >
-              T
+              🔎
             </div>
 
             <h2
               style={{
-                fontSize: 21,
-                margin: '0 0 8px',
-                color: '#102A25',
+                margin: '0 0 10px',
+                color: '#075B4E',
+                fontSize: 22,
               }}
             >
               Explorar a Talaza
@@ -163,17 +177,29 @@ export default function Start() {
 
             <p
               style={{
-                color: '#596B68',
-                fontSize: 14,
-                lineHeight: 1.55,
                 margin: 0,
+                color: '#66736F',
+                lineHeight: 1.6,
+                fontSize: 14,
               }}
             >
-              Encontre negócios, produtos, serviços e
-              oportunidades na sua região.
+              Entre na Vitrine, descubra negócios, produtos, serviços,
+              oportunidades e tudo o que existe na sua região.
             </p>
+
+            <div
+              style={{
+                marginTop: 22,
+                color: '#B88300',
+                fontWeight: 800,
+                fontSize: 14,
+              }}
+            >
+              Explorar agora →
+            </div>
           </Link>
 
+          {/* CRIAR NEGÓCIO */}
           <Link
             href={{
               pathname: '/post-business',
@@ -182,23 +208,20 @@ export default function Start() {
                 province,
               },
             }}
-            className="card"
             style={{
               textDecoration: 'none',
-              color: 'inherit',
-              padding: 28,
-              minHeight: 230,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              border: '2px solid #E6A900',
-              background: '#FFFFFF',
+              background:
+                'linear-gradient(145deg, #075B4E 0%, #0B7563 100%)',
+              borderRadius: 24,
+              padding: 30,
+              color: '#FFFFFF',
+              boxShadow: '0 12px 30px rgba(0, 70, 60, 0.16)',
             }}
           >
             <div
               style={{
-                width: 52,
-                height: 52,
+                width: 54,
+                height: 54,
                 borderRadius: 16,
                 background: '#E6A900',
                 color: '#17342F',
@@ -206,17 +229,16 @@ export default function Start() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: 25,
-                marginBottom: 16,
+                marginBottom: 20,
               }}
             >
-              +
+              ✦
             </div>
 
             <h2
               style={{
-                fontSize: 21,
-                margin: '0 0 8px',
-                color: '#102A25',
+                margin: '0 0 10px',
+                fontSize: 22,
               }}
             >
               Criar um perfil de negócio
@@ -224,31 +246,42 @@ export default function Start() {
 
             <p
               style={{
-                color: '#596B68',
-                fontSize: 14,
-                lineHeight: 1.55,
                 margin: 0,
+                color: 'rgba(255,255,255,0.78)',
+                lineHeight: 1.6,
+                fontSize: 14,
               }}
             >
-              Apresente o seu negócio, produtos e serviços
-              na Talaza.
+              Apresente o seu negócio na Talaza, mostre os seus produtos e
+              serviços e seja encontrado por pessoas da sua região.
             </p>
+
+            <div
+              style={{
+                marginTop: 22,
+                color: '#E6A900',
+                fontWeight: 800,
+                fontSize: 14,
+              }}
+            >
+              Criar perfil →
+            </div>
           </Link>
         </div>
 
         <div
           style={{
             textAlign: 'center',
-            marginTop: 30,
+            marginTop: 32,
           }}
         >
           <Link
             href="/country"
             style={{
               color: '#075B4E',
+              textDecoration: 'none',
               fontSize: 14,
               fontWeight: 700,
-              textDecoration: 'none',
             }}
           >
             ← Escolher outra localização
@@ -257,9 +290,11 @@ export default function Start() {
       </div>
     </div>
   );
-}
-      
-        
+}   
+              
+              
+              
+              
             
         
           
