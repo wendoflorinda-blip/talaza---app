@@ -1,4 +1,4 @@
-  import { useEffect, useState } from 'react';
+                import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
@@ -7,14 +7,10 @@ export default function PostBusiness() {
   const router = useRouter();
   const { country, province } = router.query;
 
-  const [mode, setMode] = useState('choice');
+  const [user, setUser] = useState(null);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
-  const [user, setUser] = useState(null);
-  const [profileReady, setProfileReady] = useState(false);
-
   const [fullName, setFullName] = useState('');
 
   const [businessName, setBusinessName] = useState('');
@@ -35,27 +31,21 @@ export default function PostBusiness() {
   const [subcategories, setSubcategories] = useState([]);
 
   const [loading, setLoading] = useState(false);
-  const [loadingData, setLoadingData] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     if (!router.isReady) return;
 
-    loadCategories();
+    if (!country || !province) {
+      router.replace('/country');
+      return;
+    }
 
-    const checkSession = async () => {
-      const {
-        data: { session }
-      } = await supabase.auth.getSession();
-
-      if (session?.user) {
-        setUser(session.user);
-      }
-    };
-
+    loadInitialData();
     checkSession();
-  }, [router.isReady]);
+  }, [router.isReady, country, province]);
 
   useEffect(() => {
     if (!categoryId) {
@@ -67,19 +57,43 @@ export default function PostBusiness() {
     loadSubcategories(categoryId);
   }, [categoryId]);
 
-  async function loadCategories() {
+  async function checkSession() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.user) {
+      setUser(session.user);
+
+      setEmail(session.user.email || '');
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (profile?.name) {
+        setFullName(profile.name);
+      }
+    }
+  }
+
+  async function loadInitialData() {
     setLoadingData(true);
+    setError('');
 
-    const { data, error } = await supabase
-      .from('categories')
-      .select('id, name')
-      .order('name', { ascending: true });
+    const { data: categoriesData, error: categoriesError } =
+      await supabase
+        .from('categories')
+        .select('id, name')
+        .order('name', { ascending: true });
 
-    if (error) {
-      console.error(error);
+    if (categoriesError) {
+      console.error(categoriesError);
       setError('Não foi possível carregar as categorias.');
     } else {
-      setCategories(data || []);
+      setCategories(categoriesData || []);
     }
 
     setLoadingData(false);
@@ -101,123 +115,153 @@ export default function PostBusiness() {
     setSubcategories(data || []);
   }
 
-  async function handleLogin(e) {
-    e.preventDefault();
+  async function validateLocation() {
+    if (!country || !province) {
+      return {
+        valid: false,
+        message: 'Escolha novamente o país e a província.',
+      };
+    }
 
-    setError('');
-    setLoading(true);
+    const { data: countryData, error: countryError } = await supabase
+      .from('countries')
+      .select('id')
+      .eq('id', country)
+      .maybeSingle();
 
-    const cleanEmail = email.trim();
+    if (countryError || !countryData) {
+      return {
+        valid: false,
+        message: 'O país selecionado não é válido.',
+      };
+    }
 
-    const { data, error: loginError } =
-      await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password
-      });
+    const { data: provinceData, error: provinceError } = await supabase
+      .from('provinces')
+      .select('id, country_id')
+      .eq('id', province)
+      .eq('country_id', country)
+      .maybeSingle();
 
-    if (loginError) {
-      console.error(loginError);
-      setError('E-mail ou palavra-passe incorretos.');
-      setLoading(false);
-      return;
+    if (provinceError || !provinceData) {
+      return {
+        valid: false,
+        message:
+          'A província selecionada não pertence ao país escolhido.',
+      };
+    }
+
+    return { valid: true };
+  }
+
+  async function createAccount() {
+    if (user) {
+      return {
+        success: true,
+        user,
+      };
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      setError('Digite o seu e-mail.');
+      return { success: false };
+    }
+
+    if (password.length < 6) {
+      setError('A palavra-passe deve ter pelo menos 6 caracteres.');
+      return { success: false };
+    }
+
+    const { data, error: signupError } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password,
+    });
+
+    if (signupError) {
+      console.error(signupError);
+
+      if (
+        signupError.message?.toLowerCase().includes('already registered')
+      ) {
+        setError(
+          'Este e-mail já possui uma conta. Vá à página inicial e use “Já tenho uma conta” para entrar.'
+        );
+      } else {
+        setError(
+          signupError.message ||
+            'Não foi possível criar a sua conta.'
+        );
+      }
+
+      return { success: false };
     }
 
     if (!data?.user) {
-      setError('Não foi possível entrar na conta.');
-      setLoading(false);
-      return;
+      setError('Não foi possível criar a sua conta.');
+      return { success: false };
+    }
+
+    /*
+      Se a confirmação de e-mail estiver ativada no Supabase,
+      o Supabase pode não devolver uma sessão imediatamente.
+    */
+
+    if (!data.session) {
+      setError(
+        'A conta foi criada. Confirme o seu e-mail e depois entre pela opção “Já tenho uma conta” na página inicial para concluir o cadastro do negócio.'
+      );
+
+      return {
+        success: false,
+        emailConfirmationRequired: true,
+      };
     }
 
     setUser(data.user);
-    setEmail(cleanEmail);
 
-    /*
-      IMPORTANTE:
-      Se o utilizador foi criado diretamente no Supabase Auth,
-      pode ainda não existir uma linha correspondente em profiles.
-
-      Aqui criamos/preparamos automaticamente o perfil.
-    */
-
-    const { data: existingProfile, error: profileCheckError } =
-      await supabase
-        .from('profiles')
-        .select('id, name, country_id, province_id')
-        .eq('id', data.user.id)
-        .maybeSingle();
-
-    if (profileCheckError) {
-      console.error(profileCheckError);
-    }
-
-    if (existingProfile) {
-      setFullName(existingProfile.name || '');
-      setProfileReady(true);
-    } else {
-      setProfileReady(false);
-    }
-
-    setMode('business');
-    setLoading(false);
+    return {
+      success: true,
+      user: data.user,
+    };
   }
 
-  async function prepareProfile() {
-    if (!user) {
-      setError('É necessário entrar na conta primeiro.');
-      return false;
-    }
-
-    if (!fullName.trim()) {
-      setError('Digite o seu nome.');
-      return false;
-    }
-
-    if (!country || !province) {
-      setError(
-        'A localização não foi definida. Volte e escolha o país e a província.'
-      );
-      return false;
-    }
-
+  async function prepareProfile(currentUser) {
     const { error } = await supabase
       .from('profiles')
       .upsert(
         {
-          id: user.id,
+          id: currentUser.id,
           name: fullName.trim(),
           country_id: country,
-          province_id: province
+          province_id: province,
         },
         {
-          onConflict: 'id'
+          onConflict: 'id',
         }
       );
 
     if (error) {
       console.error(error);
+
       setError(
-        'Não foi possível preparar o seu perfil. Verifique se entrou com a conta correta.'
+        'Não foi possível criar o seu perfil Talaza. Verifique os dados e tente novamente.'
       );
+
       return false;
     }
 
-    setProfileReady(true);
     return true;
   }
 
-  async function handleBusinessSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
 
     setError('');
     setLoading(true);
 
     try {
-      if (!user) {
-        setError('Entre na sua conta antes de continuar.');
-        setLoading(false);
-        return;
-      }
-
       if (!fullName.trim()) {
         setError('Digite o seu nome.');
         setLoading(false);
@@ -242,11 +286,24 @@ export default function PostBusiness() {
         return;
       }
 
-      /*
-        Primeiro garantimos que o perfil existe.
-      */
+      const location = await validateLocation();
 
-      const profileOk = await prepareProfile();
+      if (!location.valid) {
+        setError(location.message);
+        setLoading(false);
+        return;
+      }
+
+      const account = await createAccount();
+
+      if (!account.success) {
+        setLoading(false);
+        return;
+      }
+
+      const currentUser = account.user;
+
+      const profileOk = await prepareProfile(currentUser);
 
       if (!profileOk) {
         setLoading(false);
@@ -254,49 +311,51 @@ export default function PostBusiness() {
       }
 
       /*
-        Agora criamos o negócio.
+        Criamos o negócio sempre com o país e a província
+        selecionados anteriormente.
       */
 
-      const { data: business, error: businessError } =
-        await supabase
-          .from('businesses')
-          .insert({
-            owner_id: user.id,
-            name: businessName.trim(),
-            description: description.trim() || null,
-            country_id: country,
-            province_id: province,
-            category_id: categoryId,
-            subcategory_id: subcategoryId,
-            municipality: municipality.trim() || null,
-            neighborhood: neighborhood.trim() || null,
-            address: address.trim() || null,
-            phone: phone.trim() || null,
-            whatsapp: whatsapp.trim() || null,
-            email: businessEmail.trim() || null,
-            opening_hours: openingHours.trim() || null,
-            is_active: true,
-            approval_status: 'pending'
-          })
-          .select()
-          .single();
+      const { error: businessError } = await supabase
+        .from('businesses')
+        .insert({
+          owner_id: currentUser.id,
+          name: businessName.trim(),
+          description: description.trim() || null,
+          country_id: country,
+          province_id: province,
+          category_id: categoryId,
+          subcategory_id: subcategoryId,
+          municipality: municipality.trim() || null,
+          neighborhood: neighborhood.trim() || null,
+          address: address.trim() || null,
+          phone: phone.trim() || null,
+          whatsapp: whatsapp.trim() || null,
+          email: businessEmail.trim() || null,
+          opening_hours: openingHours.trim() || null,
+          is_active: true,
+          approval_status: 'pending',
+        });
 
       if (businessError) {
         console.error(businessError);
+
         setError(
-          'Não foi possível criar o perfil do negócio. Verifique os dados e tente novamente.'
+          'A conta foi criada, mas não foi possível criar o perfil do negócio. Verifique as permissões do Supabase.'
         );
+
         setLoading(false);
         return;
       }
-
-      console.log('Negócio criado:', business);
 
       setSuccess(true);
       setLoading(false);
     } catch (err) {
       console.error(err);
-      setError('Ocorreu um erro inesperado. Tente novamente.');
+
+      setError(
+        'Ocorreu um erro inesperado. Tente novamente.'
+      );
+
       setLoading(false);
     }
   }
@@ -310,32 +369,32 @@ export default function PostBusiness() {
           padding: 24,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
         }}
       >
         <div
           style={{
             width: '100%',
-            maxWidth: 620,
+            maxWidth: 600,
             background: '#FFFFFF',
-            borderRadius: 28,
-            padding: 38,
+            borderRadius: 26,
+            padding: 34,
             textAlign: 'center',
-            boxShadow: '0 18px 50px rgba(0,70,60,.10)'
+            boxShadow: '0 18px 50px rgba(0,70,60,.10)',
           }}
         >
           <div
             style={{
-              width: 70,
-              height: 70,
+              width: 68,
+              height: 68,
               borderRadius: '50%',
               background: '#EAF4F1',
               color: '#075B4E',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 32,
-              margin: '0 auto 20px'
+              fontSize: 30,
+              margin: '0 auto 18px',
             }}
           >
             ✓
@@ -344,427 +403,71 @@ export default function PostBusiness() {
           <h1
             style={{
               color: '#075B4E',
-              marginBottom: 12
+              margin: '0 0 14px',
+              fontSize: 28,
             }}
           >
-            Perfil criado
+            O seu perfil de negócio já está criado
           </h1>
 
           <p
             style={{
-              color: '#66736F',
-              lineHeight: 1.6
+              color: '#596B68',
+              lineHeight: 1.65,
+              margin: 0,
             }}
           >
-            O seu perfil de negócio foi enviado para a Talaza.
+            Agora vá à página inicial, clique em
+            <strong> “Já tenho uma conta” </strong>
+            e entre na sua conta de negócio para vender.
           </p>
 
-          <p
+          <div
             style={{
-              color: '#66736F',
-              lineHeight: 1.6
-            }}
-          >
-            Agora poderemos continuar a preparar a sua área de negócio.
-          </p>
-
-          <Link
-            href={{
-              pathname: '/explore',
-              query: { country, province }
-            }}
-            style={{
-              display: 'inline-flex',
-              marginTop: 20,
-              padding: '14px 24px',
-              borderRadius: 14,
-              background: '#075B4E',
-              color: '#FFFFFF',
-              textDecoration: 'none',
-              fontWeight: 800
-            }}
-          >
-            Ir para a Talaza
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (mode === 'choice') {
-    return (
-      <div
-        style={{
-          minHeight: '100vh',
-          background: '#F5F7F6',
-          padding: 24
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 760,
-            margin: '0 auto'
-          }}
-        >
-          <nav
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '12px 0'
+              display: 'grid',
+              gap: 10,
+              marginTop: 25,
             }}
           >
             <Link
               href="/"
               style={{
-                color: '#075B4E',
-                fontSize: 24,
-                fontWeight: 900,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '14px 20px',
+                borderRadius: 13,
+                background: '#075B4E',
+                color: '#FFFFFF',
                 textDecoration: 'none',
-                letterSpacing: 1
+                fontWeight: 800,
               }}
             >
-              TALAZA
+              Ir para a página inicial
             </Link>
 
             <Link
               href={{
-                pathname: '/start',
-                query: { country, province }
+                pathname: '/explore',
+                query: {
+                  country,
+                  province,
+                },
               }}
               style={{
-                color: '#075B4E',
-                textDecoration: 'none',
-                fontWeight: 700,
-                fontSize: 14
-              }}
-            >
-              ← Voltar
-            </Link>
-          </nav>
-
-          <div
-            style={{
-              textAlign: 'center',
-              marginTop: 55,
-              marginBottom: 35
-            }}
-          >
-            <div
-              style={{
-                display: 'inline-block',
-                padding: '8px 14px',
-                borderRadius: 999,
-                background: '#EAF4F1',
-                color: '#075B4E',
-                fontSize: 13,
-                fontWeight: 800
-              }}
-            >
-              Perfil de negócio
-            </div>
-
-            <h1
-              style={{
-                color: '#17342F',
-                fontSize: 'clamp(30px, 6vw, 44px)',
-                lineHeight: 1.15,
-                margin: '16px 0 10px'
-              }}
-            >
-              Vamos preparar o seu negócio
-            </h1>
-
-            <p
-              style={{
-                color: '#66736F',
-                maxWidth: 560,
-                margin: '0 auto',
-                lineHeight: 1.6
-              }}
-            >
-              Entre na sua conta ou crie uma conta para começar o perfil do
-              seu negócio.
-            </p>
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))',
-              gap: 18
-            }}
-          >
-            <button
-              onClick={() => {
-                setError('');
-                setMode('login');
-              }}
-              style={{
-                textAlign: 'left',
-                border: '2px solid #075B4E',
-                background: '#FFFFFF',
-                borderRadius: 24,
-                padding: 28,
-                cursor: 'pointer'
-              }}
-            >
-              <div style={{ fontSize: 30, marginBottom: 14 }}>↪</div>
-
-              <h2
-                style={{
-                  color: '#075B4E',
-                  margin: '0 0 8px'
-                }}
-              >
-                Já tenho uma conta
-              </h2>
-
-              <p
-                style={{
-                  color: '#66736F',
-                  lineHeight: 1.6,
-                  margin: 0
-                }}
-              >
-                Entre com o e-mail e a palavra-passe da sua conta Talaza.
-              </p>
-            </button>
-
-            <div
-              style={{
-                textAlign: 'left',
-                borderRadius: 24,
-                padding: 28,
-                background: 'linear-gradient(145deg,#075B4E,#0B7563)',
-                color: '#FFFFFF'
-              }}
-            >
-              <div style={{ fontSize: 30, marginBottom: 14 }}>✦</div>
-
-              <h2 style={{ margin: '0 0 8px' }}>
-                Criar uma conta
-              </h2>
-
-              <p
-                style={{
-                  color: 'rgba(255,255,255,.78)',
-                  lineHeight: 1.6,
-                  margin: 0
-                }}
-              >
-                A criação de novas contas está temporariamente limitada.
-                Para este teste, use a conta que já foi criada no Supabase.
-              </p>
-
-              <button
-                onClick={() => {
-                  setError(
-                    'Para este teste, entre primeiro com a conta já criada.'
-                  );
-                }}
-                style={{
-                  marginTop: 18,
-                  border: 'none',
-                  borderRadius: 12,
-                  padding: '11px 16px',
-                  background: '#E6A900',
-                  color: '#17342F',
-                  fontWeight: 800,
-                  cursor: 'pointer'
-                }}
-              >
-                Usar conta existente
-              </button>
-            </div>
-          </div>
-
-          {error && (
-            <div
-              style={{
-                marginTop: 22,
-                padding: 14,
-                borderRadius: 14,
-                background: '#FFF4E5',
-                color: '#8A5A00',
-                fontSize: 14
-              }}
-            >
-              {error}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  if (mode === 'login') {
-    return (
-      <div
-        style={{
-          minHeight: '100vh',
-          background: '#F5F7F6',
-          padding: 24
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 520,
-            margin: '0 auto'
-          }}
-        >
-          <Link
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setError('');
-              setMode('choice');
-            }}
-            style={{
-              color: '#075B4E',
-              fontWeight: 800,
-              textDecoration: 'none'
-            }}
-          >
-            ← Voltar
-          </Link>
-
-          <div
-            style={{
-              marginTop: 35,
-              background: '#FFFFFF',
-              borderRadius: 26,
-              padding: 30,
-              boxShadow: '0 18px 45px rgba(0,70,60,.08)'
-            }}
-          >
-            <div
-              style={{
-                width: 58,
-                height: 58,
-                borderRadius: 16,
-                background: '#075B4E',
-                color: '#E6A900',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 27,
-                fontWeight: 900
-              }}
-            >
-              T
-            </div>
-
-            <h1
-              style={{
+                padding: '13px 20px',
+                borderRadius: 13,
+                border: '1px solid #D5DEDB',
                 color: '#075B4E',
-                margin: '22px 0 8px'
+                textDecoration: 'none',
+                fontWeight: 800,
               }}
             >
-              Entrar na Talaza
-            </h1>
-
-            <p
-              style={{
-                color: '#66736F',
-                lineHeight: 1.6
-              }}
-            >
-              Entre na sua conta para continuar a criação do seu perfil de
-              negócio.
-            </p>
-
-            <form onSubmit={handleLogin}>
-              <label
-                style={{
-                  display: 'block',
-                  marginTop: 22,
-                  fontWeight: 700,
-                  color: '#17342F'
-                }}
-              >
-                E-mail
-              </label>
-
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
-                required
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  marginTop: 8,
-                  padding: 14,
-                  borderRadius: 12,
-                  border: '1px solid #D5DEDB',
-                  fontSize: 15
-                }}
-              />
-
-              <label
-                style={{
-                  display: 'block',
-                  marginTop: 18,
-                  fontWeight: 700,
-                  color: '#17342F'
-                }}
-              >
-                Palavra-passe
-              </label>
-
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="A sua palavra-passe"
-                required
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  marginTop: 8,
-                  padding: 14,
-                  borderRadius: 12,
-                  border: '1px solid #D5DEDB',
-                  fontSize: 15
-                }}
-              />
-
-              {error && (
-                <div
-                  style={{
-                    marginTop: 16,
-                    padding: 13,
-                    borderRadius: 12,
-                    background: '#FFF1F0',
-                    color: '#9B2C2C',
-                    fontSize: 14
-                  }}
-                >
-                  {error}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  marginTop: 22,
-                  padding: 15,
-                  border: 'none',
-                  borderRadius: 13,
-                  background: loading ? '#8CAFA8' : '#075B4E',
-                  color: '#FFFFFF',
-                  fontWeight: 800,
-                  fontSize: 15,
-                  cursor: loading ? 'default' : 'pointer'
-                }}
-              >
-                {loading ? 'A entrar…' : 'Entrar e continuar →'}
-              </button>
-            </form>
+              Explorar a Talaza
+            </Link>
           </div>
         </div>
       </div>
@@ -776,20 +479,20 @@ export default function PostBusiness() {
       style={{
         minHeight: '100vh',
         background: '#F5F7F6',
-        padding: 24
+        padding: 24,
       }}
     >
       <div
         style={{
           maxWidth: 820,
-          margin: '0 auto'
+          margin: '0 auto',
         }}
       >
         <nav
           style={{
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
           }}
         >
           <Link
@@ -798,29 +501,39 @@ export default function PostBusiness() {
               color: '#075B4E',
               fontWeight: 900,
               fontSize: 24,
-              textDecoration: 'none'
+              textDecoration: 'none',
+              letterSpacing: 1,
             }}
           >
             TALAZA
           </Link>
 
-          <span
+          <Link
+            href={{
+              pathname: '/start',
+              query: {
+                country,
+                province,
+              },
+            }}
             style={{
+              color: '#075B4E',
+              textDecoration: 'none',
+              fontWeight: 700,
               fontSize: 13,
-              color: '#66736F'
             }}
           >
-            Perfil de negócio
-          </span>
+            ← Voltar
+          </Link>
         </nav>
 
         <div
           style={{
             background: '#FFFFFF',
-            borderRadius: 28,
+            borderRadius: 26,
             padding: 30,
             marginTop: 30,
-            boxShadow: '0 18px 50px rgba(0,70,60,.08)'
+            boxShadow: '0 18px 50px rgba(0,70,60,.07)',
           }}
         >
           <div
@@ -831,16 +544,17 @@ export default function PostBusiness() {
               background: '#EAF4F1',
               color: '#075B4E',
               fontSize: 12,
-              fontWeight: 800
+              fontWeight: 800,
             }}
           >
-            {profileReady ? 'Conta preparada' : 'Primeiro passo'}
+            Perfil de negócio
           </div>
 
           <h1
             style={{
               color: '#17342F',
-              margin: '15px 0 8px'
+              margin: '15px 0 8px',
+              fontSize: 28,
             }}
           >
             Crie o seu perfil de negócio
@@ -849,31 +563,41 @@ export default function PostBusiness() {
           <p
             style={{
               color: '#66736F',
-              lineHeight: 1.6
+              lineHeight: 1.6,
+              marginBottom: 0,
             }}
           >
-            Preencha os dados abaixo. Depois vamos acrescentar logo, fotos,
-            produtos, mensagens e outras funções do seu painel.
+            Crie a sua conta Talaza e apresente o seu negócio para pessoas
+            que procuram produtos e serviços na sua região.
           </p>
 
-          <form onSubmit={handleBusinessSubmit}>
+          <div
+            style={{
+              marginTop: 18,
+              padding: 13,
+              borderRadius: 13,
+              background: '#F5F9F7',
+              color: '#075B4E',
+              fontSize: 13,
+              lineHeight: 1.5,
+            }}
+          >
+            Localização escolhida: <strong>{country}</strong> ·{' '}
+            <strong>{province}</strong>
+          </div>
+
+          <form onSubmit={handleSubmit}>
             <h3
               style={{
                 marginTop: 28,
-                color: '#075B4E'
+                color: '#075B4E',
               }}
             >
-              Os seus dados
+              A sua conta
             </h3>
 
-            <label
-              style={{
-                display: 'block',
-                marginTop: 15,
-                fontWeight: 700
-              }}
-            >
-              Seu nome
+            <label style={labelStyle}>
+              Seu nome *
             </label>
 
             <input
@@ -884,16 +608,53 @@ export default function PostBusiness() {
               style={inputStyle}
             />
 
+            <label style={labelStyle}>
+              E-mail *
+            </label>
+
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="seu@email.com"
+              required
+              disabled={!!user}
+              style={{
+                ...inputStyle,
+                background: user ? '#F1F4F3' : '#FFFFFF',
+              }}
+            />
+
+            {!user && (
+              <>
+                <label style={labelStyle}>
+                  Palavra-passe *
+                </label>
+
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Mínimo de 6 caracteres"
+                  required
+                  minLength={6}
+                  style={inputStyle}
+                />
+              </>
+            )}
+
             <h3
               style={{
                 marginTop: 30,
-                color: '#075B4E'
+                color: '#075B4E',
               }}
             >
               Dados do negócio
             </h3>
 
-            <label style={labelStyle}>Nome do negócio *</label>
+            <label style={labelStyle}>
+              Nome do negócio *
+            </label>
 
             <input
               value={businessName}
@@ -903,7 +664,9 @@ export default function PostBusiness() {
               style={inputStyle}
             />
 
-            <label style={labelStyle}>Descrição</label>
+            <label style={labelStyle}>
+              Descrição
+            </label>
 
             <textarea
               value={description}
@@ -912,30 +675,39 @@ export default function PostBusiness() {
               rows={4}
               style={{
                 ...inputStyle,
-                resize: 'vertical'
+                resize: 'vertical',
               }}
             />
 
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))',
-                gap: 15
+                gridTemplateColumns:
+                  'repeat(auto-fit,minmax(220px,1fr))',
+                gap: 15,
               }}
             >
               <div>
-                <label style={labelStyle}>Categoria *</label>
+                <label style={labelStyle}>
+                  Categoria *
+                </label>
 
                 <select
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value)}
                   required
                   style={inputStyle}
+                  disabled={loadingData}
                 >
-                  <option value="">Escolher categoria</option>
+                  <option value="">
+                    Escolher categoria
+                  </option>
 
                   {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
+                    <option
+                      key={category.id}
+                      value={category.id}
+                    >
                       {category.name}
                     </option>
                   ))}
@@ -943,11 +715,15 @@ export default function PostBusiness() {
               </div>
 
               <div>
-                <label style={labelStyle}>Subcategoria *</label>
+                <label style={labelStyle}>
+                  Subcategoria *
+                </label>
 
                 <select
                   value={subcategoryId}
-                  onChange={(e) => setSubcategoryId(e.target.value)}
+                  onChange={(e) =>
+                    setSubcategoryId(e.target.value)
+                  }
                   required
                   disabled={!categoryId}
                   style={inputStyle}
@@ -959,7 +735,10 @@ export default function PostBusiness() {
                   </option>
 
                   {subcategories.map((subcategory) => (
-                    <option key={subcategory.id} value={subcategory.id}>
+                    <option
+                      key={subcategory.id}
+                      value={subcategory.id}
+                    >
                       {subcategory.name}
                     </option>
                   ))}
@@ -970,43 +749,54 @@ export default function PostBusiness() {
             <h3
               style={{
                 marginTop: 30,
-                color: '#075B4E'
+                color: '#075B4E',
               }}
             >
-              Localização
+              Localização do negócio
             </h3>
 
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))',
-                gap: 15
+                gridTemplateColumns:
+                  'repeat(auto-fit,minmax(220px,1fr))',
+                gap: 15,
               }}
             >
               <div>
-                <label style={labelStyle}>Município</label>
+                <label style={labelStyle}>
+                  Município
+                </label>
 
                 <input
                   value={municipality}
-                  onChange={(e) => setMunicipality(e.target.value)}
+                  onChange={(e) =>
+                    setMunicipality(e.target.value)
+                  }
                   placeholder="Ex.: Talatona"
                   style={inputStyle}
                 />
               </div>
 
               <div>
-                <label style={labelStyle}>Bairro</label>
+                <label style={labelStyle}>
+                  Bairro
+                </label>
 
                 <input
                   value={neighborhood}
-                  onChange={(e) => setNeighborhood(e.target.value)}
+                  onChange={(e) =>
+                    setNeighborhood(e.target.value)
+                  }
                   placeholder="Ex.: Benfica"
                   style={inputStyle}
                 />
               </div>
             </div>
 
-            <label style={labelStyle}>Endereço</label>
+            <label style={labelStyle}>
+              Endereço
+            </label>
 
             <input
               value={address}
@@ -1018,7 +808,7 @@ export default function PostBusiness() {
             <h3
               style={{
                 marginTop: 30,
-                color: '#075B4E'
+                color: '#075B4E',
               }}
             >
               Contactos
@@ -1027,12 +817,15 @@ export default function PostBusiness() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))',
-                gap: 15
+                gridTemplateColumns:
+                  'repeat(auto-fit,minmax(220px,1fr))',
+                gap: 15,
               }}
             >
               <div>
-                <label style={labelStyle}>Telefone</label>
+                <label style={labelStyle}>
+                  Telefone
+                </label>
 
                 <input
                   value={phone}
@@ -1043,32 +836,44 @@ export default function PostBusiness() {
               </div>
 
               <div>
-                <label style={labelStyle}>WhatsApp</label>
+                <label style={labelStyle}>
+                  WhatsApp
+                </label>
 
                 <input
                   value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
+                  onChange={(e) =>
+                    setWhatsapp(e.target.value)
+                  }
                   placeholder="WhatsApp"
                   style={inputStyle}
                 />
               </div>
             </div>
 
-            <label style={labelStyle}>E-mail do negócio</label>
+            <label style={labelStyle}>
+              E-mail do negócio
+            </label>
 
             <input
               type="email"
               value={businessEmail}
-              onChange={(e) => setBusinessEmail(e.target.value)}
+              onChange={(e) =>
+                setBusinessEmail(e.target.value)
+              }
               placeholder="E-mail para clientes"
               style={inputStyle}
             />
 
-            <label style={labelStyle}>Horário de funcionamento</label>
+            <label style={labelStyle}>
+              Horário de funcionamento
+            </label>
 
             <input
               value={openingHours}
-              onChange={(e) => setOpeningHours(e.target.value)}
+              onChange={(e) =>
+                setOpeningHours(e.target.value)
+              }
               placeholder="Ex.: Segunda a sábado, 08h às 18h"
               style={inputStyle}
             />
@@ -1082,7 +887,7 @@ export default function PostBusiness() {
                   background: '#FFF1F0',
                   color: '#9B2C2C',
                   fontSize: 14,
-                  lineHeight: 1.5
+                  lineHeight: 1.5,
                 }}
               >
                 {error}
@@ -1098,15 +903,21 @@ export default function PostBusiness() {
                 padding: 16,
                 border: 'none',
                 borderRadius: 14,
-                background: loading ? '#8CAFA8' : '#075B4E',
+                background:
+                  loading || loadingData
+                    ? '#8CAFA8'
+                    : '#075B4E',
                 color: '#FFFFFF',
                 fontSize: 16,
                 fontWeight: 800,
-                cursor: loading ? 'default' : 'pointer'
+                cursor:
+                  loading || loadingData
+                    ? 'default'
+                    : 'pointer',
               }}
             >
               {loading
-                ? 'A guardar o seu negócio…'
+                ? 'A criar o seu perfil…'
                 : 'Criar perfil de negócio →'}
             </button>
           </form>
@@ -1125,12 +936,13 @@ const inputStyle = {
   border: '1px solid #D5DEDB',
   background: '#FFFFFF',
   color: '#17342F',
-  fontSize: 15
+  fontSize: 15,
 };
 
 const labelStyle = {
   display: 'block',
   marginTop: 17,
   fontWeight: 700,
-  color: '#17342F'
-};
+  color: '#17342F',
+};                                      <div
+                                            
