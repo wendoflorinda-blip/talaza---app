@@ -1,4 +1,4 @@
- import { useEffect, useState } from 'react';
+    import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
@@ -492,4 +492,4 @@ export default function Subcategory() {
       )}
     </div>
   );
-}                                 
+}
