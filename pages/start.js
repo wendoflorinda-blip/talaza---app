@@ -1,5 +1,4 @@
-
-             import { useRouter } from 'next/router';
+import { useRouter } from 'next/router';
 import Link from 'next/link';
 
 export default function Start() {
@@ -41,12 +40,11 @@ export default function Start() {
         }}
       >
         <nav
-          className="topnav"
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '12px 0',
+            padding: '10px 0',
           }}
         >
           <Link
@@ -67,7 +65,7 @@ export default function Start() {
             style={{
               textDecoration: 'none',
               color: '#075B4E',
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: 700,
             }}
           >
@@ -78,46 +76,46 @@ export default function Start() {
         <div
           style={{
             textAlign: 'center',
-            marginTop: 55,
-            marginBottom: 35,
+            marginTop: 48,
+            marginBottom: 30,
           }}
         >
           <div
             style={{
               display: 'inline-block',
-              padding: '8px 14px',
+              padding: '7px 13px',
               borderRadius: 999,
               background: '#EAF4F1',
               color: '#075B4E',
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: 800,
-              marginBottom: 16,
             }}
           >
-            A sua região está definida
+            Localização definida
           </div>
 
           <h1
             style={{
-              margin: 0,
+              margin: '16px 0 8px',
               color: '#17342F',
-              fontSize: 'clamp(30px, 6vw, 44px)',
+              fontSize: 'clamp(29px, 6vw, 42px)',
               lineHeight: 1.15,
             }}
           >
-            O que você deseja fazer?
+            Como deseja utilizar a Talaza?
           </h1>
 
           <p
             style={{
-              maxWidth: 560,
-              margin: '16px auto 0',
+              maxWidth: 540,
+              margin: '0 auto',
               color: '#66736F',
-              fontSize: 16,
+              fontSize: 15,
               lineHeight: 1.6,
             }}
           >
-            Escolha como pretende utilizar a Talaza.
+            Escolha se quer simplesmente explorar a Talaza ou criar um perfil
+            para o seu negócio.
           </p>
         </div>
 
@@ -125,7 +123,7 @@ export default function Start() {
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))',
-            gap: 20,
+            gap: 18,
           }}
         >
           {/* EXPLORAR */}
@@ -140,26 +138,25 @@ export default function Start() {
             style={{
               textDecoration: 'none',
               background: '#FFFFFF',
-              border: '2px solid #075B4E',
-              borderRadius: 24,
-              padding: 30,
+              border: '1px solid #D9E5E1',
+              borderRadius: 20,
+              padding: 25,
               color: '#17342F',
-              boxShadow: '0 12px 30px rgba(0, 70, 60, 0.08)',
-              transition: 'transform 0.2s ease',
+              boxShadow: '0 10px 26px rgba(0,70,60,.06)',
             }}
           >
             <div
               style={{
-                width: 54,
-                height: 54,
-                borderRadius: 16,
+                width: 48,
+                height: 48,
+                borderRadius: 14,
                 background: '#075B4E',
                 color: '#FFFFFF',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 25,
-                marginBottom: 20,
+                fontSize: 22,
+                marginBottom: 16,
               }}
             >
               🔎
@@ -167,9 +164,9 @@ export default function Start() {
 
             <h2
               style={{
-                margin: '0 0 10px',
+                margin: '0 0 8px',
                 color: '#075B4E',
-                fontSize: 22,
+                fontSize: 20,
               }}
             >
               Explorar a Talaza
@@ -179,27 +176,27 @@ export default function Start() {
               style={{
                 margin: 0,
                 color: '#66736F',
-                lineHeight: 1.6,
-                fontSize: 14,
+                lineHeight: 1.55,
+                fontSize: 13,
               }}
             >
-              Entre na Vitrine, descubra negócios, produtos, serviços,
-              oportunidades e tudo o que existe na sua região.
+              Entre na Vitrine e descubra negócios, produtos, serviços,
+              oportunidades e outras soluções disponíveis na sua região.
             </p>
 
             <div
               style={{
-                marginTop: 22,
+                marginTop: 18,
                 color: '#B88300',
                 fontWeight: 800,
-                fontSize: 14,
+                fontSize: 13,
               }}
             >
               Explorar agora →
             </div>
           </Link>
 
-          {/* CRIAR NEGÓCIO */}
+          {/* NEGÓCIO */}
           <Link
             href={{
               pathname: '/post-business',
@@ -210,26 +207,25 @@ export default function Start() {
             }}
             style={{
               textDecoration: 'none',
-              background:
-                'linear-gradient(145deg, #075B4E 0%, #0B7563 100%)',
-              borderRadius: 24,
-              padding: 30,
+              background: 'linear-gradient(145deg,#075B4E,#0B7563)',
+              borderRadius: 20,
+              padding: 25,
               color: '#FFFFFF',
-              boxShadow: '0 12px 30px rgba(0, 70, 60, 0.16)',
+              boxShadow: '0 12px 30px rgba(0,70,60,.13)',
             }}
           >
             <div
               style={{
-                width: 54,
-                height: 54,
-                borderRadius: 16,
+                width: 48,
+                height: 48,
+                borderRadius: 14,
                 background: '#E6A900',
                 color: '#17342F',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 25,
-                marginBottom: 20,
+                fontSize: 22,
+                marginBottom: 16,
               }}
             >
               ✦
@@ -237,8 +233,8 @@ export default function Start() {
 
             <h2
               style={{
-                margin: '0 0 10px',
-                fontSize: 22,
+                margin: '0 0 8px',
+                fontSize: 20,
               }}
             >
               Criar um perfil de negócio
@@ -247,21 +243,21 @@ export default function Start() {
             <p
               style={{
                 margin: 0,
-                color: 'rgba(255,255,255,0.78)',
-                lineHeight: 1.6,
-                fontSize: 14,
+                color: 'rgba(255,255,255,.82)',
+                lineHeight: 1.55,
+                fontSize: 13,
               }}
             >
-              Apresente o seu negócio na Talaza, mostre os seus produtos e
-              serviços e seja encontrado por pessoas da sua região.
+              Para quem quer divulgar uma empresa, loja, serviço, produtos
+              ou outras atividades na Talaza.
             </p>
 
             <div
               style={{
-                marginTop: 22,
+                marginTop: 18,
                 color: '#E6A900',
                 fontWeight: 800,
-                fontSize: 14,
+                fontSize: 13,
               }}
             >
               Criar perfil →
@@ -272,7 +268,7 @@ export default function Start() {
         <div
           style={{
             textAlign: 'center',
-            marginTop: 32,
+            marginTop: 28,
           }}
         >
           <Link
@@ -280,7 +276,7 @@ export default function Start() {
             style={{
               color: '#075B4E',
               textDecoration: 'none',
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: 700,
             }}
           >
@@ -290,13 +286,8 @@ export default function Start() {
       </div>
     </div>
   );
-}   
-              
-              
-              
-              
-            
-        
+}
+                                   
           
 
           
