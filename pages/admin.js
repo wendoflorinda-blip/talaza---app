@@ -6,6 +6,7 @@ export default function Admin() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
   const [businesses, setBusinesses] = useState([]);
   const [processing, setProcessing] = useState(null);
   const [message, setMessage] = useState('');
@@ -13,7 +14,6 @@ export default function Admin() {
 
   useEffect(() => {
     if (!router.isReady) return;
-
     checkAdmin();
   }, [router.isReady]);
 
@@ -36,12 +36,20 @@ export default function Admin() {
       .eq('id', session.user.id)
       .maybeSingle();
 
-    if (adminError || !admin) {
-      setError('Acesso não autorizado.');
+    if (adminError) {
+      console.error('Erro ao verificar administrador:', adminError);
+      setError('Não foi possível verificar o acesso administrativo.');
       setLoading(false);
       return;
     }
 
+    if (!admin) {
+      setAuthorized(false);
+      setLoading(false);
+      return;
+    }
+
+    setAuthorized(true);
     await loadBusinesses();
   }
 
@@ -57,10 +65,12 @@ export default function Admin() {
         description,
         municipality,
         neighborhood,
+        address,
         phone,
         whatsapp,
         email,
         logo_url,
+        opening_hours,
         approval_status,
         is_active,
         country_id,
@@ -88,7 +98,7 @@ export default function Admin() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error(error);
+      console.error('Erro ao carregar negócios:', error);
       setError('Não foi possível carregar os negócios pendentes.');
       setLoading(false);
       return;
@@ -112,17 +122,17 @@ export default function Admin() {
       .eq('id', id);
 
     if (error) {
-      console.error(error);
+      console.error('Erro ao atualizar negócio:', error);
       setError('Não foi possível atualizar o perfil.');
       setProcessing(null);
       return;
     }
 
-    setMessage(
-      status === 'approved'
-        ? 'Perfil aprovado com sucesso.'
-        : 'Perfil recusado.'
-    );
+    if (status === 'approved') {
+      setMessage('Perfil aprovado com sucesso.');
+    } else {
+      setMessage('Perfil recusado.');
+    }
 
     setBusinesses((current) =>
       current.filter((business) => business.id !== id)
@@ -139,7 +149,7 @@ export default function Admin() {
   if (loading) {
     return (
       <div style={styles.loading}>
-        <div>
+        <div style={styles.loadingBox}>
           <div style={styles.logo}>Talaza</div>
           <p>A carregar painel administrativo...</p>
         </div>
@@ -147,13 +157,19 @@ export default function Admin() {
     );
   }
 
-  if (error === 'Acesso não autorizado.') {
+  if (!authorized) {
     return (
       <div style={styles.loading}>
         <div style={styles.accessBox}>
           <div style={styles.logo}>Talaza</div>
-          <h2>Acesso restrito</h2>
-          <p>Esta área é exclusiva para administradores.</p>
+
+          <h1 style={styles.accessTitle}>
+            Acesso restrito
+          </h1>
+
+          <p style={styles.accessText}>
+            Esta área é exclusiva para administradores.
+          </p>
 
           <button
             style={styles.primaryButton}
@@ -170,11 +186,16 @@ export default function Admin() {
     <main style={styles.page}>
       <header style={styles.header}>
         <div>
-          <div style={styles.logo}>Talaza</div>
-          <div style={styles.subtitle}>Painel Administrativo</div>
+          <div style={styles.logo}>TALAZA</div>
+          <div style={styles.subtitle}>
+            Painel Administrativo
+          </div>
         </div>
 
-        <button style={styles.logoutButton} onClick={logout}>
+        <button
+          style={styles.logoutButton}
+          onClick={logout}
+        >
           Sair
         </button>
       </header>
@@ -182,14 +203,17 @@ export default function Admin() {
       <section style={styles.content}>
         <div style={styles.titleRow}>
           <div>
-            <h1 style={styles.title}>Validação de negócios</h1>
+            <h1 style={styles.title}>
+              Validação de negócios
+            </h1>
+
             <p style={styles.description}>
               Analise os perfis antes de serem publicados na Talaza.
             </p>
           </div>
 
           <div style={styles.counter}>
-            {businesses.length}
+            <strong>{businesses.length}</strong>
             <span>Pendentes</span>
           </div>
         </div>
@@ -200,7 +224,7 @@ export default function Admin() {
           </div>
         )}
 
-        {error && error !== 'Acesso não autorizado.' && (
+        {error && (
           <div style={styles.error}>
             {error}
           </div>
@@ -209,15 +233,22 @@ export default function Admin() {
         {businesses.length === 0 ? (
           <div style={styles.empty}>
             <div style={styles.emptyIcon}>✓</div>
-            <h2>Tudo em dia</h2>
-            <p>
+
+            <h2 style={styles.emptyTitle}>
+              Tudo em dia
+            </h2>
+
+            <p style={styles.emptyText}>
               Não existem negócios aguardando validação neste momento.
             </p>
           </div>
         ) : (
           <div style={styles.list}>
             {businesses.map((business) => (
-              <article key={business.id} style={styles.card}>
+              <article
+                key={business.id}
+                style={styles.card}
+              >
                 <div style={styles.cardTop}>
                   {business.logo_url ? (
                     <img
@@ -227,12 +258,16 @@ export default function Admin() {
                     />
                   ) : (
                     <div style={styles.logoPlaceholder}>
-                      {business.name?.charAt(0)?.toUpperCase() || 'T'}
+                      {business.name
+                        ?.charAt(0)
+                        ?.toUpperCase() || 'T'}
                     </div>
                   )}
 
                   <div style={styles.businessTitle}>
-                    <h2>{business.name}</h2>
+                    <h2 style={styles.businessName}>
+                      {business.name}
+                    </h2>
 
                     <span style={styles.pending}>
                       Em validação
@@ -283,6 +318,13 @@ export default function Admin() {
                     />
                   )}
 
+                  {business.address && (
+                    <Info
+                      label="Morada"
+                      value={business.address}
+                    />
+                  )}
+
                   {business.phone && (
                     <Info
                       label="Telefone"
@@ -301,6 +343,13 @@ export default function Admin() {
                     <Info
                       label="Email"
                       value={business.email}
+                    />
+                  )}
+
+                  {business.opening_hours && (
+                    <Info
+                      label="Horário"
+                      value={business.opening_hours}
                     />
                   )}
                 </div>
@@ -353,8 +402,13 @@ export default function Admin() {
 function Info({ label, value }) {
   return (
     <div style={styles.infoItem}>
-      <span>{label}</span>
-      <strong>{value}</strong>
+      <span style={styles.infoLabel}>
+        {label}
+      </span>
+
+      <strong style={styles.infoValue}>
+        {value}
+      </strong>
     </div>
   );
 }
@@ -374,22 +428,56 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    textAlign: 'center',
     padding: 24,
+    textAlign: 'center',
+  },
+
+  loadingBox: {
+    background: '#FFFFFF',
+    padding: 32,
+    borderRadius: 20,
+    boxShadow: '0 10px 30px rgba(0,0,0,0.06)',
   },
 
   accessBox: {
-    background: '#fff',
+    background: '#FFFFFF',
     padding: 32,
-    borderRadius: 20,
+    borderRadius: 22,
     maxWidth: 420,
     width: '100%',
     boxShadow: '0 10px 30px rgba(0,0,0,0.07)',
+    textAlign: 'center',
+  },
+
+  logo: {
+    fontSize: 25,
+    fontWeight: 900,
+    color: '#E6A900',
+    letterSpacing: '1px',
+  },
+
+  subtitle: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    opacity: 0.85,
+    marginTop: 3,
+  },
+
+  accessTitle: {
+    color: '#17332E',
+    fontSize: 28,
+    margin: '25px 0 8px',
+  },
+
+  accessText: {
+    color: '#60736E',
+    lineHeight: 1.5,
+    margin: 0,
   },
 
   header: {
     background: '#075B4E',
-    color: '#fff',
+    color: '#FFFFFF',
     padding: '18px 22px',
     display: 'flex',
     justifyContent: 'space-between',
@@ -399,27 +487,14 @@ const styles = {
     zIndex: 20,
   },
 
-  logo: {
-    fontSize: 26,
-    fontWeight: 800,
-    color: '#E6A900',
-    letterSpacing: '-0.5px',
-  },
-
-  subtitle: {
-    fontSize: 12,
-    opacity: 0.85,
-    marginTop: 2,
-  },
-
   logoutButton: {
     background: 'rgba(255,255,255,0.12)',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.25)',
+    color: '#FFFFFF',
+    border: '1px solid rgba(255,255,255,0.3)',
     borderRadius: 10,
     padding: '9px 14px',
     cursor: 'pointer',
-    fontWeight: 600,
+    fontWeight: 700,
   },
 
   content: {
@@ -445,21 +520,20 @@ const styles = {
   description: {
     margin: '7px 0 0',
     color: '#60736E',
+    lineHeight: 1.5,
   },
 
   counter: {
-    minWidth: 90,
-    background: '#fff',
+    minWidth: 88,
+    background: '#FFFFFF',
     borderRadius: 14,
     padding: '12px 15px',
     textAlign: 'center',
-    fontSize: 24,
-    fontWeight: 800,
-    color: '#B88300',
     boxShadow: '0 5px 20px rgba(0,0,0,0.05)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 3,
   },
-
-  counterSpan: {},
 
   success: {
     background: '#E8F6EF',
@@ -483,7 +557,7 @@ const styles = {
   },
 
   card: {
-    background: '#fff',
+    background: '#FFFFFF',
     borderRadius: 18,
     padding: 20,
     boxShadow: '0 7px 25px rgba(0,0,0,0.06)',
@@ -515,13 +589,18 @@ const styles = {
     justifyContent: 'center',
     fontSize: 24,
     fontWeight: 800,
+    flexShrink: 0,
   },
 
   businessTitle: {
     minWidth: 0,
   },
 
-  businessTitleH2: {},
+  businessName: {
+    margin: 0,
+    fontSize: 22,
+    color: '#17332E',
+  },
 
   pending: {
     display: 'inline-block',
@@ -536,7 +615,8 @@ const styles = {
 
   info: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+    gridTemplateColumns:
+      'repeat(auto-fit, minmax(190px, 1fr))',
     gap: 10,
   },
 
@@ -549,11 +629,27 @@ const styles = {
     gap: 3,
   },
 
+  infoLabel: {
+    fontSize: 11,
+    color: '#71817D',
+  },
+
+  infoValue: {
+    fontSize: 14,
+    color: '#17332E',
+    wordBreak: 'break-word',
+  },
+
   descriptionBox: {
     marginTop: 15,
     background: '#F8FAF9',
     borderRadius: 12,
     padding: 13,
+    lineHeight: 1.5,
+  },
+
+  descriptionBoxP: {
+    marginBottom: 0,
   },
 
   actions: {
@@ -568,7 +664,7 @@ const styles = {
     borderRadius: 11,
     padding: '13px 16px',
     background: '#075B4E',
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: 700,
     cursor: 'pointer',
   },
@@ -585,19 +681,19 @@ const styles = {
   },
 
   primaryButton: {
-    marginTop: 18,
+    marginTop: 20,
     width: '100%',
     border: 0,
     borderRadius: 11,
     padding: 13,
     background: '#075B4E',
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: 700,
     cursor: 'pointer',
   },
 
   empty: {
-    background: '#fff',
+    background: '#FFFFFF',
     borderRadius: 18,
     padding: '50px 25px',
     textAlign: 'center',
@@ -617,4 +713,14 @@ const styles = {
     fontSize: 25,
     fontWeight: 800,
   },
-};
+
+  emptyTitle: {
+    margin: '0 0 8px',
+  },
+
+  emptyText: {
+    color: '#60736E',
+    margin: 0,
+    lineHeight: 1.5,
+  },
+};        
