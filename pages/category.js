@@ -5,24 +5,42 @@ import { supabase } from '../lib/supabaseClient';
 
 export default function Category() {
   const router = useRouter();
-  const { id } = router.query;
+
+  const {
+    id,
+    country,
+    province,
+  } = router.query;
 
   const [category, setCategory] = useState(null);
   const [subcategories, setSubcategories] = useState([]);
+
+  const [countryName, setCountryName] = useState('');
+  const [provinceName, setProvinceName] = useState('');
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!router.isReady || !id) return;
+    if (!router.isReady) return;
 
-    loadCategory();
-  }, [router.isReady, id]);
+    if (!id || !country || !province) {
+      router.replace('/country');
+      return;
+    }
 
-  async function loadCategory() {
+    loadData();
+  }, [
+    router.isReady,
+    id,
+    country,
+    province,
+  ]);
+
+  async function loadData() {
     setLoading(true);
     setError('');
 
-    // Carregar a categoria
     const { data: categoryData, error: categoryError } =
       await supabase
         .from('categories')
@@ -37,9 +55,31 @@ export default function Category() {
       return;
     }
 
-    setCategory(categoryData);
+    const { data: provinceData } = await supabase
+      .from('provinces')
+      .select('id, name, country_id')
+      .eq('id', province)
+      .eq('country_id', country)
+      .single();
 
-    // Carregar as subcategorias
+    if (!provinceData) {
+      setError(
+        'Esta província não pertence ao país selecionado.'
+      );
+      setLoading(false);
+      return;
+    }
+
+    const { data: countryData } = await supabase
+      .from('countries')
+      .select('id, name')
+      .eq('id', country)
+      .single();
+
+    setCategory(categoryData);
+    setProvinceName(provinceData.name);
+    setCountryName(countryData?.name || '');
+
     const { data: subcategoryData, error: subcategoryError } =
       await supabase
         .from('subcategories')
@@ -59,26 +99,61 @@ export default function Category() {
   }
 
   return (
-    <div className="container">
-
-      <nav className="topnav">
+    <div
+      className="container"
+      style={{
+        paddingBottom: 50,
+      }}
+    >
+      <nav
+        className="topnav"
+        style={{
+          padding: '12px 0',
+        }}
+      >
         <Link
-          href="/"
+          href={{
+            pathname: '/explore',
+            query: {
+              country,
+              province,
+            },
+          }}
           style={{
             textDecoration: 'none',
-            color: 'inherit'
+            color: 'inherit',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
           }}
         >
           <div
+            className="logo"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8
+              background: '#075B4E',
+              color: '#E6A900',
             }}
           >
-            <div className="logo">T</div>
-            <b>Talaza</b>
+            T
           </div>
+
+          <b>Talaza</b>
+        </Link>
+
+        <Link
+          href={{
+            pathname: '/explore',
+            query: {
+              country,
+              province,
+            },
+          }}
+          className="btn btn-ghost"
+          style={{
+            fontSize: 12,
+          }}
+        >
+          ← Voltar
         </Link>
       </nav>
 
@@ -89,22 +164,42 @@ export default function Category() {
       )}
 
       {error && (
-        <p
+        <div
           style={{
-            color: '#D92D20',
-            fontSize: 13
+            marginTop: 20,
+            padding: 14,
+            borderRadius: 12,
+            background: '#FFF1F0',
+            color: '#9B2C2C',
+            fontSize: 13,
           }}
         >
           {error}
-        </p>
+        </div>
       )}
 
       {!loading && !error && category && (
         <>
+          <div
+            style={{
+              marginTop: 15,
+              padding: '9px 12px',
+              borderRadius: 11,
+              background: '#EAF4F1',
+              color: '#075B4E',
+              fontSize: 11,
+              fontWeight: 700,
+              display: 'inline-flex',
+            }}
+          >
+            {countryName} · {provinceName}
+          </div>
+
           <h1
             style={{
-              fontSize: 26,
-              marginTop: 20
+              fontSize: 25,
+              marginTop: 18,
+              marginBottom: 6,
             }}
           >
             {category.name}
@@ -113,7 +208,8 @@ export default function Category() {
           <p
             style={{
               color: 'var(--ink-soft)',
-              marginBottom: 24
+              fontSize: 13,
+              marginBottom: 20,
             }}
           >
             Escolha uma subcategoria para encontrar exatamente
@@ -129,24 +225,36 @@ export default function Category() {
               style={{
                 display: 'grid',
                 gridTemplateColumns:
-                  'repeat(auto-fit, minmax(180px, 1fr))',
-                gap: 12
+                  'repeat(auto-fit,minmax(145px,1fr))',
+                gap: 8,
               }}
             >
               {subcategories.map((subcategory) => (
                 <Link
                   key={subcategory.id}
-                  href={`/subcategory?id=${subcategory.id}`}
-                  className="card"
+                  href={{
+                    pathname: '/subcategory',
+                    query: {
+                      id: subcategory.id,
+                      country,
+                      province,
+                    },
+                  }}
                   style={{
                     textDecoration: 'none',
-                    color: 'inherit'
+                    color: 'inherit',
+                    background: '#FFFFFF',
+                    border: '1px solid #D9E5E1',
+                    borderRadius: 12,
+                    padding: 13,
+                    minHeight: 58,
                   }}
                 >
                   <h3
                     style={{
-                      fontSize: 15,
-                      margin: '0 0 6px'
+                      fontSize: 13,
+                      margin: 0,
+                      color: '#17342F',
                     }}
                   >
                     {subcategory.name}
@@ -155,9 +263,10 @@ export default function Category() {
                   {subcategory.description && (
                     <p
                       style={{
-                        fontSize: 12,
+                        fontSize: 10,
                         color: 'var(--ink-soft)',
-                        margin: 0
+                        margin: '6px 0 0',
+                        lineHeight: 1.4,
                       }}
                     >
                       {subcategory.description}
@@ -169,7 +278,6 @@ export default function Category() {
           )}
         </>
       )}
-
     </div>
   );
-}
+}                                
