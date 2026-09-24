@@ -6,38 +6,44 @@ import { supabase } from '../lib/supabaseClient';
 const AREAS = [
   {
     name: 'Encontrar',
+    icon: '⌕',
     description:
       'Encontre negócios, produtos, serviços e soluções perto de você.',
     color: '#075B4E',
   },
   {
     name: 'Contratar',
+    icon: '◉',
     description:
       'Encontre profissionais e pessoas preparadas para realizar o que você precisa.',
     color: '#0B7563',
   },
   {
     name: 'Comunidade',
+    icon: '◎',
     description:
-      'Partilhe perguntas, recomendações, avisos e ideias.',
+      'Partilhe perguntas, recomendações, avisos e ideias com a comunidade.',
     color: '#B88300',
   },
   {
     name: 'Oportunidades',
+    icon: '↗',
     description:
-      'Encontre oportunidades de trabalho, colaborações e vagas.',
+      'Encontre oportunidades de trabalho, colaborações e vagas publicadas.',
     color: '#9A6D00',
   },
   {
     name: 'Eventos',
+    icon: '◇',
     description:
-      'Descubra eventos, cursos, feiras, lançamentos e outros momentos.',
+      'Descubra eventos, cursos, feiras, lançamentos e outros momentos especiais.',
     color: '#075B4E',
   },
   {
     name: 'Ebooks',
+    icon: '▤',
     description:
-      'Descubra ebooks para aprender e desenvolver novas habilidades.',
+      'Descubra ebooks para aprender, desenvolver novas habilidades e explorar conhecimentos.',
     color: '#0B7563',
   },
 ];
@@ -56,6 +62,8 @@ export default function Explore() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
+  const [selectedArea, setSelectedArea] = useState(null);
+
   useEffect(() => {
     if (!router.isReady) return;
 
@@ -66,26 +74,26 @@ export default function Explore() {
 
     loadLocation();
     loadCategories();
-    loadBusinesses();
   }, [router.isReady, country, province]);
 
   useEffect(() => {
     if (!router.isReady || !country || !province) return;
 
     loadBusinesses();
-  }, [query]);
+  }, [router.isReady, country, province, query]);
 
   async function loadLocation() {
     const { data: countryData } = await supabase
       .from('countries')
-      .select('name')
+      .select('id, name')
       .eq('id', country)
       .single();
 
     const { data: provinceData } = await supabase
       .from('provinces')
-      .select('name')
+      .select('id, name, country_id')
       .eq('id', province)
+      .eq('country_id', country)
       .single();
 
     setCountryName(countryData?.name || '');
@@ -127,10 +135,36 @@ export default function Explore() {
       );
     }
 
-    const { data } = await request;
+    const { data, error } = await request;
+
+    if (error) {
+      console.error(error);
+      setBusinesses([]);
+      setLoading(false);
+      return;
+    }
 
     setBusinesses(data || []);
     setLoading(false);
+  }
+
+  function handleAreaClick(area) {
+    setSelectedArea(
+      selectedArea === area.name
+        ? null
+        : area.name
+    );
+
+    if (area.name === 'Encontrar') {
+      setTimeout(() => {
+        document
+          .getElementById('categorias')
+          ?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+          });
+      }, 50);
+    }
   }
 
   return (
@@ -143,94 +177,140 @@ export default function Explore() {
       <div
         className="container"
         style={{
-          paddingBottom: 60,
+          maxWidth: 1100,
+          paddingBottom: 50,
         }}
       >
-        {/* CABEÇALHO */}
-        <nav className="topnav">
+        {/* CABEÇALHO COMPACTO */}
+        <nav
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '12px 0',
+          }}
+        >
           <Link
-            href="/explore"
+            href={{
+              pathname: '/explore',
+              query: { country, province },
+            }}
             style={{
               textDecoration: 'none',
               color: 'inherit',
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
+              gap: 7,
             }}
           >
             <div
-              className="logo"
               style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
                 background: '#075B4E',
                 color: '#E6A900',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 900,
               }}
             >
               T
             </div>
 
-            <b>Talaza</b>
+            <b
+              style={{
+                color: '#075B4E',
+                fontSize: 18,
+              }}
+            >
+              Talaza
+            </b>
           </Link>
 
           <div
             style={{
               marginLeft: 'auto',
               display: 'flex',
+              alignItems: 'center',
               gap: 8,
             }}
           >
+            <div
+              style={{
+                display: 'none',
+                color: '#596B68',
+                fontSize: 12,
+              }}
+            >
+              {provinceName}
+            </div>
+
             <Link
               href="/login"
-              className="btn btn-ghost"
+              style={{
+                textDecoration: 'none',
+                color: '#075B4E',
+                fontSize: 12,
+                fontWeight: 800,
+                padding: '8px 10px',
+              }}
             >
-              Entrar
+              Já tenho uma conta
             </Link>
+
+            <button
+              type="button"
+              aria-label="Menu"
+              style={{
+                width: 34,
+                height: 34,
+                border: '1px solid #D5DEDB',
+                borderRadius: 10,
+                background: '#FFFFFF',
+                color: '#075B4E',
+                fontSize: 18,
+                cursor: 'pointer',
+              }}
+            >
+              ⋮
+            </button>
           </div>
         </nav>
 
-        {/* LOCALIZAÇÃO */}
+        {/* LOCALIZAÇÃO + PESQUISA */}
         <div
           style={{
-            marginTop: 24,
-            padding: '12px 16px',
-            borderRadius: 14,
+            marginTop: 12,
+            padding: '10px 13px',
+            borderRadius: 12,
             background: '#EAF4F1',
             color: '#075B4E',
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: 700,
+            display: 'inline-flex',
           }}
         >
           {countryName} · {provinceName}
         </div>
 
-        {/* PESQUISA */}
-        <div style={{ marginTop: 24 }}>
-          <h1
-            style={{
-              fontSize: 30,
-              marginBottom: 8,
-            }}
-          >
-            Encontre o que procura.
-          </h1>
-
-          <p
-            style={{
-              color: '#596B68',
-              lineHeight: 1.5,
-            }}
-          >
-            Pesquise negócios, produtos, serviços e soluções
-            na sua região.
-          </p>
-
+        <div
+          style={{
+            marginTop: 14,
+          }}
+        >
           <input
             className="input"
             style={{
               width: '100%',
-              marginTop: 16,
-              marginBottom: 0,
+              boxSizing: 'border-box',
+              margin: 0,
+              borderRadius: 14,
+              padding: '13px 15px',
+              fontSize: 14,
             }}
-            placeholder="Pesquisar por nome…"
+            placeholder="Pesquisar negócios, produtos ou serviços…"
             value={query}
             onChange={(e) =>
               setQuery(e.target.value)
@@ -238,119 +318,192 @@ export default function Explore() {
           />
         </div>
 
-        {/* ÁREAS DA TALAZA */}
-        <section style={{ marginTop: 38 }}>
-          <h2 style={{ fontSize: 21 }}>
-            Talaza
-          </h2>
-
+        {/* ÁREAS COMPACTAS */}
+        <section
+          style={{
+            marginTop: 18,
+          }}
+        >
           <div
             style={{
               display: 'grid',
               gridTemplateColumns:
-                'repeat(auto-fit, minmax(170px, 1fr))',
-              gap: 12,
-              marginTop: 14,
+                'repeat(6, minmax(72px, 1fr))',
+              gap: 7,
             }}
           >
             {AREAS.map((area) => (
-              <div
+              <button
                 key={area.name}
-                className="card"
+                type="button"
+                onClick={() =>
+                  handleAreaClick(area)
+                }
                 style={{
-                  borderTop: `4px solid ${area.color}`,
-                  padding: 18,
+                  minWidth: 0,
+                  border: '1px solid #DCE6E3',
+                  borderTop: `3px solid ${area.color}`,
+                  borderRadius: 12,
+                  background:
+                    selectedArea === area.name
+                      ? '#EAF4F1'
+                      : '#FFFFFF',
+                  padding: '10px 5px',
+                  cursor: 'pointer',
+                  color: '#17342F',
                 }}
               >
-                <h3
+                <div
                   style={{
-                    fontSize: 16,
-                    margin: '0 0 7px',
+                    fontSize: 18,
+                    color: area.color,
+                    fontWeight: 900,
+                    lineHeight: 1,
+                  }}
+                >
+                  {area.icon}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 6,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    lineHeight: 1.2,
                   }}
                 >
                   {area.name}
-                </h3>
-
-                <p
-                  style={{
-                    fontSize: 12,
-                    lineHeight: 1.45,
-                    color: '#596B68',
-                    margin: 0,
-                  }}
-                >
-                  {area.description}
-                </p>
-              </div>
+                </div>
+              </button>
             ))}
           </div>
+
+          {selectedArea && (
+            <div
+              style={{
+                marginTop: 8,
+                padding: '10px 13px',
+                borderRadius: 12,
+                background: '#FFFFFF',
+                border: '1px solid #DCE6E3',
+                color: '#596B68',
+                fontSize: 12,
+                lineHeight: 1.45,
+              }}
+            >
+              {
+                AREAS.find(
+                  (area) =>
+                    area.name === selectedArea
+                )?.description
+              }
+            </div>
+          )}
         </section>
 
-        {/* ENCONTRAR / CATEGORIAS */}
-        <section style={{ marginTop: 42 }}>
-          <h2 style={{ fontSize: 21 }}>
-            Encontrar
-          </h2>
-
-          <p
+        {/* CATEGORIAS */}
+        <section
+          id="categorias"
+          style={{
+            marginTop: 24,
+          }}
+        >
+          <div
             style={{
-              color: '#596B68',
-              fontSize: 14,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 10,
             }}
           >
-            Escolha uma categoria para encontrar exatamente
-            o que procura.
-          </p>
+            <h2
+              style={{
+                fontSize: 19,
+                margin: 0,
+              }}
+            >
+              Encontrar
+            </h2>
+
+            <span
+              style={{
+                color: '#7A8986',
+                fontSize: 11,
+              }}
+            >
+              {provinceName}
+            </span>
+          </div>
 
           <div
             style={{
               display: 'grid',
               gridTemplateColumns:
-                'repeat(auto-fit, minmax(170px, 1fr))',
-              gap: 12,
-              marginTop: 16,
+                'repeat(auto-fit,minmax(130px,1fr))',
+              gap: 7,
+              marginTop: 11,
             }}
           >
             {categories.map((category) => (
               <Link
                 key={category.id}
-                href={`/category?id=${category.id}`}
-                className="card"
+                href={{
+                  pathname: '/category',
+                  query: {
+                    id: category.id,
+                    country,
+                    province,
+                  },
+                }}
                 style={{
                   textDecoration: 'none',
-                  color: 'inherit',
-                  padding: 18,
-                  border: '1px solid #D9E5E1',
+                  color: '#17342F',
+                  background: '#FFFFFF',
+                  border: '1px solid #DCE6E3',
+                  borderRadius: 11,
+                  padding: '12px 11px',
+                  fontSize: 12,
+                  fontWeight: 750,
                 }}
               >
-                <strong
-                  style={{
-                    fontSize: 15,
-                  }}
-                >
-                  {category.name}
-                </strong>
-
-                <div
-                  style={{
-                    color: '#075B4E',
-                    fontSize: 12,
-                    marginTop: 9,
-                    fontWeight: 700,
-                  }}
-                >
-                  Ver categoria →
-                </div>
+                {category.name}
               </Link>
             ))}
           </div>
         </section>
 
         {/* NEGÓCIOS */}
-        <section style={{ marginTop: 42 }}>
-          <h2 style={{ fontSize: 21 }}>
-            Negócios perto de você
-          </h2>
+        <section
+          style={{
+            marginTop: 30,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 12,
+            }}
+          >
+            <h2
+              style={{
+                fontSize: 19,
+                margin: 0,
+              }}
+            >
+              Negócios perto de você
+            </h2>
+
+            <span
+              style={{
+                fontSize: 11,
+                color: '#7A8986',
+              }}
+            >
+              {provinceName}
+            </span>
+          </div>
 
           {loading && (
             <p style={{ color: '#7A8986' }}>
@@ -358,107 +511,111 @@ export default function Explore() {
             </p>
           )}
 
-          {!loading && businesses.length === 0 && (
-            <p style={{ color: '#7A8986' }}>
-              Ainda não há negócios publicados nesta região.
-            </p>
-          )}
+          {!loading &&
+            businesses.length === 0 && (
+              <div
+                style={{
+                  padding: 18,
+                  borderRadius: 14,
+                  background: '#FFFFFF',
+                  border: '1px solid #DCE6E3',
+                  color: '#7A8986',
+                  fontSize: 13,
+                }}
+              >
+                Ainda não há negócios publicados nesta região.
+              </div>
+            )}
 
-          {!loading && businesses.length > 0 && (
-            <div className="grid">
-              {businesses.map((business) => (
-                <Link
-                  key={business.id}
-                  href={`/businesses/${business.id}`}
-                  className="card"
-                  style={{
-                    textDecoration: 'none',
-                    color: 'inherit',
-                  }}
-                >
-                  {business.logo_url && (
-                    <img
-                      src={business.logo_url}
-                      alt={business.name}
-                      style={{
-                        width: '100%',
-                        height: 140,
-                        objectFit: 'cover',
-                        borderRadius: 8,
-                        marginBottom: 8,
-                      }}
-                    />
-                  )}
-
-                  <h3
+          {!loading &&
+            businesses.length > 0 && (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit,minmax(190px,1fr))',
+                  gap: 10,
+                }}
+              >
+                {businesses.map((business) => (
+                  <Link
+                    key={business.id}
+                    href={`/businesses/${business.id}?country=${country}&province=${province}`}
                     style={{
-                      fontSize: 15,
-                      margin: '6px 0',
+                      textDecoration: 'none',
+                      color: 'inherit',
+                      background: '#FFFFFF',
+                      border: '1px solid #DCE6E3',
+                      borderRadius: 14,
+                      padding: 12,
+                      display: 'block',
                     }}
                   >
-                    {business.name}
-                  </h3>
+                    {business.logo_url && (
+                      <img
+                        src={business.logo_url}
+                        alt={business.name}
+                        style={{
+                          width: '100%',
+                          height: 110,
+                          objectFit: 'cover',
+                          borderRadius: 10,
+                          marginBottom: 8,
+                        }}
+                      />
+                    )}
 
-                  {business.description && (
-                    <p
+                    <h3
                       style={{
-                        fontSize: 12,
-                        color: '#596B68',
+                        fontSize: 14,
+                        margin: '3px 0 5px',
                       }}
                     >
-                      {business.description}
-                    </p>
-                  )}
+                      {business.name}
+                    </h3>
 
-                  {(business.municipality ||
-                    business.neighborhood) && (
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: '#7A8986',
-                      }}
-                    >
-                      {business.municipality}
+                    {business.description && (
+                      <p
+                        style={{
+                          fontSize: 11,
+                          color: '#596B68',
+                          margin: '0 0 7px',
+                          lineHeight: 1.4,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {business.description}
+                      </p>
+                    )}
 
-                      {business.municipality &&
-                      business.neighborhood
-                        ? ' · '
-                        : ''}
+                    {(business.municipality ||
+                      business.neighborhood) && (
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: '#7A8986',
+                        }}
+                      >
+                        {business.municipality}
 
-                      {business.neighborhood}
-                    </div>
-                  )}
-                </Link>
-              ))}
-            </div>
-          )}
+                        {business.municipality &&
+                        business.neighborhood
+                          ? ' · '
+                          : ''}
+
+                        {business.neighborhood}
+                      </div>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
         </section>
-
-        {/* SAIR */}
-        <div
-          style={{
-            textAlign: 'center',
-            marginTop: 45,
-          }}
-        >
-          <button
-            type="button"
-            onClick={async () => {
-              await supabase.auth.signOut();
-              router.push('/');
-            }}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              color: '#075B4E',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            Terminar sessão
-          </button>
-        </div>
       </div>
     </div>
   );
-}
+}            
+                                  
