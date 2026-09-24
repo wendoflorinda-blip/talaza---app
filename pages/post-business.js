@@ -1,4 +1,4 @@
-                import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
@@ -944,5 +944,4 @@ const labelStyle = {
   marginTop: 17,
   fontWeight: 700,
   color: '#17342F',
-};                                      <div
-                                            
+};                
