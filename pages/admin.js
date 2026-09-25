@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
@@ -8,24 +8,21 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [businesses, setBusinesses] = useState([]);
-  const [processing, setProcessing] = useState(null);
   const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!router.isReady) return;
     checkAdmin();
-  }, [router.isReady]);
+  }, []);
 
   async function checkAdmin() {
     setLoading(true);
-    setError('');
+    setMessage('');
 
     const {
       data: { session },
     } = await supabase.auth.getSession();
 
-    if (!session?.user) {
+    if (!session) {
       router.replace('/login');
       return;
     }
@@ -38,7 +35,7 @@ export default function Admin() {
 
     if (adminError) {
       console.error('Erro ao verificar administrador:', adminError);
-      setError('Não foi possível verificar o acesso administrativo.');
+      setMessage(adminError.message);
       setLoading(false);
       return;
     }
@@ -51,46 +48,36 @@ export default function Admin() {
 
     setAuthorized(true);
     await loadBusinesses();
+
+    setLoading(false);
   }
 
   async function loadBusinesses() {
-    setError('');
-
     const { data, error } = await supabase
       .from('businesses')
       .select(`
         id,
-        created_at,
         name,
         description,
         municipality,
         neighborhood,
-        address,
         phone,
         whatsapp,
         email,
         logo_url,
-        opening_hours,
+        created_at,
         approval_status,
         is_active,
-        country_id,
-        province_id,
-        category_id,
-        subcategory_id,
         countries (
-          id,
           name
         ),
         provinces (
-          id,
           name
         ),
         categories (
-          id,
           name
         ),
         subcategories (
-          id,
           name
         )
       `)
@@ -98,21 +85,15 @@ export default function Admin() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Erro ao carregar negócios:', error);
-      setError('Não foi possível carregar os negócios pendentes.');
-      setLoading(false);
+      console.error(error);
+      setMessage(error.message);
       return;
     }
 
     setBusinesses(data || []);
-    setLoading(false);
   }
 
-  async function updateBusinessStatus(id, status) {
-    setProcessing(id);
-    setMessage('');
-    setError('');
-
+  async function updateBusiness(id, status) {
     const { error } = await supabase
       .from('businesses')
       .update({
@@ -122,111 +103,96 @@ export default function Admin() {
       .eq('id', id);
 
     if (error) {
-      console.error('Erro ao atualizar negócio:', error);
-      setError('Não foi possível atualizar o perfil.');
-      setProcessing(null);
+      alert('Erro: ' + error.message);
       return;
     }
 
-    if (status === 'approved') {
-      setMessage('Perfil aprovado com sucesso.');
-    } else {
-      setMessage('Perfil recusado.');
-    }
-
-    setBusinesses((current) =>
-      current.filter((business) => business.id !== id)
-    );
-
-    setProcessing(null);
+    await loadBusinesses();
   }
 
   async function logout() {
     await supabase.auth.signOut();
-    router.replace('/');
+    router.replace('/login');
   }
 
   if (loading) {
     return (
-      <div style={styles.loading}>
-        <div style={styles.loadingBox}>
-          <div style={styles.logo}>Talaza</div>
-          <p>A carregar painel administrativo...</p>
-        </div>
-      </div>
+      <main style={styles.center}>
+        <p>A verificar acesso...</p>
+      </main>
     );
   }
 
   if (!authorized) {
     return (
-      <div style={styles.loading}>
-        <div style={styles.accessBox}>
-          <div style={styles.logo}>Talaza</div>
+      <main style={styles.center}>
+        <div style={styles.restricted}>
+          <div style={styles.logo}>T</div>
 
-          <h1 style={styles.accessTitle}>
-            Acesso restrito
-          </h1>
+          <h1>Acesso restrito</h1>
 
-          <p style={styles.accessText}>
-            Esta área é exclusiva para administradores.
+          <p>
+            Esta área é exclusiva para administradores da Talaza.
           </p>
 
+          {message && (
+            <p style={styles.error}>
+              {message}
+            </p>
+          )}
+
           <button
-            style={styles.primaryButton}
+            style={styles.button}
             onClick={() => router.push('/')}
           >
-            Voltar à página inicial
+            Voltar à Talaza
           </button>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
     <main style={styles.page}>
+
       <header style={styles.header}>
         <div>
-          <div style={styles.logo}>TALAZA</div>
+          <div style={styles.brand}>TALAZA</div>
           <div style={styles.subtitle}>
-            Painel Administrativo
+            Painel de administração
           </div>
         </div>
 
         <button
-          style={styles.logoutButton}
           onClick={logout}
+          style={styles.logout}
         >
-          Sair
+          Terminar sessão
         </button>
       </header>
 
       <section style={styles.content}>
+
         <div style={styles.titleRow}>
           <div>
             <h1 style={styles.title}>
-              Validação de negócios
+              Administração
             </h1>
 
             <p style={styles.description}>
-              Analise os perfis antes de serem publicados na Talaza.
+              Gerencie os perfis de negócio enviados para validação.
             </p>
           </div>
 
           <div style={styles.counter}>
-            <strong>{businesses.length}</strong>
-            <span>Pendentes</span>
+            {businesses.length} pendente
+            {businesses.length !== 1 ? 's' : ''}
           </div>
         </div>
 
         {message && (
-          <div style={styles.success}>
+          <div style={styles.errorBox}>
             {message}
-          </div>
-        )}
-
-        {error && (
-          <div style={styles.error}>
-            {error}
           </div>
         )}
 
@@ -234,22 +200,24 @@ export default function Admin() {
           <div style={styles.empty}>
             <div style={styles.emptyIcon}>✓</div>
 
-            <h2 style={styles.emptyTitle}>
-              Tudo em dia
-            </h2>
+            <h2>Nenhum perfil pendente</h2>
 
-            <p style={styles.emptyText}>
+            <p>
               Não existem negócios aguardando validação neste momento.
             </p>
           </div>
         ) : (
           <div style={styles.list}>
+
             {businesses.map((business) => (
+
               <article
                 key={business.id}
                 style={styles.card}
               >
+
                 <div style={styles.cardTop}>
+
                   {business.logo_url ? (
                     <img
                       src={business.logo_url}
@@ -258,115 +226,83 @@ export default function Admin() {
                     />
                   ) : (
                     <div style={styles.logoPlaceholder}>
-                      {business.name
-                        ?.charAt(0)
-                        ?.toUpperCase() || 'T'}
+                      {business.name?.charAt(0)?.toUpperCase() || 'T'}
                     </div>
                   )}
 
-                  <div style={styles.businessTitle}>
+                  <div style={{ flex: 1 }}>
                     <h2 style={styles.businessName}>
                       {business.name}
                     </h2>
 
-                    <span style={styles.pending}>
-                      Em validação
-                    </span>
+                    <div style={styles.meta}>
+                      {business.categories?.name || 'Sem categoria'}
+                      {' · '}
+                      {business.subcategories?.name || 'Sem subcategoria'}
+                    </div>
                   </div>
+
+                  <span style={styles.pending}>
+                    Pendente
+                  </span>
+
                 </div>
 
-                <div style={styles.info}>
-                  {business.categories?.name && (
-                    <Info
-                      label="Categoria"
-                      value={business.categories.name}
-                    />
-                  )}
+                <div style={styles.details}>
 
-                  {business.subcategories?.name && (
-                    <Info
-                      label="Subcategoria"
-                      value={business.subcategories.name}
-                    />
-                  )}
+                  <p>
+                    <strong>Localização:</strong>{' '}
+                    {business.countries?.name || '-'}
+                    {' · '}
+                    {business.provinces?.name || '-'}
+                  </p>
 
-                  {business.countries?.name && (
-                    <Info
-                      label="País"
-                      value={business.countries.name}
-                    />
-                  )}
+                  <p>
+                    <strong>Município:</strong>{' '}
+                    {business.municipality || '-'}
+                  </p>
 
-                  {business.provinces?.name && (
-                    <Info
-                      label="Província"
-                      value={business.provinces.name}
-                    />
-                  )}
+                  <p>
+                    <strong>Bairro:</strong>{' '}
+                    {business.neighborhood || '-'}
+                  </p>
 
-                  {business.municipality && (
-                    <Info
-                      label="Município"
-                      value={business.municipality}
-                    />
-                  )}
-
-                  {business.neighborhood && (
-                    <Info
-                      label="Bairro"
-                      value={business.neighborhood}
-                    />
-                  )}
-
-                  {business.address && (
-                    <Info
-                      label="Morada"
-                      value={business.address}
-                    />
+                  {business.description && (
+                    <p>
+                      <strong>Descrição:</strong>{' '}
+                      {business.description}
+                    </p>
                   )}
 
                   {business.phone && (
-                    <Info
-                      label="Telefone"
-                      value={business.phone}
-                    />
+                    <p>
+                      <strong>Telefone:</strong>{' '}
+                      {business.phone}
+                    </p>
                   )}
 
                   {business.whatsapp && (
-                    <Info
-                      label="WhatsApp"
-                      value={business.whatsapp}
-                    />
+                    <p>
+                      <strong>WhatsApp:</strong>{' '}
+                      {business.whatsapp}
+                    </p>
                   )}
 
                   {business.email && (
-                    <Info
-                      label="Email"
-                      value={business.email}
-                    />
+                    <p>
+                      <strong>Email:</strong>{' '}
+                      {business.email}
+                    </p>
                   )}
 
-                  {business.opening_hours && (
-                    <Info
-                      label="Horário"
-                      value={business.opening_hours}
-                    />
-                  )}
                 </div>
 
-                {business.description && (
-                  <div style={styles.descriptionBox}>
-                    <strong>Descrição</strong>
-                    <p>{business.description}</p>
-                  </div>
-                )}
-
                 <div style={styles.actions}>
+
                   <button
-                    style={styles.rejectButton}
-                    disabled={processing === business.id}
+                    style={styles.reject}
                     onClick={() =>
-                      updateBusinessStatus(
+                      updateBusiness(
                         business.id,
                         'rejected'
                       )
@@ -376,40 +312,28 @@ export default function Admin() {
                   </button>
 
                   <button
-                    style={styles.approveButton}
-                    disabled={processing === business.id}
+                    style={styles.approve}
                     onClick={() =>
-                      updateBusinessStatus(
+                      updateBusiness(
                         business.id,
                         'approved'
                       )
                     }
                   >
-                    {processing === business.id
-                      ? 'A processar...'
-                      : 'Aprovar'}
+                    Aprovar
                   </button>
+
                 </div>
+
               </article>
+
             ))}
+
           </div>
         )}
+
       </section>
     </main>
-  );
-}
-
-function Info({ label, value }) {
-  return (
-    <div style={styles.infoItem}>
-      <span style={styles.infoLabel}>
-        {label}
-      </span>
-
-      <strong style={styles.infoValue}>
-        {value}
-      </strong>
-    </div>
   );
 }
 
@@ -417,90 +341,69 @@ const styles = {
   page: {
     minHeight: '100vh',
     background: '#F5F7F6',
-    color: '#17332E',
-    fontFamily:
-      'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    color: '#12332D',
   },
 
-  loading: {
+  center: {
     minHeight: '100vh',
-    background: '#F5F7F6',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    background: '#F5F7F6',
     padding: 24,
-    textAlign: 'center',
   },
 
-  loadingBox: {
-    background: '#FFFFFF',
-    padding: 32,
-    borderRadius: 20,
-    boxShadow: '0 10px 30px rgba(0,0,0,0.06)',
-  },
-
-  accessBox: {
-    background: '#FFFFFF',
-    padding: 32,
-    borderRadius: 22,
-    maxWidth: 420,
+  restricted: {
     width: '100%',
-    boxShadow: '0 10px 30px rgba(0,0,0,0.07)',
+    maxWidth: 420,
+    background: '#fff',
+    padding: 32,
+    borderRadius: 18,
     textAlign: 'center',
+    boxShadow: '0 8px 30px rgba(0,0,0,.08)',
   },
 
   logo: {
-    fontSize: 25,
-    fontWeight: 900,
+    width: 58,
+    height: 58,
+    margin: '0 auto 18px',
+    borderRadius: 16,
+    background: '#075B4E',
     color: '#E6A900',
-    letterSpacing: '1px',
-  },
-
-  subtitle: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    opacity: 0.85,
-    marginTop: 3,
-  },
-
-  accessTitle: {
-    color: '#17332E',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     fontSize: 28,
-    margin: '25px 0 8px',
-  },
-
-  accessText: {
-    color: '#60736E',
-    lineHeight: 1.5,
-    margin: 0,
+    fontWeight: 800,
   },
 
   header: {
     background: '#075B4E',
-    color: '#FFFFFF',
-    padding: '18px 22px',
+    color: '#fff',
+    padding: '18px 24px',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    position: 'sticky',
-    top: 0,
-    zIndex: 20,
+    gap: 16,
   },
 
-  logoutButton: {
-    background: 'rgba(255,255,255,0.12)',
-    color: '#FFFFFF',
-    border: '1px solid rgba(255,255,255,0.3)',
-    borderRadius: 10,
-    padding: '9px 14px',
-    cursor: 'pointer',
-    fontWeight: 700,
+  brand: {
+    fontWeight: 800,
+    letterSpacing: 2,
+    color: '#E6A900',
+  },
+
+  subtitle: {
+    fontSize: 12,
+    opacity: .8,
+    marginTop: 4,
   },
 
   content: {
-    maxWidth: 1000,
+    width: '100%',
+    maxWidth: 1100,
     margin: '0 auto',
-    padding: '28px 18px 50px',
+    padding: '32px 20px 60px',
   },
 
   titleRow: {
@@ -508,47 +411,27 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 20,
-    marginBottom: 24,
+    marginBottom: 26,
+    flexWrap: 'wrap',
   },
 
   title: {
     margin: 0,
     fontSize: 28,
-    color: '#06483E',
   },
 
   description: {
-    margin: '7px 0 0',
-    color: '#60736E',
-    lineHeight: 1.5,
+    marginTop: 8,
+    color: '#65736F',
   },
 
   counter: {
-    minWidth: 88,
-    background: '#FFFFFF',
-    borderRadius: 14,
-    padding: '12px 15px',
-    textAlign: 'center',
-    boxShadow: '0 5px 20px rgba(0,0,0,0.05)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 3,
-  },
-
-  success: {
-    background: '#E8F6EF',
-    color: '#17633D',
-    padding: 13,
+    background: '#FFF3C7',
+    color: '#8A6500',
+    padding: '9px 14px',
     borderRadius: 10,
-    marginBottom: 18,
-  },
-
-  error: {
-    background: '#FDECEC',
-    color: '#9B2C2C',
-    padding: 13,
-    borderRadius: 10,
-    marginBottom: 18,
+    fontWeight: 700,
+    fontSize: 13,
   },
 
   list: {
@@ -557,170 +440,147 @@ const styles = {
   },
 
   card: {
-    background: '#FFFFFF',
+    background: '#fff',
     borderRadius: 18,
     padding: 20,
-    boxShadow: '0 7px 25px rgba(0,0,0,0.06)',
+    boxShadow: '0 5px 20px rgba(0,0,0,.06)',
+    border: '1px solid #E7ECEA',
   },
 
   cardTop: {
     display: 'flex',
     alignItems: 'center',
     gap: 14,
-    marginBottom: 18,
   },
 
   logoImage: {
-    width: 62,
-    height: 62,
+    width: 58,
+    height: 58,
     borderRadius: 14,
     objectFit: 'cover',
-    border: '1px solid #E5EAE8',
   },
 
   logoPlaceholder: {
-    width: 62,
-    height: 62,
+    width: 58,
+    height: 58,
     borderRadius: 14,
-    background: '#075B4E',
-    color: '#E6A900',
+    background: '#E4F0ED',
+    color: '#075B4E',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: 24,
     fontWeight: 800,
-    flexShrink: 0,
-  },
-
-  businessTitle: {
-    minWidth: 0,
+    fontSize: 22,
   },
 
   businessName: {
     margin: 0,
-    fontSize: 22,
-    color: '#17332E',
+    fontSize: 19,
+  },
+
+  meta: {
+    marginTop: 5,
+    color: '#687772',
+    fontSize: 13,
   },
 
   pending: {
-    display: 'inline-block',
-    marginTop: 5,
-    background: '#FFF5D6',
+    background: '#FFF3C7',
     color: '#8A6500',
-    padding: '4px 8px',
+    padding: '6px 9px',
     borderRadius: 7,
     fontSize: 11,
     fontWeight: 700,
   },
 
-  info: {
-    display: 'grid',
-    gridTemplateColumns:
-      'repeat(auto-fit, minmax(190px, 1fr))',
-    gap: 10,
-  },
-
-  infoItem: {
-    background: '#F5F7F6',
-    borderRadius: 10,
-    padding: 10,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 3,
-  },
-
-  infoLabel: {
-    fontSize: 11,
-    color: '#71817D',
-  },
-
-  infoValue: {
+  details: {
+    marginTop: 18,
+    paddingTop: 16,
+    borderTop: '1px solid #EDF0EF',
+    color: '#52635E',
     fontSize: 14,
-    color: '#17332E',
-    wordBreak: 'break-word',
-  },
-
-  descriptionBox: {
-    marginTop: 15,
-    background: '#F8FAF9',
-    borderRadius: 12,
-    padding: 13,
-    lineHeight: 1.5,
-  },
-
-  descriptionBoxP: {
-    marginBottom: 0,
+    lineHeight: 1.55,
   },
 
   actions: {
     display: 'flex',
+    justifyContent: 'flex-end',
     gap: 10,
     marginTop: 18,
   },
 
-  approveButton: {
-    flex: 1,
+  approve: {
     border: 0,
-    borderRadius: 11,
-    padding: '13px 16px',
     background: '#075B4E',
-    color: '#FFFFFF',
+    color: '#fff',
+    padding: '10px 18px',
+    borderRadius: 9,
     fontWeight: 700,
     cursor: 'pointer',
   },
 
-  rejectButton: {
-    flex: 1,
+  reject: {
     border: 0,
-    borderRadius: 11,
-    padding: '13px 16px',
-    background: '#F1E8E8',
-    color: '#8A3030',
+    background: '#F0F2F1',
+    color: '#8B3027',
+    padding: '10px 18px',
+    borderRadius: 9,
     fontWeight: 700,
     cursor: 'pointer',
   },
 
-  primaryButton: {
-    marginTop: 20,
-    width: '100%',
+  logout: {
+    background: 'transparent',
+    border: '1px solid rgba(255,255,255,.35)',
+    color: '#fff',
+    padding: '9px 14px',
+    borderRadius: 8,
+    cursor: 'pointer',
+  },
+
+  button: {
+    marginTop: 18,
     border: 0,
-    borderRadius: 11,
-    padding: 13,
     background: '#075B4E',
-    color: '#FFFFFF',
+    color: '#fff',
+    padding: '11px 18px',
+    borderRadius: 9,
     fontWeight: 700,
     cursor: 'pointer',
   },
 
   empty: {
-    background: '#FFFFFF',
+    background: '#fff',
     borderRadius: 18,
-    padding: '50px 25px',
+    padding: 50,
     textAlign: 'center',
-    boxShadow: '0 7px 25px rgba(0,0,0,0.05)',
+    boxShadow: '0 5px 20px rgba(0,0,0,.05)',
   },
 
   emptyIcon: {
-    width: 52,
-    height: 52,
-    margin: '0 auto 15px',
+    width: 50,
+    height: 50,
     borderRadius: '50%',
-    background: '#E8F6EF',
-    color: '#17633D',
+    background: '#E4F0ED',
+    color: '#075B4E',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: 25,
+    margin: '0 auto 15px',
+    fontSize: 22,
     fontWeight: 800,
   },
 
-  emptyTitle: {
-    margin: '0 0 8px',
+  error: {
+    color: '#A33A30',
+    fontSize: 13,
   },
 
-  emptyText: {
-    color: '#60736E',
-    margin: 0,
-    lineHeight: 1.5,
+  errorBox: {
+    background: '#FFF0EE',
+    color: '#9C3027',
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 18,
   },
-};        
+};       
