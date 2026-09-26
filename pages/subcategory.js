@@ -1,4 +1,4 @@
-    import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
@@ -14,6 +14,7 @@ export default function Subcategory() {
 
   const [subcategory, setSubcategory] = useState(null);
   const [businesses, setBusinesses] = useState([]);
+  const [premiumBusinesses, setPremiumBusinesses] = useState([]);
 
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
@@ -23,7 +24,11 @@ export default function Subcategory() {
   const [neighborhood, setNeighborhood] = useState('');
 
   const [loading, setLoading] = useState(true);
+  const [premiumLoading, setPremiumLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [premiumOpen, setPremiumOpen] = useState(false);
+  const [premiumIndex, setPremiumIndex] = useState(0);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -52,6 +57,7 @@ export default function Subcategory() {
     }
 
     loadBusinesses();
+    loadPremiumBusinesses();
   }, [
     router.isReady,
     id,
@@ -115,6 +121,8 @@ export default function Subcategory() {
   }
 
   async function loadBusinesses() {
+    setLoading(true);
+
     let request = supabase
       .from('businesses')
       .select(`
@@ -168,11 +176,380 @@ export default function Subcategory() {
     setLoading(false);
   }
 
+  async function loadPremiumBusinesses() {
+    setPremiumLoading(true);
+
+    /*
+      Primeiro encontramos as assinaturas ativas.
+      Depois cruzamos com os negócios desta subcategoria.
+    */
+
+    const { data: subscriptions, error: subscriptionError } =
+      await supabase
+        .from('business_subscriptions')
+        .select(`
+          business_id,
+          plan_id,
+          starts_at,
+          status
+        `)
+        .eq('status', 'active');
+
+    if (subscriptionError) {
+      console.error(subscriptionError);
+      setPremiumBusinesses([]);
+      setPremiumLoading(false);
+      return;
+    }
+
+    if (!subscriptions || subscriptions.length === 0) {
+      setPremiumBusinesses([]);
+      setPremiumLoading(false);
+      return;
+    }
+
+    const businessIds = [
+      ...new Set(
+        subscriptions
+          .map((subscription) => subscription.business_id)
+          .filter(Boolean)
+      ),
+    ];
+
+    if (businessIds.length === 0) {
+      setPremiumBusinesses([]);
+      setPremiumLoading(false);
+      return;
+    }
+
+    const { data: premiumData, error: premiumError } =
+      await supabase
+        .from('businesses')
+        .select(`
+          id,
+          name,
+          description,
+          municipality,
+          neighborhood,
+          logo_url
+        `)
+        .in('id', businessIds)
+        .eq('country_id', country)
+        .eq('province_id', province)
+        .eq('subcategory_id', id)
+        .eq('is_active', true)
+        .eq('approval_status', 'approved');
+
+    if (premiumError) {
+      console.error(premiumError);
+      setPremiumBusinesses([]);
+      setPremiumLoading(false);
+      return;
+    }
+
+    setPremiumBusinesses(premiumData || []);
+    setPremiumLoading(false);
+  }
+
+  function openPremium(index = 0) {
+    setPremiumIndex(index);
+    setPremiumOpen(true);
+  }
+
+  function closePremium() {
+    setPremiumOpen(false);
+  }
+
+  function nextPremium() {
+    if (premiumIndex < premiumBusinesses.length - 1) {
+      setPremiumIndex((current) => current + 1);
+    }
+  }
+
+  function previousPremium() {
+    if (premiumIndex > 0) {
+      setPremiumIndex((current) => current - 1);
+    }
+  }
+
+  function sendSMS(business) {
+    if (!business) return;
+
+    /*
+      Ainda não existe no código fornecido um campo de telefone
+      específico do negócio. Por isso não inventamos uma coluna.
+    */
+
+    alert(
+      `O contacto de ${business.name} será ligado aqui quando o campo de telefone/SMS estiver definido.`
+    );
+  }
+
+  if (premiumOpen && premiumBusinesses.length > 0) {
+    const business = premiumBusinesses[premiumIndex];
+
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#000000',
+          color: '#FFFFFF',
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          overflow: 'hidden',
+        }}
+      >
+        {/* TOPO DO FEED */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '14px 15px',
+            background:
+              'linear-gradient(to bottom, rgba(0,0,0,.75), transparent)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={closePremium}
+            style={{
+              border: '1px solid rgba(255,255,255,.25)',
+              background: 'rgba(0,0,0,.35)',
+              color: '#FFFFFF',
+              borderRadius: 10,
+              padding: '9px 13px',
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            ← Voltar
+          </button>
+
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: '.3px',
+            }}
+          >
+            DESTAQUES PREMIUM
+          </div>
+
+          <div
+            style={{
+              fontSize: 11,
+              opacity: .8,
+            }}
+          >
+            {premiumIndex + 1}/{premiumBusinesses.length}
+          </div>
+        </div>
+
+        {/* CONTEÚDO VERTICAL */}
+        <div
+          style={{
+            height: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+          }}
+        >
+          {business.logo_url ? (
+            <img
+              src={business.logo_url}
+              alt={business.name}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                background:
+                  'linear-gradient(145deg, #075B4E, #0B7563)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 30,
+                boxSizing: 'border-box',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 34,
+                  fontWeight: 900,
+                  textAlign: 'center',
+                }}
+              >
+                {business.name}
+              </div>
+            </div>
+          )}
+
+          {/* GRADIENTE INFERIOR */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: '42%',
+              background:
+                'linear-gradient(to top, rgba(0,0,0,.88), transparent)',
+              pointerEvents: 'none',
+            }}
+          />
+
+          {/* INFORMAÇÕES */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 18,
+              right: 18,
+              bottom: 24,
+              zIndex: 5,
+            }}
+          >
+            <h2
+              style={{
+                margin: '0 0 7px',
+                fontSize: 24,
+                fontWeight: 900,
+              }}
+            >
+              {business.name}
+            </h2>
+
+            {business.description && (
+              <p
+                style={{
+                  margin: '0 0 14px',
+                  fontSize: 13,
+                  lineHeight: 1.45,
+                  color: 'rgba(255,255,255,.88)',
+                  maxWidth: 500,
+                }}
+              >
+                {business.description}
+              </p>
+            )}
+
+            <div
+              style={{
+                display: 'flex',
+                gap: 8,
+                flexWrap: 'wrap',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => sendSMS(business)}
+                style={{
+                  border: 'none',
+                  background: '#E6A900',
+                  color: '#17342F',
+                  borderRadius: 12,
+                  padding: '11px 15px',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                }}
+              >
+                Enviar SMS
+              </button>
+
+              <Link
+                href={`/businesses/${business.id}?country=${country}&province=${province}`}
+                style={{
+                  textDecoration: 'none',
+                  background: 'rgba(255,255,255,.14)',
+                  border: '1px solid rgba(255,255,255,.3)',
+                  color: '#FFFFFF',
+                  borderRadius: 12,
+                  padding: '11px 15px',
+                  fontWeight: 800,
+                  backdropFilter: 'blur(8px)',
+                }}
+              >
+                Ver perfil
+              </Link>
+            </div>
+          </div>
+
+          {/* NAVEGAÇÃO LATERAL */}
+          <div
+            style={{
+              position: 'absolute',
+              right: 12,
+              bottom: 110,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              zIndex: 8,
+            }}
+          >
+            {premiumIndex > 0 && (
+              <button
+                type="button"
+                onClick={previousPremium}
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: '50%',
+                  border:
+                    '1px solid rgba(255,255,255,.35)',
+                  background: 'rgba(0,0,0,.4)',
+                  color: '#FFFFFF',
+                  fontSize: 20,
+                  cursor: 'pointer',
+                }}
+              >
+                ↑
+              </button>
+            )}
+
+            {premiumIndex <
+              premiumBusinesses.length - 1 && (
+              <button
+                type="button"
+                onClick={nextPremium}
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: '50%',
+                  border:
+                    '1px solid rgba(255,255,255,.35)',
+                  background: 'rgba(0,0,0,.4)',
+                  color: '#FFFFFF',
+                  fontSize: 20,
+                  cursor: 'pointer',
+                }}
+              >
+                ↓
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="container"
       style={{
-        paddingBottom: 50,
+        paddingBottom: 60,
       }}
     >
       {/* CABEÇALHO */}
@@ -229,6 +606,12 @@ export default function Subcategory() {
         </Link>
       </nav>
 
+      {loading && (
+        <p style={{ color: 'var(--ink-faint)' }}>
+          A carregar…
+        </p>
+      )}
+
       {error && (
         <div
           style={{
@@ -244,7 +627,7 @@ export default function Subcategory() {
         </div>
       )}
 
-      {subcategory && (
+      {!loading && !error && subcategory && (
         <>
           {/* LOCALIZAÇÃO */}
           <div
@@ -285,7 +668,7 @@ export default function Subcategory() {
             </p>
           )}
 
-          {/* PESQUISA COMPACTA */}
+          {/* PESQUISA */}
           <div
             style={{
               margin: '18px 0',
@@ -352,6 +735,171 @@ export default function Subcategory() {
             </div>
           </div>
 
+          {/* DESTAQUES PREMIUM */}
+          <section
+            style={{
+              marginTop: 24,
+              marginBottom: 28,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 10,
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: 19,
+                    color: '#17342F',
+                  }}
+                >
+                  Destaques Premium
+                </h2>
+
+                <p
+                  style={{
+                    margin: '4px 0 0',
+                    fontSize: 11,
+                    color: '#7A8986',
+                  }}
+                >
+                  Negócios que escolheram aparecer aqui.
+                </p>
+              </div>
+
+              {premiumBusinesses.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => openPremium(0)}
+                  style={{
+                    border: 'none',
+                    background: '#075B4E',
+                    color: '#FFFFFF',
+                    borderRadius: 10,
+                    padding: '9px 12px',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Ver destaques
+                </button>
+              )}
+            </div>
+
+            {premiumLoading && (
+              <div
+                style={{
+                  padding: 15,
+                  borderRadius: 14,
+                  background: '#F7FAF9',
+                  color: '#7A8986',
+                  fontSize: 12,
+                }}
+              >
+                A carregar destaques…
+              </div>
+            )}
+
+            {!premiumLoading &&
+              premiumBusinesses.length === 0 && (
+                <div
+                  style={{
+                    padding: 16,
+                    borderRadius: 14,
+                    background: '#FFFFFF',
+                    border: '1px solid #DCE6E3',
+                    color: '#7A8986',
+                    fontSize: 12,
+                  }}
+                >
+                  Ainda não existem Destaques Premium
+                  nesta subcategoria.
+                </div>
+              )}
+
+            {!premiumLoading &&
+              premiumBusinesses.length > 0 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 9,
+                    overflowX: 'auto',
+                    paddingBottom: 4,
+                  }}
+                >
+                  {premiumBusinesses.map(
+                    (business, index) => (
+                      <button
+                        key={business.id}
+                        type="button"
+                        onClick={() =>
+                          openPremium(index)
+                        }
+                        style={{
+                          flex: '0 0 145px',
+                          border: '1px solid #DCE6E3',
+                          borderRadius: 14,
+                          background: '#FFFFFF',
+                          padding: 8,
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                        }}
+                      >
+                        {business.logo_url ? (
+                          <img
+                            src={business.logo_url}
+                            alt={business.name}
+                            style={{
+                              width: '100%',
+                              height: 105,
+                              objectFit: 'cover',
+                              borderRadius: 10,
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              height: 105,
+                              borderRadius: 10,
+                              background: '#075B4E',
+                              color: '#FFFFFF',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              textAlign: 'center',
+                              padding: 8,
+                              boxSizing: 'border-box',
+                              fontSize: 12,
+                              fontWeight: 800,
+                            }}
+                          >
+                            {business.name}
+                          </div>
+                        )}
+
+                        <div
+                          style={{
+                            marginTop: 7,
+                            fontSize: 12,
+                            fontWeight: 850,
+                            color: '#17342F',
+                          }}
+                        >
+                          {business.name}
+                        </div>
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
+          </section>
+
           {/* NEGÓCIOS */}
           <div
             style={{
@@ -367,7 +915,7 @@ export default function Subcategory() {
                 margin: 0,
               }}
             >
-              Encontre aqui
+              Negócios
             </h2>
 
             <span
