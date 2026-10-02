@@ -10,6 +10,7 @@ const AREAS = [
     description:
       'Encontre negócios, produtos, serviços e soluções perto de você.',
     color: '#075B4E',
+    action: 'scroll',
   },
   {
     name: 'Contratar',
@@ -17,6 +18,7 @@ const AREAS = [
     description:
       'Encontre profissionais e pessoas preparadas para realizar o que você precisa.',
     color: '#0B7563',
+    route: '/contratar',
   },
   {
     name: 'Comunidade',
@@ -101,10 +103,16 @@ export default function Explore() {
   }
 
   async function loadCategories() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('categories')
       .select('id, name')
       .order('name', { ascending: true });
+
+    if (error) {
+      console.error(error);
+      setCategories([]);
+      return;
+    }
 
     setCategories(data || []);
   }
@@ -149,13 +157,24 @@ export default function Explore() {
   }
 
   function handleAreaClick(area) {
+    if (area.route) {
+      router.push({
+        pathname: area.route,
+        query: {
+          country,
+          province,
+        },
+      });
+      return;
+    }
+
     setSelectedArea(
       selectedArea === area.name
         ? null
         : area.name
     );
 
-    if (area.name === 'Encontrar') {
+    if (area.action === 'scroll') {
       setTimeout(() => {
         document
           .getElementById('categorias')
@@ -181,7 +200,7 @@ export default function Explore() {
           paddingBottom: 50,
         }}
       >
-        {/* CABEÇALHO COMPACTO */}
+        {/* CABEÇALHO */}
         <nav
           style={{
             display: 'flex',
@@ -237,16 +256,6 @@ export default function Explore() {
               gap: 8,
             }}
           >
-            <div
-              style={{
-                display: 'none',
-                color: '#596B68',
-                fontSize: 12,
-              }}
-            >
-              {provinceName}
-            </div>
-
             <Link
               href="/login"
               style={{
@@ -279,7 +288,7 @@ export default function Explore() {
           </div>
         </nav>
 
-        {/* LOCALIZAÇÃO + PESQUISA */}
+        {/* LOCALIZAÇÃO */}
         <div
           style={{
             marginTop: 12,
@@ -295,6 +304,7 @@ export default function Explore() {
           {countryName} · {provinceName}
         </div>
 
+        {/* PESQUISA */}
         <div
           style={{
             marginTop: 14,
@@ -318,7 +328,7 @@ export default function Explore() {
           />
         </div>
 
-        {/* ÁREAS COMPACTAS */}
+        {/* ÁREAS */}
         <section
           style={{
             marginTop: 18,
@@ -617,5 +627,7 @@ export default function Explore() {
       </div>
     </div>
   );
-}            
+}
+```
+              
                                   
