@@ -1,5 +1,4 @@
-                              
-          import Link from 'next/link';
+import Link from 'next/link';
 
 export default function Home() {
   return (
@@ -27,7 +26,8 @@ export default function Home() {
           textAlign: 'center',
           background:
             'linear-gradient(145deg, #075B4E 0%, #0B7563 55%, #06483E 100%)',
-          boxShadow: '0 20px 50px rgba(0, 60, 50, 0.18)',
+          boxShadow:
+            '0 20px 50px rgba(0, 60, 50, 0.18)',
           color: '#FFFFFF',
         }}
       >
@@ -37,8 +37,10 @@ export default function Home() {
             width: 82,
             height: 82,
             borderRadius: 22,
-            border: '1px solid rgba(255,255,255,0.25)',
-            background: 'rgba(255,255,255,0.08)',
+            border:
+              '1px solid rgba(255,255,255,0.25)',
+            background:
+              'rgba(255,255,255,0.08)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -67,7 +69,7 @@ export default function Home() {
           TALAZA
         </div>
 
-        {/* FRASE */}
+        {/* FRASE PRINCIPAL */}
         <h1
           style={{
             fontSize: 'clamp(32px, 6vw, 48px)',
@@ -90,8 +92,9 @@ export default function Home() {
             lineHeight: 1.6,
           }}
         >
-          Encontre negócios, produtos, serviços e oportunidades
-          de forma simples, organizada e perto de você.
+          Encontre negócios, produtos, serviços,
+          profissionais e oportunidades de forma simples,
+          organizada e perto de você.
         </p>
 
         {/* BOTÕES */}
@@ -131,7 +134,8 @@ export default function Home() {
               minWidth: 190,
               background: 'transparent',
               color: '#FFFFFF',
-              border: '2px solid rgba(255,255,255,0.35)',
+              border:
+                '2px solid rgba(255,255,255,0.35)',
               justifyContent: 'center',
               fontWeight: 700,
               padding: '15px 22px',
@@ -141,23 +145,14 @@ export default function Home() {
             Já tenho conta
           </Link>
         </div>
-
       </main>
     </div>
   );
 }
-                  
-
-                  
-        
-        
-
-           
-      
-        
-            
-
-                
+```
+                             
+          
+                    
                       
 
                 
