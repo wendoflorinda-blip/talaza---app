@@ -11,7 +11,6 @@ export default function ProfessionalSubcategories() {
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
   const [categoryData, setCategoryData] = useState(null);
-
   const [subcategories, setSubcategories] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -26,12 +25,7 @@ export default function ProfessionalSubcategories() {
     }
 
     loadPage();
-  }, [
-    router.isReady,
-    category,
-    country,
-    province,
-  ]);
+  }, [router.isReady, category, country, province]);
 
   async function loadPage() {
     setLoading(true);
@@ -95,6 +89,10 @@ export default function ProfessionalSubcategories() {
 
       /*
        * 3. CATEGORIA PROFISSIONAL
+       *
+       * IMPORTANTE:
+       * É professional_categories.
+       * Não é categories.
        */
       const {
         data: categoryResult,
@@ -120,12 +118,11 @@ export default function ProfessionalSubcategories() {
       /*
        * 4. SUBCATEGORIAS
        *
-       * IMPORTANTE:
-       * A ligação é:
+       * Aqui está a ligação:
        *
        * professional_subcategories.category_id
        *
-       * =
+       * recebe o ID de:
        *
        * professional_categories.id
        */
@@ -166,6 +163,7 @@ export default function ProfessionalSubcategories() {
         'Não foi possível carregar as subcategorias profissionais.'
       );
 
+      setCategoryData(null);
       setSubcategories([]);
     } finally {
       setLoading(false);
@@ -176,7 +174,7 @@ export default function ProfessionalSubcategories() {
     router.push({
       pathname: '/professional-profiles',
       query: {
-        category,
+        category: category,
         subcategory: subcategoryId,
         country,
         province,
@@ -240,7 +238,7 @@ export default function ProfessionalSubcategories() {
             fontSize: 12,
           }}
         >
-          ← Categorias
+          ← Voltar
         </Link>
       </nav>
 
@@ -261,58 +259,67 @@ export default function ProfessionalSubcategories() {
       </div>
 
       {/* CABEÇALHO DA CATEGORIA */}
-      {!loading && categoryData && (
-        <section
+      <section
+        style={{
+          marginTop: 18,
+          padding: 22,
+          borderRadius: 20,
+          background:
+            'linear-gradient(135deg,#075B4E,#0C7564)',
+          color: '#FFFFFF',
+        }}
+      >
+        <div
           style={{
-            marginTop: 18,
-            padding: 22,
-            borderRadius: 20,
-            background:
-              'linear-gradient(135deg,#075B4E,#0C7564)',
-            color: '#FFFFFF',
+            fontSize: 10,
+            fontWeight: 800,
+            letterSpacing: 0.6,
+            textTransform: 'uppercase',
+            opacity: 0.8,
+            marginBottom: 9,
           }}
         >
-          <div
+          Contratar
+        </div>
+
+        <h1
+          style={{
+            margin: 0,
+            fontSize: 27,
+            lineHeight: 1.15,
+          }}
+        >
+          {categoryData?.name ||
+            'Escolha uma área profissional'}
+        </h1>
+
+        {categoryData?.description && (
+          <p
             style={{
-              display: 'inline-flex',
-              padding: '6px 10px',
-              borderRadius: 999,
-              background:
-                'rgba(255,255,255,0.12)',
-              fontSize: 10,
-              fontWeight: 800,
-              marginBottom: 12,
+              margin: '11px 0 0',
+              fontSize: 13,
+              lineHeight: 1.6,
+              opacity: 0.94,
             }}
           >
-            CONTRATAR
-          </div>
+            {categoryData.description}
+          </p>
+        )}
 
-          <h1
-            style={{
-              fontSize: 27,
-              lineHeight: 1.15,
-              margin: 0,
-            }}
-          >
-            {categoryData.name}
-          </h1>
+        <p
+          style={{
+            margin: '12px 0 0',
+            fontSize: 12,
+            lineHeight: 1.5,
+            opacity: 0.82,
+          }}
+        >
+          Escolha abaixo a área profissional que
+          corresponde ao que você procura.
+        </p>
+      </section>
 
-          {categoryData.description && (
-            <p
-              style={{
-                margin: '10px 0 0',
-                fontSize: 13,
-                lineHeight: 1.6,
-                opacity: 0.94,
-              }}
-            >
-              {categoryData.description}
-            </p>
-          )}
-        </section>
-      )}
-
-      {/* TÍTULO */}
+      {/* CONTEÚDO */}
       <section
         style={{
           marginTop: 26,
@@ -324,7 +331,7 @@ export default function ProfessionalSubcategories() {
             fontSize: 21,
           }}
         >
-          Escolha a área profissional
+          Escolha uma área
         </h2>
 
         <p
@@ -335,10 +342,11 @@ export default function ProfessionalSubcategories() {
             lineHeight: 1.5,
           }}
         >
-          Selecione a área que corresponde ao
-          profissional que você procura.
+          Encontre profissionais preparados para a
+          função que você precisa.
         </p>
 
+        {/* CARREGANDO */}
         {loading && (
           <div
             style={{
@@ -354,35 +362,36 @@ export default function ProfessionalSubcategories() {
           </div>
         )}
 
-        {!loading &&
-          error && (
-            <div
-              style={{
-                padding: 16,
-                borderRadius: 14,
-                background: '#FFF1F0',
-                border: '1px solid #F0C8C5',
-                color: '#9B2C2C',
-                fontSize: 13,
-                lineHeight: 1.5,
-              }}
-            >
-              {error}
-            </div>
-          )}
+        {/* ERRO */}
+        {!loading && error && (
+          <div
+            style={{
+              padding: 17,
+              borderRadius: 14,
+              background: '#FFF1F0',
+              border: '1px solid #F0C8C5',
+              color: '#9B2C2C',
+              fontSize: 13,
+              lineHeight: 1.5,
+            }}
+          >
+            {error}
+          </div>
+        )}
 
+        {/* SEM SUBCATEGORIAS */}
         {!loading &&
           !error &&
           subcategories.length === 0 && (
             <div
               style={{
-                padding: 18,
-                borderRadius: 14,
+                padding: 19,
+                borderRadius: 15,
                 background: '#FFFFFF',
                 border: '1px solid #DCE6E3',
                 color: '#7A8986',
                 fontSize: 13,
-                lineHeight: 1.5,
+                lineHeight: 1.55,
               }}
             >
               Ainda não existem áreas profissionais
@@ -390,6 +399,7 @@ export default function ProfessionalSubcategories() {
             </div>
           )}
 
+        {/* SUBCATEGORIAS */}
         {!loading &&
           !error &&
           subcategories.length > 0 && (
@@ -412,6 +422,7 @@ export default function ProfessionalSubcategories() {
                       )
                     }
                     style={{
+                      width: '100%',
                       textAlign: 'left',
                       border:
                         '1px solid #DCE6E3',
@@ -464,12 +475,12 @@ export default function ProfessionalSubcategories() {
           )}
       </section>
 
-      {/* PUBLICAR VAGA */}
+      {/* INFORMAÇÃO */}
       <section
         style={{
-          marginTop: 32,
-          padding: 20,
-          borderRadius: 18,
+          marginTop: 30,
+          padding: 18,
+          borderRadius: 16,
           background: '#F4F8F7',
           border: '1px solid #DCE6E3',
         }}
@@ -479,55 +490,31 @@ export default function ProfessionalSubcategories() {
             fontSize: 11,
             fontWeight: 800,
             color: '#075B4E',
-            textTransform: 'uppercase',
-            letterSpacing: 0.5,
-            marginBottom: 8,
+            marginBottom: 7,
           }}
         >
-          Não encontrou o profissional?
+          LOCALIZAÇÃO
         </div>
-
-        <h2
-          style={{
-            margin: 0,
-            fontSize: 20,
-          }}
-        >
-          Publique uma vaga
-        </h2>
 
         <p
           style={{
-            margin: '8px 0 14px',
+            margin: 0,
             color: 'var(--ink-soft)',
-            fontSize: 13,
+            fontSize: 12,
             lineHeight: 1.55,
           }}
         >
-          Não encontrou a pessoa certa? Publique uma
-          vaga e descreva o profissional que você
-          procura.
+          Você está procurando profissionais em{' '}
+          <strong>
+            {provinceName || 'sua província'}
+          </strong>
+          . Os profissionais apresentados na próxima
+          etapa serão filtrados de acordo com a
+          província selecionada.
         </p>
-
-        <Link
-          href={{
-            pathname: '/job-post',
-            query: {
-              country,
-              province,
-              category,
-            },
-          }}
-          className="btn btn-primary"
-          style={{
-            display: 'inline-flex',
-            textDecoration: 'none',
-          }}
-        >
-          Publicar uma vaga
-        </Link>
       </section>
     </div>
   );
 }
-  
+           
+          
