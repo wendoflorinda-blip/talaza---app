@@ -1,4 +1,4 @@
-  import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
@@ -12,17 +12,7 @@ export default function Contratar() {
   const [provinceName, setProvinceName] = useState('');
 
   const [categories, setCategories] = useState([]);
-  const [subcategories, setSubcategories] = useState([]);
-  const [professionals, setProfessionals] = useState([]);
-
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
-
   const [loadingCategories, setLoadingCategories] = useState(true);
-  const [loadingSubcategories, setLoadingSubcategories] =
-    useState(false);
-  const [loadingProfessionals, setLoadingProfessionals] =
-    useState(false);
 
   const [showJobForm, setShowJobForm] = useState(false);
 
@@ -69,8 +59,8 @@ export default function Contratar() {
       .eq('id', country)
       .single();
 
-    setProvinceName(provinceData.name);
     setCountryName(countryData?.name || '');
+    setProvinceName(provinceData.name || '');
   }
 
   async function loadCategories() {
@@ -78,9 +68,8 @@ export default function Contratar() {
     setError('');
 
     /*
-     * IMPORTANTE:
-     * professional_categories NÃO possui description.
-     * Por isso buscamos somente as colunas existentes.
+     * Não usamos description porque essa coluna
+     * não existe em professional_categories.
      */
     const { data, error } = await supabase
       .from('professional_categories')
@@ -91,11 +80,12 @@ export default function Contratar() {
     if (error) {
       console.error('Erro ao carregar categorias:', error);
 
+      setCategories([]);
+
       setError(
         'Não foi possível carregar as categorias profissionais.'
       );
 
-      setCategories([]);
       setLoadingCategories(false);
       return;
     }
@@ -104,161 +94,15 @@ export default function Contratar() {
     setLoadingCategories(false);
   }
 
-  async function selectCategory(category) {
-    setSelectedCategory(category);
-    setSelectedSubcategory(null);
-    setSubcategories([]);
-    setProfessionals([]);
-    setMessage('');
-    setError('');
-    setLoadingSubcategories(true);
-
-    /*
-     * professional_subcategories também será consultada
-     * apenas com colunas essenciais.
-     */
-    const { data, error } = await supabase
-      .from('professional_subcategories')
-      .select('id, name, category_id, is_active')
-      .eq('category_id', category.id)
-      .eq('is_active', true)
-      .order('name', { ascending: true });
-
-    if (error) {
-      console.error(
-        'Erro ao carregar subcategorias:',
-        error
-      );
-
-      setError(
-        'Não foi possível carregar as áreas profissionais.'
-      );
-
-      setSubcategories([]);
-      setLoadingSubcategories(false);
-      return;
-    }
-
-    setSubcategories(data || []);
-    setLoadingSubcategories(false);
-  }
-
-  async function selectSubcategory(subcategory) {
-    setSelectedSubcategory(subcategory);
-    setLoadingProfessionals(true);
-    setProfessionals([]);
-    setMessage('');
-    setError('');
-
-    const { data, error } = await supabase
-      .from('professional_profiles')
-      .select(`
-        id,
-        user_id,
-        country_id,
-        province_id,
-        category_id,
-        subcategory_id,
-        name,
-        professional_competence,
-        age,
-        gender,
-        photo_url,
-        work_availability,
-        municipality,
-        neighborhood,
-        accepts_any_job,
-        plan_id,
-        status,
-        is_active,
-        created_at
-      `)
-      .eq('country_id', country)
-      .eq('province_id', province)
-      .eq('category_id', selectedCategory.id)
-      .eq('subcategory_id', subcategory.id)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error(
-        'Erro ao carregar profissionais:',
-        error
-      );
-
-      setError(
-        'Não foi possível carregar os profissionais desta área.'
-      );
-
-      setProfessionals([]);
-      setLoadingProfessionals(false);
-      return;
-    }
-
-    setProfessionals(data || []);
-    setLoadingProfessionals(false);
-  }
-
-  async function handleSendMessage(professional) {
-    setMessage('');
-    setError('');
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      router.push(
-        `/login?redirect=${encodeURIComponent(
-          router.asPath
-        )}`
-      );
-      return;
-    }
-
-    const professionalUserId = professional.user_id;
-
-    if (!professionalUserId) {
-      setError(
-        'Não foi possível identificar este profissional.'
-      );
-      return;
-    }
-
-    if (professionalUserId === user.id) {
-      setError(
-        'Você não pode enviar uma mensagem para o seu próprio perfil.'
-      );
-      return;
-    }
-
-    const { error } = await supabase
-      .from('messages')
-      .insert({
-        sender_id: user.id,
-        receiver_id: professionalUserId,
-        professional_profile_id: professional.id,
-        message_type: 'text',
-        content:
-          'Olá! Encontrei o seu perfil no Talaza e gostaria de falar consigo sobre uma oportunidade de trabalho.',
-        is_read: false,
-      });
-
-    if (error) {
-      console.error(
-        'Erro ao enviar mensagem:',
-        error
-      );
-
-      setError(
-        'Não foi possível enviar a mensagem. Tente novamente.'
-      );
-      return;
-    }
-
-    setMessage(
-      'Mensagem enviada. O profissional poderá responder pela área de mensagens do Talaza.'
-    );
+  function handleCategoryClick(category) {
+    router.push({
+      pathname: '/professional-subcategory',
+      query: {
+        country,
+        province,
+        category: category.id,
+      },
+    });
   }
 
   async function handlePublishJob(event) {
@@ -267,73 +111,27 @@ export default function Contratar() {
     setMessage('');
     setError('');
 
-    if (!selectedCategory || !selectedSubcategory) {
-      setError(
-        'Escolha primeiro a categoria e a área profissional da vaga.'
-      );
-      return;
-    }
-
-    if (!title.trim() || !description.trim()) {
-      setError(
-        'Preencha o título e a descrição da vaga.'
-      );
-      return;
-    }
-
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
       router.push(
-        `/login?redirect=${encodeURIComponent(
-          router.asPath
-        )}`
+        `/login?redirect=${encodeURIComponent(router.asPath)}`
       );
       return;
     }
 
-    const { error } = await supabase
-      .from('job_posts')
-      .insert({
-        user_id: user.id,
-        country_id: country,
-        province_id: province,
-        category_id: selectedCategory.id,
-        subcategory_id: selectedSubcategory.id,
-        title: title.trim(),
-        description: description.trim(),
-        requirements: requirements.trim() || null,
-        municipality: municipality.trim() || null,
-        neighborhood: neighborhood.trim() || null,
-        status: 'published',
-        is_active: true,
-      });
-
-    if (error) {
-      console.error(
-        'Erro ao publicar vaga:',
-        error
-      );
-
-      setError(
-        'Não foi possível publicar a vaga. Tente novamente.'
-      );
-      return;
-    }
-
-    setTitle('');
-    setDescription('');
-    setRequirements('');
-    setMunicipality('');
-    setNeighborhood('');
-
-    setMessage(
-      'Sua vaga foi publicada e ficará disponível para profissionais da província selecionada.'
+    /*
+     * A vaga precisa de uma categoria e subcategoria.
+     * Como estamos na página inicial do Contratar,
+     * o utilizador deverá escolher primeiro uma categoria.
+     */
+    setError(
+      'Para publicar uma vaga, escolha primeiro a categoria profissional e a área correspondente.'
     );
 
-    setShowJobForm(false);
+    return;
   }
 
   return (
@@ -465,10 +263,11 @@ export default function Contratar() {
             lineHeight: 1.65,
           }}
         >
-          Esta área é destinada a quem procura profissionais
-          para contratar. Os perfis apresentados pertencem a
-          pessoas que procuram oportunidades de trabalho ou
-          disponibilizam as suas competências para contratação.
+          Esta área é destinada a quem procura pessoas ou
+          profissionais para contratar. Os perfis apresentados
+          pertencem a pessoas que procuram oportunidades de
+          trabalho ou disponibilizam as suas competências para
+          contratação.
         </p>
 
         <p
@@ -485,10 +284,10 @@ export default function Contratar() {
         </p>
       </section>
 
-      {/* CATEGORIAS */}
+      {/* CATEGORIAS PROFISSIONAIS */}
       <section
         style={{
-          marginTop: 24,
+          marginTop: 26,
         }}
       >
         <h2
@@ -502,17 +301,22 @@ export default function Contratar() {
 
         <p
           style={{
-            margin: '5px 0 14px',
+            margin: '6px 0 16px',
             color: 'var(--ink-soft)',
             fontSize: 13,
           }}
         >
-          Comece por uma categoria.
+          Comece por uma categoria profissional.
         </p>
 
         {loadingCategories && (
-          <p style={{ color: 'var(--ink-faint)' }}>
-            A carregar categorias…
+          <p
+            style={{
+              color: 'var(--ink-faint)',
+              fontSize: 13,
+            }}
+          >
+            A carregar categorias profissionais…
           </p>
         )}
 
@@ -520,8 +324,8 @@ export default function Contratar() {
           categories.length === 0 && (
             <div
               style={{
-                padding: 16,
-                borderRadius: 13,
+                padding: 18,
+                borderRadius: 14,
                 background: '#FFFFFF',
                 border: '1px solid #DCE6E3',
                 color: '#7A8986',
@@ -539,32 +343,33 @@ export default function Contratar() {
               style={{
                 display: 'grid',
                 gridTemplateColumns:
-                  'repeat(auto-fit,minmax(170px,1fr))',
+                  'repeat(auto-fit,minmax(180px,1fr))',
                 gap: 10,
               }}
             >
-              {categories.map((category) => {
-                const selected =
-                  selectedCategory?.id === category.id;
-
-                return (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() =>
-                      selectCategory(category)
-                    }
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() =>
+                    handleCategoryClick(category)
+                  }
+                  style={{
+                    textAlign: 'left',
+                    border: '1px solid #DCE6E3',
+                    background: '#FFFFFF',
+                    borderRadius: 14,
+                    padding: 16,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <div
                     style={{
-                      textAlign: 'left',
-                      border: selected
-                        ? '2px solid #075B4E'
-                        : '1px solid #DCE6E3',
-                      background: selected
-                        ? '#EAF4F1'
-                        : '#FFFFFF',
-                      borderRadius: 14,
-                      padding: 15,
-                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 10,
                     }}
                   >
                     <strong
@@ -575,278 +380,22 @@ export default function Contratar() {
                     >
                       {category.name}
                     </strong>
-                  </button>
-                );
-              })}
+
+                    <span
+                      style={{
+                        color: '#075B4E',
+                        fontSize: 18,
+                        fontWeight: 700,
+                      }}
+                    >
+                      →
+                    </span>
+                  </div>
+                </button>
+              ))}
             </div>
           )}
       </section>
-
-      {/* SUBCATEGORIAS */}
-      {selectedCategory && (
-        <section
-          style={{
-            marginTop: 24,
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 18,
-              margin: 0,
-            }}
-          >
-            Escolha a área
-          </h2>
-
-          <p
-            style={{
-              color: 'var(--ink-soft)',
-              fontSize: 12,
-              marginTop: 5,
-            }}
-          >
-            {selectedCategory.name}
-          </p>
-
-          {loadingSubcategories && (
-            <p style={{ color: 'var(--ink-faint)' }}>
-              A carregar áreas profissionais…
-            </p>
-          )}
-
-          {!loadingSubcategories &&
-            subcategories.length === 0 && (
-              <div
-                style={{
-                  padding: 15,
-                  borderRadius: 13,
-                  background: '#FFFFFF',
-                  border: '1px solid #DCE6E3',
-                  fontSize: 13,
-                  color: '#7A8986',
-                }}
-              >
-                Ainda não existem áreas profissionais
-                cadastradas nesta categoria.
-              </div>
-            )}
-
-          {!loadingSubcategories &&
-            subcategories.length > 0 && (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns:
-                    'repeat(auto-fit,minmax(180px,1fr))',
-                  gap: 9,
-                }}
-              >
-                {subcategories.map((subcategory) => {
-                  const selected =
-                    selectedSubcategory?.id ===
-                    subcategory.id;
-
-                  return (
-                    <button
-                      key={subcategory.id}
-                      type="button"
-                      onClick={() =>
-                        selectSubcategory(subcategory)
-                      }
-                      style={{
-                        textAlign: 'left',
-                        border: selected
-                          ? '2px solid #075B4E'
-                          : '1px solid #DCE6E3',
-                        background: selected
-                          ? '#EAF4F1'
-                          : '#FFFFFF',
-                        borderRadius: 13,
-                        padding: 13,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <strong
-                        style={{
-                          fontSize: 13,
-                        }}
-                      >
-                        {subcategory.name}
-                      </strong>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-        </section>
-      )}
-
-      {/* PROFISSIONAIS */}
-      {selectedSubcategory && (
-        <section
-          style={{
-            marginTop: 26,
-          }}
-        >
-          <div
-            style={{
-              marginBottom: 12,
-            }}
-          >
-            <h2
-              style={{
-                fontSize: 19,
-                margin: 0,
-              }}
-            >
-              Profissionais disponíveis
-            </h2>
-
-            <p
-              style={{
-                margin: '4px 0 0',
-                color: 'var(--ink-soft)',
-                fontSize: 11,
-              }}
-            >
-              {selectedSubcategory.name} · {provinceName}
-            </p>
-          </div>
-
-          {loadingProfessionals && (
-            <p style={{ color: 'var(--ink-faint)' }}>
-              A procurar profissionais…
-            </p>
-          )}
-
-          {!loadingProfessionals &&
-            professionals.length === 0 && (
-              <div
-                style={{
-                  padding: 18,
-                  borderRadius: 14,
-                  background: '#FFFFFF',
-                  border: '1px solid #DCE6E3',
-                  fontSize: 13,
-                  color: '#7A8986',
-                }}
-              >
-                Ainda não encontramos profissionais
-                disponíveis nesta área e província.
-              </div>
-            )}
-
-          {!loadingProfessionals &&
-            professionals.length > 0 && (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns:
-                    'repeat(auto-fit,minmax(220px,1fr))',
-                  gap: 12,
-                }}
-              >
-                {professionals.map((professional) => (
-                  <div
-                    key={professional.id}
-                    style={{
-                      background: '#FFFFFF',
-                      border: '1px solid #DCE6E3',
-                      borderRadius: 16,
-                      padding: 14,
-                    }}
-                  >
-                    {professional.photo_url && (
-                      <img
-                        src={professional.photo_url}
-                        alt={
-                          professional.name ||
-                          'Profissional'
-                        }
-                        style={{
-                          width: 72,
-                          height: 72,
-                          borderRadius: '50%',
-                          objectFit: 'cover',
-                          marginBottom: 9,
-                        }}
-                      />
-                    )}
-
-                    <h3
-                      style={{
-                        margin: 0,
-                        fontSize: 15,
-                      }}
-                    >
-                      {professional.name ||
-                        'Profissional disponível'}
-                    </h3>
-
-                    {professional.professional_competence && (
-                      <p
-                        style={{
-                          fontSize: 12,
-                          lineHeight: 1.45,
-                          color: 'var(--ink-soft)',
-                          margin: '7px 0',
-                        }}
-                      >
-                        {professional.professional_competence}
-                      </p>
-                    )}
-
-                    {professional.work_availability && (
-                      <p
-                        style={{
-                          fontSize: 11,
-                          color: 'var(--ink-soft)',
-                          margin: '5px 0',
-                        }}
-                      >
-                        Disponibilidade:{' '}
-                        {professional.work_availability}
-                      </p>
-                    )}
-
-                    {(professional.municipality ||
-                      professional.neighborhood) && (
-                      <div
-                        style={{
-                          fontSize: 10,
-                          color: 'var(--ink-faint)',
-                          marginBottom: 10,
-                        }}
-                      >
-                        {professional.municipality}
-
-                        {professional.municipality &&
-                        professional.neighborhood
-                          ? ' · '
-                          : ''}
-
-                        {professional.neighborhood}
-                      </div>
-                    )}
-
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() =>
-                        handleSendMessage(professional)
-                      }
-                      style={{
-                        width: '100%',
-                      }}
-                    >
-                      Enviar mensagem
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-        </section>
-      )}
 
       {/* PUBLICAR VAGA */}
       <section
@@ -868,7 +417,7 @@ export default function Contratar() {
             marginBottom: 8,
           }}
         >
-          Não encontrou o profissional que procura?
+          Não encontrou o que procura?
         </div>
 
         <h2
@@ -888,8 +437,10 @@ export default function Contratar() {
             margin: '8px 0 15px',
           }}
         >
-          Publique o que você precisa e deixe que o
-          profissional certo encontre a sua oportunidade.
+          Não encontrou o profissional adequado nas
+          categorias? Publique a sua vaga com as condições
+          que deseja e permita que ela chegue aos
+          profissionais da sua província.
         </p>
 
         <button
@@ -900,125 +451,28 @@ export default function Contratar() {
           }
         >
           {showJobForm
-            ? 'Fechar publicação'
+            ? 'Fechar'
             : 'Publicar uma vaga'}
         </button>
 
         {showJobForm && (
-          <form
-            onSubmit={handlePublishJob}
+          <div
             style={{
-              marginTop: 18,
+              marginTop: 16,
+              padding: 14,
+              borderRadius: 12,
+              background: '#EAF4F1',
+              color: '#075B4E',
+              fontSize: 12,
+              lineHeight: 1.55,
             }}
           >
-            <div
-              style={{
-                padding: 13,
-                borderRadius: 12,
-                background: '#EAF4F1',
-                color: '#075B4E',
-                fontSize: 12,
-                lineHeight: 1.5,
-                marginBottom: 12,
-              }}
-            >
-              Escolha primeiro a categoria e a área
-              profissional acima. A vaga será associada à
-              província selecionada.
-            </div>
-
-            <input
-              className="input"
-              placeholder="Título da vaga"
-              value={title}
-              onChange={(e) =>
-                setTitle(e.target.value)
-              }
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                marginBottom: 9,
-              }}
-            />
-
-            <textarea
-              className="input"
-              placeholder="Descreva o trabalho ou a função que precisa preencher"
-              value={description}
-              onChange={(e) =>
-                setDescription(e.target.value)
-              }
-              rows={5}
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                marginBottom: 9,
-                resize: 'vertical',
-              }}
-            />
-
-            <textarea
-              className="input"
-              placeholder="Condições e requisitos"
-              value={requirements}
-              onChange={(e) =>
-                setRequirements(e.target.value)
-              }
-              rows={4}
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                marginBottom: 9,
-                resize: 'vertical',
-              }}
-            />
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit,minmax(180px,1fr))',
-                gap: 9,
-              }}
-            >
-              <input
-                className="input"
-                placeholder="Município"
-                value={municipality}
-                onChange={(e) =>
-                  setMunicipality(e.target.value)
-                }
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                }}
-              />
-
-              <input
-                className="input"
-                placeholder="Bairro"
-                value={neighborhood}
-                onChange={(e) =>
-                  setNeighborhood(e.target.value)
-                }
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{
-                width: '100%',
-                marginTop: 12,
-              }}
-            >
-              Publicar vaga
-            </button>
-          </form>
+            Para publicar uma vaga, primeiro escolha a
+            categoria profissional adequada. Depois escolha a
+            <strong> Professional Subcategory </strong>
+            correspondente. A vaga será ligada à província
+            selecionada e publicada na área de Oportunidades.
+          </div>
         )}
       </section>
 
@@ -1050,25 +504,25 @@ export default function Contratar() {
           }}
         >
           Faça parte dos profissionais disponíveis para
-          contratação. A área de oportunidades e os recursos
-          do Cliente Pró serão ligados quando o plano for
-          criado.
+          contratação. Com o plano Cliente Pró, o seu perfil
+          poderá aparecer nesta área e você poderá desbloquear
+          também a área de oportunidades.
         </p>
 
         <button
           type="button"
           className="btn btn-ghost"
-          onClick={() => {
+          onClick={() =>
             setMessage(
-              'A área de planos do Cliente Pró será ligada numa etapa posterior.'
-            );
-          }}
+              'A área de planos do Cliente Pró será ligada nesta etapa.'
+            )
+          }
         >
           Quero aparecer aqui
         </button>
       </section>
 
-      {/* MENSAGEM DE SUCESSO */}
+      {/* MENSAGEM */}
       {message && (
         <div
           style={{
@@ -1101,4 +555,7 @@ export default function Contratar() {
       )}
     </div>
   );
-}
+} 
+                
+          
+            
