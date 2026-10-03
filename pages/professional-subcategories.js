@@ -8,11 +8,11 @@ export default function ProfessionalSubcategories() {
 
   const { category, country, province } = router.query;
 
-  const [categoryData, setCategoryData] = useState(null);
-  const [subcategories, setSubcategories] = useState([]);
-
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
+  const [categoryData, setCategoryData] = useState(null);
+
+  const [subcategories, setSubcategories] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -37,92 +37,147 @@ export default function ProfessionalSubcategories() {
     setLoading(true);
     setError('');
 
-    // PAÍS
-    const { data: countryData } = await supabase
-      .from('countries')
-      .select('id, name')
-      .eq('id', country)
-      .single();
+    try {
+      const categoryId = Array.isArray(category)
+        ? category[0]
+        : category;
 
-    // PROVÍNCIA
-    const { data: provinceData, error: provinceError } =
-      await supabase
-        .from('provinces')
-        .select('id, name, country_id')
-        .eq('id', province)
-        .eq('country_id', country)
+      const countryId = Array.isArray(country)
+        ? country[0]
+        : country;
+
+      const provinceId = Array.isArray(province)
+        ? province[0]
+        : province;
+
+      /*
+       * 1. PAÍS
+       */
+      const {
+        data: countryData,
+        error: countryError,
+      } = await supabase
+        .from('countries')
+        .select('id, name')
+        .eq('id', countryId)
         .single();
 
-    if (provinceError || !provinceData) {
-      setError(
-        'A província selecionada não pertence ao país escolhido.'
+      if (countryError) {
+        console.error(
+          'Erro ao carregar país:',
+          countryError
+        );
+
+        throw countryError;
+      }
+
+      /*
+       * 2. PROVÍNCIA
+       */
+      const {
+        data: provinceData,
+        error: provinceError,
+      } = await supabase
+        .from('provinces')
+        .select('id, name, country_id')
+        .eq('id', provinceId)
+        .eq('country_id', countryId)
+        .single();
+
+      if (provinceError) {
+        console.error(
+          'Erro ao carregar província:',
+          provinceError
+        );
+
+        throw provinceError;
+      }
+
+      /*
+       * 3. CATEGORIA PROFISSIONAL
+       */
+      const {
+        data: categoryResult,
+        error: categoryError,
+      } = await supabase
+        .from('professional_categories')
+        .select(
+          'id, name, description, is_active'
+        )
+        .eq('id', categoryId)
+        .eq('is_active', true)
+        .single();
+
+      if (categoryError) {
+        console.error(
+          'Erro ao carregar categoria profissional:',
+          categoryError
+        );
+
+        throw categoryError;
+      }
+
+      /*
+       * 4. SUBCATEGORIAS
+       *
+       * IMPORTANTE:
+       * A ligação é:
+       *
+       * professional_subcategories.category_id
+       *
+       * =
+       *
+       * professional_categories.id
+       */
+      const {
+        data: subcategoryData,
+        error: subcategoryError,
+      } = await supabase
+        .from('professional_subcategories')
+        .select(
+          'id, created_at, category_id, name, description, is_active'
+        )
+        .eq('category_id', categoryResult.id)
+        .eq('is_active', true)
+        .order('name', {
+          ascending: true,
+        });
+
+      if (subcategoryError) {
+        console.error(
+          'Erro ao carregar subcategorias profissionais:',
+          subcategoryError
+        );
+
+        throw subcategoryError;
+      }
+
+      setCountryName(countryData?.name || '');
+      setProvinceName(provinceData?.name || '');
+      setCategoryData(categoryResult);
+      setSubcategories(subcategoryData || []);
+    } catch (err) {
+      console.error(
+        'ERRO REAL NA PÁGINA PROFESSIONAL SUBCATEGORIES:',
+        err
       );
-      setLoading(false);
-      return;
-    }
-
-    // CATEGORIA PROFISSIONAL
-    const {
-      data: categoryResult,
-      error: categoryError,
-    } = await supabase
-      .from('professional_categories')
-      .select(
-        'id, name, description, is_active, created_at'
-      )
-      .eq('id', category)
-      .eq('is_active', true)
-      .single();
-
-    if (categoryError || !categoryResult) {
-      console.error(categoryError);
-
-      setError(
-        'Não foi possível encontrar esta categoria profissional.'
-      );
-
-      setLoading(false);
-      return;
-    }
-
-    // SUBCATEGORIAS
-    const {
-      data: subcategoryData,
-      error: subcategoryError,
-    } = await supabase
-      .from('professional_subcategories')
-      .select(
-        'id, category_id, name, description, is_active, created_at'
-      )
-      .eq('category_id', category)
-      .eq('is_active', true)
-      .order('name', { ascending: true });
-
-    if (subcategoryError) {
-      console.error(subcategoryError);
 
       setError(
         'Não foi possível carregar as subcategorias profissionais.'
       );
 
+      setSubcategories([]);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setCountryName(countryData?.name || '');
-    setProvinceName(provinceData.name || '');
-    setCategoryData(categoryResult);
-    setSubcategories(subcategoryData || []);
-
-    setLoading(false);
   }
 
-  function openSubcategory(subcategory) {
+  function openSubcategory(subcategoryId) {
     router.push({
-      pathname: '/professionals',
+      pathname: '/professional-profiles',
       query: {
         category,
-        subcategory: subcategory.id,
+        subcategory: subcategoryId,
         country,
         province,
       },
@@ -145,7 +200,7 @@ export default function ProfessionalSubcategories() {
       >
         <Link
           href={{
-            pathname: '/explore',
+            pathname: '/contratar',
             query: {
               country,
               province,
@@ -172,22 +227,27 @@ export default function ProfessionalSubcategories() {
           <b>Talaza</b>
         </Link>
 
-        <button
-          type="button"
+        <Link
+          href={{
+            pathname: '/contratar',
+            query: {
+              country,
+              province,
+            },
+          }}
           className="btn btn-ghost"
-          onClick={() => router.back()}
           style={{
             fontSize: 12,
           }}
         >
-          ← Voltar
-        </button>
+          ← Categorias
+        </Link>
       </nav>
 
       {/* LOCALIZAÇÃO */}
       <div
         style={{
-          marginTop: 10,
+          marginTop: 12,
           display: 'inline-flex',
           padding: '7px 11px',
           borderRadius: 999,
@@ -204,9 +264,9 @@ export default function ProfessionalSubcategories() {
       {!loading && categoryData && (
         <section
           style={{
-            marginTop: 17,
-            padding: 21,
-            borderRadius: 19,
+            marginTop: 18,
+            padding: 22,
+            borderRadius: 20,
             background:
               'linear-gradient(135deg,#075B4E,#0C7564)',
             color: '#FFFFFF',
@@ -214,22 +274,24 @@ export default function ProfessionalSubcategories() {
         >
           <div
             style={{
-              fontSize: 11,
+              display: 'inline-flex',
+              padding: '6px 10px',
+              borderRadius: 999,
+              background:
+                'rgba(255,255,255,0.12)',
+              fontSize: 10,
               fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: 0.6,
-              opacity: 0.78,
-              marginBottom: 8,
+              marginBottom: 12,
             }}
           >
-            Área profissional
+            CONTRATAR
           </div>
 
           <h1
             style={{
-              margin: 0,
               fontSize: 27,
               lineHeight: 1.15,
+              margin: 0,
             }}
           >
             {categoryData.name}
@@ -253,7 +315,7 @@ export default function ProfessionalSubcategories() {
       {/* TÍTULO */}
       <section
         style={{
-          marginTop: 27,
+          marginTop: 26,
         }}
       >
         <h2
@@ -262,7 +324,7 @@ export default function ProfessionalSubcategories() {
             fontSize: 21,
           }}
         >
-          Em que área você procura?
+          Escolha a área profissional
         </h2>
 
         <p
@@ -273,14 +335,14 @@ export default function ProfessionalSubcategories() {
             lineHeight: 1.5,
           }}
         >
-          Escolha uma área profissional para encontrar pessoas
-          disponíveis para trabalhar na sua província.
+          Selecione a área que corresponde ao
+          profissional que você procura.
         </p>
 
         {loading && (
           <div
             style={{
-              padding: 17,
+              padding: 18,
               borderRadius: 14,
               background: '#FFFFFF',
               border: '1px solid #DCE6E3',
@@ -293,6 +355,23 @@ export default function ProfessionalSubcategories() {
         )}
 
         {!loading &&
+          error && (
+            <div
+              style={{
+                padding: 16,
+                borderRadius: 14,
+                background: '#FFF1F0',
+                border: '1px solid #F0C8C5',
+                color: '#9B2C2C',
+                fontSize: 13,
+                lineHeight: 1.5,
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+        {!loading &&
           !error &&
           subcategories.length === 0 && (
             <div
@@ -303,7 +382,7 @@ export default function ProfessionalSubcategories() {
                 border: '1px solid #DCE6E3',
                 color: '#7A8986',
                 fontSize: 13,
-                lineHeight: 1.55,
+                lineHeight: 1.5,
               }}
             >
               Ainda não existem áreas profissionais
@@ -322,77 +401,133 @@ export default function ProfessionalSubcategories() {
                 gap: 10,
               }}
             >
-              {subcategories.map((subcategory) => (
-                <button
-                  key={subcategory.id}
-                  type="button"
-                  onClick={() =>
-                    openSubcategory(subcategory)
-                  }
-                  style={{
-                    textAlign: 'left',
-                    border: '1px solid #DCE6E3',
-                    background: '#FFFFFF',
-                    borderRadius: 15,
-                    padding: 16,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <div
+              {subcategories.map(
+                (subcategory) => (
+                  <button
+                    key={subcategory.id}
+                    type="button"
+                    onClick={() =>
+                      openSubcategory(
+                        subcategory.id
+                      )
+                    }
                     style={{
-                      fontSize: 14,
-                      fontWeight: 800,
-                      color: '#075B4E',
+                      textAlign: 'left',
+                      border:
+                        '1px solid #DCE6E3',
+                      background: '#FFFFFF',
+                      borderRadius: 15,
+                      padding: 16,
+                      cursor: 'pointer',
                     }}
                   >
-                    {subcategory.name}
-                  </div>
-
-                  {subcategory.description && (
-                    <div
+                    <strong
                       style={{
-                        marginTop: 6,
-                        fontSize: 11,
-                        lineHeight: 1.45,
-                        color: 'var(--ink-soft)',
+                        display: 'block',
+                        fontSize: 14,
+                        color: '#075B4E',
                       }}
                     >
-                      {subcategory.description}
-                    </div>
-                  )}
+                      {subcategory.name}
+                    </strong>
 
-                  <div
-                    style={{
-                      marginTop: 12,
-                      fontSize: 11,
-                      fontWeight: 800,
-                      color: '#B88300',
-                    }}
-                  >
-                    Ver profissionais →
-                  </div>
-                </button>
-              ))}
+                    {subcategory.description && (
+                      <div
+                        style={{
+                          marginTop: 7,
+                          fontSize: 11,
+                          lineHeight: 1.45,
+                          color:
+                            'var(--ink-soft)',
+                        }}
+                      >
+                        {
+                          subcategory.description
+                        }
+                      </div>
+                    )}
+
+                    <div
+                      style={{
+                        marginTop: 11,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        color: '#B88300',
+                      }}
+                    >
+                      Ver profissionais →
+                    </div>
+                  </button>
+                )
+              )}
             </div>
           )}
       </section>
 
-      {/* ERRO */}
-      {error && (
+      {/* PUBLICAR VAGA */}
+      <section
+        style={{
+          marginTop: 32,
+          padding: 20,
+          borderRadius: 18,
+          background: '#F4F8F7',
+          border: '1px solid #DCE6E3',
+        }}
+      >
         <div
           style={{
-            marginTop: 18,
-            padding: 14,
-            borderRadius: 12,
-            background: '#FFF1F0',
-            color: '#9B2C2C',
-            fontSize: 12,
-            lineHeight: 1.5,
+            fontSize: 11,
+            fontWeight: 800,
+            color: '#075B4E',
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+            marginBottom: 8,
           }}
         >
-          {error}
+          Não encontrou o profissional?
         </div>
-      )}
+
+        <h2
+          style={{
+            margin: 0,
+            fontSize: 20,
+          }}
+        >
+          Publique uma vaga
+        </h2>
+
+        <p
+          style={{
+            margin: '8px 0 14px',
+            color: 'var(--ink-soft)',
+            fontSize: 13,
+            lineHeight: 1.55,
+          }}
+        >
+          Não encontrou a pessoa certa? Publique uma
+          vaga e descreva o profissional que você
+          procura.
+        </p>
+
+        <Link
+          href={{
+            pathname: '/job-post',
+            query: {
+              country,
+              province,
+              category,
+            },
+          }}
+          className="btn btn-primary"
+          style={{
+            display: 'inline-flex',
+            textDecoration: 'none',
+          }}
+        >
+          Publicar uma vaga
+        </Link>
+      </section>
     </div>
   );
 }
+  
