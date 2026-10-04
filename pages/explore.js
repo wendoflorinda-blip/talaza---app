@@ -16,7 +16,7 @@ const AREAS = [
     name: 'Contratar',
     icon: '◉',
     description:
-      'Encontre profissionais e pessoas preparadas para realizar o que você precisa.',
+      'Publique uma vaga e encontre pessoas disponíveis para trabalhar.',
     color: '#0B7563',
     route: '/contratar',
   },
@@ -24,15 +24,17 @@ const AREAS = [
     name: 'Comunidade',
     icon: '◎',
     description:
-      'Partilhe perguntas, recomendações, avisos e ideias com a comunidade.',
+      'Partilhe perguntas, recomendações, avisos e ideias com a comunidade Talaza.',
     color: '#B88300',
+    route: '/comunidade',
   },
   {
     name: 'Oportunidades',
     icon: '↗',
     description:
-      'Encontre oportunidades de trabalho, colaborações e vagas publicadas.',
+      'Veja vagas e oportunidades publicadas para pessoas da sua província.',
     color: '#9A6D00',
+    route: '/oportunidades',
   },
   {
     name: 'Eventos',
@@ -40,6 +42,7 @@ const AREAS = [
     description:
       'Descubra eventos, cursos, feiras, lançamentos e outros momentos especiais.',
     color: '#075B4E',
+    route: '/eventos',
   },
   {
     name: 'Ebooks',
@@ -47,6 +50,7 @@ const AREAS = [
     description:
       'Descubra ebooks para aprender, desenvolver novas habilidades e explorar conhecimentos.',
     color: '#0B7563',
+    route: '/ebooks',
   },
 ];
 
@@ -85,18 +89,31 @@ export default function Explore() {
   }, [router.isReady, country, province, query]);
 
   async function loadLocation() {
-    const { data: countryData } = await supabase
-      .from('countries')
-      .select('id, name')
-      .eq('id', country)
-      .single();
+    const { data: countryData, error: countryError } =
+      await supabase
+        .from('countries')
+        .select('id, name')
+        .eq('id', country)
+        .single();
 
-    const { data: provinceData } = await supabase
-      .from('provinces')
-      .select('id, name, country_id')
-      .eq('id', province)
-      .eq('country_id', country)
-      .single();
+    if (countryError) {
+      console.error('Erro ao carregar país:', countryError);
+    }
+
+    const { data: provinceData, error: provinceError } =
+      await supabase
+        .from('provinces')
+        .select('id, name, country_id')
+        .eq('id', province)
+        .eq('country_id', country)
+        .single();
+
+    if (provinceError) {
+      console.error(
+        'Erro ao carregar província:',
+        provinceError
+      );
+    }
 
     setCountryName(countryData?.name || '');
     setProvinceName(provinceData?.name || '');
@@ -109,7 +126,7 @@ export default function Explore() {
       .order('name', { ascending: true });
 
     if (error) {
-      console.error(error);
+      console.error('Erro ao carregar categorias:', error);
       setCategories([]);
       return;
     }
@@ -146,7 +163,7 @@ export default function Explore() {
     const { data, error } = await request;
 
     if (error) {
-      console.error(error);
+      console.error('Erro ao carregar negócios:', error);
       setBusinesses([]);
       setLoading(false);
       return;
@@ -165,6 +182,7 @@ export default function Explore() {
           province,
         },
       });
+
       return;
     }
 
@@ -212,7 +230,10 @@ export default function Explore() {
           <Link
             href={{
               pathname: '/explore',
-              query: { country, province },
+              query: {
+                country,
+                province,
+              },
             }}
             style={{
               textDecoration: 'none',
@@ -257,7 +278,12 @@ export default function Explore() {
             }}
           >
             <Link
-              href="/login"
+              href={{
+                pathname: '/login',
+                query: {
+                  redirect: `/explore?country=${country}&province=${province}`,
+                },
+              }}
               style={{
                 textDecoration: 'none',
                 color: '#075B4E',
@@ -533,7 +559,8 @@ export default function Explore() {
                   fontSize: 13,
                 }}
               >
-                Ainda não há negócios publicados nesta região.
+                Ainda não há negócios publicados nesta
+                região.
               </div>
             )}
 
@@ -628,5 +655,4 @@ export default function Explore() {
     </div>
   );
 }
-              
-                                  
+                        
