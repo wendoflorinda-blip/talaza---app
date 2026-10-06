@@ -3,13 +3,30 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
+const COLORS = {
+  brand: '#0F6E5C',
+  brandDark: '#0A4A3E',
+  brandSoft: '#E5F2EF',
+  gold: '#DDA10A',
+  goldDark: '#8A6607',
+  goldSoft: '#FBF1D7',
+  purple: '#7C3AED',
+  purpleDark: '#5B21B6',
+  purpleSoft: '#F3E8FD',
+  ink: '#101828',
+  inkSoft: '#475467',
+  inkFaint: '#98A2B3',
+  canvas: '#F7F8FA',
+  line: '#E4E7EC',
+};
+
 const AREAS = [
   {
     name: 'Encontrar',
     icon: '⌕',
     description:
       'Encontre negócios, produtos, serviços e soluções perto de você.',
-    color: '#075B4E',
+    color: COLORS.brand,
     action: 'scroll',
   },
   {
@@ -17,7 +34,7 @@ const AREAS = [
     icon: '◉',
     description:
       'Publique uma vaga e encontre pessoas disponíveis para trabalhar.',
-    color: '#0B7563',
+    color: COLORS.brand,
     route: '/contratar',
   },
   {
@@ -25,7 +42,7 @@ const AREAS = [
     icon: '◎',
     description:
       'Partilhe perguntas, recomendações, avisos e ideias com a comunidade Talaza.',
-    color: '#B88300',
+    color: COLORS.purple,
     route: '/comunidade',
   },
   {
@@ -33,7 +50,7 @@ const AREAS = [
     icon: '↗',
     description:
       'Veja vagas e oportunidades publicadas para pessoas da sua província.',
-    color: '#9A6D00',
+    color: COLORS.purple,
     route: '/oportunidades',
   },
   {
@@ -41,7 +58,7 @@ const AREAS = [
     icon: '◇',
     description:
       'Descubra eventos, cursos, feiras, lançamentos e outros momentos especiais.',
-    color: '#075B4E',
+    color: COLORS.gold,
     route: '/eventos',
   },
   {
@@ -49,10 +66,28 @@ const AREAS = [
     icon: '▤',
     description:
       'Descubra ebooks para aprender, desenvolver novas habilidades e explorar conhecimentos.',
-    color: '#0B7563',
+    color: COLORS.gold,
     route: '/ebooks',
   },
 ];
+
+// Ícones em SVG por área — só a aparência do glifo muda, o mapeamento por nome é o mesmo.
+const AREA_ICON_PATHS = {
+  Encontrar: <><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></>,
+  Contratar: <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></>,
+  Comunidade: <><circle cx="9" cy="8" r="3.2" /><path d="M2.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6" /><circle cx="17.5" cy="9" r="2.5" /><path d="M15.5 14.2c2.5.4 4.3 2.4 4.3 5.6" /></>,
+  Oportunidades: <><line x1="17" y1="17" x2="7" y2="7" /><polyline points="7 17 7 7 17 7" /></>,
+  Eventos: <><rect x="3" y="5" width="18" height="16" rx="2" /><line x1="16" y1="3" x2="16" y2="7" /><line x1="8" y1="3" x2="8" y2="7" /><line x1="3" y1="10" x2="21" y2="10" /></>,
+  Ebooks: <><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5v-17z" /></>,
+};
+
+function AreaIcon({ name, color }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {AREA_ICON_PATHS[name]}
+    </svg>
+  );
+}
 
 export default function Explore() {
   const router = useRouter();
@@ -208,7 +243,7 @@ export default function Explore() {
     <div
       style={{
         minHeight: '100vh',
-        background: '#F5F7F6',
+        background: COLORS.canvas,
       }}
     >
       <div
@@ -224,7 +259,7 @@ export default function Explore() {
             display: 'flex',
             alignItems: 'center',
             gap: 12,
-            padding: '12px 0',
+            padding: '16px 0',
           }}
         >
           <Link
@@ -240,7 +275,7 @@ export default function Explore() {
               color: 'inherit',
               display: 'flex',
               alignItems: 'center',
-              gap: 7,
+              gap: 9,
             }}
           >
             <div
@@ -248,12 +283,13 @@ export default function Explore() {
                 width: 34,
                 height: 34,
                 borderRadius: 10,
-                background: '#075B4E',
-                color: '#E6A900',
+                background: `linear-gradient(155deg, ${COLORS.brand}, ${COLORS.brandDark})`,
+                color: COLORS.gold,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontWeight: 900,
+                fontWeight: 800,
+                boxShadow: '0 3px 8px rgba(15,110,92,.25)',
               }}
             >
               T
@@ -261,8 +297,9 @@ export default function Explore() {
 
             <b
               style={{
-                color: '#075B4E',
+                color: COLORS.brandDark,
                 fontSize: 18,
+                letterSpacing: '-0.01em',
               }}
             >
               Talaza
@@ -286,9 +323,9 @@ export default function Explore() {
               }}
               style={{
                 textDecoration: 'none',
-                color: '#075B4E',
-                fontSize: 12,
-                fontWeight: 800,
+                color: COLORS.brand,
+                fontSize: 12.5,
+                fontWeight: 700,
                 padding: '8px 10px',
               }}
             >
@@ -301,11 +338,11 @@ export default function Explore() {
               style={{
                 width: 34,
                 height: 34,
-                border: '1px solid #D5DEDB',
+                border: `1px solid ${COLORS.line}`,
                 borderRadius: 10,
                 background: '#FFFFFF',
-                color: '#075B4E',
-                fontSize: 18,
+                color: COLORS.inkSoft,
+                fontSize: 16,
                 cursor: 'pointer',
               }}
             >
@@ -317,12 +354,12 @@ export default function Explore() {
         {/* LOCALIZAÇÃO */}
         <div
           style={{
-            marginTop: 12,
-            padding: '10px 13px',
-            borderRadius: 12,
-            background: '#EAF4F1',
-            color: '#075B4E',
-            fontSize: 12,
+            marginTop: 10,
+            padding: '7px 14px',
+            borderRadius: 99,
+            background: COLORS.brandSoft,
+            color: COLORS.brandDark,
+            fontSize: 12.5,
             fontWeight: 700,
             display: 'inline-flex',
           }}
@@ -342,9 +379,13 @@ export default function Explore() {
               width: '100%',
               boxSizing: 'border-box',
               margin: 0,
-              borderRadius: 14,
+              border: `1.5px solid ${COLORS.line}`,
+              borderRadius: 13,
               padding: '13px 15px',
-              fontSize: 14,
+              fontSize: 13.5,
+              background: COLORS.canvas,
+              outline: 'none',
+              transition: 'border-color .15s, background .15s',
             }}
             placeholder="Pesquisar negócios, produtos ou serviços…"
             value={query}
@@ -357,7 +398,7 @@ export default function Explore() {
         {/* ÁREAS */}
         <section
           style={{
-            marginTop: 18,
+            marginTop: 20,
           }}
         >
           <div
@@ -365,66 +406,74 @@ export default function Explore() {
               display: 'grid',
               gridTemplateColumns:
                 'repeat(6, minmax(72px, 1fr))',
-              gap: 7,
+              gap: 8,
             }}
           >
-            {AREAS.map((area) => (
-              <button
-                key={area.name}
-                type="button"
-                onClick={() =>
-                  handleAreaClick(area)
-                }
-                style={{
-                  minWidth: 0,
-                  border: '1px solid #DCE6E3',
-                  borderTop: `3px solid ${area.color}`,
-                  borderRadius: 12,
-                  background:
-                    selectedArea === area.name
-                      ? '#EAF4F1'
-                      : '#FFFFFF',
-                  padding: '10px 5px',
-                  cursor: 'pointer',
-                  color: '#17342F',
-                }}
-              >
-                <div
+            {AREAS.map((area) => {
+              const isOn = selectedArea === area.name;
+              return (
+                <button
+                  key={area.name}
+                  type="button"
+                  onClick={() =>
+                    handleAreaClick(area)
+                  }
                   style={{
-                    fontSize: 18,
-                    color: area.color,
-                    fontWeight: 900,
-                    lineHeight: 1,
+                    minWidth: 0,
+                    border: `1.5px solid ${isOn ? area.color : COLORS.line}`,
+                    borderRadius: 14,
+                    background: isOn ? `${area.color}14` : '#FFFFFF',
+                    padding: '12px 6px',
+                    cursor: 'pointer',
+                    color: COLORS.ink,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 6,
+                    transition: 'border-color .15s, background .15s',
                   }}
                 >
-                  {area.icon}
-                </div>
+                  <div
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 8,
+                      background: `${area.color}1A`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <AreaIcon name={area.name} color={area.color} />
+                  </div>
 
-                <div
-                  style={{
-                    marginTop: 6,
-                    fontSize: 10,
-                    fontWeight: 800,
-                    lineHeight: 1.2,
-                  }}
-                >
-                  {area.name}
-                </div>
-              </button>
-            ))}
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                      color: isOn ? area.color : COLORS.inkSoft,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {area.name}
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
           {selectedArea && (
             <div
               style={{
-                marginTop: 8,
-                padding: '10px 13px',
-                borderRadius: 12,
+                marginTop: 10,
+                padding: '12px 14px',
+                borderRadius: 13,
                 background: '#FFFFFF',
-                border: '1px solid #DCE6E3',
-                color: '#596B68',
-                fontSize: 12,
-                lineHeight: 1.45,
+                border: `1px solid ${COLORS.line}`,
+                color: COLORS.inkSoft,
+                fontSize: 12.5,
+                lineHeight: 1.5,
               }}
             >
               {
@@ -441,7 +490,7 @@ export default function Explore() {
         <section
           id="categorias"
           style={{
-            marginTop: 24,
+            marginTop: 28,
           }}
         >
           <div
@@ -454,8 +503,10 @@ export default function Explore() {
           >
             <h2
               style={{
-                fontSize: 19,
+                fontSize: 18,
                 margin: 0,
+                color: COLORS.ink,
+                letterSpacing: '-0.01em',
               }}
             >
               Encontrar
@@ -463,8 +514,9 @@ export default function Explore() {
 
             <span
               style={{
-                color: '#7A8986',
-                fontSize: 11,
+                color: COLORS.inkFaint,
+                fontSize: 11.5,
+                fontWeight: 600,
               }}
             >
               {provinceName}
@@ -476,8 +528,8 @@ export default function Explore() {
               display: 'grid',
               gridTemplateColumns:
                 'repeat(auto-fit,minmax(130px,1fr))',
-              gap: 7,
-              marginTop: 11,
+              gap: 8,
+              marginTop: 12,
             }}
           >
             {categories.map((category) => (
@@ -493,13 +545,15 @@ export default function Explore() {
                 }}
                 style={{
                   textDecoration: 'none',
-                  color: '#17342F',
+                  color: COLORS.ink,
                   background: '#FFFFFF',
-                  border: '1px solid #DCE6E3',
-                  borderRadius: 11,
-                  padding: '12px 11px',
-                  fontSize: 12,
-                  fontWeight: 750,
+                  border: `1px solid ${COLORS.line}`,
+                  borderRadius: 12,
+                  padding: '13px 12px',
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  display: 'block',
+                  transition: 'border-color .15s, background .15s',
                 }}
               >
                 {category.name}
@@ -511,7 +565,7 @@ export default function Explore() {
         {/* NEGÓCIOS */}
         <section
           style={{
-            marginTop: 30,
+            marginTop: 32,
           }}
         >
           <div
@@ -524,8 +578,10 @@ export default function Explore() {
           >
             <h2
               style={{
-                fontSize: 19,
+                fontSize: 18,
                 margin: 0,
+                color: COLORS.ink,
+                letterSpacing: '-0.01em',
               }}
             >
               Negócios perto de você
@@ -533,8 +589,9 @@ export default function Explore() {
 
             <span
               style={{
-                fontSize: 11,
-                color: '#7A8986',
+                fontSize: 11.5,
+                color: COLORS.inkFaint,
+                fontWeight: 600,
               }}
             >
               {provinceName}
@@ -542,7 +599,7 @@ export default function Explore() {
           </div>
 
           {loading && (
-            <p style={{ color: '#7A8986' }}>
+            <p style={{ color: COLORS.inkFaint, fontSize: 13 }}>
               A carregar…
             </p>
           )}
@@ -551,16 +608,34 @@ export default function Explore() {
             businesses.length === 0 && (
               <div
                 style={{
-                  padding: 18,
-                  borderRadius: 14,
-                  background: '#FFFFFF',
-                  border: '1px solid #DCE6E3',
-                  color: '#7A8986',
-                  fontSize: 13,
+                  padding: '28px 22px',
+                  borderRadius: 16,
+                  background: `linear-gradient(180deg, #FFFFFF, ${COLORS.canvas})`,
+                  border: `1.5px dashed ${COLORS.line}`,
+                  textAlign: 'center',
                 }}
               >
-                Ainda não há negócios publicados nesta
-                região.
+                <div
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 13,
+                    background: COLORS.goldSoft,
+                    color: COLORS.goldDark,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 12px',
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M12 22s7-7.58 7-12a7 7 0 1 0-14 0c0 4.42 7 12 7 12z" />
+                    <circle cx="12" cy="10" r="2.5" />
+                  </svg>
+                </div>
+                <p style={{ color: COLORS.inkSoft, fontSize: 13, lineHeight: 1.5 }}>
+                  Ainda não há negócios publicados nesta região.
+                </p>
               </div>
             )}
 
@@ -571,7 +646,7 @@ export default function Explore() {
                   display: 'grid',
                   gridTemplateColumns:
                     'repeat(auto-fit,minmax(190px,1fr))',
-                  gap: 10,
+                  gap: 12,
                 }}
               >
                 {businesses.map((business) => (
@@ -582,10 +657,11 @@ export default function Explore() {
                       textDecoration: 'none',
                       color: 'inherit',
                       background: '#FFFFFF',
-                      border: '1px solid #DCE6E3',
-                      borderRadius: 14,
+                      border: `1px solid ${COLORS.line}`,
+                      borderRadius: 15,
                       padding: 12,
                       display: 'block',
+                      transition: 'box-shadow .15s, border-color .15s',
                     }}
                   >
                     {business.logo_url && (
@@ -596,8 +672,8 @@ export default function Explore() {
                           width: '100%',
                           height: 110,
                           objectFit: 'cover',
-                          borderRadius: 10,
-                          marginBottom: 8,
+                          borderRadius: 11,
+                          marginBottom: 9,
                         }}
                       />
                     )}
@@ -606,6 +682,7 @@ export default function Explore() {
                       style={{
                         fontSize: 14,
                         margin: '3px 0 5px',
+                        color: COLORS.ink,
                       }}
                     >
                       {business.name}
@@ -614,10 +691,10 @@ export default function Explore() {
                     {business.description && (
                       <p
                         style={{
-                          fontSize: 11,
-                          color: '#596B68',
-                          margin: '0 0 7px',
-                          lineHeight: 1.4,
+                          fontSize: 11.5,
+                          color: COLORS.inkSoft,
+                          margin: '0 0 8px',
+                          lineHeight: 1.45,
                           display: '-webkit-box',
                           WebkitLineClamp: 2,
                           WebkitBoxOrient: 'vertical',
@@ -632,8 +709,9 @@ export default function Explore() {
                       business.neighborhood) && (
                       <div
                         style={{
-                          fontSize: 10,
-                          color: '#7A8986',
+                          fontSize: 10.5,
+                          color: COLORS.inkFaint,
+                          fontWeight: 600,
                         }}
                       >
                         {business.municipality}
@@ -655,4 +733,10 @@ export default function Explore() {
     </div>
   );
 }
+    
+                
+          
+          
+                          
                         
+      
