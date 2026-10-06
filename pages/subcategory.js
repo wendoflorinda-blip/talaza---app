@@ -1,8 +1,25 @@
-      
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
+
+const COLORS = {
+  brand: '#0F6E5C',
+  brandDark: '#0A4A3E',
+  brandSoft: '#E5F2EF',
+  gold: '#DDA10A',
+  goldDark: '#8A6607',
+  goldSoft: '#FBF1D7',
+  purple: '#7C3AED',
+  purpleDark: '#5B21B6',
+  purpleSoft: '#F3E8FD',
+  purpleLine: '#E4D3FB',
+  ink: '#101828',
+  inkSoft: '#475467',
+  inkFaint: '#98A2B3',
+  canvas: '#F7F8FA',
+  line: '#E4E7EC',
+};
 
 export default function Subcategory() {
   const router = useRouter();
@@ -362,13 +379,18 @@ export default function Subcategory() {
       className="container"
       style={{
         paddingBottom: 50,
+        background: COLORS.canvas,
+        minHeight: '100vh',
       }}
     >
       {/* CABEÇALHO */}
       <nav
         className="topnav"
         style={{
-          padding: '12px 0',
+          padding: '16px 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
         }}
       >
         <Link
@@ -384,20 +406,30 @@ export default function Subcategory() {
             color: 'inherit',
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
+            gap: 9,
           }}
         >
           <div
             className="logo"
             style={{
-              background: '#075B4E',
-              color: '#E6A900',
+              width: 34,
+              height: 34,
+              borderRadius: 10,
+              background: `linear-gradient(155deg, ${COLORS.brand}, ${COLORS.brandDark})`,
+              color: COLORS.gold,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 800,
+              boxShadow: '0 3px 8px rgba(15,110,92,.25)',
             }}
           >
             T
           </div>
 
-          <b>Talaza</b>
+          <b style={{ color: COLORS.brandDark, fontSize: 17, letterSpacing: '-0.01em' }}>
+            Talaza
+          </b>
         </Link>
 
         <Link
@@ -411,7 +443,14 @@ export default function Subcategory() {
           }}
           className="btn btn-ghost"
           style={{
-            fontSize: 12,
+            marginLeft: 'auto',
+            fontSize: 12.5,
+            fontWeight: 700,
+            color: COLORS.brand,
+            border: `1px solid ${COLORS.line}`,
+            borderRadius: 10,
+            padding: '8px 12px',
+            background: '#fff',
           }}
         >
           ← Voltar
@@ -419,7 +458,7 @@ export default function Subcategory() {
       </nav>
 
       {loading && (
-        <p style={{ color: 'var(--ink-faint)' }}>
+        <p style={{ color: COLORS.inkFaint, fontSize: 13 }}>
           A carregar…
         </p>
       )}
@@ -429,8 +468,9 @@ export default function Subcategory() {
           style={{
             marginTop: 20,
             padding: 14,
-            borderRadius: 12,
+            borderRadius: 13,
             background: '#FFF1F0',
+            border: '1px solid #FBD5D2',
             color: '#9B2C2C',
             fontSize: 13,
           }}
@@ -444,12 +484,12 @@ export default function Subcategory() {
           {/* LOCALIZAÇÃO */}
           <div
             style={{
-              marginTop: 15,
-              padding: '9px 12px',
-              borderRadius: 11,
-              background: '#EAF4F1',
-              color: '#075B4E',
-              fontSize: 11,
+              marginTop: 10,
+              padding: '7px 14px',
+              borderRadius: 99,
+              background: COLORS.brandSoft,
+              color: COLORS.brandDark,
+              fontSize: 12.5,
               fontWeight: 700,
               display: 'inline-flex',
             }}
@@ -460,9 +500,11 @@ export default function Subcategory() {
           {/* TÍTULO */}
           <h1
             style={{
-              fontSize: 25,
-              marginTop: 17,
+              fontSize: 24,
+              marginTop: 16,
               marginBottom: 5,
+              color: COLORS.ink,
+              letterSpacing: '-0.01em',
             }}
           >
             {subcategory.name}
@@ -471,9 +513,10 @@ export default function Subcategory() {
           {subcategory.description && (
             <p
               style={{
-                color: 'var(--ink-soft)',
+                color: COLORS.inkSoft,
                 fontSize: 13,
                 marginTop: 0,
+                lineHeight: 1.5,
               }}
             >
               {subcategory.description}
@@ -481,19 +524,19 @@ export default function Subcategory() {
           )}
 
           {/* PESQUISA */}
-          <div
-            style={{
-              margin: '18px 0',
-            }}
-          >
+          <div style={{ margin: '18px 0' }}>
             <input
               className="input"
               style={{
                 width: '100%',
                 boxSizing: 'border-box',
                 margin: 0,
+                border: `1.5px solid ${COLORS.line}`,
                 borderRadius: 13,
                 padding: '12px 14px',
+                fontSize: 13.5,
+                background: COLORS.canvas,
+                outline: 'none',
               }}
               placeholder="Pesquisar por nome…"
               value={query}
@@ -517,9 +560,12 @@ export default function Subcategory() {
                   width: '100%',
                   boxSizing: 'border-box',
                   margin: 0,
+                  border: `1.5px solid ${COLORS.line}`,
                   borderRadius: 11,
                   padding: '10px 12px',
-                  fontSize: 12,
+                  fontSize: 12.5,
+                  background: '#fff',
+                  outline: 'none',
                 }}
                 placeholder="Município"
                 value={municipality}
@@ -534,9 +580,12 @@ export default function Subcategory() {
                   width: '100%',
                   boxSizing: 'border-box',
                   margin: 0,
+                  border: `1.5px solid ${COLORS.line}`,
                   borderRadius: 11,
                   padding: '10px 12px',
-                  fontSize: 12,
+                  fontSize: 12.5,
+                  background: '#fff',
+                  outline: 'none',
                 }}
                 placeholder="Bairro"
                 value={neighborhood}
@@ -547,49 +596,70 @@ export default function Subcategory() {
             </div>
           </div>
 
-          {/* DESTAQUES PREMIUM */}
+          {/* DESTAQUES PREMIUM — roxo + coroa, discreto */}
           <section
             style={{
-              marginTop: 25,
+              marginTop: 24,
               marginBottom: 30,
+              padding: '16px 16px 18px',
+              borderRadius: 18,
+              background: `linear-gradient(160deg, ${COLORS.purpleSoft} 0%, #FBF8FF 100%)`,
+              border: `1px solid ${COLORS.purpleLine}`,
             }}
           >
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 12,
+                gap: 9,
+                marginBottom: 2,
               }}
             >
-              <div>
-                <h2
-                  style={{
-                    fontSize: 19,
-                    margin: 0,
-                    color: '#17342F',
-                  }}
-                >
-                  Destaques Premium
-                </h2>
-
-                <p
-                  style={{
-                    margin: '4px 0 0',
-                    fontSize: 11,
-                    color: '#7A8986',
-                  }}
-                >
-                  Negócios que escolheram estar em destaque.
-                </p>
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 9,
+                  background: COLORS.purple,
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 14,
+                  flexShrink: 0,
+                  boxShadow: '0 4px 10px rgba(124,58,237,.3)',
+                }}
+              >
+                👑
               </div>
+
+              <h2
+                style={{
+                  fontSize: 15.5,
+                  margin: 0,
+                  color: COLORS.purpleDark,
+                }}
+              >
+                Destaques Premium
+              </h2>
             </div>
+
+            <p
+              style={{
+                margin: '6px 0 0 37px',
+                fontSize: 11.5,
+                color: COLORS.inkSoft,
+              }}
+            >
+              Negócios que escolheram estar em destaque.
+            </p>
 
             {premiumLoading && (
               <p
                 style={{
-                  color: '#7A8986',
+                  color: COLORS.inkFaint,
                   fontSize: 12,
+                  marginTop: 14,
                 }}
               >
                 A carregar destaques…
@@ -600,11 +670,12 @@ export default function Subcategory() {
               premiumBusinesses.length === 0 && (
                 <div
                   style={{
-                    padding: 16,
-                    borderRadius: 14,
+                    marginTop: 14,
+                    padding: 14,
+                    borderRadius: 12,
                     background: '#FFFFFF',
-                    border: '1px solid #DCE6E3',
-                    color: '#7A8986',
+                    border: `1px solid ${COLORS.purpleLine}`,
+                    color: COLORS.inkSoft,
                     fontSize: 12,
                   }}
                 >
@@ -620,8 +691,8 @@ export default function Subcategory() {
                     display: 'flex',
                     gap: 10,
                     overflowX: 'auto',
-                    paddingBottom: 5,
-                    scrollbarWidth: 'thin',
+                    paddingTop: 14,
+                    paddingBottom: 4,
                   }}
                 >
                   {premiumBusinesses.map(
@@ -633,73 +704,80 @@ export default function Subcategory() {
                           openPremiumFeed(index)
                         }
                         style={{
-                          flex: '0 0 155px',
-                          border: '1px solid #D8E2DF',
-                          borderRadius: 16,
+                          flex: '0 0 148px',
+                          border: `1px solid ${COLORS.purpleLine}`,
+                          borderRadius: 14,
                           background: '#FFFFFF',
                           padding: 8,
                           cursor: 'pointer',
                           textAlign: 'left',
                           boxShadow:
-                            '0 5px 16px rgba(7,91,78,0.07)',
+                            '0 8px 20px rgba(124,58,237,.14)',
                         }}
                       >
-                        {business.logo_url ? (
-                          <img
-                            src={business.logo_url}
-                            alt={business.name}
+                        <div style={{ position: 'relative' }}>
+                          {business.logo_url ? (
+                            <img
+                              src={business.logo_url}
+                              alt={business.name}
+                              style={{
+                                width: '100%',
+                                height: 100,
+                                objectFit: 'cover',
+                                borderRadius: 10,
+                                display: 'block',
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: '100%',
+                                height: 100,
+                                borderRadius: 10,
+                                background: COLORS.brandSoft,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: COLORS.brand,
+                                fontSize: 26,
+                                fontWeight: 800,
+                              }}
+                            >
+                              {business.name
+                                ?.charAt(0)
+                                ?.toUpperCase()}
+                            </div>
+                          )}
+
+                          <span
                             style={{
-                              width: '100%',
-                              height: 115,
-                              objectFit: 'cover',
-                              borderRadius: 11,
-                              display: 'block',
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: '100%',
-                              height: 115,
-                              borderRadius: 11,
-                              background: '#EAF4F1',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#075B4E',
-                              fontSize: 30,
-                              fontWeight: 900,
+                              position: 'absolute',
+                              top: 6,
+                              left: 6,
+                              background: 'rgba(124,58,237,.92)',
+                              color: '#fff',
+                              fontSize: 9,
+                              fontWeight: 700,
+                              padding: '3px 7px',
+                              borderRadius: 7,
                             }}
                           >
-                            {business.name
-                              ?.charAt(0)
-                              ?.toUpperCase()}
-                          </div>
-                        )}
+                            👑 Premium
+                          </span>
+                        </div>
 
                         <div
                           style={{
                             marginTop: 9,
-                            fontSize: 13,
-                            fontWeight: 800,
-                            color: '#17342F',
+                            fontSize: 12.5,
+                            fontWeight: 700,
+                            color: COLORS.ink,
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                           }}
                         >
                           {business.name}
-                        </div>
-
-                        <div
-                          style={{
-                            marginTop: 3,
-                            fontSize: 10,
-                            color: '#B88300',
-                            fontWeight: 800,
-                          }}
-                        >
-                          PREMIUM
                         </div>
                       </button>
                     )
@@ -714,30 +792,20 @@ export default function Subcategory() {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: 11,
+              marginBottom: 12,
             }}
           >
-            <h2
-              style={{
-                fontSize: 18,
-                margin: 0,
-              }}
-            >
+            <h2 style={{ fontSize: 17, margin: 0, color: COLORS.ink }}>
               Encontre aqui
             </h2>
 
-            <span
-              style={{
-                color: '#7A8986',
-                fontSize: 10,
-              }}
-            >
+            <span style={{ color: COLORS.inkFaint, fontSize: 11, fontWeight: 600 }}>
               {provinceName}
             </span>
           </div>
 
           {loading && (
-            <p style={{ color: 'var(--ink-faint)' }}>
+            <p style={{ color: COLORS.inkFaint, fontSize: 13 }}>
               A carregar…
             </p>
           )}
@@ -746,12 +814,13 @@ export default function Subcategory() {
             businesses.length === 0 && (
               <div
                 style={{
-                  padding: 17,
-                  borderRadius: 13,
-                  background: '#FFFFFF',
-                  border: '1px solid #DCE6E3',
-                  color: '#7A8986',
+                  padding: '26px 20px',
+                  borderRadius: 15,
+                  background: `linear-gradient(180deg, #FFFFFF, ${COLORS.canvas})`,
+                  border: `1.5px dashed ${COLORS.line}`,
+                  color: COLORS.inkSoft,
                   fontSize: 13,
+                  textAlign: 'center',
                 }}
               >
                 Ainda não há negócios cadastrados nesta
@@ -766,7 +835,7 @@ export default function Subcategory() {
                   display: 'grid',
                   gridTemplateColumns:
                     'repeat(auto-fit,minmax(190px,1fr))',
-                  gap: 10,
+                  gap: 12,
                 }}
               >
                 {businesses.map((business) => (
@@ -777,8 +846,8 @@ export default function Subcategory() {
                       textDecoration: 'none',
                       color: 'inherit',
                       background: '#FFFFFF',
-                      border: '1px solid #DCE6E3',
-                      borderRadius: 14,
+                      border: `1px solid ${COLORS.line}`,
+                      borderRadius: 15,
                       padding: 12,
                       display: 'block',
                     }}
@@ -791,8 +860,8 @@ export default function Subcategory() {
                           width: '100%',
                           height: 105,
                           objectFit: 'cover',
-                          borderRadius: 10,
-                          marginBottom: 8,
+                          borderRadius: 11,
+                          marginBottom: 9,
                         }}
                       />
                     ) : (
@@ -800,15 +869,15 @@ export default function Subcategory() {
                         style={{
                           width: '100%',
                           height: 105,
-                          borderRadius: 10,
-                          background: '#EAF4F1',
+                          borderRadius: 11,
+                          background: COLORS.brandSoft,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: '#075B4E',
+                          color: COLORS.brand,
                           fontSize: 28,
-                          fontWeight: 900,
-                          marginBottom: 8,
+                          fontWeight: 800,
+                          marginBottom: 9,
                         }}
                       >
                         {business.name
@@ -817,22 +886,17 @@ export default function Subcategory() {
                       </div>
                     )}
 
-                    <h3
-                      style={{
-                        fontSize: 14,
-                        margin: '3px 0 5px',
-                      }}
-                    >
+                    <h3 style={{ fontSize: 14, margin: '3px 0 5px', color: COLORS.ink }}>
                       {business.name}
                     </h3>
 
                     {business.description && (
                       <p
                         style={{
-                          fontSize: 11,
-                          color: 'var(--ink-soft)',
-                          lineHeight: 1.4,
-                          margin: '0 0 7px',
+                          fontSize: 11.5,
+                          color: COLORS.inkSoft,
+                          lineHeight: 1.45,
+                          margin: '0 0 8px',
                           display: '-webkit-box',
                           WebkitLineClamp: 2,
                           WebkitBoxOrient: 'vertical',
@@ -845,12 +909,7 @@ export default function Subcategory() {
 
                     {(business.municipality ||
                       business.neighborhood) && (
-                      <div
-                        style={{
-                          fontSize: 10,
-                          color: 'var(--ink-faint)',
-                        }}
-                      >
+                      <div style={{ fontSize: 10.5, color: COLORS.inkFaint, fontWeight: 600 }}>
                         {business.municipality}
 
                         {business.municipality &&
@@ -877,7 +936,7 @@ export default function Subcategory() {
               position: 'fixed',
               inset: 0,
               zIndex: 9999,
-              background: '#071C18',
+              background: '#1B0F2E',
               color: '#FFFFFF',
               display: 'flex',
               flexDirection: 'column',
@@ -917,20 +976,18 @@ export default function Subcategory() {
 
               <div
                 style={{
-                  fontSize: 12,
-                  fontWeight: 900,
-                  letterSpacing: 0.5,
+                  fontSize: 11.5,
+                  fontWeight: 800,
+                  letterSpacing: 0.4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
                 }}
               >
-                DESTAQUE PREMIUM
+                👑 DESTAQUE PREMIUM
               </div>
 
-              <div
-                style={{
-                  fontSize: 11,
-                  opacity: 0.8,
-                }}
-              >
+              <div style={{ fontSize: 11, opacity: 0.8 }}>
                 {premiumIndex + 1}/
                 {premiumBusinesses.length}
               </div>
@@ -963,12 +1020,12 @@ export default function Subcategory() {
                     width: '100%',
                     height: '100%',
                     background:
-                      'linear-gradient(145deg, #075B4E, #0B7563)',
+                      `linear-gradient(145deg, ${COLORS.purpleDark}, ${COLORS.purple})`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: 90,
-                    fontWeight: 900,
+                    fontWeight: 800,
                   }}
                 >
                   {currentPremium.name
@@ -999,9 +1056,27 @@ export default function Subcategory() {
               >
                 <div
                   style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    background: COLORS.purple,
+                    color: '#fff',
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    padding: '4px 10px',
+                    borderRadius: 20,
+                    marginBottom: 10,
+                  }}
+                >
+                  👑 Premium
+                </div>
+
+                <div
+                  style={{
                     fontSize: 22,
-                    fontWeight: 900,
+                    fontWeight: 800,
                     marginBottom: 14,
+                    fontFamily: 'inherit',
                   }}
                 >
                   {currentPremium.name}
@@ -1028,11 +1103,11 @@ export default function Subcategory() {
                     style={{
                       textDecoration: 'none',
                       border: 'none',
-                      background: '#E6A900',
-                      color: '#17342F',
+                      background: COLORS.gold,
+                      color: '#3A2B00',
                       borderRadius: 12,
                       padding: '11px 15px',
-                      fontWeight: 900,
+                      fontWeight: 800,
                       fontSize: 12,
                       opacity: currentPremium.phone
                         ? 1
@@ -1052,7 +1127,7 @@ export default function Subcategory() {
                       color: '#FFFFFF',
                       borderRadius: 12,
                       padding: '11px 15px',
-                      fontWeight: 800,
+                      fontWeight: 700,
                       fontSize: 12,
                     }}
                   >
@@ -1142,7 +1217,7 @@ export default function Subcategory() {
                         borderRadius: 5,
                         background:
                           index === premiumIndex
-                            ? '#E6A900'
+                            ? COLORS.gold
                             : 'rgba(255,255,255,0.45)',
                       }}
                     />
@@ -1154,4 +1229,4 @@ export default function Subcategory() {
         )}
     </div>
   );
-}
+}                            
