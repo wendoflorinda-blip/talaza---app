@@ -1,25 +1,23 @@
+import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 
-const COLORS = {
-  brand: '#0F6E5C',
-  brandDark: '#0A4A3E',
-  brandSoft: '#E5F2EF',
-  gold: '#DDA10A',
-  goldDark: '#8A6607',
-  goldSoft: '#FBF1D7',
-  purple: '#7C3AED',
-  purpleDark: '#5B21B6',
-  purpleSoft: '#F3E8FD',
-  purpleLine: '#E4D3FB',
-  ink: '#101828',
-  inkSoft: '#475467',
-  inkFaint: '#98A2B3',
-  canvas: '#F7F8FA',
-  line: '#E4E7EC',
-};
+// Paleta de apoio só para dar cor aos cartões quando não há foto —
+// mesma lógica visual do protótipo (cada negócio ganha uma cor fixa).
+const HUES = ['#0F6E5C', '#8A4B2B', '#6B3FA0', '#2E6B7A', '#A0522D', '#4B5D67', '#7A5C2E'];
+function getHue(business, index) {
+  return HUES[index % HUES.length];
+}
+function getInitials(name) {
+  return (name || '')
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+}
 
 export default function Subcategory() {
   const router = useRouter();
@@ -40,6 +38,7 @@ export default function Subcategory() {
   const [query, setQuery] = useState('');
   const [municipality, setMunicipality] = useState('');
   const [neighborhood, setNeighborhood] = useState('');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [premiumLoading, setPremiumLoading] = useState(true);
@@ -373,860 +372,802 @@ export default function Subcategory() {
 
   const currentPremium =
     premiumBusinesses[premiumIndex];
+  const currentPremiumHue =
+    currentPremium
+      ? getHue(currentPremium, premiumBusinesses.indexOf(currentPremium))
+      : '#0F6E5C';
 
   return (
-    <div
-      className="container"
-      style={{
-        paddingBottom: 50,
-        background: COLORS.canvas,
-        minHeight: '100vh',
-      }}
-    >
-      {/* CABEÇALHO */}
-      <nav
-        className="topnav"
-        style={{
-          padding: '16px 0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-        }}
-      >
-        <Link
-          href={{
-            pathname: '/explore',
-            query: {
-              country,
-              province,
-            },
-          }}
-          style={{
-            textDecoration: 'none',
-            color: 'inherit',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 9,
-          }}
-        >
-          <div
-            className="logo"
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 10,
-              background: `linear-gradient(155deg, ${COLORS.brand}, ${COLORS.brandDark})`,
-              color: COLORS.gold,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 800,
-              boxShadow: '0 3px 8px rgba(15,110,92,.25)',
-            }}
-          >
-            T
-          </div>
+    <>
+      <Head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </Head>
 
-          <b style={{ color: COLORS.brandDark, fontSize: 17, letterSpacing: '-0.01em' }}>
-            Talaza
-          </b>
-        </Link>
-
-        <Link
-          href={{
-            pathname: '/category',
-            query: {
-              id: subcategory?.category_id,
-              country,
-              province,
-            },
-          }}
-          className="btn btn-ghost"
-          style={{
-            marginLeft: 'auto',
-            fontSize: 12.5,
-            fontWeight: 700,
-            color: COLORS.brand,
-            border: `1px solid ${COLORS.line}`,
-            borderRadius: 10,
-            padding: '8px 12px',
-            background: '#fff',
-          }}
-        >
-          ← Voltar
-        </Link>
-      </nav>
-
-      {loading && (
-        <p style={{ color: COLORS.inkFaint, fontSize: 13 }}>
-          A carregar…
-        </p>
-      )}
-
-      {error && (
+      <div style={{ background: '#FAF7F2', minHeight: '100vh' }}>
+        {/* BARRA VERDE DO TOPO */}
         <div
           style={{
-            marginTop: 20,
-            padding: 14,
-            borderRadius: 13,
-            background: '#FFF1F0',
-            border: '1px solid #FBD5D2',
-            color: '#9B2C2C',
-            fontSize: 13,
+            background: '#0A2E27',
+            color: '#fff',
+            padding: '16px 18px 14px',
           }}
         >
-          {error}
-        </div>
-      )}
-
-      {!loading && !error && subcategory && (
-        <>
-          {/* LOCALIZAÇÃO */}
           <div
             style={{
-              marginTop: 10,
-              padding: '7px 14px',
-              borderRadius: 99,
-              background: COLORS.brandSoft,
-              color: COLORS.brandDark,
-              fontSize: 12.5,
-              fontWeight: 700,
-              display: 'inline-flex',
+              maxWidth: 1080,
+              margin: '0 auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
             }}
           >
-            {countryName} · {provinceName}
-          </div>
-
-          {/* TÍTULO */}
-          <h1
-            style={{
-              fontSize: 24,
-              marginTop: 16,
-              marginBottom: 5,
-              color: COLORS.ink,
-              letterSpacing: '-0.01em',
-            }}
-          >
-            {subcategory.name}
-          </h1>
-
-          {subcategory.description && (
-            <p
-              style={{
-                color: COLORS.inkSoft,
-                fontSize: 13,
-                marginTop: 0,
-                lineHeight: 1.5,
+            <Link
+              href={{
+                pathname: '/explore',
+                query: { country, province },
               }}
-            >
-              {subcategory.description}
-            </p>
-          )}
-
-          {/* PESQUISA */}
-          <div style={{ margin: '18px 0' }}>
-            <input
-              className="input"
               style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                margin: 0,
-                border: `1.5px solid ${COLORS.line}`,
-                borderRadius: 13,
-                padding: '12px 14px',
-                fontSize: 13.5,
-                background: COLORS.canvas,
-                outline: 'none',
-              }}
-              placeholder="Pesquisar por nome…"
-              value={query}
-              onChange={(e) =>
-                setQuery(e.target.value)
-              }
-            />
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit,minmax(160px,1fr))',
-                gap: 8,
-                marginTop: 8,
-              }}
-            >
-              <input
-                className="input"
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  margin: 0,
-                  border: `1.5px solid ${COLORS.line}`,
-                  borderRadius: 11,
-                  padding: '10px 12px',
-                  fontSize: 12.5,
-                  background: '#fff',
-                  outline: 'none',
-                }}
-                placeholder="Município"
-                value={municipality}
-                onChange={(e) =>
-                  setMunicipality(e.target.value)
-                }
-              />
-
-              <input
-                className="input"
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  margin: 0,
-                  border: `1.5px solid ${COLORS.line}`,
-                  borderRadius: 11,
-                  padding: '10px 12px',
-                  fontSize: 12.5,
-                  background: '#fff',
-                  outline: 'none',
-                }}
-                placeholder="Bairro"
-                value={neighborhood}
-                onChange={(e) =>
-                  setNeighborhood(e.target.value)
-                }
-              />
-            </div>
-          </div>
-
-          {/* DESTAQUES PREMIUM — roxo + coroa, discreto */}
-          <section
-            style={{
-              marginTop: 24,
-              marginBottom: 30,
-              padding: '16px 16px 18px',
-              borderRadius: 18,
-              background: `linear-gradient(160deg, ${COLORS.purpleSoft} 0%, #FBF8FF 100%)`,
-              border: `1px solid ${COLORS.purpleLine}`,
-            }}
-          >
-            <div
-              style={{
+                textDecoration: 'none',
+                color: 'inherit',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 9,
-                marginBottom: 2,
+                gap: 8,
               }}
             >
               <div
                 style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 9,
-                  background: COLORS.purple,
-                  color: '#fff',
+                  width: 26,
+                  height: 26,
+                  borderRadius: 8,
+                  background: '#DDA10A',
+                  color: '#0A2E27',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: 14,
-                  flexShrink: 0,
-                  boxShadow: '0 4px 10px rgba(124,58,237,.3)',
+                  fontFamily: "'Fraunces', serif",
+                  fontWeight: 700,
+                  fontSize: 15,
                 }}
               >
-                👑
+                T
               </div>
-
-              <h2
+              <b
                 style={{
-                  fontSize: 15.5,
-                  margin: 0,
-                  color: COLORS.purpleDark,
+                  fontFamily: "'Fraunces', serif",
+                  fontWeight: 600,
+                  fontSize: 19,
+                  letterSpacing: '.2px',
                 }}
               >
-                Destaques Premium
-              </h2>
-            </div>
+                Talaza
+              </b>
+            </Link>
 
-            <p
-              style={{
-                margin: '6px 0 0 37px',
-                fontSize: 11.5,
-                color: COLORS.inkSoft,
+            <Link
+              href={{
+                pathname: '/category',
+                query: {
+                  id: subcategory?.category_id,
+                  country,
+                  province,
+                },
               }}
+              style={{
+                textDecoration: 'none',
+                width: 34,
+                height: 34,
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.1)',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 15,
+              }}
+              title="Voltar à categoria"
             >
-              Negócios que escolheram estar em destaque.
-            </p>
-
-            {premiumLoading && (
-              <p
-                style={{
-                  color: COLORS.inkFaint,
-                  fontSize: 12,
-                  marginTop: 14,
-                }}
-              >
-                A carregar destaques…
-              </p>
-            )}
-
-            {!premiumLoading &&
-              premiumBusinesses.length === 0 && (
-                <div
-                  style={{
-                    marginTop: 14,
-                    padding: 14,
-                    borderRadius: 12,
-                    background: '#FFFFFF',
-                    border: `1px solid ${COLORS.purpleLine}`,
-                    color: COLORS.inkSoft,
-                    fontSize: 12,
-                  }}
-                >
-                  Ainda não existem Destaques Premium
-                  nesta subcategoria.
-                </div>
-              )}
-
-            {!premiumLoading &&
-              premiumBusinesses.length > 0 && (
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 10,
-                    overflowX: 'auto',
-                    paddingTop: 14,
-                    paddingBottom: 4,
-                  }}
-                >
-                  {premiumBusinesses.map(
-                    (business, index) => (
-                      <button
-                        key={business.id}
-                        type="button"
-                        onClick={() =>
-                          openPremiumFeed(index)
-                        }
-                        style={{
-                          flex: '0 0 148px',
-                          border: `1px solid ${COLORS.purpleLine}`,
-                          borderRadius: 14,
-                          background: '#FFFFFF',
-                          padding: 8,
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          boxShadow:
-                            '0 8px 20px rgba(124,58,237,.14)',
-                        }}
-                      >
-                        <div style={{ position: 'relative' }}>
-                          {business.logo_url ? (
-                            <img
-                              src={business.logo_url}
-                              alt={business.name}
-                              style={{
-                                width: '100%',
-                                height: 100,
-                                objectFit: 'cover',
-                                borderRadius: 10,
-                                display: 'block',
-                              }}
-                            />
-                          ) : (
-                            <div
-                              style={{
-                                width: '100%',
-                                height: 100,
-                                borderRadius: 10,
-                                background: COLORS.brandSoft,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: COLORS.brand,
-                                fontSize: 26,
-                                fontWeight: 800,
-                              }}
-                            >
-                              {business.name
-                                ?.charAt(0)
-                                ?.toUpperCase()}
-                            </div>
-                          )}
-
-                          <span
-                            style={{
-                              position: 'absolute',
-                              top: 6,
-                              left: 6,
-                              background: 'rgba(124,58,237,.92)',
-                              color: '#fff',
-                              fontSize: 9,
-                              fontWeight: 700,
-                              padding: '3px 7px',
-                              borderRadius: 7,
-                            }}
-                          >
-                            👑 Premium
-                          </span>
-                        </div>
-
-                        <div
-                          style={{
-                            marginTop: 9,
-                            fontSize: 12.5,
-                            fontWeight: 700,
-                            color: COLORS.ink,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {business.name}
-                        </div>
-                      </button>
-                    )
-                  )}
-                </div>
-              )}
-          </section>
-
-          {/* NEGÓCIOS */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 12,
-            }}
-          >
-            <h2 style={{ fontSize: 17, margin: 0, color: COLORS.ink }}>
-              Encontre aqui
-            </h2>
-
-            <span style={{ color: COLORS.inkFaint, fontSize: 11, fontWeight: 600 }}>
-              {provinceName}
-            </span>
+              ←
+            </Link>
           </div>
 
+          <div
+            style={{
+              maxWidth: 1080,
+              margin: '12px auto 0',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 12.5,
+              color: 'rgba(255,255,255,0.75)',
+            }}
+          >
+            📍 <b style={{ color: '#fff', fontWeight: 600 }}>{countryName}</b> · {provinceName}
+          </div>
+        </div>
+
+        <div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 18px 50px' }}>
           {loading && (
-            <p style={{ color: COLORS.inkFaint, fontSize: 13 }}>
+            <p style={{ color: '#5B655F', fontSize: 13, marginTop: 20 }}>
               A carregar…
             </p>
           )}
 
-          {!loading &&
-            businesses.length === 0 && (
-              <div
-                style={{
-                  padding: '26px 20px',
-                  borderRadius: 15,
-                  background: `linear-gradient(180deg, #FFFFFF, ${COLORS.canvas})`,
-                  border: `1.5px dashed ${COLORS.line}`,
-                  color: COLORS.inkSoft,
-                  fontSize: 13,
-                  textAlign: 'center',
-                }}
-              >
-                Ainda não há negócios cadastrados nesta
-                subcategoria nesta região.
-              </div>
-            )}
+          {error && (
+            <div
+              style={{
+                marginTop: 20,
+                padding: 14,
+                borderRadius: 12,
+                background: '#FFF1F0',
+                border: '1px solid #F7C9C4',
+                color: '#9B2C2C',
+                fontSize: 13,
+              }}
+            >
+              {error}
+            </div>
+          )}
 
-          {!loading &&
-            businesses.length > 0 && (
-              <div
+          {!loading && !error && subcategory && (
+            <>
+              {/* TÍTULO */}
+              <h1
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns:
-                    'repeat(auto-fit,minmax(190px,1fr))',
-                  gap: 12,
+                  fontFamily: "'Fraunces', serif",
+                  fontWeight: 600,
+                  fontSize: 27,
+                  marginTop: 20,
+                  marginBottom: 6,
+                  color: '#1C2321',
                 }}
               >
-                {businesses.map((business) => (
-                  <Link
-                    key={business.id}
-                    href={`/businesses/${business.id}?country=${country}&province=${province}`}
+                {subcategory.name}
+              </h1>
+
+              {subcategory.description && (
+                <p
+                  style={{
+                    color: '#5B655F',
+                    fontSize: 13.5,
+                    marginTop: 0,
+                    maxWidth: 480,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {subcategory.description}
+                </p>
+              )}
+
+              {/* PESQUISA — compacta, numa linha */}
+              <div style={{ marginTop: 16 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: '#fff',
+                    border: '1px solid #E7E2D6',
+                    borderRadius: 13,
+                    padding: '11px 14px',
+                  }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA39D" strokeWidth="2">
+                    <circle cx="11" cy="11" r="7" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
                     style={{
-                      textDecoration: 'none',
-                      color: 'inherit',
-                      background: '#FFFFFF',
-                      border: `1px solid ${COLORS.line}`,
-                      borderRadius: 15,
-                      padding: 12,
-                      display: 'block',
+                      border: 'none',
+                      outline: 'none',
+                      background: 'transparent',
+                      fontSize: 13.5,
+                      width: '100%',
+                      fontFamily: 'inherit',
+                    }}
+                    placeholder="Pesquisar por nome…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowMoreFilters((v) => !v)}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      color: '#0F6E5C',
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      flexShrink: 0,
                     }}
                   >
-                    {business.logo_url ? (
-                      <img
-                        src={business.logo_url}
-                        alt={business.name}
-                        style={{
-                          width: '100%',
-                          height: 105,
-                          objectFit: 'cover',
-                          borderRadius: 11,
-                          marginBottom: 9,
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: '100%',
-                          height: 105,
-                          borderRadius: 11,
-                          background: COLORS.brandSoft,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: COLORS.brand,
-                          fontSize: 28,
-                          fontWeight: 800,
-                          marginBottom: 9,
-                        }}
-                      >
-                        {business.name
-                          ?.charAt(0)
-                          ?.toUpperCase()}
-                      </div>
-                    )}
+                    {showMoreFilters ? 'Fechar' : 'Município/Bairro'}
+                  </button>
+                </div>
 
-                    <h3 style={{ fontSize: 14, margin: '3px 0 5px', color: COLORS.ink }}>
-                      {business.name}
-                    </h3>
-
-                    {business.description && (
-                      <p
-                        style={{
-                          fontSize: 11.5,
-                          color: COLORS.inkSoft,
-                          lineHeight: 1.45,
-                          margin: '0 0 8px',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {business.description}
-                      </p>
-                    )}
-
-                    {(business.municipality ||
-                      business.neighborhood) && (
-                      <div style={{ fontSize: 10.5, color: COLORS.inkFaint, fontWeight: 600 }}>
-                        {business.municipality}
-
-                        {business.municipality &&
-                        business.neighborhood
-                          ? ' · '
-                          : ''}
-
-                        {business.neighborhood}
-                      </div>
-                    )}
-                  </Link>
-                ))}
+                {showMoreFilters && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 7,
+                      marginTop: 7,
+                    }}
+                  >
+                    <input
+                      style={{
+                        flex: 1,
+                        border: '1px solid #E7E2D6',
+                        borderRadius: 10,
+                        padding: '8px 11px',
+                        fontSize: 12,
+                        outline: 'none',
+                        fontFamily: 'inherit',
+                      }}
+                      placeholder="Município"
+                      value={municipality}
+                      onChange={(e) => setMunicipality(e.target.value)}
+                    />
+                    <input
+                      style={{
+                        flex: 1,
+                        border: '1px solid #E7E2D6',
+                        borderRadius: 10,
+                        padding: '8px 11px',
+                        fontSize: 12,
+                        outline: 'none',
+                        fontFamily: 'inherit',
+                      }}
+                      placeholder="Bairro"
+                      value={neighborhood}
+                      onChange={(e) => setNeighborhood(e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
-            )}
-        </>
-      )}
 
-      {/* FEED DOS DESTAQUES PREMIUM */}
-      {premiumOpen &&
-        currentPremium && (
+              {/* DESTAQUES PREMIUM */}
+              <section style={{ marginTop: 26, marginBottom: 8 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    justifyContent: 'space-between',
+                    marginBottom: 12,
+                  }}
+                >
+                  <h2
+                    style={{
+                      fontFamily: "'Fraunces', serif",
+                      fontSize: 18,
+                      fontWeight: 600,
+                      margin: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      color: '#1C2321',
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>👑</span> Destaques Premium
+                  </h2>
+                  {premiumBusinesses.length > 0 && (
+                    <span style={{ fontSize: 11.5, color: '#5B655F' }}>deslize →</span>
+                  )}
+                </div>
+
+                {premiumLoading && (
+                  <p style={{ color: '#5B655F', fontSize: 12 }}>A carregar destaques…</p>
+                )}
+
+                {!premiumLoading && premiumBusinesses.length === 0 && (
+                  <div
+                    style={{
+                      padding: 16,
+                      borderRadius: 14,
+                      background: '#FFFFFF',
+                      border: '1px solid #E7E2D6',
+                      color: '#5B655F',
+                      fontSize: 12.5,
+                    }}
+                  >
+                    Ainda não existem Destaques Premium nesta subcategoria.
+                  </div>
+                )}
+
+                {!premiumLoading && premiumBusinesses.length > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 12,
+                      overflowX: 'auto',
+                      paddingBottom: 6,
+                    }}
+                  >
+                    {premiumBusinesses.map((business, index) => {
+                      const hue = getHue(business, index);
+                      return (
+                        <button
+                          key={business.id}
+                          type="button"
+                          onClick={() => openPremiumFeed(index)}
+                          style={{
+                            flex: '0 0 120px',
+                            border: 'none',
+                            background: 'transparent',
+                            padding: 0,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 120,
+                              height: 142,
+                              borderRadius: 16,
+                              position: 'relative',
+                              overflow: 'hidden',
+                              boxShadow: '0 6px 16px -6px rgba(10,46,39,0.3)',
+                              backgroundImage: business.logo_url
+                                ? `url(${business.logo_url})`
+                                : undefined,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                              background: business.logo_url ? undefined : hue,
+                              display: 'flex',
+                              alignItems: 'flex-end',
+                            }}
+                          >
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                background:
+                                  'linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.55) 100%)',
+                              }}
+                            />
+                            <span
+                              style={{
+                                position: 'absolute',
+                                top: 8,
+                                left: 8,
+                                background: '#DDA10A',
+                                color: '#0A2E27',
+                                fontSize: 10,
+                                fontWeight: 700,
+                                padding: '3px 7px',
+                                borderRadius: 20,
+                                zIndex: 2,
+                              }}
+                            >
+                              👑 Premium
+                            </span>
+                            <span
+                              style={{
+                                position: 'relative',
+                                zIndex: 2,
+                                color: '#fff',
+                                fontSize: 12.5,
+                                fontWeight: 600,
+                                padding: '0 10px 10px',
+                                lineHeight: 1.25,
+                              }}
+                            >
+                              {business.name}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              {/* NEGÓCIOS — "Encontre aqui" */}
+              <section style={{ marginTop: 22 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 12,
+                  }}
+                >
+                  <h2
+                    style={{
+                      fontFamily: "'Fraunces', serif",
+                      fontSize: 18,
+                      fontWeight: 600,
+                      margin: 0,
+                      color: '#1C2321',
+                    }}
+                  >
+                    Encontre aqui
+                  </h2>
+                  <span style={{ color: '#5B655F', fontSize: 11 }}>{provinceName}</span>
+                </div>
+
+                {loading && (
+                  <p style={{ color: '#5B655F', fontSize: 13 }}>A carregar…</p>
+                )}
+
+                {!loading && businesses.length === 0 && (
+                  <div
+                    style={{
+                      padding: 17,
+                      borderRadius: 13,
+                      background: '#FFFFFF',
+                      border: '1px solid #E7E2D6',
+                      color: '#5B655F',
+                      fontSize: 13,
+                    }}
+                  >
+                    Ainda não há negócios cadastrados nesta subcategoria nesta região.
+                  </div>
+                )}
+
+                {!loading && businesses.length > 0 && (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))',
+                      gap: 10,
+                    }}
+                  >
+                    {businesses.map((business, index) => {
+                      const hue = getHue(business, index);
+                      return (
+                        <Link
+                          key={business.id}
+                          href={`/businesses/${business.id}?country=${country}&province=${province}`}
+                          style={{
+                            textDecoration: 'none',
+                            color: 'inherit',
+                            display: 'flex',
+                            gap: 12,
+                            background: '#FFFFFF',
+                            border: '1px solid #E7E2D6',
+                            borderRadius: 14,
+                            padding: 10,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 64,
+                              height: 64,
+                              borderRadius: 10,
+                              flexShrink: 0,
+                              backgroundImage: business.logo_url
+                                ? `url(${business.logo_url})`
+                                : undefined,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                              background: business.logo_url ? undefined : hue,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#fff',
+                              fontFamily: "'Fraunces', serif",
+                              fontWeight: 600,
+                              fontSize: 20,
+                            }}
+                          >
+                            {!business.logo_url && getInitials(business.name)}
+                          </div>
+
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: '#1C2321' }}>
+                              {business.name}
+                            </p>
+                            {(business.municipality || business.neighborhood) && (
+                              <p style={{ fontSize: 12, color: '#5B655F', margin: '3px 0 5px' }}>
+                                {business.neighborhood}
+                                {business.municipality && business.neighborhood ? ' · ' : ''}
+                                {business.municipality}
+                              </p>
+                            )}
+                            {business.description && (
+                              <p
+                                style={{
+                                  fontSize: 11.5,
+                                  color: '#5B655F',
+                                  margin: '0 0 6px',
+                                  lineHeight: 1.4,
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
+                                }}
+                              >
+                                {business.description}
+                              </p>
+                            )}
+                            <span
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: '#0F6E5C',
+                              }}
+                            >
+                              Ver perfil →
+                            </span>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* FEED DOS DESTAQUES PREMIUM — ecrã cheio */}
+      {premiumOpen && currentPremium && (
+        <div
+          onWheel={handlePremiumWheel}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: '#0A0A0A',
+            color: '#FFFFFF',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          {/* TOPO DO FEED */}
           <div
-            onWheel={handlePremiumWheel}
             style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 9999,
-              background: '#1B0F2E',
-              color: '#FFFFFF',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 5,
               display: 'flex',
-              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 16px',
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.65), transparent)',
             }}
           >
-            {/* TOPO DO FEED */}
+            <button
+              type="button"
+              onClick={closePremiumFeed}
+              style={{
+                border: '1px solid rgba(255,255,255,0.25)',
+                background: 'rgba(0,0,0,0.35)',
+                color: '#FFFFFF',
+                borderRadius: 10,
+                padding: '9px 12px',
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: 13,
+              }}
+            >
+              ← Voltar
+            </button>
+
+            <div
+              style={{
+                fontSize: 11.5,
+                fontWeight: 800,
+                letterSpacing: 0.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
+              👑 DESTAQUE PREMIUM
+            </div>
+
+            <div style={{ fontSize: 11, opacity: 0.8 }}>
+              {premiumIndex + 1}/{premiumBusinesses.length}
+            </div>
+          </div>
+
+          {/* CONTEÚDO PRINCIPAL */}
+          <div
+            style={{
+              flex: 1,
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+            }}
+          >
+            {currentPremium.logo_url ? (
+              <img
+                src={currentPremium.logo_url}
+                alt={currentPremium.name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  background: `linear-gradient(145deg, ${currentPremiumHue}, #0A2E27)`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontFamily: "'Fraunces', serif",
+                  fontSize: 90,
+                  fontWeight: 600,
+                }}
+              >
+                {getInitials(currentPremium.name)}
+              </div>
+            )}
+
             <div
               style={{
                 position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                zIndex: 5,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '14px 16px',
+                inset: 0,
                 background:
-                  'linear-gradient(to bottom, rgba(0,0,0,0.65), transparent)',
+                  'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.05) 55%, rgba(0,0,0,0.18) 100%)',
               }}
-            >
-              <button
-                type="button"
-                onClick={closePremiumFeed}
-                style={{
-                  border: '1px solid rgba(255,255,255,0.25)',
-                  background: 'rgba(0,0,0,0.35)',
-                  color: '#FFFFFF',
-                  borderRadius: 10,
-                  padding: '9px 12px',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                }}
-              >
-                ← Voltar
-              </button>
+            />
 
-              <div
-                style={{
-                  fontSize: 11.5,
-                  fontWeight: 800,
-                  letterSpacing: 0.4,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                }}
-              >
-                👑 DESTAQUE PREMIUM
-              </div>
-
-              <div style={{ fontSize: 11, opacity: 0.8 }}>
-                {premiumIndex + 1}/
-                {premiumBusinesses.length}
-              </div>
-            </div>
-
-            {/* CONTEÚDO PRINCIPAL */}
             <div
               style={{
-                flex: 1,
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                bottom: 0,
+                padding: '24px 18px 28px',
               }}
             >
-              {currentPremium.logo_url ? (
-                <img
-                  src={currentPremium.logo_url}
-                  alt={currentPremium.name}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    background:
-                      `linear-gradient(145deg, ${COLORS.purpleDark}, ${COLORS.purple})`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 90,
-                    fontWeight: 800,
-                  }}
-                >
-                  {currentPremium.name
-                    ?.charAt(0)
-                    ?.toUpperCase()}
-                </div>
-              )}
-
-              {/* LEVE SOBREPOSIÇÃO */}
-              <div
+              <span
                 style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background:
-                    'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.05) 55%, rgba(0,0,0,0.18) 100%)',
-                }}
-              />
-
-              {/* INFORMAÇÕES */}
-              <div
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  padding: '24px 18px 28px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  background: '#DDA10A',
+                  color: '#0A2E27',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  borderRadius: 20,
+                  marginBottom: 10,
                 }}
               >
-                <div
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 5,
-                    background: COLORS.purple,
-                    color: '#fff',
-                    fontSize: 10.5,
-                    fontWeight: 700,
-                    padding: '4px 10px',
-                    borderRadius: 20,
-                    marginBottom: 10,
-                  }}
-                >
-                  👑 Premium
-                </div>
+                👑 Destaque Premium
+              </span>
 
-                <div
-                  style={{
-                    fontSize: 22,
-                    fontWeight: 800,
-                    marginBottom: 14,
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  {currentPremium.name}
-                </div>
-
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 9,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <a
-                    href={
-                      currentPremium.phone
-                        ? `sms:${currentPremium.phone}`
-                        : '#'
-                    }
-                    onClick={(event) => {
-                      if (!currentPremium.phone) {
-                        event.preventDefault();
-                      }
-                    }}
-                    style={{
-                      textDecoration: 'none',
-                      border: 'none',
-                      background: COLORS.gold,
-                      color: '#3A2B00',
-                      borderRadius: 12,
-                      padding: '11px 15px',
-                      fontWeight: 800,
-                      fontSize: 12,
-                      opacity: currentPremium.phone
-                        ? 1
-                        : 0.55,
-                    }}
-                  >
-                    Enviar SMS
-                  </a>
-
-                  <Link
-                    href={`/businesses/${currentPremium.id}?country=${country}&province=${province}`}
-                    style={{
-                      textDecoration: 'none',
-                      border: '1px solid rgba(255,255,255,0.5)',
-                      background:
-                        'rgba(255,255,255,0.12)',
-                      color: '#FFFFFF',
-                      borderRadius: 12,
-                      padding: '11px 15px',
-                      fontWeight: 700,
-                      fontSize: 12,
-                    }}
-                  >
-                    Ver perfil
-                  </Link>
-                </div>
+              <div
+                style={{
+                  fontFamily: "'Fraunces', serif",
+                  fontSize: 24,
+                  fontWeight: 600,
+                  marginBottom: 14,
+                }}
+              >
+                {currentPremium.name}
               </div>
 
-              {/* CONTROLES LATERAIS */}
-              {premiumBusinesses.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={previousPremium}
-                    aria-label="Destaque anterior"
-                    style={{
-                      position: 'absolute',
-                      left: 10,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: 40,
-                      height: 40,
-                      borderRadius: '50%',
-                      border:
-                        '1px solid rgba(255,255,255,0.3)',
-                      background:
-                        'rgba(0,0,0,0.25)',
-                      color: '#FFFFFF',
-                      fontSize: 20,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    ‹
-                  </button>
+              <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+                <a
+                  href={currentPremium.phone ? `sms:${currentPremium.phone}` : '#'}
+                  onClick={(event) => {
+                    if (!currentPremium.phone) {
+                      event.preventDefault();
+                    }
+                  }}
+                  style={{
+                    textDecoration: 'none',
+                    border: 'none',
+                    background: '#DDA10A',
+                    color: '#0A2E27',
+                    borderRadius: 12,
+                    padding: '11px 15px',
+                    fontWeight: 700,
+                    fontSize: 12,
+                    opacity: currentPremium.phone ? 1 : 0.55,
+                  }}
+                >
+                  Enviar SMS
+                </a>
 
-                  <button
-                    type="button"
-                    onClick={nextPremium}
-                    aria-label="Próximo destaque"
-                    style={{
-                      position: 'absolute',
-                      right: 10,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: 40,
-                      height: 40,
-                      borderRadius: '50%',
-                      border:
-                        '1px solid rgba(255,255,255,0.3)',
-                      background:
-                        'rgba(0,0,0,0.25)',
-                      color: '#FFFFFF',
-                      fontSize: 20,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    ›
-                  </button>
-                </>
-              )}
+                <Link
+                  href={`/businesses/${currentPremium.id}?country=${country}&province=${province}`}
+                  style={{
+                    textDecoration: 'none',
+                    border: '1px solid rgba(255,255,255,0.5)',
+                    background: 'rgba(255,255,255,0.12)',
+                    color: '#FFFFFF',
+                    borderRadius: 12,
+                    padding: '11px 15px',
+                    fontWeight: 600,
+                    fontSize: 12,
+                  }}
+                >
+                  Ver perfil
+                </Link>
+              </div>
             </div>
 
-            {/* INDICADOR */}
             {premiumBusinesses.length > 1 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: 10,
-                  left: 0,
-                  right: 0,
-                  display: 'flex',
-                  justifyContent: 'center',
-                  gap: 4,
-                  zIndex: 4,
-                }}
-              >
-                {premiumBusinesses.map(
-                  (business, index) => (
-                    <span
-                      key={business.id}
-                      style={{
-                        width:
-                          index === premiumIndex
-                            ? 18
-                            : 5,
-                        height: 4,
-                        borderRadius: 5,
-                        background:
-                          index === premiumIndex
-                            ? COLORS.gold
-                            : 'rgba(255,255,255,0.45)',
-                      }}
-                    />
-                  )
-                )}
-              </div>
+              <>
+                <button
+                  type="button"
+                  onClick={previousPremium}
+                  aria-label="Destaque anterior"
+                  style={{
+                    position: 'absolute',
+                    left: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 40,
+                    height: 40,
+                    borderRadius: '50%',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    background: 'rgba(0,0,0,0.25)',
+                    color: '#FFFFFF',
+                    fontSize: 20,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ‹
+                </button>
+
+                <button
+                  type="button"
+                  onClick={nextPremium}
+                  aria-label="Próximo destaque"
+                  style={{
+                    position: 'absolute',
+                    right: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 40,
+                    height: 40,
+                    borderRadius: '50%',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    background: 'rgba(0,0,0,0.25)',
+                    color: '#FFFFFF',
+                    fontSize: 20,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ›
+                </button>
+              </>
             )}
           </div>
-        )}
-    </div>
+
+          {premiumBusinesses.length > 1 && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 10,
+                left: 0,
+                right: 0,
+                display: 'flex',
+                justifyContent: 'center',
+                gap: 4,
+                zIndex: 4,
+              }}
+            >
+              {premiumBusinesses.map((business, index) => (
+                <span
+                  key={business.id}
+                  style={{
+                    width: index === premiumIndex ? 18 : 5,
+                    height: 4,
+                    borderRadius: 5,
+                    background: index === premiumIndex ? '#DDA10A' : 'rgba(255,255,255,0.45)',
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
-}                            
+}
