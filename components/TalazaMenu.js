@@ -5,36 +5,38 @@ import { supabase } from '../lib/supabaseClient';
 const COLORS = {
   brand: '#0F6E5C',
   brandDark: '#083F35',
-  brandDeep: '#062F29',
   brandSoft: '#E8F3F0',
   gold: '#DDA10A',
   goldSoft: '#FBF1D7',
+  purple: '#7252B8',
+  purpleSoft: '#F1ECFA',
   ink: '#17211F',
   inkSoft: '#596560',
   inkFaint: '#89948F',
-  white: '#FFFFFF',
+  canvas: '#F8F6F3',
+  surface: '#FFFFFF',
   line: '#E5E9E7',
-  canvas: '#F8F7F3',
 };
 
-function MenuIcon({ type, color = 'currentColor' }) {
+function Icon({ type, color = COLORS.ink, size = 19 }) {
   const common = {
-    width: 20,
-    height: 20,
+    width: size,
+    height: size,
     viewBox: '0 0 24 24',
     fill: 'none',
     stroke: color,
-    strokeWidth: 1.8,
+    strokeWidth: 1.9,
     strokeLinecap: 'round',
     strokeLinejoin: 'round',
+    'aria-hidden': true,
   };
 
-  const icons = {
+  const paths = {
     home: (
       <>
-        <path d="M3 10.5 12 3l9 7.5" />
+        <path d="M3 10.5L12 3l9 7.5" />
         <path d="M5.5 9.5V21h13V9.5" />
-        <path d="M9.5 21v-6h5v6" />
+        <path d="M9 21v-6h6v6" />
       </>
     ),
 
@@ -42,54 +44,37 @@ function MenuIcon({ type, color = 'currentColor' }) {
       <>
         <circle cx="12" cy="12" r="9" />
         <line x1="12" y1="10.5" x2="12" y2="16" />
-        <circle cx="12" cy="7.5" r=".7" fill={color} stroke="none" />
+        <circle cx="12" cy="7.2" r=".7" fill={color} stroke="none" />
       </>
     ),
 
-    location: (
+    pin: (
       <>
-        <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
-        <circle cx="12" cy="10" r="2.7" />
+        <path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" />
+        <circle cx="12" cy="10" r="2.2" />
       </>
     ),
 
     seller: (
       <>
-        <path d="M4 20h16" />
-        <path d="M6 20V9l6-5 6 5v11" />
-        <path d="M9 20v-5h6v5" />
-        <path d="M8 10h.01M12 10h.01M16 10h.01" />
+        <rect x="3" y="7" width="18" height="13" rx="2" />
+        <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
       </>
     ),
 
     support: (
       <>
-        <path d="M4 12a8 8 0 0 1 16 0" />
-        <path d="M4 12v4a2 2 0 0 0 2 2h1v-6H6a2 2 0 0 0-2 2Z" />
-        <path d="M20 12v4a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2Z" />
-        <path d="M15 20h-3" />
+        <path d="M12 19c-4 0-7-3-7-7a7 7 0 0 1 14 0" />
+        <rect x="3" y="12" width="4" height="6" rx="1.5" />
+        <rect x="17" y="12" width="4" height="6" rx="1.5" />
       </>
     ),
 
     logout: (
       <>
-        <path d="M10 5H5v14h5" />
-        <path d="M14 8l4 4-4 4" />
-        <path d="M18 12H9" />
-      </>
-    ),
-
-    arrow: (
-      <>
-        <line x1="5" y1="12" x2="19" y2="12" />
-        <polyline points="12 5 19 12 12 19" />
-      </>
-    ),
-
-    back: (
-      <>
-        <line x1="19" y1="12" x2="5" y2="12" />
-        <polyline points="12 19 5 12 12 5" />
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <polyline points="16 17 21 12 16 7" />
+        <line x1="21" y1="12" x2="9" y2="12" />
       </>
     ),
 
@@ -99,104 +84,315 @@ function MenuIcon({ type, color = 'currentColor' }) {
         <line x1="18" y1="6" x2="6" y2="18" />
       </>
     ),
+
+    arrowLeft: (
+      <>
+        <line x1="19" y1="12" x2="5" y2="12" />
+        <polyline points="12 19 5 12 12 5" />
+      </>
+    ),
+
+    arrowRight: (
+      <>
+        <line x1="5" y1="12" x2="19" y2="12" />
+        <polyline points="12 5 19 12 12 19" />
+      </>
+    ),
   };
 
+  return <svg {...common}>{paths[type]}</svg>;
+}
+
+function MenuItem({
+  icon,
+  color,
+  bg,
+  label,
+  onClick,
+  danger = false,
+}) {
   return (
-    <svg {...common}>
-      {icons[type]}
-    </svg>
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        width: '100%',
+        border: 'none',
+        background: 'transparent',
+        padding: 0,
+        margin: 0,
+        cursor: 'pointer',
+        textAlign: 'left',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '12px 10px',
+          borderRadius: 14,
+          transition: 'background .15s ease',
+        }}
+      >
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            flexShrink: 0,
+            borderRadius: 12,
+            background: bg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon
+            type={icon}
+            color={color}
+            size={18}
+          />
+        </div>
+
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            color: danger ? '#B14D4D' : COLORS.ink,
+            fontSize: 13,
+            fontWeight: 750,
+          }}
+        >
+          {label}
+        </div>
+
+        <div
+          style={{
+            color: danger ? '#B14D4D' : COLORS.inkFaint,
+            fontSize: 18,
+            lineHeight: 1,
+          }}
+        >
+          ›
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function Divider() {
+  return (
+    <div
+      style={{
+        height: 1,
+        background: COLORS.line,
+        margin: '8px 4px',
+      }}
+    />
+  );
+}
+
+function SubScreen({
+  title,
+  onBack,
+  children,
+}) {
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          marginBottom: 18,
+        }}
+      >
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Voltar"
+          style={{
+            width: 36,
+            height: 36,
+            border: `1px solid ${COLORS.line}`,
+            borderRadius: 11,
+            background: COLORS.surface,
+            color: COLORS.ink,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <Icon
+            type="arrowLeft"
+            color={COLORS.ink}
+            size={17}
+          />
+        </button>
+
+        <h2
+          style={{
+            margin: 0,
+            color: COLORS.brandDark,
+            fontSize: 18,
+            fontWeight: 850,
+            letterSpacing: '-0.02em',
+          }}
+        >
+          {title}
+        </h2>
+      </div>
+
+      {children}
+    </div>
+  );
+}
+
+function InfoBlock({ title, children }) {
+  return (
+    <div
+      style={{
+        background: COLORS.surface,
+        border: `1px solid ${COLORS.line}`,
+        borderRadius: 15,
+        padding: 14,
+        marginBottom: 10,
+      }}
+    >
+      <div
+        style={{
+          color: COLORS.brandDark,
+          fontSize: 13,
+          fontWeight: 800,
+          marginBottom: 5,
+        }}
+      >
+        {title}
+      </div>
+
+      <div
+        style={{
+          color: COLORS.inkSoft,
+          fontSize: 12,
+          lineHeight: 1.6,
+        }}
+      >
+        {children}
+      </div>
+    </div>
   );
 }
 
 export default function TalazaMenu({
   country,
   province,
-  countryName,
-  provinceName,
+  countryName = '',
+  provinceName = '',
+  sellerPanelRoute = '',
 }) {
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
   const [screen, setScreen] = useState('menu');
-
   const [provinces, setProvinces] = useState([]);
-  const [loadingProvinces, setLoadingProvinces] = useState(false);
-
-  const [supportMessage, setSupportMessage] = useState('');
-  const [sendingSupport, setSendingSupport] = useState(false);
-  const [supportSent, setSupportSent] = useState(false);
-
   const [userName, setUserName] = useState('');
-  const [userId, setUserId] = useState(null);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [message, setMessage] = useState('');
+  const [supportSent, setSupportSent] = useState(false);
 
   useEffect(() => {
     if (!open) return;
 
     loadUser();
-  }, [open]);
-
-  useEffect(() => {
-    if (!open || screen !== 'provinces') return;
-
     loadProvinces();
-  }, [open, screen, country, province]);
+  }, [open, country, province]);
 
   async function loadUser() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const { data } = await supabase.auth.getUser();
 
-    if (!user) {
-      setUserId(null);
+      const user = data?.user;
+
+      if (!user) {
+        setUserName('');
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      setUserName(
+        profile?.name ||
+          user.email ||
+          'Utilizador'
+      );
+    } catch (error) {
+      console.error(
+        'Erro ao carregar utilizador:',
+        error
+      );
+
       setUserName('');
-      return;
     }
-
-    setUserId(user.id);
-
-    const { data } = await supabase
-      .from('profiles')
-      .select('name')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    setUserName(
-      data?.name ||
-        user.user_metadata?.name ||
-        user.email?.split('@')[0] ||
-        ''
-    );
   }
 
   async function loadProvinces() {
-    if (!country || !province) return;
-
-    setLoadingProvinces(true);
-
-    const { data, error } = await supabase
-      .from('provinces')
-      .select('id, name, country_id')
-      .eq('country_id', country)
-      .order('name', { ascending: true });
-
-    if (error) {
-      console.error('Erro ao carregar províncias:', error);
+    if (!country) {
       setProvinces([]);
-      setLoadingProvinces(false);
       return;
     }
 
-    const otherProvinces = (data || []).filter(
-      (item) => String(item.id) !== String(province)
-    );
+    setLoadingProvinces(true);
 
-    setProvinces(otherProvinces);
-    setLoadingProvinces(false);
+    try {
+      const { data, error } = await supabase
+        .from('provinces')
+        .select('id, name, country_id')
+        .eq('country_id', country)
+        .order('name', {
+          ascending: true,
+        });
+
+      if (error) {
+        console.error(
+          'Erro ao carregar províncias:',
+          error
+        );
+
+        setProvinces([]);
+        return;
+      }
+
+      const filtered =
+        (data || []).filter(
+          (item) =>
+            String(item.id) !==
+            String(province)
+        );
+
+      setProvinces(filtered);
+    } catch (error) {
+      console.error(
+        'Erro ao carregar províncias:',
+        error
+      );
+
+      setProvinces([]);
+    } finally {
+      setLoadingProvinces(false);
+    }
   }
 
   function closeMenu() {
     setOpen(false);
     setScreen('menu');
+    setMessage('');
+    setSupportSent(false);
   }
 
   function goHome() {
@@ -211,172 +407,133 @@ export default function TalazaMenu({
     });
   }
 
-  function chooseProvince(nextProvince) {
+  function chooseProvince(item) {
+    closeMenu();
+
+    router.push({
+      pathname: '/explore',
+      query: {
+        country: country,
+        province: item.id,
+      },
+    });
+  }
+
+  function openSellerPanel() {
+    closeMenu();
+
+    if (sellerPanelRoute) {
+      router.push(sellerPanelRoute);
+      return;
+    }
+
+    if (
+      typeof window !== 'undefined' &&
+      window.history.length > 1
+    ) {
+      router.back();
+      return;
+    }
+
+    router.push('/login');
+  }
+
+  async function logout() {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error(
+        'Erro ao terminar sessão:',
+        error
+      );
+    }
+
     closeMenu();
 
     router.push({
       pathname: '/explore',
       query: {
         country,
-        province: nextProvince,
+        province,
       },
     });
   }
 
-  function goSellerProfile() {
-    closeMenu();
+  function submitSupport() {
+    const text = message.trim();
 
-    router.push('/seller');
-  }
+    if (!text) return;
 
-  async function logout() {
-    await supabase.auth.signOut();
-
-    closeMenu();
-
-    router.push({
-      pathname: '/login',
-      query: {
-        redirect: `/explore?country=${country}&province=${province}`,
-      },
-    });
-  }
-
-  async function sendSupportMessage() {
-    const message = supportMessage.trim();
-
-    if (!message) {
-      return;
-    }
-
-    if (!userId) {
-      router.push({
-        pathname: '/login',
-        query: {
-          redirect: `/explore?country=${country}&province=${province}`,
-        },
-      });
-      return;
-    }
-
-    setSendingSupport(true);
-    setSupportSent(false);
-
-    const { error } = await supabase
-      .from('messages')
-      .insert({
-        sender_id: userId,
-        receiver_id: null,
-        message_type: 'support',
-        content: message,
-        is_read: false,
-      });
-
-    if (error) {
-      console.error(
-        'Erro ao enviar mensagem para o suporte Talaza:',
-        error
-      );
-
-      setSendingSupport(false);
-      return;
-    }
-
-    setSupportMessage('');
+    /*
+     * O suporte ainda não é ligado à tabela messages
+     * porque a estrutura de suporte/admin ainda não
+     * foi definida.
+     *
+     * Por enquanto apenas confirmamos a ação na interface.
+     */
     setSupportSent(true);
-    setSendingSupport(false);
-  }
-
-  function renderHeader(title, subtitle) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          marginBottom: 22,
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => setScreen('menu')}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 11,
-            border: `1px solid ${COLORS.line}`,
-            background: COLORS.white,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            color: COLORS.ink,
-          }}
-          aria-label="Voltar"
-        >
-          <MenuIcon type="back" />
-        </button>
-
-        <div>
-          <div
-            style={{
-              fontSize: 17,
-              fontWeight: 800,
-              color: COLORS.ink,
-              letterSpacing: '-0.02em',
-            }}
-          >
-            {title}
-          </div>
-
-          {subtitle && (
-            <div
-              style={{
-                marginTop: 3,
-                fontSize: 11.5,
-                color: COLORS.inkFaint,
-              }}
-            >
-              {subtitle}
-            </div>
-          )}
-        </div>
-      </div>
-    );
+    setMessage('');
   }
 
   return (
     <>
       <button
         type="button"
+        aria-label="Abrir menu Talaza"
         onClick={() => {
           setOpen(true);
           setScreen('menu');
         }}
-        aria-label="Abrir menu"
         style={{
           width: 40,
           height: 40,
           border: `1px solid ${COLORS.line}`,
           borderRadius: 12,
-          background: COLORS.white,
+          background: COLORS.surface,
           color: COLORS.brandDark,
-          cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 22,
-          boxShadow: '0 5px 16px rgba(15,70,60,.06)',
+          cursor: 'pointer',
+          padding: 0,
+          boxShadow:
+            '0 4px 12px rgba(8,63,53,.05)',
         }}
       >
         <span
           style={{
-            display: 'block',
-            lineHeight: 1,
-            transform: 'translateY(-1px)',
+            width: 18,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
           }}
         >
-          ☰
+          <span
+            style={{
+              width: 16,
+              height: 1.8,
+              background: 'currentColor',
+              borderRadius: 9,
+            }}
+          />
+
+          <span
+            style={{
+              width: 16,
+              height: 1.8,
+              background: 'currentColor',
+              borderRadius: 9,
+            }}
+          />
+
+          <span
+            style={{
+              width: 11,
+              height: 1.8,
+              background: 'currentColor',
+              borderRadius: 9,
+            }}
+          />
         </span>
       </button>
 
@@ -387,8 +544,9 @@ export default function TalazaMenu({
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(4,25,21,.42)',
               zIndex: 9998,
+              background:
+                'rgba(5, 22, 18, .38)',
               backdropFilter: 'blur(2px)',
             }}
           />
@@ -399,311 +557,257 @@ export default function TalazaMenu({
               top: 0,
               right: 0,
               bottom: 0,
-              width: 'min(340px, 88vw)',
-              background: COLORS.white,
               zIndex: 9999,
-              boxShadow: '-16px 0 45px rgba(4,35,29,.18)',
+              width: 'min(390px, 92vw)',
+              background: COLORS.canvas,
+              boxShadow:
+                '-12px 0 40px rgba(0,0,0,.18)',
               display: 'flex',
               flexDirection: 'column',
-              overflowY: 'auto',
+              overflow: 'hidden',
             }}
           >
-            {/* CABEÇALHO DO MENU */}
             <div
               style={{
-                padding: '26px 22px 24px',
-                background: `linear-gradient(145deg, ${COLORS.brandDark}, ${COLORS.brand})`,
-                color: COLORS.white,
-                position: 'relative',
+                background: COLORS.brandDark,
+                color: '#FFFFFF',
+                padding: '18px 16px 15px',
               }}
             >
-              <button
-                type="button"
-                onClick={closeMenu}
-                aria-label="Fechar menu"
-                style={{
-                  position: 'absolute',
-                  top: 18,
-                  right: 18,
-                  width: 34,
-                  height: 34,
-                  borderRadius: 10,
-                  border: '1px solid rgba(255,255,255,.18)',
-                  background: 'rgba(255,255,255,.08)',
-                  color: COLORS.white,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <MenuIcon type="close" color="#FFFFFF" />
-              </button>
-
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 13,
-                  paddingRight: 42,
+                  justifyContent: 'space-between',
+                  gap: 12,
                 }}
               >
                 <div
                   style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 15,
-                    background: 'rgba(255,255,255,.12)',
-                    border: '1px solid rgba(255,255,255,.16)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    minWidth: 0,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 12,
+                      background: COLORS.gold,
+                      color: COLORS.brandDark,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 900,
+                      fontSize: 19,
+                      flexShrink: 0,
+                    }}
+                  >
+                    T
+                  </div>
+
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 900,
+                      }}
+                    >
+                      Talaza
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: 10.5,
+                        opacity: 0.72,
+                        marginTop: 2,
+                      }}
+                    >
+                      {userName ||
+                        'Tudo num só lugar'}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeMenu}
+                  aria-label="Fechar menu"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    border:
+                      '1px solid rgba(255,255,255,.18)',
+                    borderRadius: 10,
+                    background:
+                      'rgba(255,255,255,.08)',
+                    color: '#FFFFFF',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: COLORS.gold,
-                    fontSize: 24,
-                    fontWeight: 900,
+                    cursor: 'pointer',
+                    flexShrink: 0,
                   }}
                 >
-                  T
-                </div>
-
-                <div>
-                  <div
-                    style={{
-                      fontSize: 19,
-                      fontWeight: 900,
-                      letterSpacing: '-0.03em',
-                    }}
-                  >
-                    Talaza
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: 3,
-                      fontSize: 11.5,
-                      color: 'rgba(255,255,255,.72)',
-                    }}
-                  >
-                    {userName
-                      ? `Olá, ${userName}`
-                      : 'Tudo o que você procura, num só lugar'}
-                  </div>
-                </div>
+                  <Icon
+                    type="close"
+                    color="#FFFFFF"
+                    size={17}
+                  />
+                </button>
               </div>
 
-              <div
-                style={{
-                  marginTop: 18,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 7,
-                  padding: '7px 11px',
-                  borderRadius: 99,
-                  background: 'rgba(255,255,255,.09)',
-                  border: '1px solid rgba(255,255,255,.12)',
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  color: 'rgba(255,255,255,.88)',
-                }}
-              >
-                <MenuIcon type="location" color={COLORS.gold} />
-                {countryName || 'País'} · {provinceName || 'Província'}
-              </div>
+              {(countryName ||
+                provinceName) && (
+                <div
+                  style={{
+                    marginTop: 15,
+                    fontSize: 11,
+                    color:
+                      'rgba(255,255,255,.78)',
+                  }}
+                >
+                  {countryName}
+
+                  {countryName &&
+                  provinceName
+                    ? ' · '
+                    : ''}
+
+                  {provinceName}
+                </div>
+              )}
             </div>
 
-            <div style={{ padding: 18 }}>
+            <div
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: 14,
+                background: COLORS.canvas,
+              }}
+            >
               {screen === 'menu' && (
                 <>
-                  <button
-                    type="button"
+                  <MenuItem
+                    icon="home"
+                    color={COLORS.brand}
+                    bg={COLORS.brandSoft}
+                    label="Home"
                     onClick={goHome}
-                    style={{
-                      width: '100%',
-                      border: 'none',
-                      background: COLORS.brandSoft,
-                      color: COLORS.brandDark,
-                      borderRadius: 14,
-                      padding: '13px 14px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      fontWeight: 800,
-                      fontSize: 13,
-                    }}
-                  >
-                    <MenuIcon type="home" color={COLORS.brand} />
-                    <span style={{ flex: 1 }}>Home</span>
-                    <MenuIcon
-                      type="arrow"
-                      color={COLORS.brand}
-                    />
-                  </button>
-
-                  <div
-                    style={{
-                      height: 1,
-                      background: COLORS.line,
-                      margin: '16px 4px',
-                    }}
                   />
 
-                  <MenuButton
+                  <MenuItem
                     icon="info"
-                    title="Informações"
-                    subtitle="Saiba mais sobre o Talaza"
-                    onClick={() => setScreen('information')}
+                    color={COLORS.brand}
+                    bg={COLORS.brandSoft}
+                    label="Informações"
+                    onClick={() =>
+                      setScreen('info')
+                    }
                   />
 
-                  <MenuButton
-                    icon="location"
-                    title="Províncias"
-                    subtitle="Mudar a região da sua vitrine"
-                    onClick={() => setScreen('provinces')}
+                  <MenuItem
+                    icon="pin"
+                    color={COLORS.gold}
+                    bg={COLORS.goldSoft}
+                    label="Províncias"
+                    onClick={() =>
+                      setScreen('provinces')
+                    }
                   />
 
-                  <MenuButton
+                  <Divider />
+
+                  <MenuItem
                     icon="seller"
-                    title="Voltar ao perfil de vendedor"
-                    subtitle="Aceder à sua área de vendedor"
-                    onClick={goSellerProfile}
+                    color={COLORS.purple}
+                    bg={COLORS.purpleSoft}
+                    label="Voltar ao painel de vendedor"
+                    onClick={
+                      openSellerPanel
+                    }
                   />
 
-                  <div
-                    style={{
-                      height: 1,
-                      background: COLORS.line,
-                      margin: '16px 4px',
-                    }}
-                  />
+                  <Divider />
 
-                  <MenuButton
+                  <MenuItem
                     icon="support"
-                    title="Suporte Talaza"
-                    subtitle="Queixas, opiniões e sugestões"
-                    onClick={() => {
-                      setSupportSent(false);
-                      setScreen('support');
-                    }}
+                    color={COLORS.brand}
+                    bg={COLORS.brandSoft}
+                    label="Suporte Talaza"
+                    onClick={() =>
+                      setScreen('support')
+                    }
                   />
 
-                  <MenuButton
+                  <MenuItem
                     icon="logout"
-                    title="Terminar sessão"
-                    subtitle="Sair da sua conta Talaza"
-                    onClick={logout}
+                    color="#B14D4D"
+                    bg="#FBEAEA"
+                    label="Terminar sessão"
                     danger
+                    onClick={logout}
                   />
                 </>
               )}
 
-              {screen === 'information' && (
-                <>
-                  {renderHeader(
-                    'Informações',
-                    'Tudo o que precisa saber sobre o Talaza'
-                  )}
+              {screen === 'info' && (
+                <SubScreen
+                  title="Informações"
+                  onBack={() =>
+                    setScreen('menu')
+                  }
+                >
+                  <InfoBlock title="Sobre a Talaza">
+                    A Talaza reúne negócios,
+                    produtos, serviços,
+                    oportunidades, comunidade
+                    e outros conteúdos
+                    organizados por localização.
+                  </InfoBlock>
 
-                  <div
-                    style={{
-                      borderRadius: 18,
-                      padding: 18,
-                      background: COLORS.canvas,
-                      border: `1px solid ${COLORS.line}`,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: 13,
-                        background: COLORS.goldSoft,
-                        color: COLORS.gold,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginBottom: 14,
-                      }}
-                    >
-                      <MenuIcon
-                        type="info"
-                        color={COLORS.goldDark || COLORS.gold}
-                      />
-                    </div>
-
-                    <h3
-                      style={{
-                        margin: '0 0 8px',
-                        fontSize: 16,
-                        color: COLORS.ink,
-                      }}
-                    >
-                      Bem-vindo ao Talaza
-                    </h3>
-
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: 12.5,
-                        lineHeight: 1.65,
-                        color: COLORS.inkSoft,
-                      }}
-                    >
-                      Aqui vamos disponibilizar as principais
-                      informações que os utilizadores precisam
-                      saber sobre o Talaza, a utilização da
-                      plataforma, segurança, anúncios, pagamentos,
-                      oportunidades e outras áreas importantes.
-                    </p>
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: 12,
-                      padding: 15,
-                      borderRadius: 15,
-                      background: COLORS.brandSoft,
-                      color: COLORS.brandDark,
-                      fontSize: 12,
-                      lineHeight: 1.55,
-                    }}
-                  >
-                    Esta área ficará completa à medida que
-                    adicionarmos as informações oficiais do Talaza.
-                  </div>
-                </>
+                  <InfoBlock title="Privacidade">
+                    Os dados apresentados na
+                    plataforma devem ser utilizados
+                    de acordo com as regras e
+                    políticas da Talaza.
+                  </InfoBlock>
+                </SubScreen>
               )}
 
               {screen === 'provinces' && (
-                <>
-                  {renderHeader(
-                    'Escolher província',
-                    'A sua província atual não aparece na lista'
-                  )}
-
+                <SubScreen
+                  title="Escolher província"
+                  onBack={() =>
+                    setScreen('menu')
+                  }
+                >
                   <div
                     style={{
-                      padding: '12px 14px',
-                      borderRadius: 14,
-                      background: COLORS.brandSoft,
-                      color: COLORS.brandDark,
-                      fontSize: 12,
+                      marginBottom: 12,
+                      color: COLORS.inkSoft,
+                      fontSize: 11.5,
                       lineHeight: 1.5,
-                      marginBottom: 13,
                     }}
                   >
-                    Está a visualizar:{' '}
-                    <strong>{provinceName}</strong>
+                    A província atual não aparece
+                    nesta lista.
                   </div>
 
                   {loadingProvinces && (
                     <div
                       style={{
-                        padding: 20,
-                        textAlign: 'center',
-                        color: COLORS.inkFaint,
-                        fontSize: 12.5,
+                        background:
+                          COLORS.surface,
+                        border: `1px solid ${COLORS.line}`,
+                        borderRadius: 13,
+                        padding: 14,
+                        color:
+                          COLORS.inkSoft,
+                        fontSize: 12,
                       }}
                     >
                       A carregar províncias…
@@ -714,18 +818,18 @@ export default function TalazaMenu({
                     provinces.length === 0 && (
                       <div
                         style={{
-                          padding: 20,
-                          borderRadius: 15,
-                          background: COLORS.canvas,
+                          background:
+                            COLORS.surface,
                           border: `1px solid ${COLORS.line}`,
-                          color: COLORS.inkSoft,
-                          fontSize: 12.5,
-                          lineHeight: 1.5,
-                          textAlign: 'center',
+                          borderRadius: 13,
+                          padding: 14,
+                          color:
+                            COLORS.inkSoft,
+                          fontSize: 12,
                         }}
                       >
-                        Não existem outras províncias
-                        disponíveis neste país.
+                        Não existem outras
+                        províncias disponíveis.
                       </div>
                     )}
 
@@ -735,233 +839,163 @@ export default function TalazaMenu({
                         key={item.id}
                         type="button"
                         onClick={() =>
-                          chooseProvince(item.id)
+                          chooseProvince(item)
                         }
                         style={{
                           width: '100%',
                           border: `1px solid ${COLORS.line}`,
-                          background: COLORS.white,
-                          borderRadius: 14,
-                          padding: '13px 14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 11,
-                          cursor: 'pointer',
+                          background:
+                            COLORS.surface,
+                          borderRadius: 13,
+                          padding:
+                            '13px 14px',
                           marginBottom: 8,
+                          display: 'flex',
+                          alignItems:
+                            'center',
+                          justifyContent:
+                            'space-between',
+                          color: COLORS.ink,
+                          cursor: 'pointer',
+                          fontWeight: 750,
+                          fontSize: 12.5,
                           textAlign: 'left',
                         }}
                       >
-                        <div
-                          style={{
-                            width: 34,
-                            height: 34,
-                            borderRadius: 10,
-                            background: COLORS.brandSoft,
-                            color: COLORS.brand,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                          }}
-                        >
-                          <MenuIcon
-                            type="location"
-                            color={COLORS.brand}
-                          />
-                        </div>
-
-                        <span
-                          style={{
-                            flex: 1,
-                            fontSize: 13,
-                            fontWeight: 750,
-                            color: COLORS.ink,
-                          }}
-                        >
+                        <span>
                           {item.name}
                         </span>
 
-                        <MenuIcon
-                          type="arrow"
-                          color={COLORS.inkFaint}
-                        />
+                        <span
+                          style={{
+                            color:
+                              COLORS.purple,
+                            fontSize: 18,
+                          }}
+                        >
+                          ›
+                        </span>
                       </button>
                     ))}
-                </>
+                </SubScreen>
               )}
 
               {screen === 'support' && (
-                <>
-                  {renderHeader(
-                    'Suporte Talaza',
-                    'Estamos aqui para ouvir você'
-                  )}
-
-                  <div
-                    style={{
-                      padding: 16,
-                      borderRadius: 16,
-                      background: COLORS.goldSoft,
-                      color: COLORS.goldDark,
-                      fontSize: 12.5,
-                      lineHeight: 1.6,
-                      marginBottom: 16,
-                    }}
-                  >
-                    Tem uma queixa, encontrou um problema,
-                    tem uma opinião ou quer deixar uma sugestão?
-                    Escreva abaixo. A sua mensagem será enviada
-                    para a equipa de administração do Talaza.
-                  </div>
+                <SubScreen
+                  title="Suporte Talaza"
+                  onBack={() =>
+                    setScreen('menu')
+                  }
+                >
+                  <InfoBlock title="Precisa de ajuda?">
+                    Envie a sua dúvida,
+                    sugestão, reclamação ou
+                    opinião para a equipa Talaza.
+                  </InfoBlock>
 
                   <textarea
-                    value={supportMessage}
-                    onChange={(e) =>
-                      setSupportMessage(e.target.value)
-                    }
-                    placeholder="Escreva aqui a sua mensagem…"
-                    rows={7}
+                    value={message}
+                    onChange={(event) => {
+                      setMessage(
+                        event.target.value
+                      );
+                      setSupportSent(false);
+                    }}
+                    placeholder="Escreva a sua mensagem…"
+                    rows={6}
                     style={{
                       width: '100%',
                       boxSizing: 'border-box',
                       resize: 'vertical',
                       border: `1px solid ${COLORS.line}`,
-                      borderRadius: 15,
-                      padding: 14,
-                      fontFamily: 'inherit',
-                      fontSize: 13,
-                      lineHeight: 1.55,
-                      color: COLORS.ink,
-                      background: COLORS.white,
+                      borderRadius: 13,
+                      padding: 12,
                       outline: 'none',
+                      background:
+                        COLORS.surface,
+                      color: COLORS.ink,
+                      fontSize: 12.5,
+                      fontFamily:
+                        'inherit',
                     }}
                   />
 
                   <button
                     type="button"
+                    onClick={submitSupport}
                     disabled={
-                      sendingSupport ||
-                      !supportMessage.trim()
+                      !message.trim()
                     }
-                    onClick={sendSupportMessage}
                     style={{
                       width: '100%',
-                      marginTop: 11,
                       border: 'none',
-                      borderRadius: 14,
-                      padding: '13px 16px',
+                      borderRadius: 13,
+                      marginTop: 10,
+                      padding: '13px 14px',
                       background:
-                        sendingSupport ||
-                        !supportMessage.trim()
-                          ? '#D9DEDC'
-                          : `linear-gradient(135deg, ${COLORS.brand}, ${COLORS.brandDark})`,
-                      color: COLORS.white,
+                        message.trim()
+                          ? COLORS.brand
+                          : '#BFC9C5',
+                      color: '#FFFFFF',
                       fontWeight: 800,
-                      fontSize: 13,
+                      fontSize: 12.5,
                       cursor:
-                        sendingSupport ||
-                        !supportMessage.trim()
-                          ? 'not-allowed'
-                          : 'pointer',
+                        message.trim()
+                          ? 'pointer'
+                          : 'not-allowed',
                     }}
                   >
-                    {sendingSupport
-                      ? 'A enviar…'
-                      : 'Enviar mensagem'}
+                    Enviar mensagem
                   </button>
 
                   {supportSent && (
                     <div
                       style={{
-                        marginTop: 12,
+                        marginTop: 10,
                         padding: 12,
-                        borderRadius: 13,
-                        background: COLORS.brandSoft,
-                        color: COLORS.brandDark,
+                        borderRadius: 12,
+                        background:
+                          COLORS.brandSoft,
+                        color:
+                          COLORS.brandDark,
                         fontSize: 12,
                         lineHeight: 1.5,
                       }}
                     >
-                      Mensagem enviada com sucesso. Obrigado
-                      por ajudar a melhorar o Talaza.
+                      A sua mensagem foi
+                      preparada. A ligação
+                      definitiva ao suporte/admin
+                      será feita quando a estrutura
+                      de suporte estiver definida.
                     </div>
                   )}
-                </>
+                </SubScreen>
               )}
+            </div>
+
+            <div
+              style={{
+                padding:
+                  '12px 16px 15px',
+                borderTop:
+                  `1px solid ${COLORS.line}`,
+                background:
+                  COLORS.surface,
+              }}
+            >
+              <div
+                style={{
+                  color: COLORS.inkFaint,
+                  fontSize: 10.5,
+                  textAlign: 'center',
+                }}
+              >
+                Talaza — Tudo num só lugar.
+              </div>
             </div>
           </aside>
         </>
       )}
     </>
-  );
-}
-
-function MenuButton({
-  icon,
-  title,
-  subtitle,
-  onClick,
-  danger = false,
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        width: '100%',
-        border: 'none',
-        background: 'transparent',
-        padding: '12px 7px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        cursor: 'pointer',
-        textAlign: 'left',
-        borderRadius: 13,
-      }}
-    >
-      <div
-        style={{
-          width: 38,
-          height: 38,
-          borderRadius: 12,
-          background: danger ? '#FFF1F0' : '#F4F7F5',
-          color: danger ? '#C0392B' : '#0F6E5C',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        <MenuIcon
-          type={icon}
-          color={danger ? '#C0392B' : '#0F6E5C'}
-        />
-      </div>
-
-      <div style={{ flex: 1 }}>
-        <div
-          style={{
-            fontSize: 13,
-            fontWeight: 800,
-            color: danger ? '#A52A22' : '#17211F',
-          }}
-        >
-          {title}
-        </div>
-
-        <div
-          style={{
-            marginTop: 3,
-            fontSize: 10.8,
-            color: '#89948F',
-          }}
-        >
-          {subtitle}
-        </div>
-      </div>
-
-      <MenuIcon type="arrow" color="#A3ADA9" />
-    </button>
   );
 }
