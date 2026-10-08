@@ -9,19 +9,15 @@ const COLORS = {
   brandDark: '#083F35',
   brandDeep: '#062F29',
   brandSoft: '#E8F3F0',
-
   gold: '#DDA10A',
   goldDark: '#8A6607',
   goldSoft: '#FBF1D7',
-
   purple: '#7252B8',
   purpleSoft: '#F1ECFA',
-
   ink: '#17211F',
   inkSoft: '#596560',
   inkFaint: '#89948F',
-
-  canvas: '#F8F7F3',
+  canvas: '#F8F6F3',
   surface: '#FFFFFF',
   line: '#E5E9E7',
 };
@@ -334,7 +330,7 @@ function CategoryIcon({ type, color }) {
     services: (
       <>
         <circle cx="12" cy="12" r="3" />
-        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V20h-2.6v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H6v-2.6h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V6h2.6v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v2.6h-.1a1.7 1.7 0 0 0-1.6 1Z" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V20h-2.6v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H6v-2.6h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V6h2.6v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0-1.6 1h-.1v2.6h.1a1.7 1.7 0 0 0 1.6 1Z" />
       </>
     ),
 
@@ -381,13 +377,11 @@ export default function Explore() {
 
   const [categories, setCategories] = useState([]);
   const [businesses, setBusinesses] = useState([]);
-  const [products, setProducts] = useState([]);
 
   const [query, setQuery] = useState('');
-
   const [loading, setLoading] = useState(true);
-  const [loadingCategories, setLoadingCategories] = useState(true);
-  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [loadingCategories, setLoadingCategories] =
+    useState(true);
 
   const [selectedArea, setSelectedArea] = useState(null);
 
@@ -406,8 +400,13 @@ export default function Explore() {
   useEffect(() => {
     if (!router.isReady || !country || !province) return;
 
-    loadBusinessesAndProducts();
-  }, [router.isReady, country, province, query]);
+    loadBusinesses();
+  }, [
+    router.isReady,
+    country,
+    province,
+    query,
+  ]);
 
   async function loadLocation() {
     const { data: countryData, error: countryError } =
@@ -466,214 +465,47 @@ export default function Explore() {
     setLoadingCategories(false);
   }
 
-  async function loadBusinessesAndProducts() {
+  async function loadBusinesses() {
     setLoading(true);
 
+    let request = supabase
+      .from('businesses')
+      .select(`
+        id,
+        name,
+        description,
+        municipality,
+        neighborhood,
+        logo_url
+      `)
+      .eq('country_id', country)
+      .eq('province_id', province)
+      .eq('is_active', true)
+      .eq('approval_status', 'approved')
+      .order('created_at', { ascending: false });
+
     if (query.trim()) {
-      setLoadingSearch(true);
+      request = request.ilike(
+        'name',
+        `%${query.trim()}%`
+      );
     }
 
-    try {
-      const search = query.trim();
+    const { data, error } = await request;
 
-      /*
-       * SEM PESQUISA:
-       * Mostramos a vitrine normal da província.
-       */
-      if (!search) {
-        const { data, error } = await supabase
-          .from('businesses')
-          .select(`
-            id,
-            name,
-            description,
-            municipality,
-            neighborhood,
-            logo_url
-          `)
-          .eq('country_id', country)
-          .eq('province_id', province)
-          .eq('is_active', true)
-          .eq('approval_status', 'approved')
-          .order('created_at', { ascending: false });
+    if (error) {
+      console.error(
+        'Erro ao carregar negócios:',
+        error
+      );
 
-        if (error) {
-          console.error(
-            'Erro ao carregar negócios:',
-            error
-          );
-
-          setBusinesses([]);
-          setProducts([]);
-          return;
-        }
-
-        setBusinesses(data || []);
-        setProducts([]);
-        return;
-      }
-
-      /*
-       * PESQUISA REAL
-       *
-       * 1. Procuramos negócios pelo nome,
-       * descrição, município ou bairro.
-       */
-      const {
-        data: businessData,
-        error: businessError,
-      } = await supabase
-        .from('businesses')
-        .select(`
-          id,
-          name,
-          description,
-          municipality,
-          neighborhood,
-          logo_url
-        `)
-        .eq('country_id', country)
-        .eq('province_id', province)
-        .eq('is_active', true)
-        .eq('approval_status', 'approved')
-        .or(
-          `name.ilike.%${search}%,description.ilike.%${search}%,municipality.ilike.%${search}%,neighborhood.ilike.%${search}%`
-        )
-        .order('created_at', { ascending: false });
-
-      if (businessError) {
-        console.error(
-          'Erro ao pesquisar negócios:',
-          businessError
-        );
-
-        setBusinesses([]);
-      } else {
-        setBusinesses(businessData || []);
-      }
-
-      /*
-       * 2. Procuramos produtos ativos.
-       *
-       * Primeiro encontramos os produtos cujo
-       * nome ou descrição corresponde à pesquisa.
-       */
-      const {
-        data: productData,
-        error: productError,
-      } = await supabase
-        .from('products')
-        .select(`
-          id,
-          business_id,
-          name,
-          description,
-          price,
-          image_url,
-          is_active,
-          sort_order
-        `)
-        .eq('is_active', true)
-        .or(
-          `name.ilike.%${search}%,description.ilike.%${search}%`
-        )
-        .order('sort_order', { ascending: true });
-
-      if (productError) {
-        console.error(
-          'Erro ao pesquisar produtos:',
-          productError
-        );
-
-        setProducts([]);
-      } else if (productData?.length) {
-        /*
-         * 3. Buscamos os negócios dos produtos encontrados
-         * para garantir que pertencem à província atual.
-         */
-        const businessIds = [
-          ...new Set(
-            productData
-              .map((product) => product.business_id)
-              .filter(Boolean)
-          ),
-        ];
-
-        if (businessIds.length > 0) {
-          const {
-            data: productBusinesses,
-            error: productBusinessError,
-          } = await supabase
-            .from('businesses')
-            .select(`
-              id,
-              name,
-              description,
-              municipality,
-              neighborhood,
-              logo_url
-            `)
-            .in('id', businessIds)
-            .eq('country_id', country)
-            .eq('province_id', province)
-            .eq('is_active', true)
-            .eq('approval_status', 'approved');
-
-          if (productBusinessError) {
-            console.error(
-              'Erro ao validar negócios dos produtos:',
-              productBusinessError
-            );
-
-            setProducts([]);
-          } else {
-            const validBusinessIds = new Set(
-              (productBusinesses || []).map(
-                (business) => business.id
-              )
-            );
-
-            const validProducts = productData.filter(
-              (product) =>
-                validBusinessIds.has(product.business_id)
-            );
-
-            setProducts(validProducts);
-
-            /*
-             * Caso um negócio ainda não tenha aparecido
-             * pela pesquisa do nome, adicionamos o negócio
-             * responsável pelo produto.
-             */
-            if (productBusinesses?.length) {
-              setBusinesses((current) => {
-                const currentIds = new Set(
-                  current.map((business) => business.id)
-                );
-
-                const additionalBusinesses =
-                  productBusinesses.filter(
-                    (business) =>
-                      !currentIds.has(business.id)
-                  );
-
-                return [
-                  ...current,
-                  ...additionalBusinesses,
-                ];
-              });
-            }
-          }
-        } else {
-          setProducts([]);
-        }
-      } else {
-        setProducts([]);
-      }
-    } finally {
+      setBusinesses([]);
       setLoading(false);
-      setLoadingSearch(false);
+      return;
     }
+
+    setBusinesses(data || []);
+    setLoading(false);
   }
 
   function handleAreaClick(area) {
@@ -707,108 +539,145 @@ export default function Explore() {
     }
   }
 
-  function clearSearch() {
-    setQuery('');
-  }
-
   return (
     <div
       style={{
+        width: '100%',
         minHeight: '100vh',
         background: COLORS.canvas,
         color: COLORS.ink,
       }}
     >
+      <style jsx global>{`
+        html,
+        body,
+        #__next {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          min-height: 100%;
+          background: #f8f6f3;
+        }
+
+        body {
+          background: #f8f6f3;
+        }
+
+        *,
+        *::before,
+        *::after {
+          box-sizing: border-box;
+        }
+      `}</style>
+
       <div
         style={{
-          maxWidth: 1120,
+          width: '100%',
+          maxWidth: 1280,
           margin: '0 auto',
-          padding: '0 18px 60px',
+          padding: '0 16px 60px',
         }}
       >
         {/* CABEÇALHO */}
         <nav
           style={{
             minHeight: 72,
+            width: '100%',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             gap: 12,
           }}
         >
-          <Link
-            href={{
-              pathname: '/explore',
-              query: {
-                country,
-                province,
-              },
-            }}
-            style={{
-              textDecoration: 'none',
-              color: 'inherit',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-            }}
-          >
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 13,
-                background: `linear-gradient(145deg, ${COLORS.brand}, ${COLORS.brandDark})`,
-                color: COLORS.gold,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 900,
-                fontSize: 20,
-                boxShadow:
-                  '0 7px 18px rgba(8,63,53,.18)',
-              }}
-            >
-              T
-            </div>
-
-            <div>
-              <div
-                style={{
-                  color: COLORS.brandDark,
-                  fontSize: 19,
-                  fontWeight: 900,
-                  letterSpacing: '-0.03em',
-                }}
-              >
-                Talaza
-              </div>
-
-              <div
-                style={{
-                  color: COLORS.inkFaint,
-                  fontSize: 9.5,
-                  fontWeight: 700,
-                  marginTop: -1,
-                }}
-              >
-                Tudo num só lugar
-              </div>
-            </div>
-          </Link>
-
           <div
             style={{
-              marginLeft: 'auto',
+              width: '100%',
               display: 'flex',
               alignItems: 'center',
-              gap: 7,
+              justifyContent: 'space-between',
+              gap: 12,
             }}
           >
-            <TalazaMenu
-              country={country}
-              province={province}
-              countryName={countryName}
-              provinceName={provinceName}
-            />
+            <Link
+              href={{
+                pathname: '/explore',
+                query: {
+                  country,
+                  province,
+                },
+              }}
+              style={{
+                textDecoration: 'none',
+                color: 'inherit',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                minWidth: 0,
+              }}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 13,
+                  background: `linear-gradient(145deg, ${COLORS.brand}, ${COLORS.brandDark})`,
+                  color: COLORS.gold,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 900,
+                  fontSize: 20,
+                  boxShadow:
+                    '0 7px 18px rgba(8,63,53,.18)',
+                  flexShrink: 0,
+                }}
+              >
+                T
+              </div>
+
+              <div
+                style={{
+                  minWidth: 0,
+                }}
+              >
+                <div
+                  style={{
+                    color: COLORS.brandDark,
+                    fontSize: 19,
+                    fontWeight: 900,
+                    letterSpacing: '-0.03em',
+                  }}
+                >
+                  Talaza
+                </div>
+
+                <div
+                  style={{
+                    color: COLORS.inkFaint,
+                    fontSize: 9.5,
+                    fontWeight: 700,
+                    marginTop: -1,
+                  }}
+                >
+                  Tudo num só lugar
+                </div>
+              </div>
+            </Link>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <TalazaMenu
+                country={country}
+                province={province}
+                countryName={countryName}
+                provinceName={provinceName}
+              />
+            </div>
           </div>
         </nav>
 
@@ -832,7 +701,11 @@ export default function Explore() {
               fontWeight: 800,
             }}
           >
-            <span style={{ color: COLORS.gold }}>
+            <span
+              style={{
+                color: COLORS.gold,
+              }}
+            >
               ●
             </span>
 
@@ -905,7 +778,7 @@ export default function Explore() {
               border: `1px solid ${COLORS.line}`,
               borderRadius: 16,
               padding:
-                '14px 88px 14px 46px',
+                '14px 16px 14px 46px',
               fontSize: 13,
               background: COLORS.surface,
               color: COLORS.ink,
@@ -914,46 +787,14 @@ export default function Explore() {
                 '0 6px 22px rgba(20,50,43,.04)',
             }}
           />
-
-          {query && (
-            <button
-              type="button"
-              onClick={clearSearch}
-              style={{
-                position: 'absolute',
-                right: 12,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                border: 'none',
-                background: COLORS.purpleSoft,
-                color: COLORS.purple,
-                borderRadius: 10,
-                padding: '7px 10px',
-                fontSize: 10.5,
-                fontWeight: 800,
-                cursor: 'pointer',
-              }}
-            >
-              Limpar
-            </button>
-          )}
         </div>
 
-        {loadingSearch && (
-          <div
-            style={{
-              marginTop: 9,
-              color: COLORS.purple,
-              fontSize: 11,
-              fontWeight: 700,
-            }}
-          >
-            A pesquisar…
-          </div>
-        )}
-
         {/* ÁREAS */}
-        <section style={{ marginTop: 22 }}>
+        <section
+          style={{
+            marginTop: 22,
+          }}
+        >
           <div
             style={{
               display: 'grid',
@@ -1057,900 +898,484 @@ export default function Explore() {
           )}
         </section>
 
-        {/* RESULTADOS DA PESQUISA */}
-        {query.trim() && (
-          <section
+        {/* CATEGORIAS */}
+        <section
+          id="categorias"
+          style={{
+            marginTop: 34,
+          }}
+        >
+          <div
             style={{
-              marginTop: 34,
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'space-between',
+              gap: 12,
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'space-between',
-                gap: 12,
-                marginBottom: 13,
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: COLORS.purple,
-                    fontWeight: 900,
-                    textTransform: 'uppercase',
-                    letterSpacing: '.12em',
-                    marginBottom: 5,
-                  }}
-                >
-                  Pesquisa
-                </div>
-
-                <h2
-                  style={{
-                    fontSize: 22,
-                    margin: 0,
-                    color: COLORS.ink,
-                    letterSpacing: '-0.035em',
-                  }}
-                >
-                  Resultados encontrados
-                </h2>
-              </div>
-
-              <span
-                style={{
-                  color: COLORS.inkFaint,
-                  fontSize: 11,
-                  fontWeight: 700,
-                }}
-              >
-                {provinceName}
-              </span>
-            </div>
-
-            {!loading &&
-              businesses.length === 0 &&
-              products.length === 0 && (
-                <div
-                  style={{
-                    padding: '30px 22px',
-                    borderRadius: 18,
-                    background: COLORS.surface,
-                    border: `1px dashed ${COLORS.line}`,
-                    textAlign: 'center',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 50,
-                      height: 50,
-                      borderRadius: 15,
-                      background:
-                        COLORS.purpleSoft,
-                      color: COLORS.purple,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin:
-                        '0 auto 13px',
-                    }}
-                  >
-                    <AreaIcon
-                      type="search"
-                      color={COLORS.purple}
-                    />
-                  </div>
-
-                  <p
-                    style={{
-                      margin: 0,
-                      color: COLORS.inkSoft,
-                      fontSize: 13,
-                      lineHeight: 1.55,
-                    }}
-                  >
-                    Não encontramos resultados
-                    para essa pesquisa nesta
-                    região.
-                  </p>
-                </div>
-              )}
-
-            {/* NEGÓCIOS ENCONTRADOS */}
-            {businesses.length > 0 && (
-              <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: COLORS.inkSoft,
-                    fontWeight: 800,
-                    marginBottom: 10,
-                  }}
-                >
-                  Negócios
-                </div>
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'repeat(auto-fit,minmax(200px,1fr))',
-                    gap: 13,
-                  }}
-                >
-                  {businesses.map(
-                    (business) => (
-                      <Link
-                        key={business.id}
-                        href={`/businesses/${business.id}?country=${country}&province=${province}`}
-                        style={{
-                          textDecoration: 'none',
-                          color: 'inherit',
-                          background:
-                            COLORS.surface,
-                          border: `1px solid ${COLORS.line}`,
-                          borderRadius: 18,
-                          padding: 11,
-                          display: 'block',
-                          boxShadow:
-                            '0 7px 24px rgba(20,50,43,.045)',
-                        }}
-                      >
-                        {business.logo_url ? (
-                          <img
-                            src={
-                              business.logo_url
-                            }
-                            alt={
-                              business.name
-                            }
-                            style={{
-                              width: '100%',
-                              height: 125,
-                              objectFit:
-                                'cover',
-                              borderRadius: 13,
-                              marginBottom: 10,
-                              display:
-                                'block',
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: '100%',
-                              height: 125,
-                              borderRadius: 13,
-                              marginBottom: 10,
-                              background: `linear-gradient(145deg, ${COLORS.brandSoft}, ${COLORS.goldSoft})`,
-                              display:
-                                'flex',
-                              alignItems:
-                                'center',
-                              justifyContent:
-                                'center',
-                              color:
-                                COLORS.brand,
-                              fontSize: 30,
-                              fontWeight: 900,
-                            }}
-                          >
-                            {String(
-                              business.name ||
-                                'T'
-                            )
-                              .charAt(0)
-                              .toUpperCase()}
-                          </div>
-                        )}
-
-                        <h3
-                          style={{
-                            fontSize: 14,
-                            margin:
-                              '3px 2px 5px',
-                            color:
-                              COLORS.ink,
-                            letterSpacing:
-                              '-0.01em',
-                          }}
-                        >
-                          {business.name}
-                        </h3>
-
-                        {business.description && (
-                          <p
-                            style={{
-                              fontSize: 11.5,
-                              color:
-                                COLORS.inkSoft,
-                              margin:
-                                '0 2px 8px',
-                              lineHeight: 1.45,
-                              display:
-                                '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient:
-                                'vertical',
-                              overflow:
-                                'hidden',
-                            }}
-                          >
-                            {
-                              business.description
-                            }
-                          </p>
-                        )}
-
-                        {(business.municipality ||
-                          business.neighborhood) && (
-                          <div
-                            style={{
-                              margin:
-                                '0 2px',
-                              fontSize: 10.5,
-                              color:
-                                COLORS.inkFaint,
-                              fontWeight: 700,
-                            }}
-                          >
-                            {
-                              business.municipality
-                            }
-
-                            {business.municipality &&
-                            business.neighborhood
-                              ? ' · '
-                              : ''}
-
-                            {
-                              business.neighborhood
-                            }
-                          </div>
-                        )}
-                      </Link>
-                    )
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* PRODUTOS ENCONTRADOS */}
-            {products.length > 0 && (
+            <div>
               <div
                 style={{
-                  marginTop: 25,
+                  fontSize: 10,
+                  color: COLORS.goldDark,
+                  fontWeight: 900,
+                  textTransform: 'uppercase',
+                  letterSpacing: '.12em',
+                  marginBottom: 5,
                 }}
               >
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: COLORS.purple,
-                    fontWeight: 800,
-                    marginBottom: 10,
-                  }}
-                >
-                  Produtos
-                </div>
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'repeat(auto-fit,minmax(200px,1fr))',
-                    gap: 13,
-                  }}
-                >
-                  {products.map(
-                    (product) => (
-                      <Link
-                        key={product.id}
-                        href={`/businesses/${product.business_id}?country=${country}&province=${province}`}
-                        style={{
-                          textDecoration:
-                            'none',
-                          color: 'inherit',
-                          background:
-                            COLORS.surface,
-                          border: `1px solid ${COLORS.line}`,
-                          borderRadius: 18,
-                          padding: 11,
-                          display: 'block',
-                          boxShadow:
-                            '0 7px 24px rgba(20,50,43,.045)',
-                        }}
-                      >
-                        {product.image_url ? (
-                          <img
-                            src={
-                              product.image_url
-                            }
-                            alt={
-                              product.name
-                            }
-                            style={{
-                              width: '100%',
-                              height: 125,
-                              objectFit:
-                                'cover',
-                              borderRadius: 13,
-                              marginBottom: 10,
-                              display:
-                                'block',
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: '100%',
-                              height: 125,
-                              borderRadius: 13,
-                              marginBottom: 10,
-                              background:
-                                COLORS.purpleSoft,
-                              color:
-                                COLORS.purple,
-                              display:
-                                'flex',
-                              alignItems:
-                                'center',
-                              justifyContent:
-                                'center',
-                            }}
-                          >
-                            <CategoryIcon
-                              type="commerce"
-                              color={
-                                COLORS.purple
-                              }
-                            />
-                          </div>
-                        )}
-
-                        <h3
-                          style={{
-                            fontSize: 14,
-                            margin:
-                              '3px 2px 5px',
-                            color:
-                              COLORS.ink,
-                            letterSpacing:
-                              '-0.01em',
-                          }}
-                        >
-                          {product.name}
-                        </h3>
-
-                        {product.description && (
-                          <p
-                            style={{
-                              fontSize: 11.5,
-                              color:
-                                COLORS.inkSoft,
-                              margin:
-                                '0 2px 8px',
-                              lineHeight: 1.45,
-                              display:
-                                '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient:
-                                'vertical',
-                              overflow:
-                                'hidden',
-                            }}
-                          >
-                            {
-                              product.description
-                            }
-                          </p>
-                        )}
-
-                        {product.price !==
-                          null &&
-                          product.price !==
-                            undefined && (
-                            <div
-                              style={{
-                                margin:
-                                  '0 2px',
-                                color:
-                                  COLORS.purple,
-                                fontSize: 12,
-                                fontWeight: 900,
-                              }}
-                            >
-                              {product.price}
-                            </div>
-                          )}
-                      </Link>
-                    )
-                  )}
-                </div>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* CATEGORIAS */}
-        {!query.trim() && (
-          <section
-            id="categorias"
-            style={{
-              marginTop: 34,
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'space-between',
-                gap: 12,
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: COLORS.goldDark,
-                    fontWeight: 900,
-                    textTransform: 'uppercase',
-                    letterSpacing: '.12em',
-                    marginBottom: 5,
-                  }}
-                >
-                  Explorar
-                </div>
-
-                <h2
-                  style={{
-                    fontSize: 22,
-                    margin: 0,
-                    color: COLORS.ink,
-                    letterSpacing: '-0.035em',
-                  }}
-                >
-                  Encontre por categoria
-                </h2>
+                Explorar
               </div>
 
-              <span
+              <h2
                 style={{
-                  color: COLORS.inkFaint,
-                  fontSize: 11,
-                  fontWeight: 700,
+                  fontSize: 22,
+                  margin: 0,
+                  color: COLORS.ink,
+                  letterSpacing: '-0.035em',
                 }}
               >
-                {provinceName}
-              </span>
+                Encontre por categoria
+              </h2>
             </div>
 
-            {loadingCategories && (
+            <span
+              style={{
+                color: COLORS.inkFaint,
+                fontSize: 11,
+                fontWeight: 700,
+              }}
+            >
+              {provinceName}
+            </span>
+          </div>
+
+          {loadingCategories && (
+            <div
+              style={{
+                marginTop: 14,
+                padding: 20,
+                background: COLORS.surface,
+                borderRadius: 16,
+                border: `1px solid ${COLORS.line}`,
+                color: COLORS.inkFaint,
+                fontSize: 12,
+              }}
+            >
+              A carregar categorias…
+            </div>
+          )}
+
+          {!loadingCategories &&
+            categories.length === 0 && (
               <div
                 style={{
                   marginTop: 14,
-                  padding: 20,
-                  background: COLORS.surface,
+                  padding: 22,
                   borderRadius: 16,
-                  border: `1px solid ${COLORS.line}`,
-                  color: COLORS.inkFaint,
-                  fontSize: 12,
+                  background: COLORS.surface,
+                  border: `1px dashed ${COLORS.line}`,
+                  color: COLORS.inkSoft,
+                  fontSize: 12.5,
+                  textAlign: 'center',
                 }}
               >
-                A carregar categorias…
+                Ainda não existem categorias
+                disponíveis.
               </div>
             )}
 
-            {!loadingCategories &&
-              categories.length === 0 && (
-                <div
-                  style={{
-                    marginTop: 14,
-                    padding: 22,
-                    borderRadius: 16,
-                    background: COLORS.surface,
-                    border: `1px dashed ${COLORS.line}`,
-                    color: COLORS.inkSoft,
-                    fontSize: 12.5,
-                    textAlign: 'center',
-                  }}
-                >
-                  Ainda não existem categorias
-                  disponíveis.
-                </div>
-              )}
-
-            {!loadingCategories &&
-              categories.length > 0 && (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'repeat(auto-fit,minmax(145px,1fr))',
-                    gap: 10,
-                    marginTop: 14,
-                  }}
-                >
-                  {categories.map(
-                    (category, index) => {
-                      const color =
-                        getCategoryColor(
-                          index
-                        );
-
-                      const icon =
-                        getCategoryIcon(
-                          category.name
-                        );
-
-                      return (
-                        <Link
-                          key={category.id}
-                          href={{
-                            pathname:
-                              '/category',
-                            query: {
-                              id: category.id,
-                              country,
-                              province,
-                            },
-                          }}
-                          style={{
-                            textDecoration:
-                              'none',
-                            color: COLORS.ink,
-                            background:
-                              COLORS.surface,
-                            border: `1px solid ${COLORS.line}`,
-                            borderRadius: 17,
-                            padding:
-                              '14px 13px',
-                            display: 'flex',
-                            alignItems:
-                              'center',
-                            gap: 11,
-                            boxShadow:
-                              '0 5px 18px rgba(20,50,43,.035)',
-                            transition:
-                              'transform .15s ease, box-shadow .15s ease',
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: 13,
-                              background: `${color}12`,
-                              display:
-                                'flex',
-                              alignItems:
-                                'center',
-                              justifyContent:
-                                'center',
-                            }}
-                          >
-                            <CategoryIcon
-                              type={icon}
-                              color={color}
-                            />
-                          </div>
-
-                          <div
-                            style={{
-                              minWidth: 0,
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: 12.5,
-                                fontWeight: 800,
-                                lineHeight: 1.3,
-                                color:
-                                  COLORS.ink,
-                              }}
-                            >
-                              {
-                                category.name
-                              }
-                            </div>
-
-                            <div
-                              style={{
-                                marginTop: 3,
-                                fontSize: 9.8,
-                                color:
-                                  COLORS.inkFaint,
-                              }}
-                            >
-                              Explorar
-                            </div>
-                          </div>
-                        </Link>
-                      );
-                    }
-                  )}
-                </div>
-              )}
-          </section>
-        )}
-
-        {/* NEGÓCIOS */}
-        {!query.trim() && (
-          <section
-            style={{
-              marginTop: 38,
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'space-between',
-                marginBottom: 13,
-                gap: 12,
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: COLORS.goldDark,
-                    fontWeight: 900,
-                    textTransform: 'uppercase',
-                    letterSpacing: '.12em',
-                    marginBottom: 5,
-                  }}
-                >
-                  Vitrine local
-                </div>
-
-                <h2
-                  style={{
-                    fontSize: 22,
-                    margin: 0,
-                    color: COLORS.ink,
-                    letterSpacing: '-0.035em',
-                  }}
-                >
-                  Negócios perto de você
-                </h2>
-              </div>
-
-              <span
-                style={{
-                  fontSize: 11,
-                  color: COLORS.inkFaint,
-                  fontWeight: 700,
-                }}
-              >
-                {provinceName}
-              </span>
-            </div>
-
-            {loading && (
+          {!loadingCategories &&
+            categories.length > 0 && (
               <div
                 style={{
-                  padding: 22,
-                  borderRadius: 17,
-                  background: COLORS.surface,
-                  border: `1px solid ${COLORS.line}`,
-                  color: COLORS.inkFaint,
-                  fontSize: 12.5,
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit,minmax(145px,1fr))',
+                  gap: 10,
+                  marginTop: 14,
                 }}
               >
-                A carregar negócios…
-              </div>
-            )}
+                {categories.map(
+                  (category, index) => {
+                    const color =
+                      getCategoryColor(
+                        index
+                      );
 
-            {!loading &&
-              businesses.length === 0 && (
-                <div
-                  style={{
-                    padding: '34px 22px',
-                    borderRadius: 18,
-                    background: COLORS.surface,
-                    border: `1px dashed ${COLORS.line}`,
-                    textAlign: 'center',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: 15,
-                      background:
-                        COLORS.goldSoft,
-                      color: COLORS.goldDark,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin:
-                        '0 auto 13px',
-                    }}
-                  >
-                    <svg
-                      width="23"
-                      height="23"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.7"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M12 22s7-7.58 7-12a7 7 0 1 0-14 0c0 4.42 7 12 7 12z" />
-                      <circle
-                        cx="12"
-                        cy="10"
-                        r="2.5"
-                      />
-                    </svg>
-                  </div>
+                    const icon =
+                      getCategoryIcon(
+                        category.name
+                      );
 
-                  <p
-                    style={{
-                      margin: 0,
-                      color: COLORS.inkSoft,
-                      fontSize: 13,
-                      lineHeight: 1.55,
-                    }}
-                  >
-                    Ainda não há negócios
-                    publicados nesta região.
-                  </p>
-                </div>
-              )}
-
-            {!loading &&
-              businesses.length > 0 && (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'repeat(auto-fit,minmax(200px,1fr))',
-                    gap: 13,
-                  }}
-                >
-                  {businesses.map(
-                    (business) => (
+                    return (
                       <Link
-                        key={business.id}
-                        href={`/businesses/${business.id}?country=${country}&province=${province}`}
+                        key={category.id}
+                        href={{
+                          pathname:
+                            '/category',
+                          query: {
+                            id: category.id,
+                            country,
+                            province,
+                          },
+                        }}
                         style={{
                           textDecoration:
                             'none',
-                          color: 'inherit',
+                          color: COLORS.ink,
                           background:
                             COLORS.surface,
                           border: `1px solid ${COLORS.line}`,
-                          borderRadius: 18,
-                          padding: 11,
-                          display: 'block',
+                          borderRadius: 17,
+                          padding:
+                            '14px 13px',
+                          display: 'flex',
+                          alignItems:
+                            'center',
+                          gap: 11,
                           boxShadow:
-                            '0 7px 24px rgba(20,50,43,.045)',
+                            '0 5px 18px rgba(20,50,43,.035)',
                         }}
                       >
-                        {business.logo_url ? (
-                          <img
-                            src={
-                              business.logo_url
-                            }
-                            alt={
-                              business.name
-                            }
-                            style={{
-                              width: '100%',
-                              height: 125,
-                              objectFit:
-                                'cover',
-                              borderRadius: 13,
-                              marginBottom: 10,
-                              display:
-                                'block',
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: '100%',
-                              height: 125,
-                              borderRadius: 13,
-                              marginBottom: 10,
-                              background: `linear-gradient(145deg, ${COLORS.brandSoft}, ${COLORS.goldSoft})`,
-                              display:
-                                'flex',
-                              alignItems:
-                                'center',
-                              justifyContent:
-                                'center',
-                              color:
-                                COLORS.brand,
-                              fontSize: 30,
-                              fontWeight: 900,
-                            }}
-                          >
-                            {String(
-                              business.name ||
-                                'T'
-                            )
-                              .charAt(0)
-                              .toUpperCase()}
-                          </div>
-                        )}
-
-                        <h3
+                        <div
                           style={{
-                            fontSize: 14,
-                            margin:
-                              '3px 2px 5px',
-                            color:
-                              COLORS.ink,
-                            letterSpacing:
-                              '-0.01em',
+                            width: 40,
+                            height: 40,
+                            borderRadius: 13,
+                            background: `${color}12`,
+                            display:
+                              'flex',
+                            alignItems:
+                              'center',
+                            justifyContent:
+                              'center',
+                            flexShrink: 0,
                           }}
                         >
-                          {business.name}
-                        </h3>
+                          <CategoryIcon
+                            type={icon}
+                            color={color}
+                          />
+                        </div>
 
-                        {business.description && (
-                          <p
-                            style={{
-                              fontSize: 11.5,
-                              color:
-                                COLORS.inkSoft,
-                              margin:
-                                '0 2px 8px',
-                              lineHeight: 1.45,
-                              display:
-                                '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient:
-                                'vertical',
-                              overflow:
-                                'hidden',
-                            }}
-                          >
-                            {
-                              business.description
-                            }
-                          </p>
-                        )}
-
-                        {(business.municipality ||
-                          business.neighborhood) && (
+                        <div
+                          style={{
+                            minWidth: 0,
+                          }}
+                        >
                           <div
                             style={{
-                              margin:
-                                '0 2px',
-                              fontSize: 10.5,
+                              fontSize: 12.5,
+                              fontWeight: 800,
+                              lineHeight:
+                                1.3,
                               color:
-                                COLORS.inkFaint,
-                              fontWeight: 700,
+                                COLORS.ink,
                             }}
                           >
                             {
-                              business.municipality
-                            }
-
-                            {business.municipality &&
-                            business.neighborhood
-                              ? ' · '
-                              : ''}
-
-                            {
-                              business.neighborhood
+                              category.name
                             }
                           </div>
-                        )}
+
+                          <div
+                            style={{
+                              marginTop: 3,
+                              fontSize: 9.8,
+                              color:
+                                COLORS.inkFaint,
+                            }}
+                          >
+                            Explorar
+                          </div>
+                        </div>
                       </Link>
-                    )
-                  )}
+                    );
+                  }
+                )}
+              </div>
+            )}
+        </section>
+
+        {/* NEGÓCIOS */}
+        <section
+          style={{
+            marginTop: 38,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'space-between',
+              marginBottom: 13,
+              gap: 12,
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  color: COLORS.goldDark,
+                  fontWeight: 900,
+                  textTransform: 'uppercase',
+                  letterSpacing: '.12em',
+                  marginBottom: 5,
+                }}
+              >
+                Vitrine local
+              </div>
+
+              <h2
+                style={{
+                  fontSize: 22,
+                  margin: 0,
+                  color: COLORS.ink,
+                  letterSpacing: '-0.035em',
+                }}
+              >
+                Negócios perto de você
+              </h2>
+            </div>
+
+            <span
+              style={{
+                fontSize: 11,
+                color: COLORS.inkFaint,
+                fontWeight: 700,
+              }}
+            >
+              {provinceName}
+            </span>
+          </div>
+
+          {loading && (
+            <div
+              style={{
+                padding: 22,
+                borderRadius: 17,
+                background: COLORS.surface,
+                border: `1px solid ${COLORS.line}`,
+                color: COLORS.inkFaint,
+                fontSize: 12.5,
+              }}
+            >
+              A carregar negócios…
+            </div>
+          )}
+
+          {!loading &&
+            businesses.length === 0 && (
+              <div
+                style={{
+                  padding: '34px 22px',
+                  borderRadius: 18,
+                  background: COLORS.surface,
+                  border: `1px dashed ${COLORS.line}`,
+                  textAlign: 'center',
+                }}
+              >
+                <div
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 15,
+                    background:
+                      COLORS.goldSoft,
+                    color: COLORS.goldDark,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin:
+                      '0 auto 13px',
+                  }}
+                >
+                  <svg
+                    width="23"
+                    height="23"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 22s7-7.58 7-12a7 7 0 1 0-14 0c0 4.42 7 12 7 12z" />
+                    <circle
+                      cx="12"
+                      cy="10"
+                      r="2.5"
+                    />
+                  </svg>
                 </div>
-              )}
-          </section>
-        )}
+
+                <p
+                  style={{
+                    margin: 0,
+                    color: COLORS.inkSoft,
+                    fontSize: 13,
+                    lineHeight: 1.55,
+                  }}
+                >
+                  Ainda não há negócios
+                  publicados nesta região.
+                </p>
+              </div>
+            )}
+
+          {!loading &&
+            businesses.length > 0 && (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit,minmax(200px,1fr))',
+                  gap: 13,
+                }}
+              >
+                {businesses.map(
+                  (business) => (
+                    <Link
+                      key={business.id}
+                      href={`/businesses/${business.id}?country=${country}&province=${province}`}
+                      style={{
+                        textDecoration:
+                          'none',
+                        color: 'inherit',
+                        background:
+                          COLORS.surface,
+                        border: `1px solid ${COLORS.line}`,
+                        borderRadius: 18,
+                        padding: 11,
+                        display: 'block',
+                        boxShadow:
+                          '0 7px 24px rgba(20,50,43,.045)',
+                      }}
+                    >
+                      {business.logo_url ? (
+                        <img
+                          src={
+                            business.logo_url
+                          }
+                          alt={
+                            business.name
+                          }
+                          style={{
+                            width: '100%',
+                            height: 125,
+                            objectFit:
+                              'cover',
+                            borderRadius: 13,
+                            marginBottom: 10,
+                            display:
+                              'block',
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: '100%',
+                            height: 125,
+                            borderRadius: 13,
+                            marginBottom: 10,
+                            background: COLORS.brandSoft,
+                            display:
+                              'flex',
+                            alignItems:
+                              'center',
+                            justifyContent:
+                              'center',
+                            color:
+                              COLORS.brand,
+                            fontSize: 30,
+                            fontWeight: 900,
+                          }}
+                        >
+                          {String(
+                            business.name ||
+                              'T'
+                          )
+                            .charAt(0)
+                            .toUpperCase()}
+                        </div>
+                      )}
+
+                      <h3
+                        style={{
+                          fontSize: 14,
+                          margin:
+                            '3px 2px 5px',
+                          color:
+                            COLORS.ink,
+                          letterSpacing:
+                            '-0.01em',
+                        }}
+                      >
+                        {
+                          business.name
+                        }
+                      </h3>
+
+                      {business.description && (
+                        <p
+                          style={{
+                            fontSize: 11.5,
+                            color:
+                              COLORS.inkSoft,
+                            margin:
+                              '0 2px 8px',
+                            lineHeight: 1.45,
+                            display:
+                              '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient:
+                              'vertical',
+                            overflow:
+                              'hidden',
+                          }}
+                        >
+                          {
+                            business.description
+                          }
+                        </p>
+                      )}
+
+                      {(business.municipality ||
+                        business.neighborhood) && (
+                        <div
+                          style={{
+                            margin:
+                              '0 2px',
+                            fontSize: 10.5,
+                            color:
+                              COLORS.inkFaint,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {
+                            business.municipality
+                          }
+
+                          {business.municipality &&
+                          business.neighborhood
+                            ? ' · '
+                            : ''}
+
+                          {
+                            business.neighborhood
+                          }
+                        </div>
+                      )}
+                    </Link>
+                  )
+                )}
+              </div>
+            )}
+        </section>
+
       </div>
     </div>
   );
 }
+
