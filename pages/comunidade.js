@@ -29,7 +29,7 @@ const AREAS = [
     db: 'question',
     name: 'Pergunta',
     description:
-      'Tem uma dúvida? Partilhe-a e receba respostas de pessoas da comunidade.',
+      'Apresente a sua questão com clareza e receba contributos, experiências e sugestões de outros membros da comunidade.',
     icon: '❔',
   },
   {
@@ -37,7 +37,7 @@ const AREAS = [
     db: 'lost_person',
     name: 'Procura-se',
     description:
-      'Ajude a encontrar uma pessoa desaparecida ou alguém que se perdeu.',
+      'Divulgue informações úteis sobre uma pessoa desaparecida ou perdida. Uma imagem pode ajudar na identificação, desde que tenha autorização para a partilhar.',
     icon: '🔎',
   },
   {
@@ -45,21 +45,21 @@ const AREAS = [
     db: 'found_item',
     name: 'Achei!',
     description:
-      'Encontrou uma pessoa perdida ou um objeto? Ajude a chegar ao seu responsável.',
+      'Registe uma pessoa perdida ou um objeto encontrado para facilitar a devolução ao respetivo responsável. Evite expor dados pessoais sensíveis.',
     icon: '💛',
   },
   {
     id: 'motivation',
     name: 'Motivação',
     description:
-      'Palavras escolhidas pela Talaza para inspirar, fortalecer e trazer esperança.',
+      'Mensagens editoriais da Talaza, preparadas para promover reflexão, confiança e bem-estar. Apenas a equipa autorizada pode publicar nesta área.',
     icon: '💜',
   },
   {
     id: 'theme',
     name: 'Tema do mês',
     description:
-      'Um tema para pensar, conversar e aprender juntos.',
+      'Uma conversa orientada por um tema mensal e uma pergunta semanal, para partilhar perspetivas e aprender em conjunto.',
     icon: '🌿',
   },
 ];
@@ -123,6 +123,11 @@ export default function Comunidade() {
   const [scope, setScope] = useState('province');
   const [duration, setDuration] = useState(7);
   const [showComposer, setShowComposer] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [extras, setExtras] = useState({});
+  const [commentDrafts, setCommentDrafts] = useState({});
+  const [openComments, setOpenComments] = useState({});
+  const [officialContent, setOfficialContent] = useState([]);
 
   const currentArea = AREAS.find((item) => item.id === area);
 
@@ -233,11 +238,67 @@ export default function Comunidade() {
       );
       setPosts([]);
     } else {
-      setPosts(data || []);
+      const visiblePosts = data || [];
+      setPosts(visiblePosts);
+
+      if (visiblePosts.length) {
+        const ids = visiblePosts.map((post) => post.id);
+
+        const [likesResult, favoritesResult, commentsResult] =
+          await Promise.all([
+            supabase
+              .from('community_likes')
+              .select('id, post_id, user_id')
+              .in('post_id', ids),
+
+            user
+              ? supabase
+                  .from('community_favorites')
+                  .select('id, post_id')
+                  .eq('user_id', user.id)
+                  .in('post_id', ids)
+              : Promise.resolve({ data: [], error: null }),
+
+            supabase
+              .from('community_comments')
+              .select('id, post_id, user_id, content, created_at')
+              .in('post_id', ids)
+              .eq('status', 'published')
+              .order('created_at', { ascending: true }),
+          ]);
+
+        const nextExtras = {};
+
+        visiblePosts.forEach((post) => {
+          const postLikes = (likesResult.data || []).filter(
+            (item) => item.post_id === post.id
+          );
+
+          nextExtras[post.id] = {
+            likes: postLikes.length,
+            liked: Boolean(
+              user && postLikes.some((item) => item.user_id === user.id)
+            ),
+            favorite: Boolean(
+              user &&
+                (favoritesResult.data || []).some(
+                  (item) => item.post_id === post.id
+                )
+            ),
+            comments: (commentsResult.data || []).filter(
+              (item) => item.post_id === post.id
+            ),
+          };
+        });
+
+        setExtras((previous) => ({ ...previous, ...nextExtras }));
+      } else {
+        setExtras({});
+      }
     }
 
     setLoading(false);
-  }, [countryId, provinceId, panel, area, currentArea?.db]);
+  }, [countryId, provinceId, panel, area, currentArea?.db, user]);
 
   useEffect(() => {
     if (router.isReady) loadPosts();
@@ -248,6 +309,7 @@ export default function Comunidade() {
     setShowComposer(false);
     setContent('');
     setTitle('');
+    setImageFile(null);
     setMessage('');
   }
 
@@ -284,12 +346,33 @@ export default function Comunidade() {
       return;
     }
 
+    if (
+      imageFile &&
+      (!imageFile.type.startsWith('image/') ||
+        imageFile.size > 5 * 1024 * 1024)
+    ) {
+      setMessage('Escolha uma imagem válida com tamanho máximo de 5 MB.');
+      return;
+    }
+
     setSending(true);
 
     const now = new Date();
     const expiresAt = new Date(
       now.getTime() + duration * 24 * 60 * 60 * 1000
     );
+
+    let imageUrl = null;
+
+    try {
+      imageUrl = await uploadCommunityImage();
+    } catch (uploadError) {
+      setSending(false);
+      setMessage(
+        'Não foi possível carregar a imagem. Confirma se o bucket community-posts existe e permite este envio.'
+      );
+      return;
+    }
 
     const { error } = await supabase.from('community_posts').insert({
       user_id: user.id,
@@ -298,6 +381,7 @@ export default function Comunidade() {
       post_type: currentArea.db,
       title: title.trim() || null,
       content: content.trim(),
+      image_url: imageUrl,
       scope,
       duration_days: duration,
       expires_at: expiresAt.toISOString(),
@@ -320,8 +404,198 @@ export default function Comunidade() {
 
     setContent('');
     setTitle('');
+    setImageFile(null);
     setShowComposer(false);
     await loadPosts();
+  }
+
+  async function uploadCommunityImage() {
+    if (!imageFile) return null;
+
+    const safeName = imageFile.name.replace(/[^a-zA-Z0-9._-]/g, '-');
+    const path = `${user.id}/${Date.now()}-${safeName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('community-posts')
+      .upload(path, imageFile, {
+        upsert: false,
+        contentType: imageFile.type,
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage
+      .from('community-posts')
+      .getPublicUrl(path);
+
+    return data.publicUrl;
+  }
+
+  async function toggleLike(post) {
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
+      return;
+    }
+
+    const state = extras[post.id] || {};
+
+    if (state.liked) {
+      const { error } = await supabase
+        .from('community_likes')
+        .delete()
+        .eq('post_id', post.id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        setMessage(
+          'Não foi possível retirar o gosto. Confirma as policies de community_likes.'
+        );
+        return;
+      }
+    } else {
+      const { error } = await supabase.from('community_likes').insert({
+        post_id: post.id,
+        user_id: user.id,
+      });
+
+      if (error) {
+        setMessage(
+          'Não foi possível gostar da publicação. Confirma as policies de community_likes.'
+        );
+        return;
+      }
+    }
+
+    setExtras((previous) => ({
+      ...previous,
+      [post.id]: {
+        ...state,
+        liked: !state.liked,
+        likes: Math.max(
+          0,
+          (state.likes || 0) + (state.liked ? -1 : 1)
+        ),
+      },
+    }));
+  }
+
+  async function toggleFavorite(post) {
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
+      return;
+    }
+
+    const state = extras[post.id] || {};
+
+    if (state.favorite) {
+      const { error } = await supabase
+        .from('community_favorites')
+        .delete()
+        .eq('post_id', post.id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        setMessage(
+          'Não foi possível remover dos favoritos. Confirma as policies de community_favorites.'
+        );
+        return;
+      }
+    } else {
+      const { error } = await supabase.from('community_favorites').insert({
+        post_id: post.id,
+        user_id: user.id,
+      });
+
+      if (error) {
+        setMessage(
+          'Não foi possível guardar nos favoritos. Confirma as policies de community_favorites.'
+        );
+        return;
+      }
+    }
+
+    setExtras((previous) => ({
+      ...previous,
+      [post.id]: {
+        ...state,
+        favorite: !state.favorite,
+      },
+    }));
+  }
+
+  async function submitComment(post) {
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
+      return;
+    }
+
+    const draft = (commentDrafts[post.id] || '').trim();
+
+    if (draft.length < 2) {
+      setMessage('Escreva um comentário antes de enviar.');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('community_comments')
+      .insert({
+        post_id: post.id,
+        user_id: user.id,
+        content: draft,
+        status: 'published',
+      })
+      .select('id, post_id, user_id, content, created_at')
+      .single();
+
+    if (error) {
+      setMessage(
+        'Não foi possível publicar o comentário. Confirma as policies de community_comments.'
+      );
+      return;
+    }
+
+    setExtras((previous) => ({
+      ...previous,
+      [post.id]: {
+        ...(previous[post.id] || {}),
+        comments: [
+          ...((previous[post.id] || {}).comments || []),
+          data,
+        ],
+      },
+    }));
+
+    setCommentDrafts((previous) => ({
+      ...previous,
+      [post.id]: '',
+    }));
+  }
+
+  async function reportPost(post) {
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
+      return;
+    }
+
+    const reason = window.prompt(
+      'Indique o motivo da denúncia (ex.: informação falsa, conteúdo inadequado, risco para alguém):'
+    );
+
+    if (!reason || !reason.trim()) return;
+
+    const { error } = await supabase.from('community_reports').insert({
+      post_id: post.id,
+      comment_id: null,
+      reporter_id: user.id,
+      reason: reason.trim().slice(0, 200),
+      status: 'pending',
+    });
+
+    setMessage(
+      error
+        ? 'Não foi possível enviar a denúncia. Confirma as policies de community_reports.'
+        : 'Denúncia enviada para análise da equipa Talaza.'
+    );
   }
 
   const buttonStyle = {
@@ -414,6 +688,7 @@ export default function Comunidade() {
               >
                 T
               </div>
+
               <div>
                 <div
                   style={{
@@ -425,6 +700,7 @@ export default function Comunidade() {
                 >
                   Talaza
                 </div>
+
                 <div style={{ color: C.muted, fontSize: 12 }}>
                   Comunidade
                 </div>
@@ -451,6 +727,7 @@ export default function Comunidade() {
           <div style={{ fontSize: 12, fontWeight: 800, color: C.gold }}>
             PERGUNTAR · PARTILHAR · AJUDAR
           </div>
+
           <h1
             style={{
               fontSize: 'clamp(25px, 5vw, 34px)',
@@ -461,6 +738,7 @@ export default function Comunidade() {
           >
             Comunidade Talaza
           </h1>
+
           <p
             style={{
               color: '#E0EBE7',
@@ -534,6 +812,7 @@ export default function Comunidade() {
           <div style={{ color: C.purple, fontSize: 13, fontWeight: 900 }}>
             {currentArea?.icon} {currentArea?.name.toUpperCase()}
           </div>
+
           <h2
             style={{
               fontSize: 22,
@@ -552,6 +831,7 @@ export default function Comunidade() {
               ? 'Uma palavra pode mudar o dia.'
               : 'Um tema para conversarmos juntos.'}
           </h2>
+
           <p
             style={{
               color: C.muted,
@@ -614,6 +894,7 @@ export default function Comunidade() {
                   <div style={{ fontWeight: 850, color: C.dark }}>
                     Quer publicar nesta área?
                   </div>
+
                   <p
                     style={{
                       fontSize: 13,
@@ -624,6 +905,7 @@ export default function Comunidade() {
                     Escolha o alcance da publicação e durante quanto tempo
                     ficará visível.
                   </p>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -653,6 +935,7 @@ export default function Comunidade() {
                   >
                     {area === 'question' ? 'Título (opcional)' : 'Título'}
                   </label>
+
                   <input
                     id="community-title"
                     value={title}
@@ -686,6 +969,7 @@ export default function Comunidade() {
                   >
                     Descrição
                   </label>
+
                   <textarea
                     id="community-content"
                     value={content}
@@ -711,6 +995,66 @@ export default function Comunidade() {
                       background: C.bg,
                     }}
                   />
+
+                  {(area === 'search' || area === 'found') && (
+                    <div
+                      style={{
+                        marginBottom: 14,
+                        padding: 13,
+                        background: C.purpleSoft,
+                        border: `1px dashed ${C.purple}`,
+                        borderRadius: 14,
+                      }}
+                    >
+                      <label
+                        htmlFor="community-image"
+                        style={{
+                          display: 'block',
+                          fontSize: 13,
+                          fontWeight: 800,
+                          color: C.dark,
+                          marginBottom: 7,
+                        }}
+                      >
+                        Fotografia (opcional, recomendada quando for segura e
+                        autorizada)
+                      </label>
+
+                      <input
+                        id="community-image"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={(event) =>
+                          setImageFile(event.target.files?.[0] || null)
+                        }
+                        style={{ width: '100%', fontSize: 13 }}
+                      />
+
+                      <small
+                        style={{
+                          display: 'block',
+                          color: C.muted,
+                          marginTop: 6,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        Não carregue documentos, contactos, moradas privadas ou
+                        imagens que possam colocar alguém em risco.
+                      </small>
+
+                      {imageFile && (
+                        <small
+                          style={{
+                            display: 'block',
+                            color: C.green,
+                            marginTop: 5,
+                          }}
+                        >
+                          Imagem selecionada: {imageFile.name}
+                        </small>
+                      )}
+                    </div>
+                  )}
 
                   <div
                     style={{
@@ -758,10 +1102,14 @@ export default function Comunidade() {
                           cursor: 'pointer',
                         }}
                       >
-                        <strong style={{ display: 'block', fontSize: 13 }}>
+                        <strong
+                          style={{ display: 'block', fontSize: 13 }}
+                        >
                           {option.label}
                         </strong>
-                        <small style={{ color: C.muted }}>{option.sub}</small>
+                        <small style={{ color: C.muted }}>
+                          {option.sub}
+                        </small>
                       </button>
                     ))}
                   </div>
@@ -777,6 +1125,7 @@ export default function Comunidade() {
                   >
                     Duração da publicação
                   </label>
+
                   <select
                     id="community-duration"
                     value={duration}
@@ -841,7 +1190,10 @@ export default function Comunidade() {
 
                   <button
                     type="button"
-                    onClick={() => setShowComposer(false)}
+                    onClick={() => {
+                      setShowComposer(false);
+                      setImageFile(null);
+                    }}
                     style={{
                       ...buttonStyle,
                       width: '100%',
@@ -864,6 +1216,7 @@ export default function Comunidade() {
                 ? 'Publicações oficiais da Talaza'
                 : 'Tema do mês e pergunta da semana'}
             </div>
+
             <p
               style={{
                 color: C.muted,
@@ -891,8 +1244,11 @@ export default function Comunidade() {
               <h2 style={{ fontSize: 18, margin: 0, color: C.dark }}>
                 {panel === 'province'
                   ? `Publicações de ${provinceName || 'esta província'}`
-                  : `Publicações nacionais${countryName ? ` · ${countryName}` : ''}`}
+                  : `Publicações nacionais${
+                      countryName ? ` · ${countryName}` : ''
+                    }`}
               </h2>
+
               <Pill color={C.purpleSoft} textColor={C.purple}>
                 {posts.length}
               </Pill>
@@ -923,9 +1279,11 @@ export default function Comunidade() {
             ) : posts.length === 0 ? (
               <Panel style={{ textAlign: 'center', padding: 28 }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
+
                 <h3 style={{ color: C.dark, margin: '0 0 7px' }}>
                   Ainda não há publicações aprovadas
                 </h3>
+
                 <p
                   style={{
                     color: C.muted,
@@ -964,6 +1322,7 @@ export default function Comunidade() {
                         ? '🌍 Nacional'
                         : `📍 ${provinceName || 'Província'}`}
                     </Pill>
+
                     <span style={{ fontSize: 11, color: C.faint }}>
                       {post.duration_days} dias
                     </span>
@@ -1010,14 +1369,187 @@ export default function Comunidade() {
 
                   <div
                     style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 8,
+                      marginTop: 14,
+                      paddingTop: 12,
                       borderTop: `1px solid ${C.line}`,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleLike(post)}
+                      style={{
+                        ...buttonStyle,
+                        background: extras[post.id]?.liked
+                          ? C.purpleSoft
+                          : C.bg,
+                        color: extras[post.id]?.liked ? C.purple : C.ink,
+                        border: `1px solid ${C.line}`,
+                      }}
+                    >
+                      {extras[post.id]?.liked ? '♥ Gostaste' : '♡ Gostar'} ·{' '}
+                      {extras[post.id]?.likes || 0}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleFavorite(post)}
+                      style={{
+                        ...buttonStyle,
+                        background: extras[post.id]?.favorite
+                          ? C.goldSoft
+                          : C.bg,
+                        color: extras[post.id]?.favorite
+                          ? '#674B10'
+                          : C.ink,
+                        border: `1px solid ${C.line}`,
+                      }}
+                    >
+                      {extras[post.id]?.favorite
+                        ? '★ Guardado'
+                        : '☆ Favoritar'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenComments((previous) => ({
+                          ...previous,
+                          [post.id]: !previous[post.id],
+                        }))
+                      }
+                      style={{
+                        ...buttonStyle,
+                        background: C.greenSoft,
+                        color: C.dark,
+                        border: `1px solid ${C.line}`,
+                      }}
+                    >
+                      💬 Comentar ·{' '}
+                      {(extras[post.id]?.comments || []).length}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => reportPost(post)}
+                      style={{
+                        ...buttonStyle,
+                        background: C.redSoft,
+                        color: C.red,
+                        border: `1px solid ${C.line}`,
+                      }}
+                    >
+                      ⚑ Denunciar
+                    </button>
+                  </div>
+
+                  {openComments[post.id] && (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        padding: 12,
+                        borderRadius: 14,
+                        background: C.bg,
+                      }}
+                    >
+                      <strong
+                        style={{
+                          display: 'block',
+                          color: C.dark,
+                          fontSize: 13,
+                          marginBottom: 10,
+                        }}
+                      >
+                        Comentários
+                      </strong>
+
+                      {(extras[post.id]?.comments || []).length === 0 ? (
+                        <p
+                          style={{
+                            color: C.muted,
+                            fontSize: 12,
+                            margin: '0 0 10px',
+                          }}
+                        >
+                          Ainda não há comentários. Pode iniciar a conversa
+                          com respeito.
+                        </p>
+                      ) : (
+                        (extras[post.id]?.comments || []).map((comment) => (
+                          <div
+                            key={comment.id}
+                            style={{
+                              padding: '9px 0',
+                              borderBottom: `1px solid ${C.line}`,
+                            }}
+                          >
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: 13,
+                                lineHeight: 1.5,
+                                whiteSpace: 'pre-wrap',
+                              }}
+                            >
+                              {comment.content}
+                            </p>
+
+                            <small style={{ color: C.faint }}>
+                              {new Date(comment.created_at).toLocaleString(
+                                'pt-PT'
+                              )}
+                            </small>
+                          </div>
+                        ))
+                      )}
+
+                      <textarea
+                        value={commentDrafts[post.id] || ''}
+                        onChange={(event) =>
+                          setCommentDrafts((previous) => ({
+                            ...previous,
+                            [post.id]: event.target.value,
+                          }))
+                        }
+                        rows={2}
+                        maxLength={1500}
+                        placeholder="Escreva um comentário construtivo…"
+                        style={{
+                          width: '100%',
+                          marginTop: 10,
+                          padding: 11,
+                          border: `1px solid ${C.line}`,
+                          borderRadius: 12,
+                          background: C.white,
+                          resize: 'vertical',
+                        }}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => submitComment(post)}
+                        style={{
+                          ...buttonStyle,
+                          marginTop: 8,
+                          background: C.green,
+                          color: C.white,
+                        }}
+                      >
+                        Publicar comentário
+                      </button>
+                    </div>
+                  )}
+
+                  <div
+                    style={{
                       marginTop: 12,
-                      paddingTop: 10,
                       color: C.muted,
                       fontSize: 12,
                     }}
                   >
-                    Expira em{' '}
+                    Publicação válida até{' '}
                     {new Date(post.expires_at).toLocaleDateString('pt-PT')}
                   </div>
                 </Panel>
