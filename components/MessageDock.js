@@ -1,86 +1,54 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
 
 export default function MessageDock() {
   const router = useRouter();
-  const pathname = router.pathname;
+  const [msgCount, setMsgCount] = useState(0);
+  const [notifCount, setNotifCount] = useState(0);
 
-  const isActive = (href) => pathname === href || pathname.startsWith(href + '/');
+  const isActive = (href) => router.pathname === href;
 
-  const itemStyle = (active) => ({
-    textDecoration: 'none',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '2px',
-    color: active ? '#0B3B2D' : '#8A9A94',
-    fontSize: '13px',
-    fontWeight: active ? 700 : 500,
-    position: 'relative'
-  });
+  // AQUI VAI BUSCAR O NÚMERO REAL - por enquanto 0, quando tiver mensagem muda sozinho
+  useEffect(() => {
+    async function loadCounts() {
+      // Exemplo: quando você tiver tabela de mensagens, descomente:
+      // const { count } = await supabase.from('messages').select('*', {count:'exact'}).eq('read', false);
+      // setMsgCount(count || 0);
+      
+      // Por enquanto deixa 0 para não mostrar número falso
+      setMsgCount(0);
+      setNotifCount(0);
+    }
+    loadCounts();
+  }, []);
 
-  const badgeStyle = {
-    position: 'absolute',
-    top: '-8px',
-    right: '-12px',
-    background: '#E5384F',
-    color: '#fff',
-    fontSize: '11px',
-    fontWeight: 700,
-    minWidth: '18px',
-    height: '18px',
-    borderRadius: '9px',
-    display: 'grid',
-    placeItems: 'center',
-    padding: '0 4px',
-    lineHeight: 1
-  };
+  const badge = (count) => count > 0 ? (
+    <span style={{
+      position:'absolute', top:-8, right:-10,
+      background:'#E5384F', color:'#fff', fontSize:11, fontWeight:700,
+      minWidth:18, height:18, borderRadius:9, display:'grid', placeItems:'center', padding:'0 4px'
+    }}>{count > 9 ? '9+' : count}</span>
+  ) : null;
 
   return (
     <div style={{
-      position: 'fixed',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      height: '74px',
-      background: '#FFFFFF',
-      borderTop: '1px solid #E9E6DE',
-      display: 'flex',
-      justifyContent: 'space-around',
-      alignItems: 'center',
-      zIndex: 9999,
-      paddingBottom: '6px',
-      boxShadow: '0 -2px 10px rgba(0,0,0,0.04)'
+      position:'fixed', bottom:0, left:0, right:0, height:74,
+      background:'#fff', borderTop:'1px solid #E9E6DE',
+      display:'flex', justifyContent:'space-around', alignItems:'center', zIndex:9999
     }}>
-      {/* NOVIDADES */}
-      <Link href="/" style={itemStyle(isActive('/'))}>
-        <div style={{fontSize:24, position:'relative', lineHeight:1}}>
-          <span style={{fontSize:22}}>✦</span>
-          {isActive('/') && (
-            <span style={{
-              position:'absolute', top:'-2px', right:'-4px',
-              width:'8px', height:'8px', background:'#E5384F', borderRadius:'50%'
-            }}></span>
-          )}
-        </div>
-        Novidades
+      <Link href="/" style={{textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', color: isActive('/') ? '#0B3B2D' : '#8A9A94', fontSize:13, fontWeight: isActive('/') ? 700 : 500}}>
+        <span style={{fontSize:22}}>✦</span>Novidades
       </Link>
 
-      {/* MENSAGENS - com badge 2 */}
-      <Link href="/mensagens" style={itemStyle(isActive('/mensagens'))}>
-        <div style={{fontSize:24, position:'relative', lineHeight:1}}>
-          <span style={{fontSize:22}}>💬</span>
-          <span style={badgeStyle}>2</span>
-        </div>
+      <Link href="/mensagens" style={{textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', color: isActive('/mensagens') ? '#0B3B2D' : '#8A9A94', fontSize:13, fontWeight: isActive('/mensagens') ? 700 : 500, position:'relative'}}>
+        <div style={{position:'relative'}}><span style={{fontSize:22}}>💬</span>{badge(msgCount)}</div>
         Mensagens
       </Link>
 
-      {/* NOTIFICAÇÕES - com badge 3 */}
-      <Link href="/notificacoes" style={itemStyle(isActive('/notificacoes'))}>
-        <div style={{fontSize:24, position:'relative', lineHeight:1}}>
-          <span style={{fontSize:22}}>🔔</span>
-          <span style={badgeStyle}>3</span>
-        </div>
+      <Link href="/notificacoes" style={{textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', color: isActive('/notificacoes') ? '#0B3B2D' : '#8A9A94', fontSize:13, fontWeight: isActive('/notificacoes') ? 700 : 500, position:'relative'}}>
+        <div style={{position:'relative'}}><span style={{fontSize:22}}>🔔</span>{badge(notifCount)}</div>
         Notificações
       </Link>
     </div>
