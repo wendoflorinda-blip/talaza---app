@@ -1,125 +1,199 @@
+
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-export default function ChatPanel({ user, onClose }) {
+function getMessagePreview(message) {
+  if (message.content) return message.content;
+
+  if (message.message_type === 'image') return 'Fotografia';
+  if (message.message_type === 'audio') return 'Mensagem de áudio';
+  if (message.message_type === 'video') return 'Vídeo';
+
+  return 'Mensagem';
+}
+
+export default function ChatPanel({ userId: suppliedUserId }) {
+  const [userId, setUserId] = useState(suppliedUserId || null);
   const [conversations, setConversations] = useState([]);
-  const [partner, setPartner] = useState(null);
+  const [selectedUserId, setSelectedUserId] = useState('');
   const [messages, setMessages] = useState([]);
-  const [text, setText] = useState('');
+  const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    if (suppliedUserId) {
+      setUserId(suppliedUserId);
+      return;
+    }
+
+    let mounted = true;
+
+    async function getUser() {
+      const { data, error: authError } = await supabase.auth.getUser();
+
+      if (!mounted) return;
+
+      if (authError || !data?.user) {
+        setError('Inicia sessão para consultar as mensagens.');
+        setLoading(false);
+        return;
+      }
+
+      setUserId(data.user.id);
+    }
+
+    getUser();
+
+    return () => {
+      mounted = false;
+    };
+  }, [suppliedUserId]);
+
   const loadConversations = useCallback(async () => {
-    const { data, error } = await supabase
+    if (!userId) return;
+
+    setError('');
+
+    const { data, error: queryError } = await supabase
       .from('messages')
-      .select('id,sender_id,receiver_id,content,message_type,is_read,created_at')
-      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+      .select('*')
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
       .order('created_at', { ascending: false })
       .limit(300);
 
-    if (error) {
-      setError('Não foi possível carregar as conversas.');
+    if (queryError) {
+      setError(`Não foi possível carregar as mensagens: ${queryError.message}`);
       setLoading(false);
       return;
     }
 
-    const latest = new Map();
+    const latestByPartner = new Map();
 
     for (const message of data || []) {
-      const other =
-        message.sender_id === user.id
+      const partnerId =
+        message.sender_id === userId
           ? message.receiver_id
           : message.sender_id;
 
-      if (other && !latest.has(other)) {
-        latest.set(other, {
-          id: other,
-          last: message,
-          unread: 0,
-        });
-      }
+      if (!partnerId || partnerId === userId) continue;
 
-      if (
-        other &&
-        message.receiver_id === user.id &&
-        !message.is_read
-      ) {
-        latest.get(other).unread += 1;
+      if (!latestByPartner.has(partnerId)) {
+        latestByPartner.set(partnerId, {
+          partnerId,
+          latestMessage: message,
+        });
       }
     }
 
-    setConversations([...latest.values()]);
-    setLoading(false);
-  }, [user.id]);
+    const partnerIds = [...latestByPartner.keys()];
+    let profileMap = new Map();
 
-  const loadThread = useCallback(async (otherId) => {
-    const { data, error } = await supabase
+    if (partnerIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', partnerIds);
+
+      profileMap = new Map(
+        (profiles || []).map((profile) => [profile.id, profile])
+      );
+    }
+
+    const result = [...latestByPartner.values()].map((conversation) => {
+      const profile = profileMap.get(conversation.partnerId);
+      const message = conversation.latestMessage;
+
+      return {
+        ...conversation,
+        name:
+          profile?.name ||
+          profile?.full_name ||
+          profile?.username ||
+          'Utilizador Talaza',
+        preview: getMessagePreview(message),
+        createdAt: message.created_at,
+      };
+    });
+
+    setConversations(result);
+    setLoading(false);
+
+    if (
+      selectedUserId &&
+      !partnerIds.includes(selectedUserId)
+    ) {
+      setSelectedUserId('');
+      setMessages([]);
+    }
+  }, [userId, selectedUserId]);
+
+  const loadMessages = useCallback(async () => {
+    if (!userId || !selectedUserId) {
+      setMessages([]);
+      return;
+    }
+
+    const { data, error: queryError } = await supabase
       .from('messages')
       .select('*')
       .or(
-        `and(sender_id.eq.${user.id},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${user.id})`
+        `and(sender_id.eq.${userId},receiver_id.eq.${selectedUserId}),and(sender_id.eq.${selectedUserId},receiver_id.eq.${userId})`
       )
       .order('created_at', { ascending: true })
       .limit(300);
 
-    if (error) {
-      setError('Não foi possível abrir esta conversa.');
+    if (queryError) {
+      setError(`Não foi possível abrir a conversa: ${queryError.message}`);
       return;
     }
 
     setMessages(data || []);
 
-    await supabase
-      .from('messages')
-      .update({ is_read: true })
-      .eq('sender_id', otherId)
-      .eq('receiver_id', user.id)
-      .eq('is_read', false);
+    const unreadIds = (data || [])
+      .filter(
+        (message) =>
+          message.receiver_id === userId &&
+          message.is_read === false
+      )
+      .map((message) => message.id);
 
-    loadConversations();
-  }, [user.id, loadConversations]);
+    if (unreadIds.length > 0) {
+      await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .in('id', unreadIds)
+        .eq('receiver_id', userId);
+    }
+  }, [userId, selectedUserId]);
 
   useEffect(() => {
+    if (!userId) return;
+
     loadConversations();
-  }, [loadConversations]);
+  }, [userId, loadConversations]);
 
   useEffect(() => {
-    if (!partner) return;
+    if (!userId || !selectedUserId) return;
 
-    loadThread(partner.id);
+    loadMessages();
+  }, [userId, selectedUserId, loadMessages]);
+
+  useEffect(() => {
+    if (!userId) return;
 
     const channel = supabase
-      .channel(`talaza-chat-${user.id}-${partner.id}`)
+      .channel(`talaza-messages-${userId}`)
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `receiver_id=eq.${user.id}`,
-        },
-        (event) => {
-          const message = event.new;
-
-          if (
-            message.sender_id === partner.id &&
-            message.receiver_id === user.id
-          ) {
-            setMessages((previous) =>
-              previous.some((item) => item.id === message.id)
-                ? previous
-                : [...previous, message]
-            );
-
-            supabase
-              .from('messages')
-              .update({ is_read: true })
-              .eq('id', message.id)
-              .eq('receiver_id', user.id);
-          }
-
+        { event: '*', schema: 'public', table: 'messages' },
+        () => {
           loadConversations();
+
+          if (selectedUserId) {
+            loadMessages();
+          }
         }
       )
       .subscribe();
@@ -127,255 +201,146 @@ export default function ChatPanel({ user, onClose }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [partner, user.id, loadThread, loadConversations]);
+  }, [userId, selectedUserId, loadConversations, loadMessages]);
 
   async function sendMessage(event) {
     event.preventDefault();
 
-    const content = text.trim();
-    if (!content || !partner || sending) return;
+    const content = draft.trim();
+
+    if (!content || !userId || !selectedUserId || sending) return;
 
     setSending(true);
     setError('');
 
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id,
-      receiver_id: partner.id,
-      content,
-      message_type: 'text',
-    });
-
-    if (error) {
-      setError('Não foi possível enviar. Tente novamente.');
-    } else {
-      setText('');
-      await loadThread(partner.id);
-      await loadConversations();
-    }
+    const { error: insertError } = await supabase
+      .from('messages')
+      .insert({
+        sender_id: userId,
+        receiver_id: selectedUserId,
+        content,
+        message_type: 'text',
+        is_read: false,
+      });
 
     setSending(false);
+
+    if (insertError) {
+      setError(`Não foi possível enviar: ${insertError.message}`);
+      return;
+    }
+
+    setDraft('');
+    await loadMessages();
+    await loadConversations();
+  }
+
+  if (!userId) {
+    return (
+      <div className="talaza-chat">
+        <h2>Mensagens</h2>
+        <p>{error || 'A verificar a sessão…'}</p>
+      </div>
+    );
   }
 
   return (
-    <section className="talaza-panel" role="dialog" aria-label="Mensagens">
-      <header className="talaza-panel-head">
-        {partner && (
-          <button onClick={() => {
-            setPartner(null);
-            setMessages([]);
-            loadConversations();
-          }}>
-            ←
-          </button>
-        )}
-        <strong>{partner ? 'Conversa' : 'Mensagens'}</strong>
-        <button onClick={onClose} aria-label="Fechar">×</button>
-      </header>
+    <div className="talaza-chat">
+      <h2>Mensagens</h2>
 
-      {!partner ? (
-        <div className="talaza-panel-list">
-          {loading && <p>A carregar conversas…</p>}
-          {!loading && conversations.length === 0 && (
-            <p>Ainda não tem conversas. Abra um perfil e escolha enviar mensagem.</p>
+      {error && <p className="talaza-feedback-error">{error}</p>}
+
+      {!selectedUserId ? (
+        <>
+          <p className="talaza-chat-help">
+            Escolhe uma conversa para ver as mensagens.
+          </p>
+
+          {loading ? (
+            <p>A carregar conversas…</p>
+          ) : conversations.length === 0 ? (
+            <p>Ainda não tens conversas.</p>
+          ) : (
+            <div className="talaza-conversation-list">
+              {conversations.map((conversation) => (
+                <button
+                  type="button"
+                  className="talaza-conversation"
+                  key={conversation.partnerId}
+                  onClick={() => setSelectedUserId(conversation.partnerId)}
+                >
+                  <span className="talaza-conversation-avatar">
+                    {conversation.name.charAt(0).toUpperCase()}
+                  </span>
+
+                  <span className="talaza-conversation-text">
+                    <strong>{conversation.name}</strong>
+                    <span>{conversation.preview}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
           )}
-          {conversations.map((item) => (
-            <button
-              className="talaza-conversation"
-              key={item.id}
-              onClick={() => {
-                setPartner({ id: item.id });
-                setError('');
-              }}
-            >
-              <span className="talaza-avatar">T</span>
-              <span>
-                <strong>Conversa Talaza</strong>
-                <small>
-                  {item.last.message_type === 'image'
-                    ? '📷 Fotografia'
-                    : item.last.message_type === 'audio'
-                    ? '🎤 Áudio'
-                    : item.last.content || 'Mensagem'}
-                </small>
-              </span>
-              {item.unread > 0 && (
-                <b className="talaza-count">{item.unread}</b>
-              )}
-            </button>
-          ))}
-        </div>
+        </>
       ) : (
         <>
-          <div className="talaza-chat-body">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={
-                  message.sender_id === user.id
-                    ? 'talaza-bubble mine'
-                    : 'talaza-bubble'
-                }
-              >
-                {message.content}
-                <small>
-                  {new Date(message.created_at).toLocaleTimeString('pt-PT', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </small>
-              </div>
-            ))}
+          <button
+            type="button"
+            className="talaza-chat-back"
+            onClick={() => {
+              setSelectedUserId('');
+              setMessages([]);
+              setError('');
+            }}
+          >
+            ← Todas as conversas
+          </button>
+
+          <div className="talaza-chat-messages">
+            {messages.length === 0 ? (
+              <p>Envia a primeira mensagem desta conversa.</p>
+            ) : (
+              messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={
+                    message.sender_id === userId
+                      ? 'talaza-message talaza-message-own'
+                      : 'talaza-message'
+                  }
+                >
+                  {message.content && <p>{message.content}</p>}
+
+                  {!message.content && (
+                    <p>{getMessagePreview(message)}</p>
+                  )}
+
+                  <time>
+                    {message.created_at
+                      ? new Date(message.created_at).toLocaleString()
+                      : ''}
+                  </time>
+                </div>
+              ))
+            )}
           </div>
 
-          <form className="talaza-chat-form" onSubmit={sendMessage}>
+          <form className="talaza-chat-compose" onSubmit={sendMessage}>
             <input
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              placeholder="Escreva uma mensagem…"
+              type="text"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="Escreve uma mensagem…"
               aria-label="Mensagem"
+              maxLength={5000}
             />
-            <button disabled={sending || !text.trim()}>
-              {sending ? '…' : 'Enviar'}
+
+            <button type="submit" disabled={sending || !draft.trim()}>
+              {sending ? 'A enviar…' : 'Enviar'}
             </button>
           </form>
         </>
       )}
-
-      {error && <p className="talaza-chat-error">{error}</p>}
-
-      <style jsx>{`
-        .talaza-panel {
-          position: fixed;
-          z-index: 1001;
-          right: 16px;
-          bottom: 92px;
-          width: min(390px, calc(100vw - 24px));
-          height: min(600px, calc(100dvh - 120px));
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-          background: #fff;
-          color: #17211f;
-          border: 1px solid #e5e9e7;
-          border-radius: 20px;
-          box-shadow: 0 12px 44px #083f3526;
-        }
-        .talaza-panel-head {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 16px;
-          background: #083f35;
-          color: white;
-        }
-        .talaza-panel-head button {
-          border: 0;
-          background: transparent;
-          color: inherit;
-          font-size: 25px;
-          cursor: pointer;
-        }
-        .talaza-panel-list, .talaza-chat-body {
-          flex: 1;
-          min-height: 0;
-          overflow-y: auto;
-          padding: 12px;
-        }
-        .talaza-conversation {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px;
-          text-align: left;
-          border: 0;
-          border-bottom: 1px solid #e5e9e7;
-          background: white;
-          cursor: pointer;
-        }
-        .talaza-conversation span:nth-child(2) {
-          flex: 1;
-          display: grid;
-          gap: 4px;
-          min-width: 0;
-        }
-        .talaza-conversation small { color: #596560; }
-        .talaza-avatar {
-          display: grid;
-          place-items: center;
-          width: 42px;
-          height: 42px;
-          border-radius: 50%;
-          background: #e8f3f0;
-          color: #0f6e5c;
-          font-weight: 700;
-        }
-        .talaza-count {
-          background: #b93845;
-          color: white;
-          border-radius: 99px;
-          padding: 3px 7px;
-        }
-        .talaza-chat-body {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          background: #f8f6f3;
-        }
-        .talaza-bubble {
-          align-self: flex-start;
-          max-width: 85%;
-          padding: 10px 12px;
-          border-radius: 14px;
-          background: white;
-          overflow-wrap: anywhere;
-        }
-        .talaza-bubble.mine {
-          align-self: flex-end;
-          background: #e8f3f0;
-        }
-        .talaza-bubble small {
-          display: block;
-          margin-top: 5px;
-          color: #596560;
-          font-size: 11px;
-          text-align: right;
-        }
-        .talaza-chat-form {
-          display: flex;
-          gap: 8px;
-          padding: 10px;
-          border-top: 1px solid #e5e9e7;
-        }
-        .talaza-chat-form input {
-          flex: 1;
-          min-width: 0;
-          border: 1px solid #e5e9e7;
-          border-radius: 24px;
-          padding: 12px;
-        }
-        .talaza-chat-form button {
-          border: 0;
-          border-radius: 24px;
-          padding: 0 15px;
-          background: #0f6e5c;
-          color: white;
-        }
-        .talaza-chat-error {
-          margin: 0;
-          padding: 10px;
-          color: #b93845;
-          font-size: 13px;
-        }
-        @media (max-width: 600px) {
-          .talaza-panel {
-            inset: 0;
-            width: 100%;
-            height: 100dvh;
-            border-radius: 0;
-          }
-        }
-      `}</style>
-    </section>
+    </div>
   );
 }
