@@ -1,99 +1,64 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import Link from 'next/link';
 
-export default function MensagensPage() {
+export default function Mensagens() {
   const [loading, setLoading] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
-  const [texto, setTexto] = useState('');
-  const [msgs, setMsgs] = useState([
-    { id: 1, t: 'Olá! Bem-vindo ao Talaza 💚', me: false },
-  ]);
+  const [auth, setAuth] = useState(false);
 
   useEffect(() => {
-    let active = true;
-    async function checkSession() {
+    async function check() {
       const { data } = await supabase.auth.getSession();
-      if (!active) return;
-      setAuthenticated(Boolean(data?.session?.user));
+      setAuth(!!data?.session?.user);
       setLoading(false);
     }
-    checkSession();
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (active) setAuthenticated(Boolean(session?.user));
-    });
-    return () => {
-      active = false;
-      listener.subscription.unsubscribe();
-    };
+    check();
   }, []);
 
-  function enviar() {
-    if (!texto.trim()) return;
-    setMsgs([...msgs, { id: Date.now(), t: texto, me: true }]);
-    setTexto('');
-  }
+  if (loading) return <div style={{padding:40,textAlign:'center'}}>A verificar...</div>;
 
-  if (loading) {
-    return <div style={{ padding: 40, textAlign: 'center' }}>A verificar...</div>;
-  }
-
-  if (!authenticated) {
+  // SE NÃO ESTÁ LOGADO - MOSTRA A CAIXINHA COM 2 BOTÕES
+  if (!auth) {
     return (
-      <main style={{ minHeight: '60vh', padding: '32px 20px 120px', background: '#F8F6F3' }}>
-        <div style={{ maxWidth: 680, margin: '0 auto', padding: 24, borderRadius: 22, background: '#fff', border: '1px solid #E5E9E7' }}>
-          <h1 style={{ color: '#083F35', marginTop: 0 }}>Mensagens Talaza</h1>
-          <p>Inicie sessão para aceder às suas conversas.</p>
+      <main style={{minHeight:'100vh', background:'#F8F6F3', display:'flex', alignItems:'center', justifyContent:'center', padding:'20px 20px 100px'}}>
+        <div style={{maxWidth:380, width:'100%', background:'#fff', borderRadius:24, padding:28, border:'1px solid #E7E3D8', textAlign:'center', boxShadow:'0 4px 20px rgba(11,59,45,0.06)'}}>
+          <h1 style={{color:'#0B3B2D', fontSize:28, margin:'0 0 12px'}}>Talaza</h1>
+          <p style={{color:'#66726D', fontSize:15, margin:'0 0 24px', lineHeight:1.5}}>
+            Inicie sessão para acessar às suas conversas. Você pode explorar tudo, mas para conversar precisa de uma conta.
+          </p>
+          
+          <Link href="/login" style={{textDecoration:'none'}}>
+            <button style={{width:'100%', height:48, borderRadius:12, background:'#0B4A3A', color:'#fff', border:'none', fontWeight:700, fontSize:15, cursor:'pointer'}}>
+              Iniciar sessão
+            </button>
+          </Link>
+
+          <Link href="/register" style={{textDecoration:'none'}}>
+            <button style={{width:'100%', height:48, borderRadius:12, background:'#fff', color:'#0B4A3A', border:'1px solid #0B4A3A', fontWeight:700, fontSize:15, cursor:'pointer', marginTop:12}}>
+              Criar conta
+            </button>
+          </Link>
+
+          <Link href="/" style={{display:'block', marginTop:16, color:'#8A9A94', fontSize:13, textDecoration:'none'}}>
+            Continuar explorando →
+          </Link>
         </div>
       </main>
     );
   }
 
-  // PAINEL ESTILO WHATSAPP - IGUAL AO SEU PRINT
+  // SE ESTÁ LOGADO - PAINEL WHATSAPP
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#E5DDD5' }}>
-      <div style={{ background: '#fff', height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', gap: 10, borderBottom: '1px solid #e0d8cc' }}>
-        <div style={{ width: 38, height: 38, background: '#0B4A3A', borderRadius: '50%', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 700 }}>T</div>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>Talaza - Apoio</div>
-          <div style={{ fontSize: 11, color: '#666' }}>Online • Conta empresarial</div>
-        </div>
+    <div style={{display:'flex', flexDirection:'column', height:'100vh', background:'#E5DDD5'}}>
+      <div style={{background:'#fff', height:60, display:'flex', alignItems:'center', padding:'0 12px'}}>
+        <div style={{width:38, height:38, background:'#0B4A3A', borderRadius:'50%', display:'grid', placeItems:'center', color:'#fff', fontWeight:700}}>T</div>
+        <div style={{marginLeft:10}}><b style={{fontSize:14}}>Talaza</b><div style={{fontSize:11, color:'#666'}}>Online</div></div>
       </div>
-
-      <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
-        <div style={{ background: '#fff', margin: '10px auto', padding: '4px 10px', borderRadius: 8, fontSize: 12, width: 'fit-content' }}>Hoje</div>
-        <div style={{ background: '#DCF8C6', borderRadius: 8, padding: '10px 12px', margin: '8px 0', fontSize: 13, maxWidth: '85%', boxShadow: '0 1px 1px rgba(0,0,0,.1)' }}>
-          Esta empresa usa um serviço seguro da Meta para gerir esta conversa.
-        </div>
-        {msgs.map(m => (
-          <div key={m.id} style={{
-            background: m.me ? '#DCF8C6' : '#fff',
-            padding: '8px 10px', borderRadius: 8, margin: '6px 0',
-            maxWidth: '80%', marginLeft: m.me ? 'auto' : 0,
-            fontSize: 14, boxShadow: '0 1px 1px rgba(0,0,0,.1)'
-          }}>{m.t}</div>
-        ))}
-      </div>
-
-      <div style={{ background: '#F0F0F0', padding: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
-        <div style={{ flex: 1, background: '#fff', borderRadius: 24, height: 44, display: 'flex', alignItems: 'center', padding: '0 12px' }}>
-          <span>☺</span>
-          <input
-            value={texto}
-            onChange={e => setTexto(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && enviar()}
-            placeholder="Mensagem"
-            style={{ flex: 1, border: 'none', outline: 'none', marginLeft: 8, fontSize: 15 }}
-          />
-          <span>📎</span>
-          <span style={{ marginLeft: 8 }}>📷</span>
-        </div>
-        <button onClick={enviar} style={{ width: 44, height: 44, borderRadius: '50%', background: '#25D366', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer' }}>
-          {texto ? '➤' : '🎤'}
-        </button>
+      <div style={{flex:1, padding:20, textAlign:'center', color:'#555'}}>
+        Suas conversas aparecerão aqui 💬
       </div>
     </div>
   );
 }
 
-// Esconde a barra de baixo nesta página
-MensagensPage.showMessageDock = false;
+Mensagens.showMessageDock = false;
