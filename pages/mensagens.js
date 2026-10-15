@@ -1,78 +1,105 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
 
 export default function Mensagens() {
-  const router = useRouter();
-  const { country, province } = router.query;
-
-  const [loading, setLoading] = useState(true);
-  const [auth, setAuth] = useState(false);
-  const [userName, setUserName] = useState('');
+  const [mensagem, setMensagem] = useState('');
+  const [user, setUser] = useState(null);
+  const [conversas, setConversas] = useState([]);
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   useEffect(() => {
-    async function check() {
-      const { data } = await supabase.auth.getSession();
-      const isAuth = !!data?.session?.user;
-      setAuth(isAuth);
-      
-      if (isAuth) {
-        const { data: profile } = await supabase.from('profiles').select('name').eq('id', data.session.user.id).maybeSingle();
-        if (profile?.name) setUserName(profile.name);
-      }
-      setLoading(false);
-    }
-    check();
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
   }, []);
 
-  if (loading) return <div style={{padding:40,textAlign:'center', color:'#075B4E'}}>A verificar...</div>;
-
-  // NÃO LOGADO - COM BOTÕES CERTOS
-  if (!auth) {
-    return (
-      <main style={{minHeight:'100vh', background:'#F8F6F3', display:'flex', alignItems:'center', justifyContent:'center', padding:'20px 20px 100px'}}>
-        <div style={{maxWidth:380, width:'100%', background:'#fff', borderRadius:24, padding:28, border:'1px solid #E7E3D8', textAlign:'center'}}>
-          <div style={{width:56,height:56, background:'#EAF4F1', borderRadius:16, display:'grid', placeItems:'center', margin:'0 auto 16px', fontSize:28}}>💬</div>
-          <h1 style={{color:'#075B4E', fontSize:22, margin:'0 0 8px'}}>Talaza</h1>
-          <p style={{color:'#66726D', fontSize:15, margin:'0 0 24px', lineHeight:1.5}}>
-            Inicie sessão para acessar às suas conversas.
-          </p>
-          
-          <Link href="/login" style={{textDecoration:'none'}}>
-            <button style={{width:'100%', height:48, borderRadius:12, background:'#075B4E', color:'#fff', border:'none', fontWeight:800, fontSize:15, cursor:'pointer'}}>
-              Iniciar sessão
-            </button>
-          </Link>
-
-          <Link href={{ pathname: '/signup', query: { country, province, next: 'mensagens' } }} style={{textDecoration:'none'}}>
-            <button style={{width:'100%', height:48, borderRadius:12, background:'#fff', color:'#075B4E', border:'1px solid #075B4E', fontWeight:800, fontSize:15, cursor:'pointer', marginTop:12}}>
-              Criar conta
-            </button>
-          </Link>
-        </div>
-      </main>
-    );
+  function enviarMensagem(e) {
+    e.preventDefault();
+    if (!mensagem.trim()) return;
+    // aqui entra sua lógica de enviar para supabase
+    console.log('Enviando:', mensagem);
+    setMensagem('');
   }
 
-  // LOGADO - LIBERA TANTO CLIENTE QUANTO VENDEDOR
   return (
-    <div style={{display:'flex', flexDirection:'column', height:'100vh', background:'#E5DDD5'}}>
-      <div style={{background:'#fff', height:60, display:'flex', alignItems:'center', padding:'0 12px', gap:10, borderBottom:'1px solid #e0d8cc'}}>
-        <Link href={country ? `/explore?country=${country}&province=${province}` : '/'} style={{fontSize:20, textDecoration:'none'}}>←</Link>
-        <div style={{width:38, height:38, background:'#075B4E', borderRadius:'50%', display:'grid', placeItems:'center', color:'#fff', fontWeight:700}}>T</div>
-        <div>
-          <div style={{fontWeight:700, fontSize:14}}>Mensagens {userName ? `- ${userName}` : ''}</div>
-          <div style={{fontSize:11, color:'#666'}}>Online</div>
+    <div style={{ display:'flex', flexDirection:'column', height:'100vh', background:'#E5DDD5' }}>
+      {/* HEADER */}
+      <div style={{ height:60, background:'#F0F2F5', display:'flex', alignItems:'center', padding:'0 16px', borderBottom:'1px solid #E0E0E0' }}>
+        <div style={{ width:40, height:40, borderRadius:'50%', background:'#075B4E', color:'#F7C948', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900 }}>T</div>
+        <div style={{ marginLeft:12 }}>
+          <div style={{ fontWeight:700, fontSize:14, color:'#111B21' }}>Mensagens - {user?.user_metadata?.full_name || 'Bem-vinda'}</div>
+          <div style={{ fontSize:11, color:'#667781' }}>Online</div>
         </div>
       </div>
-      <div style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:12, padding:20}}>
-        <div style={{fontSize:40}}>💬</div>
-        <p style={{color:'#555'}}>Bem-vindo! Suas conversas aparecerão aqui.</p>
-        <p style={{color:'#8A9A94', fontSize:12}}>Vendedor ou cliente, você já está liberado.</p>
+
+      {/* ÁREA DO CHAT - COM SEU FUNDO */}
+      <div style={{ 
+        flex:1, 
+        backgroundColor:'#E5DDD5',
+        backgroundImage:`url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23d1d7db' fill-opacity='0.4'%3E%3Cpath d='M20 20c0-5 4-9 9-9s9 4 9 9-4 9-9 9-9-4-9-9z'/%3E%3C/g%3E%3C/svg%3E")`,
+        display:'flex', 
+        flexDirection:'column', 
+        alignItems:'center', 
+        justifyContent: conversas.length === 0 ? 'center' : 'flex-start',
+        padding:20,
+        overflowY:'auto'
+      }}>
+        {conversas.length === 0 ? (
+          <div style={{ textAlign:'center', background:'#fff', padding:20, borderRadius:12, boxShadow:'0 1px 3px rgba(0,0,0,.1)' }}>
+            <div style={{ fontSize:32 }}>💬</div>
+            <p style={{ color:'#667781', fontSize:13, marginTop:8 }}>Bem-vindo! Suas conversas aparecerão aqui.</p>
+            <p style={{ color:'#8696A0', fontSize:11, marginTop:6 }}>Vendedor ou cliente, você já está liberado.</p>
+          </div>
+        ) : (
+          conversas.map(c => <div key={c.id}>{c.text}</div>)
+        )}
+      </div>
+
+      {/* BARRA DE BAIXO - ESSA QUE SUMIU - AGORA SEMPRE VISÍVEL */}
+      <div style={{ 
+        background:'#F0F2F5', 
+        padding:'8px 12px', 
+        display:'flex', 
+        alignItems:'center', 
+        gap:8 
+      }}>
+        <div style={{ 
+          flex:1, 
+          background:'#fff', 
+          borderRadius:24, 
+          display:'flex', 
+          alignItems:'center', 
+          padding:'6px 12px',
+          gap:8
+        }}>
+          <button type="button" style={iconBtn}>☺</button>
+          <input
+            value={mensagem}
+            onChange={e=>setMensagem(e.target.value)}
+            placeholder="Mensagem"
+            style={{ flex:1, border:'none', outline:'none', fontSize:15, padding:'6px 0' }}
+            onKeyDown={e=>{ if(e.key==='Enter') enviarMensagem(e) }}
+          />
+          <button type="button" onClick={()=>fileInputRef.current?.click()} style={iconBtn}>📎</button>
+          <button type="button" onClick={()=>cameraInputRef.current?.click()} style={iconBtn}>📷</button>
+        </div>
+        
+        <button 
+          onClick={enviarMensagem}
+          style={{ 
+            width:48, height:48, borderRadius:'50%', background:'#075B4E', 
+            border:'none', color:'#fff', fontSize:22, cursor:'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center'
+          }}
+        >
+          {mensagem.trim() ? '➤' : '🎤'}
+        </button>
+
+        {/* inputs escondidos */}
+        <input ref={fileInputRef} type="file" hidden />
+        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden />
       </div>
     </div>
   );
 }
 
-Mensagens.showMessageDock = false;
+const iconBtn = { border:'none', background:'transparent', fontSize:20, cursor:'pointer', color:'#54656F', width:32, height:32 };
