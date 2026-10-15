@@ -1,165 +1,212 @@
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
+
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-export default function NotificationsPanel({ user, onClose }) {
-  const router = useRouter();
-  const [items, setItems] = useState([]);
+export default function NotificationsPanel({ userId: suppliedUserId }) {
+  const [userId, setUserId] = useState(suppliedUserId || null);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    let active = true;
+    if (suppliedUserId) {
+      setUserId(suppliedUserId);
+      return;
+    }
 
-    async function load() {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('id,title,body,link,is_read,created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
+    let mounted = true;
 
-      if (!active) return;
+    async function getUser() {
+      const { data, error: authError } = await supabase.auth.getUser();
 
-      if (error) {
-        setError('Não foi possível carregar as notificações.');
-      } else {
-        setItems(data || []);
+      if (!mounted) return;
 
-        await supabase
-          .from('notifications')
-          .update({ is_read: true })
-          .eq('user_id', user.id)
-          .eq('is_read', false);
+      if (authError || !data?.user) {
+        setError('Inicia sessão para ver as notificações.');
+        setLoading(false);
+        return;
       }
 
-      setLoading(false);
+      setUserId(data.user.id);
     }
 
-    load();
+    getUser();
 
     return () => {
-      active = false;
+      mounted = false;
     };
-  }, [user.id]);
+  }, [suppliedUserId]);
 
-  async function openItem(item) {
-    if (item.link) {
-      onClose();
-      await router.push(item.link);
+  const loadNotifications = useCallback(async () => {
+    if (!userId) return;
+
+    setLoading(true);
+    setError('');
+
+    const { data, error: queryError } = await supabase
+      .from('notifications')
+      .select(
+        'id, created_at, user_id, type, title, content, reference_id, is_read'
+      )
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (queryError) {
+      setError(`Não foi possível carregar as notificações: ${queryError.message}`);
+      setLoading(false);
+      return;
     }
+
+    setNotifications(data || []);
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId) {
+      loadNotifications();
+    }
+  }, [userId, loadNotifications]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`talaza-notifications-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => loadNotifications()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, loadNotifications]);
+
+  async function markAsRead(notification) {
+    if (notification.is_read) return;
+
+    const { error: updateError } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', notification.id)
+      .eq('user_id', userId);
+
+    if (updateError) {
+      setError(`Não foi possível marcar como lida: ${updateError.message}`);
+      return;
+    }
+
+    setNotifications((current) =>
+      current.map((item) =>
+        item.id === notification.id
+          ? { ...item, is_read: true }
+          : item
+      )
+    );
   }
 
+  async function markAllAsRead() {
+    const unreadIds = notifications
+      .filter((item) => !item.is_read)
+      .map((item) => item.id);
+
+    if (unreadIds.length === 0) return;
+
+    const { error: updateError } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .in('id', unreadIds)
+      .eq('user_id', userId);
+
+    if (updateError) {
+      setError(`Não foi possível atualizar: ${updateError.message}`);
+      return;
+    }
+
+    setNotifications((current) =>
+      current.map((item) => ({ ...item, is_read: true }))
+    );
+  }
+
+  const unreadCount = notifications.filter((item) => !item.is_read).length;
+
   return (
-    <section className="talaza-notifications" role="dialog" aria-label="Notificações">
-      <header>
-        <strong>Notificações</strong>
-        <button onClick={onClose} aria-label="Fechar">×</button>
-      </header>
+    <div className="talaza-notifications">
+      <div className="talaza-notifications-heading">
+        <div>
+          <h2>Notificações</h2>
+          <p>
+            {unreadCount === 0
+              ? 'Estás em dia.'
+              : `${unreadCount} por ler`}
+          </p>
+        </div>
 
-      <div className="talaza-notifications-list">
-        {loading && <p>A carregar…</p>}
-        {error && <p>{error}</p>}
-        {!loading && !error && items.length === 0 && (
-          <p>Ainda não tem notificações.</p>
-        )}
-
-        {items.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => openItem(item)}
-            disabled={!item.link}
-          >
-            <span className={!item.is_read ? 'unread-dot' : 'read-dot'} />
-            <span>
-              <strong>{item.title}</strong>
-              {item.body && <small>{item.body}</small>}
-              <small>
-                {new Date(item.created_at).toLocaleString('pt-PT', {
-                  day: '2-digit',
-                  month: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </small>
-            </span>
+        {unreadCount > 0 && (
+          <button type="button" onClick={markAllAsRead}>
+            Marcar todas como lidas
           </button>
-        ))}
+        )}
       </div>
 
-      <style jsx>{`
-        .talaza-notifications {
-          position: fixed;
-          z-index: 1001;
-          right: 16px;
-          bottom: 92px;
-          width: min(390px, calc(100vw - 24px));
-          max-height: min(600px, calc(100dvh - 120px));
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-          border: 1px solid #e5e9e7;
-          border-radius: 20px;
-          background: white;
-          color: #17211f;
-          box-shadow: 0 12px 44px #083f3526;
-        }
-        header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 16px;
-          background: #083f35;
-          color: white;
-        }
-        header button {
-          border: 0;
-          background: transparent;
-          color: white;
-          font-size: 25px;
-          cursor: pointer;
-        }
-        .talaza-notifications-list {
-          overflow-y: auto;
-          padding: 8px;
-        }
-        .talaza-notifications-list > button {
-          display: flex;
-          align-items: flex-start;
-          gap: 10px;
-          width: 100%;
-          padding: 14px 10px;
-          border: 0;
-          border-bottom: 1px solid #e5e9e7;
-          background: white;
-          color: #17211f;
-          text-align: left;
-        }
-        .talaza-notifications-list > button span:last-child {
-          display: grid;
-          gap: 5px;
-        }
-        .talaza-notifications-list small {
-          color: #596560;
-        }
-        .unread-dot, .read-dot {
-          flex: none;
-          width: 9px;
-          height: 9px;
-          margin-top: 5px;
-          border-radius: 50%;
-          background: #dda10a;
-        }
-        .read-dot { background: #e5e9e7; }
-        @media (max-width: 600px) {
-          .talaza-notifications {
-            inset: 0;
-            width: 100%;
-            max-height: 100dvh;
-            border-radius: 0;
-          }
-        }
-      `}</style>
-    </section>
+      {error && <p className="talaza-feedback-error">{error}</p>}
+
+      {loading ? (
+        <p>A carregar notificações…</p>
+      ) : notifications.length === 0 ? (
+        <p>Ainda não tens notificações.</p>
+      ) : (
+        <div className="talaza-notification-list">
+          {notifications.map((notification) => (
+            <article
+              key={notification.id}
+              className={
+                notification.is_read
+                  ? 'talaza-notification'
+                  : 'talaza-notification talaza-notification-unread'
+              }
+            >
+              <button
+                type="button"
+                className="talaza-notification-content"
+                onClick={() => markAsRead(notification)}
+              >
+                <span className="talaza-notification-title">
+                  {notification.title || 'Notificação Talaza'}
+                </span>
+
+                {notification.content && (
+                  <span>{notification.content}</span>
+                )}
+
+                <span className="talaza-notification-meta">
+                  {notification.type || 'Atualização'}
+                  {notification.created_at
+                    ? ` · ${new Date(
+                        notification.created_at
+                      ).toLocaleString()}`
+                    : ''}
+                </span>
+              </button>
+
+              {!notification.is_read && (
+                <span
+                  className="talaza-notification-dot"
+                  aria-label="Não lida"
+                />
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
