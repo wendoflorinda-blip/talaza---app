@@ -1,346 +1,80 @@
+import { useState } from 'react';
 
-import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+export default function ChatPanel() {
+  const [texto, setTexto] = useState('');
+  const [mensagens, setMensagens] = useState([
+    {id:1, texto:'Olá! Como posso ajudar?', tipo:'recebida'},
+    {id:2, texto:'Esta empresa está agora a usar um serviço seguro da Meta para gerir esta conversa.', tipo:'sistema'},
+  ]);
 
-function getMessagePreview(message) {
-  if (message.content) return message.content;
-
-  if (message.message_type === 'image') return 'Fotografia';
-  if (message.message_type === 'audio') return 'Mensagem de áudio';
-  if (message.message_type === 'video') return 'Vídeo';
-
-  return 'Mensagem';
-}
-
-export default function ChatPanel({ userId: suppliedUserId }) {
-  const [userId, setUserId] = useState(suppliedUserId || null);
-  const [conversations, setConversations] = useState([]);
-  const [selectedUserId, setSelectedUserId] = useState('');
-  const [messages, setMessages] = useState([]);
-  const [draft, setDraft] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (suppliedUserId) {
-      setUserId(suppliedUserId);
-      return;
-    }
-
-    let mounted = true;
-
-    async function getUser() {
-      const { data, error: authError } = await supabase.auth.getUser();
-
-      if (!mounted) return;
-
-      if (authError || !data?.user) {
-        setError('Inicia sessão para consultar as mensagens.');
-        setLoading(false);
-        return;
-      }
-
-      setUserId(data.user.id);
-    }
-
-    getUser();
-
-    return () => {
-      mounted = false;
-    };
-  }, [suppliedUserId]);
-
-  const loadConversations = useCallback(async () => {
-    if (!userId) return;
-
-    setError('');
-
-    const { data, error: queryError } = await supabase
-      .from('messages')
-      .select('*')
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-      .order('created_at', { ascending: false })
-      .limit(300);
-
-    if (queryError) {
-      setError(`Não foi possível carregar as mensagens: ${queryError.message}`);
-      setLoading(false);
-      return;
-    }
-
-    const latestByPartner = new Map();
-
-    for (const message of data || []) {
-      const partnerId =
-        message.sender_id === userId
-          ? message.receiver_id
-          : message.sender_id;
-
-      if (!partnerId || partnerId === userId) continue;
-
-      if (!latestByPartner.has(partnerId)) {
-        latestByPartner.set(partnerId, {
-          partnerId,
-          latestMessage: message,
-        });
-      }
-    }
-
-    const partnerIds = [...latestByPartner.keys()];
-    let profileMap = new Map();
-
-    if (partnerIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('*')
-        .in('id', partnerIds);
-
-      profileMap = new Map(
-        (profiles || []).map((profile) => [profile.id, profile])
-      );
-    }
-
-    const result = [...latestByPartner.values()].map((conversation) => {
-      const profile = profileMap.get(conversation.partnerId);
-      const message = conversation.latestMessage;
-
-      return {
-        ...conversation,
-        name:
-          profile?.name ||
-          profile?.full_name ||
-          profile?.username ||
-          'Utilizador Talaza',
-        preview: getMessagePreview(message),
-        createdAt: message.created_at,
-      };
-    });
-
-    setConversations(result);
-    setLoading(false);
-
-    if (
-      selectedUserId &&
-      !partnerIds.includes(selectedUserId)
-    ) {
-      setSelectedUserId('');
-      setMessages([]);
-    }
-  }, [userId, selectedUserId]);
-
-  const loadMessages = useCallback(async () => {
-    if (!userId || !selectedUserId) {
-      setMessages([]);
-      return;
-    }
-
-    const { data, error: queryError } = await supabase
-      .from('messages')
-      .select('*')
-      .or(
-        `and(sender_id.eq.${userId},receiver_id.eq.${selectedUserId}),and(sender_id.eq.${selectedUserId},receiver_id.eq.${userId})`
-      )
-      .order('created_at', { ascending: true })
-      .limit(300);
-
-    if (queryError) {
-      setError(`Não foi possível abrir a conversa: ${queryError.message}`);
-      return;
-    }
-
-    setMessages(data || []);
-
-    const unreadIds = (data || [])
-      .filter(
-        (message) =>
-          message.receiver_id === userId &&
-          message.is_read === false
-      )
-      .map((message) => message.id);
-
-    if (unreadIds.length > 0) {
-      await supabase
-        .from('messages')
-        .update({ is_read: true })
-        .in('id', unreadIds)
-        .eq('receiver_id', userId);
-    }
-  }, [userId, selectedUserId]);
-
-  useEffect(() => {
-    if (!userId) return;
-
-    loadConversations();
-  }, [userId, loadConversations]);
-
-  useEffect(() => {
-    if (!userId || !selectedUserId) return;
-
-    loadMessages();
-  }, [userId, selectedUserId, loadMessages]);
-
-  useEffect(() => {
-    if (!userId) return;
-
-    const channel = supabase
-      .channel(`talaza-messages-${userId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'messages' },
-        () => {
-          loadConversations();
-
-          if (selectedUserId) {
-            loadMessages();
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId, selectedUserId, loadConversations, loadMessages]);
-
-  async function sendMessage(event) {
-    event.preventDefault();
-
-    const content = draft.trim();
-
-    if (!content || !userId || !selectedUserId || sending) return;
-
-    setSending(true);
-    setError('');
-
-    const { error: insertError } = await supabase
-      .from('messages')
-      .insert({
-        sender_id: userId,
-        receiver_id: selectedUserId,
-        content,
-        message_type: 'text',
-        is_read: false,
-      });
-
-    setSending(false);
-
-    if (insertError) {
-      setError(`Não foi possível enviar: ${insertError.message}`);
-      return;
-    }
-
-    setDraft('');
-    await loadMessages();
-    await loadConversations();
-  }
-
-  if (!userId) {
-    return (
-      <div className="talaza-chat">
-        <h2>Mensagens</h2>
-        <p>{error || 'A verificar a sessão…'}</p>
-      </div>
-    );
-  }
+  const enviar = () => {
+    if(!texto.trim()) return;
+    setMensagens([...mensagens, {id:Date.now(), texto, tipo:'enviada'}]);
+    setTexto('');
+  };
 
   return (
-    <div className="talaza-chat">
-      <h2>Mensagens</h2>
+    <div style={{display:'flex', flexDirection:'column', height:'100vh', background:'#EFE7DE'}}>
+      {/* HEADER igual ao seu print */}
+      <div style={{height:64, background:'#FFFFFF', display:'flex', alignItems:'center', padding:'0 12px', gap:12, borderBottom:'1px solid #E0D8CC'}}>
+        <span style={{fontSize:24}}>←</span>
+        <div style={{width:40, height:40, borderRadius:'50%', background:'#FF8C00', display:'grid', placeItems:'center', color:'#fff', fontWeight:700}}>U</div>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:700, color:'#111', fontSize:15}}>Apoio ao cliente</div>
+          <div style={{fontSize:12, color:'#666'}}>UNITEL, SA • Conta empresarial</div>
+        </div>
+        <span style={{fontSize:22}}>⋮</span>
+      </div>
 
-      {error && <p className="talaza-feedback-error">{error}</p>}
+      {/* ÁREA DAS MENSAGENS com fundo do WhatsApp */}
+      <div style={{
+        flex:1, 
+        overflowY:'auto', 
+        padding:'12px',
+        backgroundImage:`url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")`,
+        backgroundColor:'#E5DDD5'
+      }}>
+        <div style={{background:'#fff', borderRadius:8, padding:'6px 12px', margin:'12px auto', width:'fit-content', fontSize:12, boxShadow:'0 1px 1px rgba(0,0,0,.1)'}}>
+          1 de maio de 2026
+        </div>
 
-      {!selectedUserId ? (
-        <>
-          <p className="talaza-chat-help">
-            Escolhe uma conversa para ver as mensagens.
-          </p>
+        <div style={{background:'#DCF8C6', borderRadius:8, padding:'10px 12px', margin:'8px 0', fontSize:14, color:'#333', maxWidth:'85%', boxShadow:'0 1px 1px rgba(0,0,0,.1)'}}>
+          Esta empresa usa um serviço seguro da Meta para gerir esta conversa. Toque para saber mais.
+        </div>
 
-          {loading ? (
-            <p>A carregar conversas…</p>
-          ) : conversations.length === 0 ? (
-            <p>Ainda não tens conversas.</p>
-          ) : (
-            <div className="talaza-conversation-list">
-              {conversations.map((conversation) => (
-                <button
-                  type="button"
-                  className="talaza-conversation"
-                  key={conversation.partnerId}
-                  onClick={() => setSelectedUserId(conversation.partnerId)}
-                >
-                  <span className="talaza-conversation-avatar">
-                    {conversation.name.charAt(0).toUpperCase()}
-                  </span>
+        <div style={{background:'#fff', borderRadius:8, padding:'6px 12px', margin:'12px auto', width:'fit-content', fontSize:12}}>Hoje</div>
 
-                  <span className="talaza-conversation-text">
-                    <strong>{conversation.name}</strong>
-                    <span>{conversation.preview}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          <button
-            type="button"
-            className="talaza-chat-back"
-            onClick={() => {
-              setSelectedUserId('');
-              setMessages([]);
-              setError('');
-            }}
-          >
-            ← Todas as conversas
-          </button>
-
-          <div className="talaza-chat-messages">
-            {messages.length === 0 ? (
-              <p>Envia a primeira mensagem desta conversa.</p>
-            ) : (
-              messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={
-                    message.sender_id === userId
-                      ? 'talaza-message talaza-message-own'
-                      : 'talaza-message'
-                  }
-                >
-                  {message.content && <p>{message.content}</p>}
-
-                  {!message.content && (
-                    <p>{getMessagePreview(message)}</p>
-                  )}
-
-                  <time>
-                    {message.created_at
-                      ? new Date(message.created_at).toLocaleString()
-                      : ''}
-                  </time>
-                </div>
-              ))
-            )}
+        {mensagens.map(m => (
+          <div key={m.id} style={{
+            background: m.tipo==='enviada' ? '#DCF8C6' : '#FFFFFF',
+            alignSelf: m.tipo==='enviada' ? 'flex-end' : 'flex-start',
+            marginLeft: m.tipo==='enviada' ? 'auto' : 0,
+            borderRadius:8, padding:'8px 10px', margin:'6px 0',
+            maxWidth:'80%', fontSize:14, boxShadow:'0 1px 1px rgba(0,0,0,.1)'
+          }}>
+            {m.texto}
           </div>
+        ))}
+      </div>
 
-          <form className="talaza-chat-compose" onSubmit={sendMessage}>
-            <input
-              type="text"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="Escreve uma mensagem…"
-              aria-label="Mensagem"
-              maxLength={5000}
-            />
-
-            <button type="submit" disabled={sending || !draft.trim()}>
-              {sending ? 'A enviar…' : 'Enviar'}
-            </button>
-          </form>
-        </>
-      )}
+      {/* BARRA DE DIGITAR igual ao print */}
+      <div style={{background:'#F0F0F0', padding:'8px 10px', display:'flex', alignItems:'center', gap:8}}>
+        <div style={{flex:1, background:'#fff', borderRadius:24, display:'flex', alignItems:'center', padding:'0 12px', height:44}}>
+          <span style={{fontSize:22, marginRight:8}}>☺</span>
+          <input 
+            value={texto}
+            onChange={e=>setTexto(e.target.value)}
+            onKeyDown={e=> e.key==='Enter' && enviar()}
+            placeholder="Mensagem" 
+            style={{flex:1, border:'none', outline:'none', fontSize:15}}
+          />
+          <span style={{fontSize:20, marginLeft:8}}>📎</span>
+          <span style={{fontSize:20, marginLeft:12}}>📷</span>
+        </div>
+        <div onClick={enviar} style={{width:46, height:46, borderRadius:'50%', background:'#25D366', display:'grid', placeItems:'center', color:'#fff', fontSize:22, cursor:'pointer'}}>
+          {texto ? '➤' : '🎤'}
+        </div>
+      </div>
     </div>
   );
 }
