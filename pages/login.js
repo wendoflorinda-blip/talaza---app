@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -5,74 +6,171 @@ import { supabase } from '../lib/supabaseClient';
 
 export default function Login() {
   const router = useRouter();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  async function handleLogin(e) {
-    e.preventDefault();
+  async function handleLogin(event) {
+    event.preventDefault();
     setError('');
     setLoading(true);
+
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
-      if (error) throw error;
-      router.push('/mensagens');
+      const { data, error: loginError } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        });
+
+      if (loginError) throw loginError;
+
+      const user = data.user;
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, account_type, country_id, province_id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileError) throw profileError;
+
+      if (!profile) {
+        throw new Error(
+          'A conta não tem perfil configurado. Contacte o suporte.'
+        );
+      }
+
+      if (!profile.country_id || !profile.province_id) {
+        throw new Error(
+          'O país ou a província da conta não está definido.'
+        );
+      }
+
+      const locationQuery = {
+        country: profile.country_id,
+        province: profile.province_id,
+      };
+
+      if (profile.account_type === 'vendedor') {
+        const { data: business, error: businessError } = await supabase
+          .from('businesses')
+          .select('id, is_active')
+          .eq('owner_id', user.id)
+          .maybeSingle();
+
+        if (businessError) throw businessError;
+
+        if (!business) {
+          await router.replace({
+            pathname: '/post-business',
+            query: locationQuery,
+          });
+          return;
+        }
+
+        await router.replace({
+          pathname: '/vendedor',
+          query: locationQuery,
+        });
+        return;
+      }
+
+      if (profile.account_type === 'cliente') {
+        await router.replace({
+          pathname: '/explore',
+          query: locationQuery,
+        });
+        return;
+      }
+
+      throw new Error(
+        'O tipo de conta não está definido corretamente no perfil.'
+      );
     } catch (err) {
-      setError('Não foi possível entrar. Verifique o e-mail e a palavra-passe.');
+      setError(err.message || 'Não foi possível iniciar sessão.');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div style={{ minHeight:'100vh', background:'#F5F7F6', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
-      <div style={{ width:'100%', maxWidth:400, background:'#fff', borderRadius:20, padding:28, boxShadow:'0 10px 40px rgba(0,0,0,.06)' }}>
-        <div style={{ width:44, height:44, borderRadius:10, background:'#075B4E', color:'#F7C948', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900 }}>T</div>
-        <h1 style={{ color:'#075B4E', margin:'14px 0 6px' }}>Entrar na Talaza</h1>
-        <p style={{ color:'#66736F', fontSize:13, marginBottom:18 }}>Aceda à sua conta e continue exatamente de onde parou.</p>
+    <main
+      className="container"
+      style={{ maxWidth: 440, paddingTop: 30, paddingBottom: 50 }}
+    >
+      <Link href="/" style={{ color: '#0F6E5C', textDecoration: 'none' }}>
+        ← Talaza
+      </Link>
 
-        <form onSubmit={handleLogin}>
-          <label style={labelStyle}>E-mail</label>
-          <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com" required style={inputStyle} />
+      <h1 style={{ marginTop: 28, color: '#17211F' }}>Entrar</h1>
 
-          <label style={labelStyle}>Palavra-passe</label>
-          <div style={{ position:'relative' }}>
-            <input 
-              type={showPass ? 'text' : 'password'} 
-              value={password} 
-              onChange={e=>setPassword(e.target.value)} 
-              required 
-              style={{...inputStyle, paddingRight:44}} 
-            />
-            <button 
-              type="button" 
-              onClick={()=>setShowPass(!showPass)}
-              style={{ position:'absolute', right:8, top:7, height:34, width:34, border:'none', background:'#EEF4F1', borderRadius:8, cursor:'pointer' }}
-            >
-              {showPass ? '🙈' : '👁️'}
-            </button>
-          </div>
+      <p style={{ color: '#596560', lineHeight: 1.6 }}>
+        Entre na sua conta de cliente ou vendedor.
+      </p>
 
-          {error && <div style={{ marginTop:12, background:'#FFF1F0', color:'#9B2C2C', padding:12, borderRadius:12, fontSize:13, lineHeight:1.4 }}>{error}</div>}
+      <form onSubmit={handleLogin} style={{ display: 'grid', gap: 14 }}>
+        <label>
+          E-mail
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            required
+            style={fieldStyle}
+          />
+        </label>
 
-          <button type="submit" disabled={loading} style={{ width:'100%', marginTop:16, padding:13, borderRadius:12, border:'none', background:'#075B4E', color:'#fff', fontWeight:800, cursor:'pointer' }}>
-            {loading ? 'Entrando...' : 'Entrar →'}
-          </button>
-        </form>
+        <label>
+          Palavra-passe
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+            style={fieldStyle}
+          />
+        </label>
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginTop:12 }}>
-          <Link href="/signup" style={{ textAlign:'center', padding:11, borderRadius:12, border:'1px solid #075B4E', color:'#075B4E', textDecoration:'none', fontWeight:700, fontSize:13 }}>Criar conta</Link>
-          <Link href="/" style={{ textAlign:'center', padding:11, borderRadius:12, background:'#F1F4F3', color:'#075B4E', textDecoration:'none', fontWeight:700, fontSize:13 }}>Voltar</Link>
-        </div>
-      </div>
-    </div>
+        {error && (
+          <p role="alert" style={{ color: '#B93845', fontSize: 13 }}>
+            {error}
+          </p>
+        )}
+
+        <button type="submit" disabled={loading} style={buttonStyle}>
+          {loading ? 'A entrar…' : 'Entrar'}
+        </button>
+      </form>
+
+      <p style={{ marginTop: 20, fontSize: 14 }}>
+        Ainda não tem conta? <Link href="/signup">Criar conta</Link>
+      </p>
+    </main>
   );
 }
 
-const inputStyle = { width:'100%', boxSizing:'border-box', marginTop:6, padding:12, borderRadius:10, border:'1px solid #D5DEDB', fontSize:14 };
-const labelStyle = { display:'block', marginTop:12, fontWeight:700, fontSize:13, color:'#17342F' };
+const fieldStyle = {
+  display: 'block',
+  width: '100%',
+  boxSizing: 'border-box',
+  marginTop: 6,
+  padding: '12px 13px',
+  border: '1px solid #E5E9E7',
+  borderRadius: 10,
+  background: '#FFFFFF',
+  color: '#17211F',
+};
+
+const buttonStyle = {
+  border: 0,
+  borderRadius: 10,
+  padding: 14,
+  background: '#0F6E5C',
+  color: '#FFFFFF',
+  fontWeight: 700,
+  cursor: 'pointer',
+};
