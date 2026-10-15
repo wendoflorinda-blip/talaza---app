@@ -1,108 +1,76 @@
-import { useState } from 'react';
-import { useRouter } from 'next/router';
-import Link from 'next/link';
-import { supabase } from '../lib/supabaseClient';
+import { useState } from "react";
+
+const paises = [
+  { nome: "Angola", codigo: "AO", ddi: "+244", bandeira: "🇦🇴" },
+  { nome: "Brasil", codigo: "BR", ddi: "+55", bandeira: "🇧🇷" },
+  { nome: "Portugal", codigo: "PT", ddi: "+351", bandeira: "🇵🇹" },
+];
 
 export default function Signup() {
-  const router = useRouter();
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [avatarFile, setAvatarFile] = useState(null);
-  const [avatarPreview, setAvatarPreview] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [etapa, setEtapa] = useState(1);
+  const [pais, setPais] = useState(paises[0]);
+  const [telefone, setTelefone] = useState("");
+  const [email, setEmail] = useState("");
+  const [nome, setNome] = useState("");
+  const [codigo, setCodigo] = useState("");
+  const [tipoPerfil, setTipoPerfil] = useState("cliente");
 
-  function onPickAvatar(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setAvatarFile(file);
-    setAvatarPreview(URL.createObjectURL(file));
-  }
+  const enviarCodigo = () => {
+    if (!telefone ||!email ||!nome) {
+      alert("Preencha tudo");
+      return;
+    }
+    alert(`Código enviado para ${pais.ddi}${telefone}. Código de teste é 123456`);
+    setEtapa(2);
+  };
 
-  async function uploadAvatar(userId) {
-    if (!avatarFile) return null;
-    const ext = avatarFile.name.split('.').pop();
-    const path = `${userId}/avatar.${ext}`;
-    const { error } = await supabase.storage.from('avatars').upload(path, avatarFile, { upsert: true });
-    if (error) { console.error(error); return null; }
-    const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-    return data.publicUrl;
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError(''); setLoading(true);
-    try {
-      const cleanEmail = email.trim().toLowerCase();
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email: cleanEmail, password });
-      if (signUpError) throw signUpError;
-      let userId = signUpData.user?.id;
-      let session = signUpData.session;
-
-      // se não veio sessão (confirm email ligado), tenta logar
-      if (!session) {
-        const { data: loginData } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
-        session = loginData.session;
-        userId = loginData.user?.id || userId;
-      }
-
-      if (!userId) throw new Error('Não foi possível criar a conta');
-
-      const avatarUrl = await uploadAvatar(userId);
-
-      await supabase.from('profiles').upsert({
-        id: userId,
-        name: fullName.trim(),
-        avatar_url: avatarUrl,
-      }, { onConflict: 'id' });
-
-      router.push('/mensagens');
-    } catch (err) {
-      setError(err.message || 'Erro ao criar conta');
-    } finally { setLoading(false); }
-  }
+  const confirmarCodigo = () => {
+    if (codigo!== "123456") {
+      alert("Código errado");
+      return;
+    }
+    const novaConta = {
+      nome,
+      email,
+      telefone: pais.ddi + telefone,
+      telefoneVerificado: true,
+      pais: pais.nome,
+      paisCodigo: pais.codigo,
+      ddi: pais.ddi,
+      tipo: tipoPerfil,
+    };
+    console.log("Conta criada:", novaConta);
+    alert(`Conta criada! País travado: ${pais.nome}`);
+  };
 
   return (
-    <div style={{ minHeight:'100vh', background:'#F5F7F6', padding:24, display:'flex', justifyContent:'center' }}>
-      <div style={{ width:'100%', maxWidth:420, background:'#fff', borderRadius:26, padding:28 }}>
-        <h1 style={{ color:'#075B4E' }}>Criar conta</h1>
-
-        <form onSubmit={handleSubmit}>
-          {/* FOTO REDONDA TIPO WHATSAPP */}
-          <div style={{ display:'flex', justifyContent:'center', margin:'18px 0' }}>
-            <label htmlFor="avatar" style={{ cursor:'pointer', position:'relative' }}>
-              <div style={{ width:110, height:110, borderRadius:'50%', background:'#EAF4F1', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', border:'3px solid #D5DEDB' }}>
-                {avatarPreview? <img src={avatarPreview} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <span style={{ fontSize:42 }}>📷</span>}
-              </div>
-              <div style={{ position:'absolute', bottom:0, right:0, background:'#075B4E', color:'#fff', width:32, height:32, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>+</div>
-            </label>
-            <input id="avatar" type="file" accept="image/*" onChange={onPickAvatar} style={{ display:'none' }} />
+    <div style={{ maxWidth: "400px", margin: "auto", padding: "20px" }}>
+      {etapa === 1? (
+        <>
+          <h2>Criar conta na Talaza</h2>
+          <input placeholder="Nome completo" value={nome} onChange={e => setNome(e.target.value)} style={{ width: "100%", padding: "10px", marginBottom: "10px" }} />
+          <div style={{ display: "flex", gap: "5px", marginBottom: "10px" }}>
+            <select value={pais.ddi} onChange={e => setPais(paises.find(p => p.ddi === e.target.value))} style={{ padding: "10px" }}>
+              {paises.map(p => <option key={p.codigo} value={p.ddi}>{p.bandeira} {p.ddi}</option>)}
+            </select>
+            <input placeholder="Número de telemóvel" value={telefone} onChange={e => setTelefone(e.target.value)} style={{ flex: 1, padding: "10px" }} />
           </div>
-          <p style={{ textAlign:'center', fontSize:12, color:'#66736F', marginTop:-8 }}>Toque para adicionar foto</p>
-
-          <label style={labelStyle}>Seu nome</label>
-          <input value={fullName} onChange={e=>setFullName(e.target.value)} required style={inputStyle} />
-
-          <label style={labelStyle}>E-mail</label>
-          <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required style={inputStyle} />
-
-          <label style={labelStyle}>Palavra-passe</label>
-          <div style={{ position:'relative' }}>
-            <input type={showPass?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} required minLength={6} style={{...inputStyle, paddingRight:44}} />
-            <button type="button" onClick={()=>setShowPass(!showPass)} style={{ position:'absolute', right:8, top:8, height:36, width:36, border:'none', background:'#EEF4F1', borderRadius:8, cursor:'pointer' }}>{showPass?'🙈':'👁️'}</button>
+          <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: "100%", padding: "10px", marginBottom: "10px" }} />
+          <div style={{ marginBottom: "10px" }}>
+            <label><input type="radio" checked={tipoPerfil === "cliente"} onChange={() => setTipoPerfil("cliente")} /> Sou Cliente</label>
+            <label style={{ marginLeft: "15px" }}><input type="radio" checked={tipoPerfil === "vendedor"} onChange={() => setTipoPerfil("vendedor")} /> Sou Vendedor</label>
           </div>
-
-          {error && <div style={{ marginTop:14, background:'#FFF1F0', color:'#9B2C2C', padding:12, borderRadius:12, fontSize:13 }}>{error}</div>}
-
-          <button disabled={loading} style={{ width:'100%', marginTop:18, padding:14, borderRadius:13, border:'none', background:'#075B4E', color:'#fff', fontWeight:800 }}>{loading?'Criando...':'Criar conta'}</button>
-        </form>
-
-        <Link href="/login" style={{ display:'block', textAlign:'center', marginTop:14, color:'#075B4E', fontWeight:700, textDecoration:'none' }}>Já tenho uma conta</Link>
-      </div>
+          <button onClick={enviarCodigo} style={{ width: "100%", padding: "12px", background: "black", color: "white" }}>Seguinte</button>
+        </>
+      ) : (
+        <>
+          <h2>Insira o código</h2>
+          <p>Enviamos um SMS para {pais.ddi} {telefone} (app Mensagens)</p>
+          <input placeholder="Código 123456" value={codigo} onChange={e => setCodigo(e.target.value)} style={{ width: "100%", padding: "10px", marginBottom: "10px" }} />
+          <button onClick={confirmarCodigo} style={{ width: "100%", padding: "12px", background: "black", color: "white" }}>Confirmar</button>
+          <button onClick={() => setEtapa(1)} style={{ width: "100%", padding: "10px", marginTop: "10px" }}>Voltar</button>
+        </>
+      )}
     </div>
   );
 }
-const inputStyle = { width:'100%', marginTop:6, padding:13, borderRadius:12, border:'1px solid #D5DEDB' };
-const labelStyle = { display:'block', marginTop:14, fontWeight:700, color:'#17342F', fontSize:13 };
