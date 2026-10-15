@@ -1,136 +1,108 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabaseClient';
 import Link from 'next/link';
+import { supabase } from '../lib/supabaseClient';
 
 export default function Signup() {
   const router = useRouter();
-  const { country, province, next } = router.query;
-
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
-
-  const [error, setError] = useState('');
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  async function handleSignup(e) {
+  function onPickAvatar(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  }
+
+  async function uploadAvatar(userId) {
+    if (!avatarFile) return null;
+    const ext = avatarFile.name.split('.').pop();
+    const path = `${userId}/avatar.${ext}`;
+    const { error } = await supabase.storage.from('avatars').upload(path, avatarFile, { upsert: true });
+    if (error) { console.error(error); return null; }
+    const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
-    setError('');
-    setLoading(true);
-
+    setError(''); setLoading(true);
     try {
-      // 1. Cria a conta no Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
-      });
+      const cleanEmail = email.trim().toLowerCase();
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email: cleanEmail, password });
+      if (signUpError) throw signUpError;
+      let userId = signUpData.user?.id;
+      let session = signUpData.session;
 
-      if (authError) {
-        if (authError.message.includes('already registered')) {
-          setError('Essa conta já existe. Tente iniciar sessão.');
-        } else {
-          setError(authError.message);
-        }
-        setLoading(false);
-        return;
+      // se não veio sessão (confirm email ligado), tenta logar
+      if (!session) {
+        const { data: loginData } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+        session = loginData.session;
+        userId = loginData.user?.id || userId;
       }
 
-      if (!authData.user) {
-        setError('Não foi possível criar a conta.');
-        setLoading(false);
-        return;
-      }
+      if (!userId) throw new Error('Não foi possível criar a conta');
 
-      // 2. Tenta logar na hora para conseguir criar o perfil (resolve seu erro da foto)
-      await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
+      const avatarUrl = await uploadAvatar(userId);
 
-      // 3. Cria/atualiza o perfil com UPSERT (não dá erro se já existir)
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: authData.user.id,
-          name: fullName.trim(),
-          country_id: country || null,
-          province_id: province || null,
-        }, { onConflict: 'id' });
+      await supabase.from('profiles').upsert({
+        id: userId,
+        name: fullName.trim(),
+        avatar_url: avatarUrl,
+      }, { onConflict: 'id' });
 
-      if (profileError) {
-        console.error(profileError);
-        // Não bloqueia mais - mesmo se falhar o perfil, a conta foi criada e vamos mandar pra escolher localização
-      }
-
-      setLoading(false);
-
-      // 4. Redireciona certo
-      if (next === 'mensagens' || next === 'mensages') {
-        router.push('/mensagens');
-      } else if (country && province) {
-        router.push({ pathname: '/start', query: { country, province } });
-      } else {
-        router.push('/country');
-      }
-
+      router.push('/mensagens');
     } catch (err) {
-      console.error(err);
-      setError('Ocorreu um erro. Tente novamente.');
-      setLoading(false);
-    }
+      setError(err.message || 'Erro ao criar conta');
+    } finally { setLoading(false); }
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F5F7F6', display:'flex', justifyContent:'center', padding:24 }}>
-      <div style={{ maxWidth: 480, width:'100%' }}>
-        <Link href="/" style={{ textDecoration:'none', color:'#075B4E', fontWeight:900, fontSize:22, display:'flex', gap:8, alignItems:'center' }}>
-          <div style={{width:36,height:36, background:'#075B4E', color:'#E6A900', borderRadius:10, display:'grid', placeItems:'center'}}>T</div> Talaza
-        </Link>
+    <div style={{ minHeight:'100vh', background:'#F5F7F6', padding:24, display:'flex', justifyContent:'center' }}>
+      <div style={{ width:'100%', maxWidth:420, background:'#fff', borderRadius:26, padding:28 }}>
+        <h1 style={{ color:'#075B4E' }}>Criar conta</h1>
 
-        <h1 style={{ fontSize: 26, marginTop: 32, color:'#17342F' }}>Criar conta na Talaza</h1>
-        <p style={{ fontSize: 14, color: '#596B68' }}>Crie a sua conta para continuar e explorar a Talaza.</p>
+        <form onSubmit={handleSubmit}>
+          {/* FOTO REDONDA TIPO WHATSAPP */}
+          <div style={{ display:'flex', justifyContent:'center', margin:'18px 0' }}>
+            <label htmlFor="avatar" style={{ cursor:'pointer', position:'relative' }}>
+              <div style={{ width:110, height:110, borderRadius:'50%', background:'#EAF4F1', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', border:'3px solid #D5DEDB' }}>
+                {avatarPreview? <img src={avatarPreview} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <span style={{ fontSize:42 }}>📷</span>}
+              </div>
+              <div style={{ position:'absolute', bottom:0, right:0, background:'#075B4E', color:'#fff', width:32, height:32, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>+</div>
+            </label>
+            <input id="avatar" type="file" accept="image/*" onChange={onPickAvatar} style={{ display:'none' }} />
+          </div>
+          <p style={{ textAlign:'center', fontSize:12, color:'#66736F', marginTop:-8 }}>Toque para adicionar foto</p>
 
-        <form onSubmit={handleSignup} style={{ marginTop: 24, display:'grid', gap:12 }}>
-          <input className="input" type="text" placeholder="Nome completo" value={fullName} onChange={(e) => setFullName(e.target.value)} required style={inputStyle} />
-          <input className="input" type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} required style={inputStyle} />
+          <label style={labelStyle}>Seu nome</label>
+          <input value={fullName} onChange={e=>setFullName(e.target.value)} required style={inputStyle} />
 
-          {/* CAMPO SENHA COM OLHO */}
+          <label style={labelStyle}>E-mail</label>
+          <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required style={inputStyle} />
+
+          <label style={labelStyle}>Palavra-passe</label>
           <div style={{ position:'relative' }}>
-            <input
-              type={showPass ? 'text' : 'password'}
-              placeholder="Palavra-passe (mínimo 6 caracteres)"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              style={{...inputStyle, paddingRight:44}}
-            />
-            <button type="button" onClick={() => setShowPass(!showPass)} style={{
-              position:'absolute', right:8, top:8, height:36, width:36, border:'none', background:'#F1F5F3', borderRadius:8, cursor:'pointer'
-            }}>
-              {showPass ? '🙈' : '👁️'}
-            </button>
+            <input type={showPass?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} required minLength={6} style={{...inputStyle, paddingRight:44}} />
+            <button type="button" onClick={()=>setShowPass(!showPass)} style={{ position:'absolute', right:8, top:8, height:36, width:36, border:'none', background:'#EEF4F1', borderRadius:8, cursor:'pointer' }}>{showPass?'🙈':'👁️'}</button>
           </div>
 
-          {error && <p style={{ color: '#D92D20', fontSize: 13, background:'#FFF1F0', padding:10, borderRadius:10 }}>{error}</p>}
+          {error && <div style={{ marginTop:14, background:'#FFF1F0', color:'#9B2C2C', padding:12, borderRadius:12, fontSize:13 }}>{error}</div>}
 
-          <button type="submit" disabled={loading} style={{
-            width: '100%', padding: 16, borderRadius:12, background: loading ? '#8CAFA8' : '#075B4E', color: '#fff', border:'none', fontWeight:800, cursor:'pointer'
-          }}>
-            {loading ? 'A criar conta…' : 'Criar conta'}
-          </button>
+          <button disabled={loading} style={{ width:'100%', marginTop:18, padding:14, borderRadius:13, border:'none', background:'#075B4E', color:'#fff', fontWeight:800 }}>{loading?'Criando...':'Criar conta'}</button>
         </form>
 
-        <p style={{textAlign:'center', marginTop:20, fontSize:13, color:'#66736F'}}>
-          Já tem conta? <Link href="/login" style={{color:'#075B4E', fontWeight:700}}>Iniciar sessão</Link>
-        </p>
+        <Link href="/login" style={{ display:'block', textAlign:'center', marginTop:14, color:'#075B4E', fontWeight:700, textDecoration:'none' }}>Já tenho uma conta</Link>
       </div>
     </div>
   );
 }
-
-const inputStyle = {
-  width:'100%', boxSizing:'border-box', padding:14, borderRadius:12, border:'1px solid #D5DEDB', background:'#fff', fontSize:15
-};
+const inputStyle = { width:'100%', marginTop:6, padding:13, borderRadius:12, border:'1px solid #D5DEDB' };
+const labelStyle = { display:'block', marginTop:14, fontWeight:700, color:'#17342F', fontSize:13 };
