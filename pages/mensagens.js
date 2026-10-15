@@ -1,104 +1,190 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
+
+const MEDIA_BUCKET = 'message-media';
 
 export default function Mensagens() {
   const router = useRouter();
+  const bottomRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [notifications, setNotifications] = useState([]);
+  const [conversations, setConversations] = useState([]);
   const [selectedId, setSelectedId] = useState('');
-  const [receiverId, setReceiverId] = useState('');
-  const [draft, setDraft] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState('');
+  const [file, setFile] = useState(null);
+  const [recording, setRecording] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
 
-  const loadMessages = useCallback(async (userId) => {
-    if (!userId) return;
-
-    const { data, error: queryError } = await supabase
-      .from('messages')
-      .select('*')
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-      .order('created_at', { ascending: true });
-
-    if (queryError) {
-      setError(`Não foi possível carregar as mensagens: ${queryError.message}`);
-      return;
-    }
-
-    setMessages(data || []);
-  }, []);
-
-  const loadNotifications = useCallback(async (userId) => {
-    if (!userId) return;
-
-    const { data, error: queryError } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('is_read', false)
-      .order('created_at', { ascending: false });
-
-    if (!queryError) {
-      setNotifications(data || []);
-    }
-  }, []);
-
-  const refresh = useCallback(async (userId) => {
-    if (!userId) return;
-
-    setLoading(true);
-    setError('');
-
-    await Promise.all([
-      loadMessages(userId),
-      loadNotifications(userId),
-    ]);
-
-    setLoading(false);
-  }, [loadMessages, loadNotifications]);
-
   useEffect(() => {
-    let alive = true;
+    let active = true;
 
-    async function initialise() {
+    async function checkAuth() {
       const { data } = await supabase.auth.getSession();
 
-      if (!alive) return;
+      if (!active) return;
 
-      setUser(data?.session?.user || null);
+      const currentUser = data?.session?.user || null;
+      setUser(currentUser);
       setAuthChecked(true);
+
+      if (!currentUser) setLoading(false);
     }
 
-    initialise();
+    checkAuth();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
+    const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        if (alive) {
-          setUser(session?.user || null);
-          setAuthChecked(true);
-        }
+        setUser(session?.user || null);
+        setAuthChecked(true);
       }
     );
 
     return () => {
-      alive = false;
-      authListener.subscription.unsubscribe();
+      active = false;
+      listener.subscription.unsubscribe();
+
+      if (mediaRecorderRef.current?.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
     };
   }, []);
 
-  useEffect(() => {
-    if (!user) {
-      setMessages([]);
-      setNotifications([]);
+  const loadConversations = useCallback(async () => {
+    if (!user) return;
+
+    const { data, error: queryError } = await supabase
+      .from('messages')
+      .select(
+        'id, created_at, sender_id, receiver_id, content, message_type, is_read'
+      )
+      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+      .order('created_at', { ascending: false });
+
+    if (queryError) {
+      setError('Não foi possível carregar as conversas.');
       return;
     }
 
-    refresh(user.id);
+    const latestByContact = new Map();
+
+    for (const message of data || []) {
+      const contactId =
+        message.sender_id === user.id
+          ? message.receiver_id
+          : message.sender_id;
+
+      if (!contactId || contactId === user.id) continue;
+
+      if (!latestByContact.has(contactId)) {
+        latestByContact.set(contactId, {
+          id: contactId,
+          lastMessage: message.content || (
+            message.message_type === 'image'
+              ? 'Imagem'
+              : message.message_type === 'audio'
+                ? 'Mensagem de áudio'
+                : 'Mensagem'
+          ),
+          createdAt: message.created_at,
+          unread: 0,
+        });
+      }
+
+      if (
+        message.receiver_id === user.id &&
+        message.is_read === false
+      ) {
+        latestByContact.get(contactId).unread += 1;
+      }
+    }
+
+    const list = Array.from(latestByContact.values());
+    setConversations(list);
+
+    const queryReceiver =
+      typeof router.query.receiver_id === 'string'
+        ? router.query.receiver_id
+        : '';
+
+    if (queryReceiver && queryReceiver !== user.id) {
+      setSelectedId(queryReceiver);
+    } else if (list.length && !selectedId) {
+      setSelectedId(list[0].id);
+    }
+
+    setLoading(false);
+  }, [user, router.query.receiver_id, selectedId]);
+
+  useEffect(() => {
+    if (!user) return;
+    loadConversations();
+  }, [user, loadConversations]);
+
+  const loadMessages = useCallback(async () => {
+    if (!user || !selectedId) {
+      setMessages([]);
+      return;
+    }
+
+    const { data, error: queryError } = await supabase
+      .from('messages')
+      .select('*')
+      .or(
+        `and(sender_id.eq.${user.id},receiver_id.eq.${selectedId}),and(sender_id.eq.${selectedId},receiver_id.eq.${user.id})`
+      )
+      .order('created_at', { ascending: true });
+
+    if (queryError) {
+      setError('Não foi possível abrir esta conversa.');
+      return;
+    }
+
+    const rows = data || [];
+    const mediaRows = await Promise.all(
+      rows.map(async (message) => {
+        if (!message.media_url) return message;
+
+        const { data: signedData } = await supabase.storage
+          .from(MEDIA_BUCKET)
+          .createSignedUrl(message.media_url, 3600);
+
+        return {
+          ...message,
+          displayMediaUrl: signedData?.signedUrl || '',
+        };
+      })
+    );
+
+    setMessages(mediaRows);
+
+    await supabase
+      .from('messages')
+      .update({ is_read: true })
+      .eq('receiver_id', user.id)
+      .eq('sender_id', selectedId)
+      .eq('is_read', false);
+
+    setTimeout(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
+
+    loadConversations();
+  }, [user, selectedId, loadConversations]);
+
+  useEffect(() => {
+    loadMessages();
+  }, [loadMessages]);
+
+  useEffect(() => {
+    if (!user) return;
 
     const channel = supabase
       .channel(`mensagens-${user.id}`)
@@ -111,31 +197,8 @@ export default function Mensagens() {
           filter: `receiver_id=eq.${user.id}`,
         },
         () => {
-          refresh(user.id);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'messages',
-          filter: `sender_id=eq.${user.id}`,
-        },
-        () => {
-          refresh(user.id);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          loadNotifications(user.id);
+          loadMessages();
+          loadConversations();
         }
       )
       .subscribe();
@@ -143,539 +206,593 @@ export default function Mensagens() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, refresh, loadNotifications]);
+  }, [user, loadMessages, loadConversations]);
 
-  useEffect(() => {
-    if (!router.isReady || !router.query.receiver_id) return;
+  async function uploadMedia(blob, filename, type) {
+    const extension = filename.split('.').pop() || 'bin';
+    const path = `${user.id}/${crypto.randomUUID()}.${extension}`;
 
-    const id = String(router.query.receiver_id);
-    setReceiverId(id);
-    setSelectedId(id);
-  }, [router.isReady, router.query.receiver_id]);
+    const { error: uploadError } = await supabase.storage
+      .from(MEDIA_BUCKET)
+      .upload(path, blob, {
+        contentType: blob.type || 'application/octet-stream',
+        upsert: false,
+      });
 
-  const conversations = useMemo(() => {
-    if (!user) return [];
-
-    const groups = new Map();
-
-    for (const message of messages) {
-      const otherId =
-        message.sender_id === user.id
-          ? message.receiver_id
-          : message.sender_id;
-
-      if (!otherId) continue;
-
-      const previous = groups.get(otherId);
-
-      if (!previous || new Date(message.created_at) >
-          new Date(previous.lastMessage.created_at)) {
-        groups.set(otherId, {
-          otherId,
-          lastMessage: message,
-        });
-      }
+    if (uploadError) {
+      throw new Error(
+        'Não foi possível carregar o ficheiro. Verifica o bucket e as suas políticas.'
+      );
     }
 
-    return Array.from(groups.values()).sort(
-      (a, b) =>
-        new Date(b.lastMessage.created_at) -
-        new Date(a.lastMessage.created_at)
-    );
-  }, [messages, user]);
-
-  const unreadCount = useMemo(() => {
-    if (!user) return 0;
-
-    return messages.filter(
-      (message) =>
-        message.receiver_id === user.id &&
-        message.is_read === false
-    ).length;
-  }, [messages, user]);
-
-  const visibleMessages = useMemo(() => {
-    if (!user || !selectedId) return [];
-
-    return messages.filter(
-      (message) =>
-        (message.sender_id === user.id &&
-          message.receiver_id === selectedId) ||
-        (message.sender_id === selectedId &&
-          message.receiver_id === user.id)
-    );
-  }, [messages, selectedId, user]);
-
-  useEffect(() => {
-    if (!user || !selectedId) return;
-
-    const unreadIds = visibleMessages
-      .filter(
-        (message) =>
-          message.receiver_id === user.id &&
-          message.is_read === false
-      )
-      .map((message) => message.id);
-
-    if (unreadIds.length === 0) return;
-
-    async function markRead() {
-      const { error: updateError } = await supabase
-        .from('messages')
-        .update({ is_read: true })
-        .in('id', unreadIds)
-        .eq('receiver_id', user.id);
-
-      if (!updateError) {
-        setMessages((current) =>
-          current.map((message) =>
-            unreadIds.includes(message.id)
-              ? { ...message, is_read: true }
-              : message
-          )
-        );
-      }
-    }
-
-    markRead();
-  }, [user, selectedId, visibleMessages]);
+    return {
+      path,
+      filename,
+      type,
+    };
+  }
 
   async function sendMessage(event) {
     event.preventDefault();
     setError('');
 
-    const targetId = selectedId || receiverId;
-
-    if (!user) {
-      setError('Inicia sessão para enviar mensagens.');
+    if (!user) return;
+    if (!selectedId) {
+      setError('Abre uma conversa a partir do perfil da pessoa.');
       return;
     }
 
-    if (!targetId) {
-      setError('Seleciona uma conversa ou introduz o ID do destinatário.');
-      return;
-    }
-
-    if (targetId === user.id) {
-      setError('Não podes enviar uma mensagem para a tua própria conta.');
-      return;
-    }
-
-    if (!draft.trim()) {
-      setError('Escreve uma mensagem antes de enviar.');
-      return;
-    }
+    if (!text.trim() && !file) return;
 
     setSending(true);
 
-    const { error: insertError } = await supabase
-      .from('messages')
-      .insert({
-        sender_id: user.id,
-        receiver_id: targetId,
-        message_type: 'text',
-        content: draft.trim(),
-        is_read: false,
-      });
+    try {
+      let media = null;
+      let messageType = 'text';
 
-    setSending(false);
+      if (file) {
+        messageType = file.type.startsWith('image/')
+          ? 'image'
+          : file.type.startsWith('audio/')
+            ? 'audio'
+            : 'file';
 
-    if (insertError) {
-      setError(`Não foi possível enviar: ${insertError.message}`);
+        media = await uploadMedia(file, file.name, messageType);
+      }
+
+      const { error: insertError } = await supabase
+        .from('messages')
+        .insert({
+          sender_id: user.id,
+          receiver_id: selectedId,
+          content: text.trim() || null,
+          message_type: messageType,
+          media_url: media?.path || null,
+          media_name: media?.filename || null,
+          is_read: false,
+        });
+
+      if (insertError) throw insertError;
+
+      setText('');
+      setFile(null);
+
+      const input = document.getElementById('message-file');
+      if (input) input.value = '';
+
+      await loadMessages();
+      await loadConversations();
+    } catch (err) {
+      setError(err.message || 'Não foi possível enviar a mensagem.');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function startRecording() {
+    setError('');
+
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setError('Este navegador não permite gravar áudio. Experimenta outro navegador.');
       return;
     }
 
-    setSelectedId(targetId);
-    setReceiverId(targetId);
-    setDraft('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
 
-    await refresh(user.id);
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) audioChunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, {
+          type: recorder.mimeType || 'audio/webm',
+        });
+
+        const audioFile = new File(
+          [blob],
+          `audio-${Date.now()}.webm`,
+          { type: blob.type }
+        );
+
+        setFile(audioFile);
+        stream.getTracks().forEach((track) => track.stop());
+        setRecording(false);
+      };
+
+      recorder.start();
+      setRecording(true);
+    } catch {
+      setError('Permite o acesso ao microfone para gravar áudio.');
+    }
   }
 
-  async function markNotificationRead(id) {
-    if (!user) return;
-
-    const { error: updateError } = await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', id)
-      .eq('user_id', user.id);
-
-    if (!updateError) {
-      setNotifications((current) =>
-        current.filter((item) => item.id !== id)
-      );
+  function stopRecording() {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
     }
   }
 
   if (!authChecked) {
-    return <main style={styles.page}>A preparar as mensagens...</main>;
+    return <main style={ui.page}>A preparar as mensagens...</main>;
   }
 
-  return (
-    <main style={styles.page}>
-      <header style={styles.header}>
-        <div>
-          <h1 style={styles.heading}>Mensagens</h1>
-          <p style={styles.muted}>
-            Acompanha as tuas conversas no Talaza.
+  if (!user) {
+    return (
+      <main style={ui.page}>
+        <section style={ui.accountCard}>
+          <div style={ui.accountIcon}>✉</div>
+          <h1 style={ui.heading}>As tuas mensagens</h1>
+          <p style={ui.muted}>
+            Cria uma conta Talaza ou entra na tua conta para conversar,
+            enviar imagens e gravar mensagens de áudio.
           </p>
-        </div>
-
-        <div style={styles.counter} aria-label={`${unreadCount} mensagens não lidas`}>
-          {unreadCount}
-        </div>
-      </header>
-
-      {error && <p style={styles.error}>{error}</p>}
-
-      {!user ? (
-        <section style={styles.card}>
-          <h2>As tuas mensagens</h2>
-          <p>Inicia sessão para consultar conversas e enviar mensagens.</p>
-          <button
-            style={styles.button}
-            onClick={() =>
-              router.push(
-                `/login?next=${encodeURIComponent('/mensagens')}`
-              )
-            }
+          <Link
+            href="/signup?next=%2Fmensagens"
+            style={ui.primaryButton}
           >
-            Iniciar sessão
-          </button>
+            Criar conta ou entrar
+          </Link>
+          <p style={ui.small}>
+            As conversas ficam disponíveis depois de iniciares sessão.
+          </p>
         </section>
-      ) : (
-        <div style={styles.layout}>
-          <section style={styles.sidebar}>
-            <h2 style={styles.subheading}>Conversas</h2>
+      </main>
+    );
+  }
 
-            {conversations.length === 0 && (
-              <p style={styles.muted}>
-                Ainda não tens conversas. Quando alguém te escrever,
+  const selectedConversation = conversations.find(
+    (conversation) => conversation.id === selectedId
+  );
+
+  return (
+    <main style={ui.page}>
+      <div style={ui.layout}>
+        <aside style={ui.sidebar}>
+          <header style={ui.sidebarHeader}>
+            <Link href="/explore" style={ui.brand}>
+              <span style={ui.logo}>T</span>
+              Talaza
+            </Link>
+            <h1 style={ui.heading}>Mensagens</h1>
+            <p style={ui.muted}>As tuas conversas num só lugar.</p>
+          </header>
+
+          {loading && <p style={ui.small}>A carregar conversas...</p>}
+
+          {!loading && conversations.length === 0 && (
+            <div style={ui.emptyList}>
+              <span style={ui.emptyIcon}>✉</span>
+              <strong>Ainda não tens conversas</strong>
+              <p style={ui.small}>
+                Abre um perfil e escolhe a opção de enviar mensagem para começar.
+              </p>
+            </div>
+          )}
+
+          {conversations.map((conversation) => (
+            <button
+              key={conversation.id}
+              type="button"
+              onClick={() => setSelectedId(conversation.id)}
+              style={{
+                ...ui.conversation,
+                ...(selectedId === conversation.id ? ui.selected : {}),
+              }}
+            >
+              <span style={ui.avatar}>T</span>
+              <span style={ui.conversationText}>
+                <strong>Conversa Talaza</strong>
+                <small>{conversation.lastMessage}</small>
+              </span>
+              {conversation.unread > 0 && (
+                <span style={ui.badge}>{conversation.unread}</span>
+              )}
+            </button>
+          ))}
+        </aside>
+
+        <section style={ui.chat}>
+          {!selectedId ? (
+            <div style={ui.welcome}>
+              <div style={ui.accountIcon}>✉</div>
+              <h2>Escolhe uma conversa</h2>
+              <p style={ui.muted}>
+                Quando abrires um perfil e enviares uma mensagem,
                 a conversa aparecerá aqui.
               </p>
-            )}
-
-            {conversations.map((conversation) => {
-              const id = conversation.otherId;
-              const unread = messages.filter(
-                (message) =>
-                  message.sender_id === id &&
-                  message.receiver_id === user.id &&
-                  !message.is_read
-              ).length;
-
-              return (
-                <button
-                  key={id}
-                  style={{
-                    ...styles.conversation,
-                    ...(selectedId === id ? styles.selected : {}),
-                  }}
-                  onClick={() => {
-                    setSelectedId(id);
-                    setReceiverId(id);
-                  }}
-                >
-                  <strong>Conta {id.slice(0, 8)}</strong>
-                  <span style={styles.preview}>
-                    {conversation.lastMessage.content || 'Mensagem'}
-                  </span>
-                  {unread > 0 && (
-                    <span style={styles.badge}>{unread}</span>
-                  )}
-                </button>
-              );
-            })}
-          </section>
-
-          <section style={styles.chat}>
-            <div style={styles.chatHeader}>
-              <h2 style={styles.subheading}>
-                {selectedId
-                  ? `Conversa com ${selectedId.slice(0, 8)}`
-                  : 'Nova conversa'}
-              </h2>
-              <button
-                style={styles.secondaryButton}
-                onClick={() => refresh(user.id)}
-                disabled={loading}
-              >
-                {loading ? 'A atualizar...' : 'Atualizar'}
-              </button>
             </div>
+          ) : (
+            <>
+              <header style={ui.chatHeader}>
+                <span style={ui.avatar}>T</span>
+                <div>
+                  <strong>Conversa Talaza</strong>
+                  <small style={ui.small}>Mensagens privadas</small>
+                </div>
+              </header>
 
-            {!selectedId && (
-              <div style={styles.receiverBox}>
-                <label htmlFor="receiver-id" style={styles.label}>
-                  ID do destinatário
+              <div style={ui.messageList}>
+                {messages.map((message) => {
+                  const mine = message.sender_id === user.id;
+
+                  return (
+                    <div
+                      key={message.id}
+                      style={{
+                        ...ui.messageRow,
+                        justifyContent: mine ? 'flex-end' : 'flex-start',
+                      }}
+                    >
+                      <div
+                        style={{
+                          ...ui.bubble,
+                          ...(mine ? ui.myBubble : ui.theirBubble),
+                        }}
+                      >
+                        {message.content && <p>{message.content}</p>}
+
+                        {message.message_type === 'image' &&
+                          message.displayMediaUrl && (
+                            <a
+                              href={message.displayMediaUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <img
+                                src={message.displayMediaUrl}
+                                alt="Imagem enviada"
+                                style={ui.image}
+                              />
+                            </a>
+                          )}
+
+                        {message.message_type === 'audio' &&
+                          message.displayMediaUrl && (
+                            <audio
+                              controls
+                              src={message.displayMediaUrl}
+                              style={{ maxWidth: '100%' }}
+                            />
+                          )}
+
+                        {message.message_type === 'file' && (
+                          <span>📎 {message.media_name || 'Ficheiro'}</span>
+                        )}
+
+                        <small style={ui.time}>
+                          {new Date(message.created_at).toLocaleTimeString(
+                            'pt-PT',
+                            { hour: '2-digit', minute: '2-digit' }
+                          )}
+                        </small>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={bottomRef} />
+              </div>
+
+              {error && <div style={ui.error}>{error}</div>}
+
+              <form onSubmit={sendMessage} style={ui.composer}>
+                <label htmlFor="message-file" style={ui.attachButton} title="Anexar imagem">
+                  ＋
                 </label>
                 <input
-                  id="receiver-id"
-                  value={receiverId}
-                  onChange={(e) => setReceiverId(e.target.value.trim())}
-                  placeholder="ID da conta que receberá a mensagem"
-                  style={styles.input}
+                  id="message-file"
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(event) =>
+                    setFile(event.target.files?.[0] || null)
+                  }
                 />
-                <p style={styles.muted}>
-                  Este campo usa o ID da conta. Para mostrar nomes e fotos
-                  dos contactos, será necessário ligar as conversas aos
-                  dados de perfil existentes no projeto.
-                </p>
-              </div>
-            )}
 
-            <div style={styles.messageList}>
-              {selectedId && visibleMessages.length === 0 && (
-                <p style={styles.muted}>
-                  Ainda não existem mensagens nesta conversa. Envia a primeira.
-                </p>
-              )}
+                <input
+                  value={text}
+                  onChange={(event) => setText(event.target.value)}
+                  placeholder="Escreve uma mensagem..."
+                  style={ui.textInput}
+                  aria-label="Escrever mensagem"
+                />
 
-              {visibleMessages.map((message) => {
-                const mine = message.sender_id === user.id;
-
-                return (
-                  <div
-                    key={message.id}
-                    style={{
-                      ...styles.message,
-                      ...(mine ? styles.mine : styles.theirs),
-                    }}
-                  >
-                    <div>{message.content || 'Conteúdo não textual'}</div>
-                    <small style={styles.messageTime}>
-                      {message.created_at
-                        ? new Date(message.created_at).toLocaleString()
-                        : ''}
-                    </small>
-                  </div>
-                );
-              })}
-            </div>
-
-            <form onSubmit={sendMessage} style={styles.composer}>
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder="Escreve a tua mensagem..."
-                rows={2}
-                style={styles.textarea}
-              />
-              <button
-                type="submit"
-                style={styles.button}
-                disabled={sending}
-              >
-                {sending ? 'A enviar...' : 'Enviar'}
-              </button>
-            </form>
-          </section>
-        </div>
-      )}
-
-      {user && (
-        <section style={styles.card}>
-          <h2 style={styles.subheading}>Notificações</h2>
-
-          {notifications.length === 0 ? (
-            <p style={styles.muted}>Não tens notificações novas.</p>
-          ) : (
-            notifications.map((notification) => (
-              <div key={notification.id} style={styles.notification}>
-                <div>
-                  <strong>{notification.title || 'Notificação'}</strong>
-                  <p style={styles.muted}>
-                    {notification.content || ''}
-                  </p>
-                </div>
                 <button
-                  style={styles.secondaryButton}
-                  onClick={() => markNotificationRead(notification.id)}
+                  type="button"
+                  onClick={recording ? stopRecording : startRecording}
+                  style={{
+                    ...ui.audioButton,
+                    background: recording ? '#B93845' : '#F1ECFA',
+                    color: recording ? '#FFFFFF' : '#7252B8',
+                  }}
+                  title={recording ? 'Parar gravação' : 'Gravar áudio'}
                 >
-                  Marcar como lida
+                  {recording ? '■' : '🎙'}
                 </button>
-              </div>
-            ))
+
+                <button
+                  type="submit"
+                  disabled={sending || (!text.trim() && !file)}
+                  style={ui.sendButton}
+                  aria-label="Enviar mensagem"
+                >
+                  {sending ? '…' : '➤'}
+                </button>
+
+                {file && (
+                  <span style={ui.fileLabel}>
+                    {file.name}
+                    <button
+                      type="button"
+                      onClick={() => setFile(null)}
+                      style={ui.removeFile}
+                      aria-label="Remover anexo"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+              </form>
+            </>
           )}
         </section>
-      )}
+      </div>
     </main>
   );
 }
 
-const styles = {
+const ui = {
   page: {
     minHeight: '100vh',
     background: '#F8F6F3',
     color: '#17211F',
-    padding: '24px 16px 100px',
-  },
-  header: {
-    maxWidth: 1100,
-    margin: '0 auto 20px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  heading: { color: '#083F35', margin: '0 0 6px' },
-  muted: { color: '#596560', fontSize: 14, lineHeight: 1.5 },
-  counter: {
-    minWidth: 38,
-    height: 38,
-    borderRadius: 20,
-    display: 'grid',
-    placeItems: 'center',
-    background: '#7252B8',
-    color: '#FFFFFF',
-    fontWeight: 800,
+    padding: 16,
+    boxSizing: 'border-box',
   },
   layout: {
-    maxWidth: 1100,
-    margin: '0 auto 20px',
+    maxWidth: 1200,
+    minHeight: 'calc(100vh - 32px)',
+    margin: '0 auto',
     display: 'grid',
-    gridTemplateColumns: 'minmax(220px, 0.75fr) minmax(0, 1.5fr)',
-    gap: 16,
-  },
-  card: {
-    maxWidth: 1100,
-    margin: '0 auto 20px',
-    padding: 20,
-    background: '#FFFFFF',
+    gridTemplateColumns: 'minmax(230px, 310px) minmax(0, 1fr)',
     border: '1px solid #E5E9E7',
-    borderRadius: 16,
+    borderRadius: 18,
+    overflow: 'hidden',
+    background: '#FFFFFF',
   },
   sidebar: {
-    padding: 16,
+    borderRight: '1px solid #E5E9E7',
     background: '#FFFFFF',
-    border: '1px solid #E5E9E7',
-    borderRadius: 16,
+    padding: 18,
     minWidth: 0,
   },
-  chat: {
-    display: 'flex',
-    flexDirection: 'column',
-    minWidth: 0,
-    minHeight: 460,
-    padding: 16,
-    background: '#FFFFFF',
-    border: '1px solid #E5E9E7',
-    borderRadius: 16,
+  sidebarHeader: { marginBottom: 22 },
+  brand: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 9,
+    color: '#083F35',
+    textDecoration: 'none',
+    fontWeight: 900,
   },
-  subheading: { margin: '0 0 12px', fontSize: 18, color: '#083F35' },
+  logo: {
+    width: 33,
+    height: 33,
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: 10,
+    background: '#083F35',
+    color: '#DDA10A',
+  },
+  heading: { color: '#083F35', fontSize: 24, margin: '20px 0 5px' },
+  muted: { color: '#596560', fontSize: 13, lineHeight: 1.6 },
+  small: { display: 'block', color: '#89948F', fontSize: 11, lineHeight: 1.5 },
   conversation: {
-    position: 'relative',
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    textAlign: 'left',
+    padding: 11,
+    marginBottom: 6,
+    border: '1px solid transparent',
+    borderRadius: 12,
+    background: '#FFFFFF',
+    cursor: 'pointer',
+  },
+  selected: { background: '#E8F3F0', borderColor: '#CFE3DC' },
+  avatar: {
+    flex: '0 0 40px',
+    width: 40,
+    height: 40,
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: 14,
+    background: '#F1ECFA',
+    color: '#7252B8',
+    fontWeight: 900,
+  },
+  conversationText: {
+    flex: 1,
+    minWidth: 0,
     display: 'flex',
     flexDirection: 'column',
     gap: 5,
-    width: '100%',
-    textAlign: 'left',
-    border: '1px solid #E5E9E7',
-    borderRadius: 10,
-    background: '#FFFFFF',
-    padding: 12,
-    marginBottom: 8,
-    cursor: 'pointer',
     color: '#17211F',
-  },
-  selected: { borderColor: '#0F6E5C', background: '#E8F3F0' },
-  preview: {
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    color: '#596560',
-    fontSize: 13,
-  },
-  badge: {
-    position: 'absolute',
-    right: 10,
-    top: 10,
-    background: '#B93845',
-    color: '#FFFFFF',
-    borderRadius: 20,
-    padding: '2px 7px',
     fontSize: 12,
   },
+  badge: {
+    display: 'grid',
+    placeItems: 'center',
+    minWidth: 22,
+    height: 22,
+    padding: '0 5px',
+    borderRadius: 20,
+    background: '#B93845',
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 800,
+  },
+  emptyList: { textAlign: 'center', padding: '25px 8px' },
+  emptyIcon: { display: 'block', color: '#7252B8', fontSize: 30, marginBottom: 12 },
+  chat: { minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 600 },
   chatHeader: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  receiverBox: { margin: '12px 0' },
-  label: { display: 'block', fontWeight: 600, marginBottom: 6 },
-  input: {
-    boxSizing: 'border-box',
-    width: '100%',
-    padding: 12,
-    border: '1px solid #D5DEDA',
-    borderRadius: 9,
+    gap: 11,
+    padding: 16,
+    borderBottom: '1px solid #E5E9E7',
   },
   messageList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10,
     flex: 1,
     overflowY: 'auto',
-    padding: '16px 0',
-    minHeight: 220,
+    padding: 18,
+    background: '#F8F6F3',
   },
-  message: {
-    maxWidth: '85%',
-    padding: 12,
-    borderRadius: 12,
+  messageRow: { display: 'flex', marginBottom: 12 },
+  bubble: {
+    maxWidth: '80%',
+    padding: '10px 12px',
+    borderRadius: 14,
+    fontSize: 13,
+    lineHeight: 1.55,
     overflowWrap: 'anywhere',
   },
-  mine: { alignSelf: 'flex-end', background: '#E8F3F0' },
-  theirs: { alignSelf: 'flex-start', background: '#F1ECFA' },
-  messageTime: {
-    display: 'block',
-    marginTop: 6,
-    color: '#596560',
-    fontSize: 11,
+  myBubble: {
+    background: '#E8F3F0',
+    color: '#083F35',
+    borderBottomRightRadius: 4,
   },
-  composer: { display: 'flex', gap: 8, alignItems: 'stretch' },
-  textarea: {
-    flex: 1,
-    minWidth: 0,
-    padding: 12,
-    border: '1px solid #D5DEDA',
-    borderRadius: 9,
-    font: 'inherit',
-    resize: 'vertical',
-  },
-  button: {
-    padding: '12px 16px',
-    border: 0,
-    borderRadius: 9,
-    background: '#0F6E5C',
-    color: '#FFFFFF',
-    fontWeight: 700,
-    cursor: 'pointer',
-  },
-  secondaryButton: {
-    padding: '8px 12px',
-    border: '1px solid #D5DEDA',
-    borderRadius: 8,
+  theirBubble: {
     background: '#FFFFFF',
     color: '#17211F',
-    cursor: 'pointer',
+    border: '1px solid #E5E9E7',
+    borderBottomLeftRadius: 4,
   },
-  error: {
-    maxWidth: 1100,
-    margin: '0 auto 16px',
-    padding: 12,
-    borderRadius: 8,
-    background: '#FBEAEC',
-    color: '#B93845',
-  },
-  notification: {
+  time: { display: 'block', textAlign: 'right', color: '#89948F', fontSize: 9, marginTop: 5 },
+  image: { display: 'block', maxWidth: 240, maxHeight: 280, borderRadius: 9 },
+  composer: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    padding: '12px 0',
+    flexWrap: 'wrap',
+    gap: 8,
+    padding: 12,
     borderTop: '1px solid #E5E9E7',
+    background: '#FFFFFF',
+  },
+  attachButton: {
+    display: 'grid',
+    placeItems: 'center',
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    background: '#FBF1D7',
+    color: '#7252B8',
+    fontSize: 25,
+    cursor: 'pointer',
+  },
+  textInput: {
+    flex: 1,
+    minWidth: 90,
+    border: '1px solid #E5E9E7',
+    borderRadius: 22,
+    padding: '12px 15px',
+    outlineColor: '#7252B8',
+    font: 'inherit',
+  },
+  audioButton: {
+    width: 40,
+    height: 40,
+    border: 0,
+    borderRadius: 13,
+    cursor: 'pointer',
+    fontSize: 17,
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    border: 0,
+    borderRadius: 13,
+    background: '#0F6E5C',
+    color: '#FFFFFF',
+    fontSize: 19,
+    cursor: 'pointer',
+  },
+  fileLabel: {
+    flexBasis: '100%',
+    fontSize: 11,
+    color: '#7252B8',
+    overflowWrap: 'anywhere',
+  },
+  removeFile: {
+    marginLeft: 8,
+    border: 0,
+    background: 'transparent',
+    color: '#B93845',
+    cursor: 'pointer',
+  },
+  error: { padding: 10, background: '#FBEAEC', color: '#B93845', fontSize: 12 },
+  welcome: {
+    margin: 'auto',
+    padding: 25,
+    maxWidth: 360,
+    textAlign: 'center',
+  },
+  accountCard: {
+    maxWidth: 440,
+    margin: '10vh auto',
+    padding: 30,
+    textAlign: 'center',
+    borderRadius: 20,
+    border: '1px solid #E5E9E7',
+    background: '#FFFFFF',
+  },
+  accountIcon: {
+    display: 'grid',
+    placeItems: 'center',
+    width: 58,
+    height: 58,
+    margin: '0 auto',
+    borderRadius: 18,
+    background: '#F1ECFA',
+    color: '#7252B8',
+    fontSize: 29,
+  },
+  primaryButton: {
+    display: 'inline-block',
+    margin: '15px 0',
+    padding: '13px 18px',
+    borderRadius: 12,
+    background: '#0F6E5C',
+    color: '#FFFFFF',
+    textDecoration: 'none',
+    fontWeight: 800,
+    fontSize: 13,
   },
 };
