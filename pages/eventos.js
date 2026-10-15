@@ -1,976 +1,574 @@
-
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
-const COLORS = {
-  green: '#0F6E5C',
-  darkGreen: '#083F35',
-  deepGreen: '#062F29',
-  greenSoft: '#E8F3F0',
-  gold: '#DDA10A',
-  purple: '#7252B8',
-  purpleSoft: '#F1ECFA',
-  ink: '#17211F',
-  muted: '#596560',
-  canvas: '#F8F6F3',
-  white: '#FFFFFF',
-  line: '#E5E9E7',
-  red: '#B93845',
-};
+const BUCKET = 'event-images';
 
-const cardStyle = {
-  background: COLORS.white,
-  border: `1px solid ${COLORS.line}`,
-  borderRadius: 16,
-  padding: 18,
-  boxShadow: '0 4px 18px rgba(23,33,31,0.04)',
-};
-
-const inputStyle = {
-  width: '100%',
-  boxSizing: 'border-box',
-  padding: '12px 13px',
-  border: `1px solid ${COLORS.line}`,
-  borderRadius: 10,
-  background: COLORS.white,
-  color: COLORS.ink,
-  fontSize: 15,
-  outlineColor: COLORS.green,
-};
-
-function firstParam(value) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function normalized(value) {
-  return String(value ?? '').trim().toLowerCase();
-}
-
-function findByIdOrName(rows, value) {
-  if (!value || !Array.isArray(rows)) return null;
-
-  const wanted = normalized(value);
-
-  return rows.find((row) => {
-    const possibleValues = [
-      row.id,
-      row.name,
-      row.title,
-      row.nome,
-      row.country,
-      row.province,
-      row.slug,
-    ];
-
-    return possibleValues.some(
-      (item) => item != null && normalized(item) === wanted
-    );
-  }) || null;
+function firstValue(...values) {
+  return values.find(
+    (value) =>
+      value !== undefined &&
+      value !== null &&
+      String(value).trim() !== ''
+  );
 }
 
 function getPlanName(plan) {
-  return plan?.name || plan?.title || plan?.plan_name || 'Plano de eventos';
+  return plan.name || plan.title || plan.plan_name || 'Plano';
 }
 
 function getPlanPrice(plan) {
-  const value = plan?.price ?? plan?.price_kz ?? plan?.amount;
-
-  if (value == null || value === '') return 'Preço não definido';
-
-  const number = Number(value);
-
-  return Number.isFinite(number)
-    ? `${number.toLocaleString('pt-PT')} Kz`
-    : String(value);
-}
-
-function getPlanDuration(plan) {
-  const days = plan?.duration_days ?? plan?.duration ?? plan?.days;
-
-  return days ? `${days} dias` : 'Duração não definida';
+  const price = plan.price ?? plan.amount ?? plan.valor;
+  return price === undefined || price === null
+    ? 'Preço apresentado na página de planos'
+    : `${price} Kz`;
 }
 
 export default function Eventos() {
   const router = useRouter();
 
-  const [session, setSession] = useState(null);
-  const [authChecked, setAuthChecked] = useState(false);
-
-  const [countries, setCountries] = useState([]);
-  const [provinces, setProvinces] = useState([]);
-  const [plans, setPlans] = useState([]);
-  const [events, setEvents] = useState([]);
-
+  const [user, setUser] = useState(null);
   const [countryId, setCountryId] = useState('');
   const [provinceId, setProvinceId] = useState('');
-  const [selectedPlan, setSelectedPlan] = useState('');
-
+  const [provinceName, setProvinceName] = useState('');
+  const [plans, setPlans] = useState([]);
+  const [planId, setPlanId] = useState('');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [eventType, setEventType] = useState('Geral');
+  const [location, setLocation] = useState('');
+  const [startsAt, setStartsAt] = useState('');
+  const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [showForm, setShowForm] = useState(false);
-
-  const [form, setForm] = useState({
-    title: '',
-    event_type: '',
-    description: '',
-    location: '',
-    starts_at: '',
-    image_url: '',
-  });
-
-  const countryName = useMemo(
-    () => countries.find((item) => String(item.id) === String(countryId)),
-    [countries, countryId]
-  );
-
-  const provinceName = useMemo(
-    () => provinces.find((item) => String(item.id) === String(provinceId)),
-    [provinces, provinceId]
-  );
-
-  const filteredProvinces = useMemo(() => {
-    if (!countryId) return provinces;
-
-    return provinces.filter((province) => {
-      const parentId =
-        province.country_id ??
-        province.countryId ??
-        province.pais_id;
-
-      // Algumas bases não têm country_id na tabela provinces.
-      // Nesse caso, não escondemos todas as províncias.
-      return parentId == null || String(parentId) === String(countryId);
-    });
-  }, [provinces, countryId]);
-
-  const loadEvents = useCallback(async (province) => {
-    if (!province) {
-      setEvents([]);
-      return;
-    }
-
-    const now = new Date().toISOString();
-
-    const { data, error: queryError } = await supabase
-      .from('events')
-      .select('*')
-      .eq('province_id', province)
-      .eq('status', 'published')
-      .eq('payment_status', 'paid')
-      .not('expires_at', 'is', null)
-      .gt('expires_at', now)
-      .order('starts_at', { ascending: true });
-
-    if (queryError) {
-      console.error('Erro ao carregar eventos:', queryError);
-      setError((current) =>
-        current || 'Não foi possível carregar os eventos desta província.'
-      );
-      setEvents([]);
-      return;
-    }
-
-    setEvents(data || []);
-  }, []);
-
-  const resolveLocation = useCallback(async (user) => {
-    const [countryResult, provinceResult] = await Promise.all([
-      supabase.from('countries').select('*'),
-      supabase.from('provinces').select('*'),
-    ]);
-
-    if (countryResult.error) {
-      throw new Error(
-        `Não foi possível carregar os países: ${countryResult.error.message}`
-      );
-    }
-
-    if (provinceResult.error) {
-      throw new Error(
-        `Não foi possível carregar as províncias: ${provinceResult.error.message}`
-      );
-    }
-
-    const allCountries = countryResult.data || [];
-    const allProvinces = provinceResult.data || [];
-
-    setCountries(allCountries);
-    setProvinces(allProvinces);
-
-    const queryCountry =
-      firstParam(router.query.country_id) ||
-      firstParam(router.query.country);
-
-    const queryProvince =
-      firstParam(router.query.province_id) ||
-      firstParam(router.query.province);
-
-    let profile = null;
-
-    if (user?.id) {
-      const { data, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        console.warn('Não foi possível consultar o perfil:', profileError);
-      } else {
-        profile = data;
-      }
-    }
-
-    let storedCountry = '';
-    let storedProvince = '';
-
-    try {
-      storedCountry = localStorage.getItem('talaza_country_id') || '';
-      storedProvince = localStorage.getItem('talaza_province_id') || '';
-    } catch {
-      // A página continua a funcionar se o armazenamento não estiver disponível.
-    }
-
-    const countryCandidate =
-      queryCountry ||
-      profile?.country_id ||
-      storedCountry;
-
-    let country = findByIdOrName(allCountries, countryCandidate);
-
-    if (!country && profile?.country) {
-      country = findByIdOrName(allCountries, profile.country);
-    }
-
-    const provinceCandidate =
-      queryProvince ||
-      profile?.province_id ||
-      storedProvince;
-
-    let province = findByIdOrName(allProvinces, provinceCandidate);
-
-    if (
-      province &&
-      country?.id &&
-      province.country_id &&
-      String(province.country_id) !== String(country.id)
-    ) {
-      province = null;
-    }
-
-    if (!province && profile?.province) {
-      province = findByIdOrName(allProvinces, profile.province);
-    }
-
-    if (province && !country) {
-      const parentId =
-        province.country_id ??
-        province.countryId ??
-        province.pais_id;
-
-      if (parentId) {
-        country = allCountries.find(
-          (item) => String(item.id) === String(parentId)
-        ) || null;
-      }
-    }
-
-    if (country) setCountryId(String(country.id));
-    if (province) setProvinceId(String(province.id));
-
-    return {
-      countries: allCountries,
-      provinces: allProvinces,
-      country,
-      province,
-    };
-  }, [router.query]);
-
-  const loadPlans = useCallback(async () => {
-    const { data, error: planError } = await supabase
-      .from('plans')
-      .select('*');
-
-    if (planError) {
-      console.warn('Não foi possível carregar os planos:', planError);
-      setPlans([]);
-      return;
-    }
-
-    const availablePlans = (data || []).filter((plan) => {
-      if (plan.active === false || plan.is_active === false) return false;
-
-      const area = normalized(plan.area);
-      const type = normalized(plan.plan_type);
-      const name = normalized(getPlanName(plan));
-
-      // Se o plano estiver identificado por área/tipo, só mostramos
-      // os planos de eventos. Se não tiver esses campos, mostramos
-      // apenas os nomes que indiquem claramente eventos.
-      if (area || type) {
-        return (
-          area.includes('evento') ||
-          area.includes('event') ||
-          type.includes('evento') ||
-          type.includes('event')
-        );
-      }
-
-      return name.includes('evento') || name.includes('event');
-    });
-
-    setPlans(availablePlans);
-  }, []);
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     if (!router.isReady) return;
 
-    let active = true;
-    let authSubscription;
+    let cancelled = false;
 
-    async function initialize() {
+    async function initialise() {
       setLoading(true);
       setError('');
-      setNotice('');
+
+      const { data: sessionData } =
+        await supabase.auth.getSession();
+
+      const currentUser = sessionData?.session?.user;
+
+      if (!currentUser) {
+        if (!cancelled) {
+          setUser(null);
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (cancelled) return;
+      setUser(currentUser);
+
+      let storedCountry = '';
+      let storedProvince = '';
 
       try {
-        const { data, error: sessionError } =
-          await supabase.auth.getSession();
+        storedCountry = localStorage.getItem(
+          'talaza_country_id'
+        ) || '';
 
-        if (sessionError) {
-          console.warn('Sessão não disponível:', sessionError.message);
-        }
+        storedProvince = localStorage.getItem(
+          'talaza_province_id'
+        ) || '';
+      } catch {
+        // O navegador pode não permitir acesso ao armazenamento.
+      }
 
-        const user = data?.session?.user || null;
+      let profile = null;
 
-        if (!active) return;
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .maybeSingle();
 
-        setSession(data?.session || null);
-        setAuthChecked(true);
+      profile = profileData;
 
-        const [locationResult] = await Promise.all([
-          resolveLocation(user),
-          loadPlans(),
-        ]);
+      const resolvedCountry = firstValue(
+        router.query.country_id,
+        router.query.countryId,
+        storedCountry,
+        profile?.country_id
+      );
 
-        if (!active) return;
+      const resolvedProvince = firstValue(
+        router.query.province_id,
+        router.query.provinceId,
+        storedProvince,
+        profile?.province_id
+      );
 
-        if (locationResult.province?.id) {
-          await loadEvents(String(locationResult.province.id));
-        } else {
-          setEvents([]);
-          setNotice(
-            'Seleciona o país e a província para veres os eventos dessa localização.'
+      if (!cancelled) {
+        setCountryId(resolvedCountry || '');
+        setProvinceId(resolvedProvince || '');
+      }
+
+      if (resolvedProvince) {
+        const { data: province } = await supabase
+          .from('provinces')
+          .select('*')
+          .eq('id', resolvedProvince)
+          .maybeSingle();
+
+        if (!cancelled) {
+          setProvinceName(
+            province?.name ||
+            province?.province_name ||
+            String(
+              router.query.province ||
+              'Província selecionada'
+            )
           );
         }
-      } catch (err) {
-        console.error('Erro ao iniciar a página Eventos:', err);
+      }
 
-        if (active) {
+      // Carrega os planos sem depender de uma coluna
+      // "active" que pode não existir na tabela.
+      const { data: planRows, error: plansError } =
+        await supabase.from('plans').select('*');
+
+      if (!cancelled) {
+        if (plansError) {
           setError(
-            err?.message ||
-            'Não foi possível iniciar a página de eventos. Tenta novamente.'
+            'Não foi possível carregar os planos. Verifica a tabela plans.'
           );
+        } else {
+          const availablePlans = (planRows || []).filter(
+            (plan) => {
+              if (plan.active === false) return false;
+              if (plan.is_active === false) return false;
+
+              const area = String(
+                plan.area ||
+                plan.plan_type ||
+                plan.type ||
+                ''
+              ).toLowerCase();
+
+              // Se os planos forem identificados por área,
+              // mostra apenas os destinados a Eventos.
+              if (area && !area.includes('evento')) {
+                return false;
+              }
+
+              return true;
+            }
+          );
+
+          setPlans(availablePlans);
         }
-      } finally {
-        if (active) setLoading(false);
+
+        setLoading(false);
       }
     }
 
-    initialize();
-
-    const { data: authData } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
-        if (!active) return;
-        setSession(nextSession || null);
-        setAuthChecked(true);
-      }
-    );
-
-    authSubscription = authData?.subscription;
+    initialise();
 
     return () => {
-      active = false;
-      authSubscription?.unsubscribe();
+      cancelled = true;
     };
-  }, [
-    router.isReady,
-    resolveLocation,
-    loadPlans,
-    loadEvents,
-  ]);
+  }, [router.isReady, router.query]);
 
-  async function applyLocation() {
-    setError('');
-    setNotice('');
-
-    if (!countryId || !provinceId) {
-      setError('Seleciona primeiro o país e a província.');
-      return;
-    }
-
-    const selectedProvince = provinces.find(
-      (item) => String(item.id) === String(provinceId)
-    );
-
-    if (!selectedProvince) {
-      setError('A província selecionada não foi encontrada na base de dados.');
-      return;
-    }
-
-    try {
-      localStorage.setItem('talaza_country_id', String(countryId));
-      localStorage.setItem('talaza_province_id', String(provinceId));
-    } catch {
-      // Não impede a pesquisa se o armazenamento estiver indisponível.
-    }
-
-    setLoading(true);
-
-    try {
-      await loadEvents(String(provinceId));
-      setNotice('Localização atualizada.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function updateForm(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
-  }
-
-  async function submitEvent(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
     setError('');
-    setNotice('');
+    setSuccess('');
 
-    if (!session?.user?.id) {
+    if (!user) {
+      setError('Inicia sessão para publicar um evento.');
+      return;
+    }
+
+    if (!countryId || !provinceId) {
       setError(
-        'Para publicar um evento, inicia sessão na tua conta Talaza e volta a esta página.'
+        'Não foi possível identificar a localização ativa. Abre Eventos a partir do painel da província.'
       );
       return;
     }
 
-    if (!countryId || !provinceId) {
-      setError('Seleciona o país e a província do evento.');
+    if (!title.trim() || !description.trim()) {
+      setError('Preenche o título e a descrição do evento.');
       return;
     }
 
-    if (!selectedPlan) {
-      setError('Seleciona um plano de eventos antes de continuar.');
+    if (!planId) {
+      setError('Seleciona o plano para esta publicação.');
       return;
     }
 
-    if (
-      !form.title.trim() ||
-      !form.event_type.trim() ||
-      !form.description.trim()
-    ) {
-      setError('Preenche o título, o tipo e a descrição do evento.');
+    if (!image) {
+      setError('Seleciona uma imagem para o evento.');
+      return;
+    }
+
+    if (image.size > 5 * 1024 * 1024) {
+      setError('A imagem não pode ultrapassar 5 MB.');
+      return;
+    }
+
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ];
+
+    if (!allowedTypes.includes(image.type)) {
+      setError('Usa uma imagem JPG, PNG ou WEBP.');
       return;
     }
 
     setSaving(true);
 
+    let uploadedPath = '';
+
     try {
-      const newEvent = {
-        user_id: session.user.id,
-        country_id: countryId,
-        province_id: provinceId,
-        plan_id: selectedPlan,
-        title: form.title.trim(),
-        event_type: form.event_type.trim(),
-        description: form.description.trim(),
-        location: form.location.trim() || null,
-        image_url: form.image_url.trim() || null,
-        starts_at: form.starts_at
-          ? new Date(form.starts_at).toISOString()
-          : null,
-        expires_at: null,
-        status: 'pending_payment',
-        payment_status: 'pending',
-      };
+      const extension = image.name
+        .split('.')
+        .pop()
+        .toLowerCase();
 
-      const { error: insertError } = await supabase
-        .from('events')
-        .insert(newEvent);
+      const safeExtension = [
+        'jpg',
+        'jpeg',
+        'png',
+        'webp',
+      ].includes(extension)
+        ? extension
+        : 'jpg';
 
-      if (insertError) throw insertError;
+      uploadedPath =
+        `${user.id}/${crypto.randomUUID()}.${safeExtension}`;
 
-      setNotice(
-        'Evento registado como pendente de pagamento. Ainda não está publicado.'
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET)
+        .upload(uploadedPath, image, {
+          contentType: image.type,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw new Error(
+          `Falha ao carregar a imagem: ${uploadError.message}. Verifica as políticas do Storage.`
+        );
+      }
+
+      const { data: publicData } = supabase.storage
+        .from(BUCKET)
+        .getPublicUrl(uploadedPath);
+
+      const imageUrl = publicData?.publicUrl;
+
+      if (!imageUrl) {
+        throw new Error(
+          'Não foi possível obter o endereço da imagem.'
+        );
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!profile) {
+        throw new Error(
+          'Não foi encontrado um perfil associado à tua conta. Verifica se profiles.id corresponde ao utilizador autenticado.'
+        );
+      }
+
+      const { data: createdEvent, error: insertError } =
+        await supabase
+          .from('events')
+          .insert({
+            user_id: user.id,
+            country_id: countryId,
+            province_id: provinceId,
+            plan_id: planId,
+            title: title.trim(),
+            description: description.trim(),
+            event_type: eventType,
+            image_url: imageUrl,
+            location: location.trim() || null,
+            starts_at: startsAt
+              ? new Date(startsAt).toISOString()
+              : null,
+            expires_at: null,
+            status: 'pending_payment',
+            payment_status: 'pending',
+          })
+          .select('id')
+          .single();
+
+      if (insertError) {
+        throw new Error(
+          `O evento não foi guardado: ${insertError.message}`
+        );
+      }
+
+      setSuccess(
+        'Evento registado! A publicação está pendente de pagamento. Terá de ser confirmada antes de ficar ativa.'
       );
 
-      setForm({
-        title: '',
-        event_type: '',
-        description: '',
-        location: '',
-        starts_at: '',
-        image_url: '',
-      });
+      setTitle('');
+      setDescription('');
+      setEventType('Geral');
+      setLocation('');
+      setStartsAt('');
+      setImage(null);
 
-      setSelectedPlan('');
-      setShowForm(false);
+      const fileInput = document.getElementById(
+        'event-image'
+      );
+      if (fileInput) fileInput.value = '';
+
+      // O evento continua pendente. O pagamento e a ativação
+      // devem ser tratados no fluxo de pagamentos/admin.
+      if (createdEvent?.id) {
+        router.push(
+          `/planos?plan_id=${encodeURIComponent(planId)}` +
+          `&country=${encodeURIComponent(countryId)}` +
+          `&province=${encodeURIComponent(provinceId)}` +
+          `&area=Eventos&event_id=${encodeURIComponent(createdEvent.id)}`
+        );
+      }
     } catch (err) {
-      console.error('Erro ao guardar evento:', err);
-
-      setError(
-        err?.message ||
-        'Não foi possível guardar o evento. Confirma a sessão, as políticas RLS e os campos da tabela.'
-      );
+      setError(err.message || 'Ocorreu um erro ao publicar.');
     } finally {
       setSaving(false);
     }
   }
 
-  return (
-    <main style={{
-      minHeight: '100vh',
-      background: COLORS.canvas,
-      color: COLORS.ink,
-      padding: '24px 16px 48px',
-      fontFamily: 'Arial, sans-serif',
-    }}>
-      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-        <header style={{
-          ...cardStyle,
-          background: COLORS.deepGreen,
-          color: COLORS.white,
-          border: 'none',
-          padding: 24,
-          marginBottom: 20,
-        }}>
-          <div style={{
-            color: '#BDE3D9',
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: 1.5,
-            textTransform: 'uppercase',
-          }}>
-            TALAZA · DESCOBRIR
-          </div>
+  if (loading) {
+    return <main style={styles.page}>A carregar Eventos...</main>;
+  }
 
-          <h1 style={{
-            fontSize: 'clamp(28px, 5vw, 40px)',
-            margin: '10px 0 8px',
-          }}>
-            Eventos
-          </h1>
-
-          <p style={{
-            margin: 0,
-            color: '#E1ECE8',
-            lineHeight: 1.6,
-            maxWidth: 620,
-          }}>
-            Descobre o que acontece na tua província ou prepara a publicação
-            de um evento.
-          </p>
-        </header>
-
-        {error && (
-          <div role="alert" style={{
-            ...cardStyle,
-            background: '#FFF0F0',
-            color: COLORS.red,
-            borderColor: '#F0CACA',
-            marginBottom: 16,
-          }}>
-            {error}
-          </div>
-        )}
-
-        {notice && (
-          <div role="status" style={{
-            ...cardStyle,
-            background: COLORS.greenSoft,
-            color: COLORS.darkGreen,
-            borderColor: '#C7E4DB',
-            marginBottom: 16,
-          }}>
-            {notice}
-          </div>
-        )}
-
-        <section style={{ ...cardStyle, marginBottom: 20 }}>
-          <h2 style={{ marginTop: 0, fontSize: 19 }}>
-            Escolher localização
-          </h2>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: 12,
-          }}>
-            <label>
-              <span style={{
-                display: 'block',
-                marginBottom: 7,
-                fontSize: 13,
-                color: COLORS.muted,
-              }}>
-                País
-              </span>
-
-              <select
-                value={countryId}
-                onChange={(e) => {
-                  setCountryId(e.target.value);
-                  setProvinceId('');
-                }}
-                style={inputStyle}
-              >
-                <option value="">Seleciona o país</option>
-                {countries.map((country) => (
-                  <option key={country.id} value={country.id}>
-                    {country.name || country.nome || country.title || 'País'}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              <span style={{
-                display: 'block',
-                marginBottom: 7,
-                fontSize: 13,
-                color: COLORS.muted,
-              }}>
-                Província
-              </span>
-
-              <select
-                value={provinceId}
-                onChange={(e) => setProvinceId(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="">Seleciona a província</option>
-                {filteredProvinces.map((province) => (
-                  <option key={province.id} value={province.id}>
-                    {province.name || province.nome || province.title || 'Província'}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
+  if (!user) {
+    return (
+      <main style={styles.page}>
+        <section style={styles.card}>
+          <h1>Eventos</h1>
+          <p>Inicia sessão para publicar um evento.</p>
           <button
-            type="button"
-            onClick={applyLocation}
-            style={{
-              marginTop: 14,
-              border: 'none',
-              borderRadius: 10,
-              background: COLORS.green,
-              color: COLORS.white,
-              padding: '12px 18px',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
+            style={styles.button}
+            onClick={() =>
+              router.push(
+                `/login?next=${encodeURIComponent('/eventos')}`
+              )
+            }
           >
-            Ver eventos desta província
+            Iniciar sessão
           </button>
+        </section>
+      </main>
+    );
+  }
 
-          {countryName && provinceName && (
-            <p style={{ color: COLORS.muted, fontSize: 13, marginBottom: 0 }}>
-              Localização selecionada:{' '}
-              <strong>
-                {countryName.name || countryName.nome} · {provinceName.name || provinceName.nome}
-              </strong>
+  return (
+    <main style={styles.page}>
+      <section style={styles.card}>
+        <h1 style={styles.heading}>Publicar evento</h1>
+
+        <p style={styles.muted}>
+          Localização ativa: <strong>{provinceName || 'Província atual'}</strong>
+        </p>
+
+        <p style={styles.muted}>
+          A publicação fica pendente até o pagamento ser confirmado.
+        </p>
+
+        {error && <p style={styles.error}>{error}</p>}
+        {success && <p style={styles.success}>{success}</p>}
+
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <label style={styles.label} htmlFor="event-title">
+            Nome do evento
+          </label>
+          <input
+            id="event-title"
+            style={styles.input}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            maxLength={150}
+          />
+
+          <label style={styles.label} htmlFor="event-description">
+            Descrição
+          </label>
+          <textarea
+            id="event-description"
+            style={styles.textarea}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            required
+            rows={5}
+          />
+
+          <label style={styles.label} htmlFor="event-type">
+            Tipo de evento
+          </label>
+          <select
+            id="event-type"
+            style={styles.input}
+            value={eventType}
+            onChange={(e) => setEventType(e.target.value)}
+          >
+            <option>Geral</option>
+            <option>Formação</option>
+            <option>Negócios</option>
+            <option>Cultura</option>
+            <option>Desporto</option>
+            <option>Entretenimento</option>
+            <option>Religião</option>
+          </select>
+
+          <label style={styles.label} htmlFor="event-location">
+            Local do evento
+          </label>
+          <input
+            id="event-location"
+            style={styles.input}
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Ex.: Município, bairro ou local"
+          />
+
+          <label style={styles.label} htmlFor="event-date">
+            Data e hora (opcional)
+          </label>
+          <input
+            id="event-date"
+            type="datetime-local"
+            style={styles.input}
+            value={startsAt}
+            onChange={(e) => setStartsAt(e.target.value)}
+          />
+
+          <label style={styles.label} htmlFor="event-image">
+            Imagem do evento
+          </label>
+          <input
+            id="event-image"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            style={styles.input}
+            onChange={(e) =>
+              setImage(e.target.files?.[0] || null)
+            }
+            required
+          />
+          <small style={styles.muted}>
+            JPG, PNG ou WEBP. Máximo: 5 MB.
+          </small>
+
+          <label style={styles.label} htmlFor="event-plan">
+            Plano para ativar a publicação
+          </label>
+          <select
+            id="event-plan"
+            style={styles.input}
+            value={planId}
+            onChange={(e) => setPlanId(e.target.value)}
+            required
+          >
+            <option value="">Seleciona um plano</option>
+            {plans.map((plan) => (
+              <option key={plan.id} value={plan.id}>
+                {getPlanName(plan)} — {getPlanPrice(plan)}
+              </option>
+            ))}
+          </select>
+
+          {plans.length === 0 && (
+            <p style={styles.error}>
+              Não foram encontrados planos para Eventos. Verifica
+              a tabela plans e os nomes das colunas que identificam
+              os planos ativos e a respetiva área.
             </p>
           )}
-        </section>
 
-        <section style={{ ...cardStyle, marginBottom: 20 }}>
-          <div style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-          }}>
-            <div>
-              <h2 style={{ margin: '0 0 5px', fontSize: 19 }}>
-                Publicar um evento
-              </h2>
-              <p style={{
-                color: COLORS.muted,
-                fontSize: 14,
-                margin: 0,
-                lineHeight: 1.5,
-              }}>
-                A publicação fica pendente até à confirmação do pagamento.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setError('');
-                setShowForm((current) => !current);
-              }}
-              style={{
-                border: `1px solid ${COLORS.purple}`,
-                borderRadius: 10,
-                background: COLORS.purpleSoft,
-                color: COLORS.purple,
-                padding: '11px 15px',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              {showForm ? 'Fechar formulário' : 'Criar evento'}
-            </button>
-          </div>
-
-          {showForm && (
-            <form onSubmit={submitEvent} style={{
-              display: 'grid',
-              gap: 14,
-              marginTop: 20,
-            }}>
-              {!session?.user?.id && authChecked && (
-                <p style={{
-                  background: COLORS.goldSoft || '#FBF1D7',
-                  padding: 12,
-                  borderRadius: 10,
-                  lineHeight: 1.5,
-                }}>
-                  Podes consultar os eventos sem iniciar sessão. Para publicar,
-                  inicia sessão na tua conta Talaza.
-                </p>
-              )}
-
-              <label>
-                Título do evento
-                <input
-                  value={form.title}
-                  onChange={(e) => updateForm('title', e.target.value)}
-                  maxLength={150}
-                  required
-                  style={{ ...inputStyle, marginTop: 7 }}
-                  placeholder="Ex.: Feira de empreendedorismo"
-                />
-              </label>
-
-              <label>
-                Tipo de evento
-                <input
-                  value={form.event_type}
-                  onChange={(e) => updateForm('event_type', e.target.value)}
-                  maxLength={100}
-                  required
-                  style={{ ...inputStyle, marginTop: 7 }}
-                  placeholder="Ex.: Formação, música, feira"
-                />
-              </label>
-
-              <label>
-                Descrição
-                <textarea
-                  value={form.description}
-                  onChange={(e) => updateForm('description', e.target.value)}
-                  required
-                  rows={4}
-                  maxLength={5000}
-                  style={{ ...inputStyle, marginTop: 7, resize: 'vertical' }}
-                  placeholder="Explica o que vai acontecer, para quem é e como participar."
-                />
-              </label>
-
-              <label>
-                Local do evento (opcional)
-                <input
-                  value={form.location}
-                  onChange={(e) => updateForm('location', e.target.value)}
-                  maxLength={250}
-                  style={{ ...inputStyle, marginTop: 7 }}
-                  placeholder="Município, bairro ou local"
-                />
-              </label>
-
-              <label>
-                Data e hora (opcional)
-                <input
-                  type="datetime-local"
-                  value={form.starts_at}
-                  onChange={(e) => updateForm('starts_at', e.target.value)}
-                  style={{ ...inputStyle, marginTop: 7 }}
-                />
-              </label>
-
-              <label>
-                URL da imagem (opcional)
-                <input
-                  type="url"
-                  value={form.image_url}
-                  onChange={(e) => updateForm('image_url', e.target.value)}
-                  style={{ ...inputStyle, marginTop: 7 }}
-                  placeholder="https://..."
-                />
-              </label>
-
-              <label>
-                Plano de eventos
-                <select
-                  value={selectedPlan}
-                  onChange={(e) => setSelectedPlan(e.target.value)}
-                  required
-                  style={{ ...inputStyle, marginTop: 7 }}
-                >
-                  <option value="">Seleciona um plano</option>
-                  {plans.map((plan) => (
-                    <option key={plan.id} value={plan.id}>
-                      {getPlanName(plan)} — {getPlanPrice(plan)} — {getPlanDuration(plan)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {plans.length === 0 && (
-                <p style={{
-                  color: COLORS.red,
-                  fontSize: 13,
-                  lineHeight: 1.5,
-                }}>
-                  Não foram encontrados planos de eventos ativos. Confirma
-                  os registos da tabela plans e os campos que identificam
-                  a área e o estado do plano.
-                </p>
-              )}
-
-              <button
-                type="submit"
-                disabled={saving || !session?.user?.id || plans.length === 0}
-                style={{
-                  border: 'none',
-                  borderRadius: 10,
-                  background: saving ? '#89948F' : COLORS.green,
-                  color: COLORS.white,
-                  padding: 14,
-                  fontWeight: 700,
-                  cursor: saving ? 'wait' : 'pointer',
-                }}
-              >
-                {saving ? 'A guardar…' : 'Guardar evento pendente'}
-              </button>
-            </form>
-          )}
-        </section>
-
-        <section>
-          <h2 style={{ fontSize: 22, margin: '24px 0 14px' }}>
-            Eventos publicados
-          </h2>
-
-          {loading ? (
-            <div style={cardStyle}>A carregar eventos e localização…</div>
-          ) : events.length === 0 ? (
-            <div style={{
-              ...cardStyle,
-              textAlign: 'center',
-              padding: 30,
-            }}>
-              <div style={{
-                width: 48,
-                height: 48,
-                display: 'grid',
-                placeItems: 'center',
-                margin: '0 auto 12px',
-                borderRadius: 14,
-                background: COLORS.purpleSoft,
-                color: COLORS.purple,
-                fontSize: 23,
-              }}>
-                ◷
-              </div>
-              <h3 style={{ margin: '0 0 8px' }}>
-                Ainda não há eventos disponíveis
-              </h3>
-              <p style={{
-                color: COLORS.muted,
-                margin: 0,
-                lineHeight: 1.5,
-              }}>
-                Escolhe uma província para consultar os eventos publicados
-                nessa localização.
-              </p>
-            </div>
-          ) : (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-              gap: 16,
-            }}>
-              {events.map((item) => (
-                <article key={item.id} style={{
-                  ...cardStyle,
-                  padding: 0,
-                  overflow: 'hidden',
-                }}>
-                  {item.image_url && (
-                    <img
-                      src={item.image_url}
-                      alt={item.title || 'Imagem do evento'}
-                      style={{
-                        display: 'block',
-                        width: '100%',
-                        height: 180,
-                        objectFit: 'cover',
-                        background: COLORS.greenSoft,
-                      }}
-                    />
-                  )}
-
-                  <div style={{ padding: 18 }}>
-                    <span style={{
-                      display: 'inline-block',
-                      background: COLORS.purpleSoft,
-                      color: COLORS.purple,
-                      borderRadius: 999,
-                      padding: '5px 9px',
-                      fontSize: 12,
-                      fontWeight: 700,
-                    }}>
-                      {item.event_type || 'Evento'}
-                    </span>
-
-                    <h3 style={{ margin: '12px 0 8px', fontSize: 19 }}>
-                      {item.title}
-                    </h3>
-
-                    <p style={{
-                      color: COLORS.muted,
-                      lineHeight: 1.55,
-                      whiteSpace: 'pre-wrap',
-                      overflowWrap: 'anywhere',
-                    }}>
-                      {item.description}
-                    </p>
-
-                    {item.location && (
-                      <p style={{ fontSize: 13, color: COLORS.muted }}>
-                        <strong>Local:</strong> {item.location}
-                      </p>
-                    )}
-
-                    {item.starts_at && (
-                      <p style={{ fontSize: 13, color: COLORS.muted }}>
-                        <strong>Data:</strong>{' '}
-                        {new Date(item.starts_at).toLocaleString('pt-PT')}
-                      </p>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
+          <button
+            type="submit"
+            style={styles.button}
+            disabled={saving || plans.length === 0}
+          >
+            {saving
+              ? 'A guardar...'
+              : 'Guardar evento e continuar para pagamento'}
+          </button>
+        </form>
+      </section>
     </main>
   );
 }
+
+const styles = {
+  page: {
+    minHeight: '100vh',
+    background: '#F8F6F3',
+    padding: '24px 16px 100px',
+    color: '#17211F',
+  },
+  card: {
+    maxWidth: 680,
+    margin: '0 auto',
+    background: '#FFFFFF',
+    border: '1px solid #E5E9E7',
+    borderRadius: 18,
+    padding: 24,
+  },
+  heading: { marginTop: 0, color: '#083F35' },
+  muted: { color: '#596560', fontSize: 14 },
+  form: { display: 'grid', gap: 10, marginTop: 20 },
+  label: { fontWeight: 600, marginTop: 8 },
+  input: {
+    width: '100%',
+    boxSizing: 'border-box',
+    padding: 12,
+    border: '1px solid #D5DEDA',
+    borderRadius: 9,
+    background: '#FFFFFF',
+    color: '#17211F',
+  },
+  textarea: {
+    width: '100%',
+    boxSizing: 'border-box',
+    padding: 12,
+    border: '1px solid #D5DEDA',
+    borderRadius: 9,
+    minHeight: 110,
+    font: 'inherit',
+  },
+  button: {
+    marginTop: 12,
+    border: 0,
+    borderRadius: 10,
+    padding: 14,
+    background: '#0F6E5C',
+    color: '#FFFFFF',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  error: {
+    background: '#FBEAEC',
+    color: '#B93845',
+    padding: 12,
+    borderRadius: 8,
+  },
+  success: {
+    background: '#E8F3F0',
+    color: '#083F35',
+    padding: 12,
+    borderRadius: 8,
+  },
+};
