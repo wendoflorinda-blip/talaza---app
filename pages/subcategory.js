@@ -1,16 +1,13 @@
-import Head from 'next/head';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import Head from 'next/head';
 import { supabase } from '../lib/supabaseClient';
 
-const C = {
+const COLORS = {
   green: '#0F6E5C',
-  dark: '#083F35',
-  deep: '#062F29',
-  greenSoft: '#E8F3F0',
+  darkGreen: '#083F35',
   gold: '#DDA10A',
-  goldSoft: '#FBF1D7',
   purple: '#7252B8',
   purpleSoft: '#F1ECFA',
   ink: '#17211F',
@@ -19,38 +16,41 @@ const C = {
   canvas: '#F8F6F3',
   white: '#FFFFFF',
   line: '#E5E9E7',
-  red: '#B93845',
 };
-
-const HUES = [C.green, '#8A4B2B', C.purple, '#2E6B7A', '#A0522D', '#4B5D67'];
-
-function getHue(index) {
-  return HUES[index % HUES.length];
-}
 
 function getInitials(name) {
   const words = String(name || '')
     .normalize('NFC')
     .trim()
     .split(/\s+/)
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, 2);
 
-  return words
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toLocaleUpperCase('pt-AO'))
-    .join('') || 'T';
+  return (
+    words
+      .map((word) => word.charAt(0).toLocaleUpperCase('pt-AO'))
+      .join('') || '?'
+  );
 }
 
-function safeQueryValue(value) {
-  return Array.isArray(value) ? value[0] : value;
+function cleanText(value) {
+  return String(value || '').trim();
+}
+
+function makeBusinessHref(id, country, province) {
+  const params = new URLSearchParams();
+
+  if (country) params.set('country', country);
+  if (province) params.set('province', province);
+
+  const query = params.toString();
+
+  return `/businesses/${id}${query ? `?${query}` : ''}`;
 }
 
 export default function Subcategory() {
   const router = useRouter();
-
-  const id = safeQueryValue(router.query.id);
-  const country = safeQueryValue(router.query.country);
-  const province = safeQueryValue(router.query.province);
+  const { id, country, province } = router.query;
 
   const [subcategory, setSubcategory] = useState(null);
   const [businesses, setBusinesses] = useState([]);
@@ -58,10 +58,10 @@ export default function Subcategory() {
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
 
-  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState('');
   const [municipality, setMunicipality] = useState('');
   const [neighborhood, setNeighborhood] = useState('');
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [premiumLoading, setPremiumLoading] = useState(true);
@@ -71,187 +71,137 @@ export default function Subcategory() {
   const [premiumIndex, setPremiumIndex] = useState(0);
 
   useEffect(() => {
-    if (!router.isReady) return;
-
-    if (!id) {
-      setError('Subcategoria inválida. Volte à categoria e escolha uma opção.');
-      setLoading(false);
-      setPremiumLoading(false);
-      return;
-    }
+    if (!router.isReady || !id) return;
 
     let cancelled = false;
 
-    async function loadSubcategory() {
+    async function loadPage() {
       setLoading(true);
+      setPremiumLoading(true);
       setError('');
 
       try {
-        const { data, error: subcategoryError } = await supabase
-          .from('subcategories')
-          .select('id, name, description, category_id')
-          .eq('id', id)
-          .single();
-
-        if (subcategoryError || !data) {
-          throw new Error('Não foi possível encontrar esta subcategoria no Supabase.');
-        }
-
-        let nextCountryName = '';
-        let nextProvinceName = '';
-
-        if (country && province) {
-          const { data: provinceData, error: provinceError } = await supabase
-            .from('provinces')
-            .select('id, name, country_id')
-            .eq('id', province)
-            .eq('country_id', country)
+        const { data: subcategoryData, error: subcategoryError } =
+          await supabase
+            .from('subcategories')
+            .select('id, name, description, category_id')
+            .eq('id', id)
             .single();
 
-          if (provinceError || !provinceData) {
-            throw new Error('A província não pertence ao país selecionado.');
-          }
+        if (subcategoryError) throw subcategoryError;
 
-          const { data: countryData } = await supabase
+        let foundCountryName = '';
+        let foundProvinceName = '';
+
+        if (country) {
+          const { data } = await supabase
             .from('countries')
             .select('id, name')
             .eq('id', country)
-            .single();
+            .maybeSingle();
 
-          nextCountryName = countryData?.name || '';
-          nextProvinceName = provinceData.name || '';
+          foundCountryName = data?.name || '';
         }
 
-        if (!cancelled) {
-          setSubcategory(data);
-          setCountryName(nextCountryName);
-          setProvinceName(nextProvinceName);
-        }
-      } catch (loadError) {
-        console.error('Erro em subcategory.js:', loadError);
-        if (!cancelled) setError(loadError.message || 'Ocorreu um erro ao carregar a subcategoria.');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
+        if (province) {
+          const { data } = await supabase
+            .from('provinces')
+            .select('id, name, country_id')
+            .eq('id', province)
+            .maybeSingle();
 
-    loadSubcategory();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [router.isReady, id, country, province]);
-
-  useEffect(() => {
-    if (!router.isReady || !id) return;
-
-    let cancelled = false;
-
-    async function loadBusinesses() {
-      setLoading(true);
-
-      try {
-        let request = supabase
-          .from('businesses')
-          .select('id, name, description, municipality, neighborhood, logo_url, whatsapp, phone, country_id, province_id, subcategory_id')
-          .eq('subcategory_id', id)
-          .eq('is_active', true)
-          .eq('approval_status', 'approved')
-          .order('created_at', { ascending: false });
-
-        if (country) request = request.eq('country_id', country);
-        if (province) request = request.eq('province_id', province);
-
-        if (query.trim()) {
-          request = request.ilike('name', `%${query.trim()}%`);
+          if (data && (!country || data.country_id === country)) {
+            foundProvinceName = data.name || '';
+          }
         }
 
-        if (municipality.trim()) {
-          request = request.ilike('municipality', `%${municipality.trim()}%`);
+        if (cancelled) return;
+
+        setSubcategory(subcategoryData);
+        setCountryName(foundCountryName);
+        setProvinceName(foundProvinceName);
+
+        // Sem país e província não mostramos negócios de outras regiões.
+        // A página da subcategoria continua acessível, sem redirecionar.
+        if (!country || !province) {
+          setBusinesses([]);
+          setPremiumBusinesses([]);
+          setLoading(false);
+          setPremiumLoading(false);
+          return;
         }
 
-        if (neighborhood.trim()) {
-          request = request.ilike('neighborhood', `%${neighborhood.trim()}%`);
-        }
+        const { data: businessData, error: businessError } =
+          await supabase
+            .from('businesses')
+            .select(
+              'id, name, description, municipality, neighborhood, logo_url, country_id, province_id, subcategory_id, is_active, approval_status'
+            )
+            .eq('country_id', country)
+            .eq('province_id', province)
+            .eq('subcategory_id', id)
+            .eq('is_active', true)
+            .eq('approval_status', 'approved')
+            .order('created_at', { ascending: false });
 
-        const { data, error: businessesError } = await request;
+        if (businessError) throw businessError;
 
-        if (businessesError) throw businessesError;
-        if (!cancelled) setBusinesses(data || []);
-      } catch (loadError) {
-        console.error('Erro ao carregar negócios:', loadError);
-        if (!cancelled) setBusinesses([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
+        if (cancelled) return;
 
-    loadBusinesses();
+        setBusinesses(businessData || []);
+        setLoading(false);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [router.isReady, id, country, province, query, municipality, neighborhood]);
-
-  useEffect(() => {
-    if (!router.isReady || !id) return;
-
-    let cancelled = false;
-
-    async function loadPremiumBusinesses() {
-      setPremiumLoading(true);
-
-      try {
+        // Procura subscrições ativas e dentro do período contratado.
         const now = new Date().toISOString();
 
-        const { data: subscriptions, error: subscriptionError } = await supabase
-          .from('business_subscriptions')
-          .select('business_id, starts_at, ends_at, status')
-          .eq('status', 'active')
-          .lte('starts_at', now)
-          .gte('ends_at', now);
+        const { data: subscriptions, error: subscriptionError } =
+          await supabase
+            .from('business_subscriptions')
+            .select('business_id, starts_at, ends_at, status')
+            .eq('status', 'active')
+            .lte('starts_at', now)
+            .gte('ends_at', now);
 
-        if (subscriptionError) throw subscriptionError;
+        if (subscriptionError) {
+          console.error(
+            'Não foi possível carregar subscrições Premium:',
+            subscriptionError
+          );
 
-        const businessIds = [
-          ...new Set((subscriptions || [])
-            .map((subscription) => subscription.business_id)
-            .filter(Boolean)),
-        ];
-
-        if (!businessIds.length) {
           if (!cancelled) setPremiumBusinesses([]);
           return;
         }
 
-        let request = supabase
-          .from('businesses')
-          .select('id, name, description, municipality, neighborhood, logo_url, whatsapp, phone, country_id, province_id, subcategory_id')
-          .in('id', businessIds)
-          .eq('subcategory_id', id)
-          .eq('is_active', true)
-          .eq('approval_status', 'approved');
+        const eligibleIds = new Set(
+          (subscriptions || [])
+            .map((subscription) => subscription.business_id)
+            .filter(Boolean)
+        );
 
-        if (country) request = request.eq('country_id', country);
-        if (province) request = request.eq('province_id', province);
-
-        const { data, error: premiumError } = await request;
-
-        if (premiumError) throw premiumError;
+        const premium = (businessData || []).filter((business) =>
+          eligibleIds.has(business.id)
+        );
 
         if (!cancelled) {
-          setPremiumBusinesses(data || []);
-          setPremiumIndex(0);
+          setPremiumBusinesses(premium);
         }
-      } catch (loadError) {
-        console.error('Erro ao carregar Destaques Premium:', loadError);
-        if (!cancelled) setPremiumBusinesses([]);
+      } catch (err) {
+        console.error('Erro ao carregar subcategoria:', err);
+
+        if (!cancelled) {
+          setError(
+            'Não foi possível carregar esta subcategoria. Tenta novamente.'
+          );
+        }
       } finally {
-        if (!cancelled) setPremiumLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setPremiumLoading(false);
+        }
       }
     }
 
-    loadPremiumBusinesses();
+    loadPage();
 
     return () => {
       cancelled = true;
@@ -259,215 +209,291 @@ export default function Subcategory() {
   }, [router.isReady, id, country, province]);
 
   useEffect(() => {
-    if (typeof document === 'undefined') return undefined;
+    if (!premiumOpen) return;
 
-    document.body.style.overflow = premiumOpen ? 'hidden' : '';
-
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [premiumOpen]);
-
-  useEffect(() => {
-    if (!premiumOpen) return undefined;
-
-    function handleKeyDown(event) {
+    function onKeyDown(event) {
       if (event.key === 'Escape') setPremiumOpen(false);
 
       if (event.key === 'ArrowRight') {
-        setPremiumIndex((current) => (
-          current >= premiumBusinesses.length - 1 ? 0 : current + 1
-        ));
+        setPremiumIndex((current) =>
+          premiumBusinesses.length
+            ? (current + 1) % premiumBusinesses.length
+            : 0
+        );
       }
 
       if (event.key === 'ArrowLeft') {
-        setPremiumIndex((current) => (
-          current <= 0 ? premiumBusinesses.length - 1 : current - 1
-        ));
+        setPremiumIndex((current) =>
+          premiumBusinesses.length
+            ? (current - 1 + premiumBusinesses.length) %
+              premiumBusinesses.length
+            : 0
+        );
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', onKeyDown);
 
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, [premiumOpen, premiumBusinesses.length]);
 
-  function openPremiumFeed(index) {
+  const filteredBusinesses = useMemo(() => {
+    const term = cleanText(search).toLocaleLowerCase('pt-AO');
+    const selectedMunicipality = cleanText(municipality).toLocaleLowerCase(
+      'pt-AO'
+    );
+    const selectedNeighborhood = cleanText(neighborhood).toLocaleLowerCase(
+      'pt-AO'
+    );
+
+    return businesses.filter((business) => {
+      const name = cleanText(business.name).toLocaleLowerCase('pt-AO');
+      const description = cleanText(business.description).toLocaleLowerCase(
+        'pt-AO'
+      );
+      const businessMunicipality = cleanText(
+        business.municipality
+      ).toLocaleLowerCase('pt-AO');
+      const businessNeighborhood = cleanText(
+        business.neighborhood
+      ).toLocaleLowerCase('pt-AO');
+
+      const matchesSearch =
+        !term || name.includes(term) || description.includes(term);
+
+      const matchesMunicipality =
+        !selectedMunicipality ||
+        businessMunicipality.includes(selectedMunicipality);
+
+      const matchesNeighborhood =
+        !selectedNeighborhood ||
+        businessNeighborhood.includes(selectedNeighborhood);
+
+      return (
+        matchesSearch && matchesMunicipality && matchesNeighborhood
+      );
+    });
+  }, [businesses, search, municipality, neighborhood]);
+
+  const premiumIds = useMemo(
+    () => new Set(premiumBusinesses.map((business) => business.id)),
+    [premiumBusinesses]
+  );
+
+  const currentPremium = premiumBusinesses[premiumIndex] || null;
+
+  function openPremium(index) {
     setPremiumIndex(index);
     setPremiumOpen(true);
   }
 
-  function nextPremium() {
+  function movePremium(direction) {
     if (!premiumBusinesses.length) return;
-    setPremiumIndex((current) => (
-      current >= premiumBusinesses.length - 1 ? 0 : current + 1
-    ));
+
+    setPremiumIndex(
+      (current) =>
+        (current + direction + premiumBusinesses.length) %
+        premiumBusinesses.length
+    );
   }
 
-  function previousPremium() {
-    if (!premiumBusinesses.length) return;
-    setPremiumIndex((current) => (
-      current <= 0 ? premiumBusinesses.length - 1 : current - 1
-    ));
-  }
+  function getBackHref() {
+    const params = new URLSearchParams();
 
-  const currentPremium = premiumBusinesses[premiumIndex];
-  const locationText = [countryName, provinceName].filter(Boolean).join(' · ');
-  const categoryHref = {
-    pathname: '/category',
-    query: {
-      ...(subcategory?.category_id ? { id: subcategory.category_id } : {}),
-      ...(country ? { country } : {}),
-      ...(province ? { province } : {}),
-    },
-  };
+    if (country) params.set('country', country);
+    if (province) params.set('province', province);
+
+    return `/explore${params.toString() ? `?${params.toString()}` : ''}`;
+  }
 
   return (
     <>
       <Head>
-        <title>{subcategory?.name ? `${subcategory.name} | Talaza` : 'Talaza'}</title>
-        <meta name="description" content="Encontre negócios e serviços na Vitrine Talaza." />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
-          rel="stylesheet"
+        <title>
+          {subcategory?.name
+            ? `${subcategory.name} | Talaza`
+            : 'Subcategoria | Talaza'}
+        </title>
+        <meta
+          name="description"
+          content="Encontra negócios e serviços na Vitrine Talaza."
         />
       </Head>
 
-      <div className="sub-page">
+      <main className="page">
         <header className="topbar">
-          <div className="topbar-inner">
-            <Link
-              href={{
-                pathname: '/explore',
-                query: {
-                  ...(country ? { country } : {}),
-                  ...(province ? { province } : {}),
-                },
-              }}
-              className="brand"
-            >
-              <span className="brand-mark">T</span>
-              <span>Talaza</span>
-            </Link>
+          <Link href={getBackHref()} className="brand">
+            <span className="brandMark">T</span>
+            <span>talaza</span>
+          </Link>
 
-            <Link href={categoryHref} className="back-button">
-              <span aria-hidden="true">←</span> Categoria
-            </Link>
-          </div>
-
-          {locationText && (
-            <div className="location-line">
-              <span>●</span> {locationText}
-            </div>
-          )}
+          <Link href={getBackHref()} className="backLink">
+            ← Voltar à Vitrine
+          </Link>
         </header>
 
-        <main className="main-content">
-          {loading && !subcategory && (
-            <div className="status-card">A carregar subcategoria…</div>
+        <section className="hero">
+          <span className="eyebrow">VITRINE TALAZA</span>
+
+          <h1>
+            {loading
+              ? 'A carregar…'
+              : cleanText(subcategory?.name) || 'Subcategoria'}
+          </h1>
+
+          {subcategory?.description && (
+            <p className="description">{subcategory.description}</p>
           )}
 
-          {error && (
-            <div className="error-card">
-              <strong>Não foi possível abrir esta subcategoria.</strong>
-              <p>{error}</p>
-              <Link href={categoryHref} className="primary-button">Voltar à categoria</Link>
+          {(countryName || provinceName) && (
+            <div className="location">
+              {countryName && <span>{countryName}</span>}
+              {provinceName && <span>• {provinceName}</span>}
             </div>
           )}
+        </section>
 
-          {!error && subcategory && (
+        <section className="content">
+          {!country || !province ? (
+            <div className="notice">
+              <strong>Escolhe a tua localização.</strong>
+              <p>
+                Para mostrar apenas negócios da tua região, abre a Vitrine
+                com o país e a província selecionados.
+              </p>
+              <Link href="/country" className="primaryButton">
+                Selecionar país
+              </Link>
+            </div>
+          ) : (
             <>
-              <section className="intro">
-                <span className="eyebrow">VITRINE TALAZA</span>
-                <h1>{subcategory.name}</h1>
-                {subcategory.description && <p>{subcategory.description}</p>}
-              </section>
+              <section className="searchPanel">
+                <label className="searchLabel" htmlFor="business-search">
+                  O que procuras?
+                </label>
 
-              <section className="search-section" aria-label="Pesquisar negócios">
-                <div className="search-box">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.faint} strokeWidth="2">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m16 16 5 5" />
-                  </svg>
+                <div className="searchRow">
+                  <span className="searchIcon" aria-hidden="true">
+                    ⌕
+                  </span>
 
                   <input
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Pesquisar por nome…"
-                    aria-label="Pesquisar por nome"
+                    id="business-search"
+                    type="search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Pesquisar negócios nesta subcategoria…"
                   />
 
                   <button
                     type="button"
-                    className="filter-toggle"
-                    onClick={() => setShowMoreFilters((value) => !value)}
-                    aria-expanded={showMoreFilters}
+                    className="filterToggle"
+                    onClick={() => setShowFilters((value) => !value)}
+                    aria-expanded={showFilters}
                   >
-                    {showMoreFilters ? 'Fechar filtros' : 'Filtros'}
+                    <span aria-hidden="true">☷</span>
+                    Filtros
                   </button>
                 </div>
 
-                {showMoreFilters && (
-                  <div className="extra-filters">
-                    <input
-                      value={municipality}
-                      onChange={(event) => setMunicipality(event.target.value)}
-                      placeholder="Município"
-                      aria-label="Filtrar por município"
-                    />
-                    <input
-                      value={neighborhood}
-                      onChange={(event) => setNeighborhood(event.target.value)}
-                      placeholder="Bairro"
-                      aria-label="Filtrar por bairro"
-                    />
+                {showFilters && (
+                  <div className="filters">
+                    <label>
+                      Município
+                      <input
+                        value={municipality}
+                        onChange={(event) =>
+                          setMunicipality(event.target.value)
+                        }
+                        placeholder="Ex.: Maianga"
+                      />
+                    </label>
+
+                    <label>
+                      Bairro
+                      <input
+                        value={neighborhood}
+                        onChange={(event) =>
+                          setNeighborhood(event.target.value)
+                        }
+                        placeholder="Ex.: Alvalade"
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      className="clearFilters"
+                      onClick={() => {
+                        setMunicipality('');
+                        setNeighborhood('');
+                        setSearch('');
+                      }}
+                    >
+                      Limpar filtros
+                    </button>
                   </div>
                 )}
               </section>
 
-              <section className="premium-section">
-                <div className="section-heading">
+              <section className="premiumSection">
+                <div className="sectionHeading">
                   <div>
-                    <span className="section-kicker">EM DESTAQUE</span>
-                    <h2><span className="crown">♛</span> Destaques Premium</h2>
+                    <span className="premiumEyebrow">DESTAQUES</span>
+                    <h2>Premium</h2>
+                    <p>Negócios com subscrição Premium ativa.</p>
                   </div>
+
                   {premiumBusinesses.length > 0 && (
-                    <span className="swipe-hint">Toque para ver</span>
+                    <span className="premiumCount">
+                      {premiumBusinesses.length}
+                    </span>
                   )}
                 </div>
 
-                {premiumLoading && <p className="subtle-text">A carregar destaques…</p>}
-
-                {!premiumLoading && premiumBusinesses.length === 0 && (
-                  <div className="notice-card">
-                    Ainda não existem Destaques Premium ativos nesta subcategoria.
+                {premiumLoading ? (
+                  <div className="message">A carregar destaques…</div>
+                ) : premiumBusinesses.length === 0 ? (
+                  <div className="emptyPremium">
+                    <span className="emptyPremiumMark">✦</span>
+                    <div>
+                      <strong>Novos destaques em breve</strong>
+                      <p>
+                        Ainda não há negócios Premium ativos nesta
+                        subcategoria e localização.
+                      </p>
+                    </div>
                   </div>
-                )}
-
-                {!premiumLoading && premiumBusinesses.length > 0 && (
-                  <div className="premium-list">
+                ) : (
+                  <div className="premiumGrid">
                     {premiumBusinesses.map((business, index) => (
                       <button
                         type="button"
+                        className="premiumCard"
                         key={business.id}
-                        className="premium-card"
-                        onClick={() => openPremiumFeed(index)}
+                        onClick={() => openPremium(index)}
                       >
-                        <div
-                          className="premium-image"
-                          style={{
-                            backgroundColor: getHue(index),
-                            backgroundImage: business.logo_url
-                              ? `url("${business.logo_url}")`
-                              : 'none',
-                          }}
-                        >
-                          {!business.logo_url && (
-                            <span className="premium-initials">{getInitials(business.name)}</span>
+                        <div className="premiumImage">
+                          {business.logo_url ? (
+                            <img
+                              src={business.logo_url}
+                              alt=""
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span>{getInitials(business.name)}</span>
                           )}
-                          <span className="premium-label">♛ Premium</span>
-                          <span className="premium-name">{business.name}</span>
+
+                          <span className="premiumBadge">✦ Premium</span>
+                        </div>
+
+                        <div className="premiumCardText">
+                          <h3>{business.name}</h3>
+                          <p>
+                            {cleanText(business.municipality) ||
+                              cleanText(business.neighborhood) ||
+                              'Na tua província'}
+                          </p>
+                          <span>Ver destaque →</span>
                         </div>
                       </button>
                     ))}
@@ -475,87 +501,114 @@ export default function Subcategory() {
                 )}
               </section>
 
-              <section className="business-section">
-                <div className="section-heading">
+              <section className="businessSection">
+                <div className="sectionHeading">
                   <div>
-                    <span className="section-kicker">DESCUBRA</span>
-                    <h2>Encontre aqui</h2>
+                    <h2>Todos os negócios</h2>
+                    <p>
+                      Negócios aprovados e ativos nesta subcategoria.
+                    </p>
                   </div>
-                  {provinceName && <span className="province-label">{provinceName}</span>}
+
+                  {!loading && (
+                    <span className="resultCount">
+                      {filteredBusinesses.length}{' '}
+                      {filteredBusinesses.length === 1
+                        ? 'resultado'
+                        : 'resultados'}
+                    </span>
+                  )}
                 </div>
 
-                {loading && <div className="notice-card">A carregar negócios…</div>}
+                {loading && (
+                  <div className="message">A carregar negócios…</div>
+                )}
 
-                {!loading && businesses.length === 0 && (
-                  <div className="empty-card">
-                    <div className="empty-symbol">⌕</div>
-                    <h3>Nenhum negócio encontrado</h3>
-                    <p>
-                      {query || municipality || neighborhood
-                        ? 'Experimente alterar a pesquisa ou retirar algum filtro.'
-                        : 'Ainda não há negócios aprovados nesta subcategoria e região.'}
-                    </p>
-                    {(query || municipality || neighborhood) && (
+                {!loading && error && (
+                  <div className="message error">
+                    <p>{error}</p>
+                    <button
+                      type="button"
+                      onClick={() => router.replace(router.asPath)}
+                    >
+                      Tentar novamente
+                    </button>
+                  </div>
+                )}
+
+                {!loading &&
+                  !error &&
+                  filteredBusinesses.length === 0 && (
+                    <div className="emptyState">
+                      <span className="emptyIcon">⌕</span>
+                      <h3>Nenhum negócio encontrado</h3>
+                      <p>
+                        Experimenta outra pesquisa ou limpa os filtros.
+                      </p>
                       <button
                         type="button"
-                        className="clear-button"
                         onClick={() => {
-                          setQuery('');
+                          setSearch('');
                           setMunicipality('');
                           setNeighborhood('');
                         }}
                       >
                         Limpar pesquisa
                       </button>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
 
-                {!loading && businesses.length > 0 && (
-                  <div className="business-grid">
-                    {businesses.map((business, index) => (
+                {!loading && !error && filteredBusinesses.length > 0 && (
+                  <div className="businessGrid">
+                    {filteredBusinesses.map((business) => (
                       <Link
-                        key={business.id}
-                        href={{
-                          pathname: `/businesses/${business.id}`,
-                          query: {
-                            ...(country ? { country } : {}),
-                            ...(province ? { province } : {}),
-                          },
-                        }}
-                        className="business-card"
-                      >
-                        {business.logo_url ? (
-                          <img
-                            className="business-image"
-                            src={business.logo_url}
-                            alt={business.name}
-                          />
-                        ) : (
-                          <div
-                            className="business-image business-placeholder"
-                            style={{ backgroundColor: getHue(index) }}
-                          >
-                            {getInitials(business.name)}
-                          </div>
+                        href={makeBusinessHref(
+                          business.id,
+                          country,
+                          province
                         )}
-
-                        <div className="business-details">
-                          <h3>{business.name}</h3>
-
-                          {(business.neighborhood || business.municipality) && (
-                            <p className="business-location">
-                              {[business.neighborhood, business.municipality]
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </p>
+                        key={business.id}
+                        className="businessCard"
+                      >
+                        <div className="businessAvatar">
+                          {business.logo_url ? (
+                            <img
+                              src={business.logo_url}
+                              alt=""
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span>{getInitials(business.name)}</span>
                           )}
+                        </div>
 
-                          {business.description && (
-                            <p className="business-description">{business.description}</p>
-                          )}
+                        <div className="businessInfo">
+                          <div className="businessTitleRow">
+                            <h3>{business.name}</h3>
 
-                          <span className="profile-link">Ver perfil <span>→</span></span>
+                            {premiumIds.has(business.id) && (
+                              <span className="smallPremium">✦</span>
+                            )}
+                          </div>
+
+                          <p className="businessDescription">
+                            {cleanText(business.description) ||
+                              'Conhece os serviços deste negócio.'}
+                          </p>
+
+                          <div className="businessLocation">
+                            {business.municipality && (
+                              <span>{business.municipality}</span>
+                            )}
+
+                            {business.neighborhood && (
+                              <span>• {business.neighborhood}</span>
+                            )}
+                          </div>
+
+                          <span className="profileLink">
+                            Ver perfil →
+                          </span>
                         </div>
                       </Link>
                     ))}
@@ -564,560 +617,828 @@ export default function Subcategory() {
               </section>
             </>
           )}
-        </main>
-      </div>
+        </section>
 
-      {premiumOpen && currentPremium && (
-        <div className="feed-overlay" role="dialog" aria-modal="true" aria-label="Destaques Premium">
-          <div className="feed-top">
-            <button type="button" className="feed-back" onClick={() => setPremiumOpen(false)}>
-              ← Voltar
+        <footer className="footer">
+          <span>Talaza</span>
+          <span>Descobre. Compara. Encontra.</span>
+        </footer>
+
+        {premiumOpen && currentPremium && (
+          <div
+            className="premiumOverlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Destaques Premium"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) {
+                setPremiumOpen(false);
+              }
+            }}
+          >
+            <button
+              type="button"
+              className="closeFeed"
+              onClick={() => setPremiumOpen(false)}
+              aria-label="Fechar destaques"
+            >
+              ×
             </button>
-            <span className="feed-title">♛ DESTAQUE PREMIUM</span>
-            <span className="feed-count">{premiumIndex + 1}/{premiumBusinesses.length}</span>
-          </div>
 
-          <div className="feed-media">
-            {currentPremium.logo_url ? (
-              <img src={currentPremium.logo_url} alt={currentPremium.name} />
-            ) : (
-              <div
-                className="feed-placeholder"
-                style={{ backgroundColor: getHue(premiumIndex) }}
+            {premiumBusinesses.length > 1 && (
+              <button
+                type="button"
+                className="feedArrow feedArrowLeft"
+                onClick={() => movePremium(-1)}
+                aria-label="Destaque anterior"
               >
-                {getInitials(currentPremium.name)}
-              </div>
+                ‹
+              </button>
             )}
 
-            <div className="feed-shade" />
+            <article className="feedCard">
+              <div className="feedVisual">
+                {currentPremium.logo_url ? (
+                  <img src={currentPremium.logo_url} alt="" />
+                ) : (
+                  <span>{getInitials(currentPremium.name)}</span>
+                )}
 
-            <div className="feed-details">
-              <span className="feed-badge">♛ Destaque Premium</span>
-              <h2>{currentPremium.name}</h2>
+                <span className="feedPremiumBadge">✦ Premium</span>
+              </div>
 
-              {currentPremium.description && <p>{currentPremium.description}</p>}
+              <div className="feedDetails">
+                <span className="feedCounter">
+                  {premiumIndex + 1} / {premiumBusinesses.length}
+                </span>
 
-              {(currentPremium.neighborhood || currentPremium.municipality) && (
-                <p className="feed-location">
-                  {[currentPremium.neighborhood, currentPremium.municipality]
-                    .filter(Boolean)
-                    .join(' · ')}
+                <h2>{currentPremium.name}</h2>
+
+                <p>
+                  {cleanText(currentPremium.description) ||
+                    'Conhece este negócio na Vitrine Talaza.'}
                 </p>
-              )}
 
-              <div className="feed-actions">
-                <a
-                  className={`sms-button${!(currentPremium.phone || currentPremium.whatsapp) ? ' disabled' : ''}`}
-                  href={
-                    currentPremium.phone
-                      ? `sms:${currentPremium.phone}`
-                      : currentPremium.whatsapp
-                        ? `https://wa.me/${String(currentPremium.whatsapp).replace(/\D/g, '')}`
-                        : undefined
-                  }
-                  onClick={(event) => {
-                    if (!(currentPremium.phone || currentPremium.whatsapp)) event.preventDefault();
-                  }}
-                >
-                  {currentPremium.phone ? 'Enviar SMS' : 'Contactar'}
-                </a>
+                <div className="feedLocation">
+                  {[currentPremium.municipality, currentPremium.neighborhood]
+                    .filter(Boolean)
+                    .join(' • ') || provinceName || 'Talaza'}
+                </div>
 
                 <Link
-                  className="profile-button"
-                  href={{
-                    pathname: `/businesses/${currentPremium.id}`,
-                    query: {
-                      ...(country ? { country } : {}),
-                      ...(province ? { province } : {}),
-                    },
-                  }}
+                  href={makeBusinessHref(
+                    currentPremium.id,
+                    country,
+                    province
+                  )}
+                  className="viewProfileButton"
                 >
                   Ver perfil
                 </Link>
               </div>
-            </div>
+            </article>
 
             {premiumBusinesses.length > 1 && (
-              <>
-                <button type="button" className="feed-arrow feed-prev" onClick={previousPremium} aria-label="Destaque anterior">‹</button>
-                <button type="button" className="feed-arrow feed-next" onClick={nextPremium} aria-label="Próximo destaque">›</button>
-              </>
+              <button
+                type="button"
+                className="feedArrow feedArrowRight"
+                onClick={() => movePremium(1)}
+                aria-label="Próximo destaque"
+              >
+                ›
+              </button>
             )}
           </div>
-
-          {premiumBusinesses.length > 1 && (
-            <div className="feed-dots">
-              {premiumBusinesses.map((business, index) => (
-                <button
-                  type="button"
-                  key={business.id}
-                  onClick={() => setPremiumIndex(index)}
-                  className={index === premiumIndex ? 'active' : ''}
-                  aria-label={`Ver destaque ${index + 1}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </main>
 
       <style jsx>{`
-        .sub-page {
+        .page {
           min-height: 100vh;
-          background: ${C.canvas};
-          color: ${C.ink};
-          font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-          padding-bottom: 45px;
+          background: ${COLORS.canvas};
+          color: ${COLORS.ink};
+          font-family: Arial, Helvetica, sans-serif;
         }
-        .sub-page * { box-sizing: border-box; }
+
         .topbar {
-          padding: 17px 20px 14px;
-          background: ${C.deep};
-          color: ${C.white};
-        }
-        .topbar-inner {
-          max-width: 1080px;
-          margin: 0 auto;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 15px;
+          gap: 16px;
+          padding: 17px max(5%, calc((100% - 1160px) / 2));
+          background: ${COLORS.white};
+          border-bottom: 1px solid ${COLORS.line};
         }
+
         .brand {
-          display: inline-flex;
+          display: flex;
           align-items: center;
           gap: 9px;
-          color: white;
-          text-decoration: none;
-          font-size: 19px;
+          color: ${COLORS.darkGreen};
+          font-size: 23px;
           font-weight: 800;
+          text-decoration: none;
         }
-        .brand-mark {
+
+        .brandMark {
           display: grid;
           place-items: center;
           width: 34px;
           height: 34px;
-          border-radius: 10px;
-          background: ${C.gold};
-          color: ${C.deep};
-          font-family: Georgia, serif;
-          font-size: 19px;
-          font-weight: 900;
-        }
-        .back-button {
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          padding: 9px 12px;
-          border: 1px solid rgba(255,255,255,.2);
-          border-radius: 99px;
+          border-radius: 11px;
+          background: ${COLORS.green};
           color: white;
+        }
+
+        .backLink {
+          color: ${COLORS.green};
+          font-size: 13px;
+          font-weight: 700;
           text-decoration: none;
+        }
+
+        .hero {
+          padding: 42px max(5%, calc((100% - 1160px) / 2));
+          background: ${COLORS.darkGreen};
+          color: white;
+        }
+
+        .eyebrow,
+        .premiumEyebrow {
+          color: #EBCB78;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 2px;
+        }
+
+        .hero h1 {
+          margin: 12px 0 9px;
+          font-size: clamp(27px, 4vw, 40px);
+          line-height: 1.15;
+          letter-spacing: -1px;
+        }
+
+        .description {
+          max-width: 680px;
+          margin: 0;
+          color: #E1EAE6;
+          font-size: 14px;
+          line-height: 1.7;
+        }
+
+        .location {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 15px;
+          color: #EBCB78;
           font-size: 12px;
           font-weight: 700;
-          background: rgba(255,255,255,.07);
         }
-        .location-line {
-          max-width: 1080px;
-          margin: 12px auto 0;
-          color: rgba(255,255,255,.76);
-          font-size: 12px;
+
+        .content {
+          max-width: 1160px;
+          margin: 0 auto;
+          padding: 30px 24px 54px;
         }
-        .location-line span { color: ${C.gold}; margin-right: 5px; }
-        .main-content { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
-        .intro { padding: 27px 0 4px; }
-        .eyebrow, .section-kicker {
+
+        .searchPanel {
+          margin-bottom: 36px;
+          padding: 20px;
+          border: 1px solid ${COLORS.line};
+          border-radius: 17px;
+          background: white;
+        }
+
+        .searchLabel {
           display: block;
-          color: ${C.purple};
-          font-size: 10px;
-          font-weight: 900;
-          letter-spacing: .14em;
-        }
-        .intro h1 {
-          margin: 8px 0 0;
-          font-family: 'Fraunces', Georgia, serif;
-          font-size: clamp(29px, 5vw, 40px);
-          line-height: 1.08;
-          letter-spacing: -.035em;
-        }
-        .intro p {
-          max-width: 620px;
-          margin: 9px 0 0;
-          color: ${C.muted};
+          margin-bottom: 10px;
           font-size: 13px;
-          line-height: 1.65;
+          font-weight: 800;
         }
-        .search-section { margin-top: 19px; }
-        .search-box {
+
+        .searchRow {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 11px 13px;
-          border: 1px solid ${C.line};
-          border-radius: 14px;
-          background: white;
-          box-shadow: 0 5px 18px rgba(23,33,31,.03);
-        }
-        .search-box input {
           min-width: 0;
+        }
+
+        .searchIcon {
+          color: ${COLORS.green};
+          font-size: 27px;
+        }
+
+        .searchRow input {
           flex: 1;
-          border: 0;
-          outline: 0;
-          background: transparent;
-          color: ${C.ink};
-          font: inherit;
-          font-size: 13px;
-        }
-        .filter-toggle {
-          flex-shrink: 0;
-          border: 0;
-          background: ${C.purpleSoft};
-          color: ${C.purple};
-          border-radius: 9px;
-          padding: 8px 10px;
-          font-size: 11px;
-          font-weight: 800;
-          cursor: pointer;
-        }
-        .extra-filters {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 9px;
-          margin-top: 9px;
-        }
-        .extra-filters input {
-          width: 100%;
           min-width: 0;
-          padding: 11px 12px;
-          border: 1px solid ${C.line};
-          border-radius: 11px;
-          background: white;
-          color: ${C.ink};
-          outline-color: ${C.purple};
-          font: inherit;
-          font-size: 12px;
-        }
-        .premium-section, .business-section { margin-top: 29px; }
-        .section-heading {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 12px;
-          margin-bottom: 13px;
-        }
-        .section-heading h2 {
-          margin: 5px 0 0;
-          font-family: 'Fraunces', Georgia, serif;
-          font-size: 21px;
-          font-weight: 600;
-          letter-spacing: -.025em;
-        }
-        .crown { color: ${C.purple}; }
-        .swipe-hint, .province-label { color: ${C.muted}; font-size: 11px; }
-        .premium-list {
-          display: flex;
-          gap: 12px;
-          overflow-x: auto;
-          padding: 2px 2px 9px;
-          scrollbar-width: thin;
-        }
-        .premium-card {
-          flex: 0 0 132px;
-          width: 132px;
-          padding: 0;
+          padding: 13px 5px;
           border: 0;
-          border-radius: 16px;
-          background: transparent;
-          text-align: left;
+          outline: none;
+          color: ${COLORS.ink};
+          font-size: 14px;
+        }
+
+        .filterToggle {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          padding: 11px 14px;
+          border: 1px solid #E2D9F5;
+          border-radius: 10px;
+          background: ${COLORS.purpleSoft};
+          color: ${COLORS.purple};
+          font-size: 12px;
+          font-weight: 800;
           cursor: pointer;
         }
-        .premium-image {
-          position: relative;
-          display: flex;
-          align-items: flex-end;
-          justify-content: center;
-          width: 132px;
-          height: 154px;
-          overflow: hidden;
-          border-radius: 16px;
-          background-position: center;
-          background-size: cover;
-          color: white;
-          box-shadow: 0 6px 18px rgba(23,33,31,.12);
+
+        .filters {
+          display: grid;
+          grid-template-columns: 1fr 1fr auto;
+          align-items: end;
+          gap: 12px;
+          margin-top: 16px;
+          padding-top: 16px;
+          border-top: 1px solid ${COLORS.line};
         }
-        .premium-image::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(180deg, transparent 35%, rgba(0,0,0,.72));
-        }
-        .premium-initials { align-self: center; font-family: Georgia, serif; font-size: 34px; font-weight: 800; }
-        .premium-label {
-          position: absolute;
-          z-index: 1;
-          top: 8px;
-          left: 8px;
-          padding: 5px 7px;
-          border-radius: 99px;
-          background: ${C.purple};
-          color: white;
-          font-size: 9px;
-          font-weight: 800;
-        }
-        .premium-name {
-          position: relative;
-          z-index: 1;
-          width: 100%;
-          padding: 12px 9px;
+
+        .filters label {
+          display: grid;
+          gap: 7px;
+          color: ${COLORS.muted};
           font-size: 12px;
-          font-weight: 800;
-          line-height: 1.3;
+          font-weight: 700;
         }
-        .notice-card, .status-card, .empty-card, .error-card {
-          padding: 18px;
-          border: 1px solid ${C.line};
-          border-radius: 15px;
-          background: white;
-          color: ${C.muted};
-          font-size: 12.5px;
+
+        .filters input {
+          width: 100%;
+          box-sizing: border-box;
+          padding: 11px;
+          border: 1px solid ${COLORS.line};
+          border-radius: 9px;
+          outline-color: ${COLORS.purple};
+          color: ${COLORS.ink};
+        }
+
+        .clearFilters {
+          padding: 11px 12px;
+          border: 0;
+          border-radius: 9px;
+          background: #F1F2F0;
+          color: ${COLORS.muted};
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .sectionHeading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 18px;
+        }
+
+        .sectionHeading h2 {
+          margin: 5px 0;
+          font-size: 22px;
+          letter-spacing: -0.5px;
+        }
+
+        .sectionHeading p {
+          margin: 0;
+          color: ${COLORS.muted};
+          font-size: 12px;
           line-height: 1.6;
         }
-        .subtle-text { color: ${C.muted}; font-size: 12px; }
-        .business-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
-          gap: 11px;
+
+        .premiumEyebrow {
+          color: ${COLORS.gold};
         }
-        .business-card {
+
+        .premiumCount,
+        .resultCount {
+          flex-shrink: 0;
+          padding: 8px 11px;
+          border-radius: 20px;
+          background: ${COLORS.purpleSoft};
+          color: ${COLORS.purple};
+          font-size: 12px;
+          font-weight: 800;
+        }
+
+        .premiumSection {
+          margin-bottom: 40px;
+        }
+
+        .premiumGrid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 15px;
+        }
+
+        .premiumCard {
+          overflow: hidden;
+          padding: 0;
+          border: 1px solid #E8DDBB;
+          border-radius: 16px;
+          background: white;
+          text-align: left;
+          cursor: pointer;
+          transition: transform 0.18s, border-color 0.18s;
+        }
+
+        .premiumCard:hover {
+          transform: translateY(-2px);
+          border-color: ${COLORS.gold};
+        }
+
+        .premiumImage {
+          position: relative;
+          display: grid;
+          place-items: center;
+          height: 150px;
+          overflow: hidden;
+          background: #F6F0E0;
+          color: #8B6505;
+          font-size: 38px;
+          font-weight: 800;
+        }
+
+        .premiumImage img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .premiumBadge,
+        .feedPremiumBadge {
+          position: absolute;
+          top: 11px;
+          left: 11px;
+          padding: 7px 9px;
+          border-radius: 8px;
+          background: ${COLORS.gold};
+          color: #302406;
+          font-size: 10px;
+          font-weight: 900;
+        }
+
+        .premiumCardText {
+          padding: 15px;
+        }
+
+        .premiumCardText h3 {
+          margin: 0 0 7px;
+          font-size: 15px;
+          line-height: 1.4;
+        }
+
+        .premiumCardText p {
+          margin: 0 0 12px;
+          color: ${COLORS.muted};
+          font-size: 12px;
+        }
+
+        .premiumCardText > span {
+          color: ${COLORS.green};
+          font-size: 12px;
+          font-weight: 800;
+        }
+
+        .emptyPremium {
           display: flex;
-          gap: 12px;
+          align-items: center;
+          gap: 13px;
+          padding: 19px;
+          border: 1px solid #E8DDBB;
+          border-radius: 14px;
+          background: #FFFCF4;
+        }
+
+        .emptyPremiumMark {
+          display: grid;
+          place-items: center;
+          width: 43px;
+          height: 43px;
+          flex-shrink: 0;
+          border-radius: 13px;
+          background: #FBF1D7;
+          color: #8B6505;
+          font-size: 22px;
+        }
+
+        .emptyPremium strong {
+          font-size: 13px;
+        }
+
+        .emptyPremium p {
+          margin: 5px 0 0;
+          color: ${COLORS.muted};
+          font-size: 12px;
+          line-height: 1.5;
+        }
+
+        .businessGrid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 13px;
+        }
+
+        .businessCard {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
           min-width: 0;
-          padding: 11px;
-          border: 1px solid ${C.line};
+          padding: 17px;
+          border: 1px solid ${COLORS.line};
           border-radius: 15px;
           background: white;
           color: inherit;
           text-decoration: none;
-          transition: border-color .18s ease, transform .18s ease;
+          transition: border-color 0.18s, transform 0.18s;
         }
-        .business-card:hover { border-color: ${C.purple}; transform: translateY(-2px); }
-        .business-image {
-          flex: 0 0 68px;
-          width: 68px;
-          height: 68px;
-          border-radius: 11px;
+
+        .businessCard:hover {
+          border-color: ${COLORS.green};
+          transform: translateY(-2px);
+        }
+
+        .businessAvatar {
+          display: grid;
+          place-items: center;
+          flex-shrink: 0;
+          width: 56px;
+          height: 56px;
+          overflow: hidden;
+          border-radius: 15px;
+          background: #E8F3F0;
+          color: ${COLORS.green};
+          font-size: 19px;
+          font-weight: 800;
+        }
+
+        .businessAvatar img {
+          width: 100%;
+          height: 100%;
           object-fit: cover;
         }
-        .business-placeholder {
-          display: grid;
-          place-items: center;
-          color: white;
-          font-family: Georgia, serif;
-          font-size: 22px;
-          font-weight: 800;
+
+        .businessInfo {
+          min-width: 0;
+          flex: 1;
         }
-        .business-details { min-width: 0; flex: 1; }
-        .business-details h3 {
-          margin: 1px 0 0;
-          font-size: 14px;
-          line-height: 1.35;
-          font-weight: 800;
+
+        .businessTitleRow {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+        }
+
+        .businessTitleRow h3 {
           overflow-wrap: anywhere;
-        }
-        .business-location {
-          margin: 4px 0 0;
-          color: ${C.muted};
-          font-size: 11px;
+          margin: 1px 0 7px;
+          font-size: 14px;
           line-height: 1.4;
         }
-        .business-description {
+
+        .smallPremium {
+          color: ${COLORS.gold};
+          font-size: 15px;
+        }
+
+        .businessDescription {
           display: -webkit-box;
+          overflow: hidden;
+          margin: 0 0 9px;
+          color: ${COLORS.muted};
+          font-size: 12px;
+          line-height: 1.5;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
-          overflow: hidden;
-          margin: 5px 0 0;
-          color: ${C.muted};
-          font-size: 11.5px;
-          line-height: 1.45;
         }
-        .profile-link {
+
+        .businessLocation {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          color: ${COLORS.faint};
+          font-size: 11px;
+        }
+
+        .profileLink {
           display: inline-block;
-          margin-top: 8px;
-          color: ${C.green};
+          margin-top: 11px;
+          color: ${COLORS.green};
+          font-size: 12px;
+          font-weight: 800;
+        }
+
+        .message,
+        .notice {
+          padding: 22px;
+          border: 1px solid ${COLORS.line};
+          border-radius: 14px;
+          background: white;
+          color: ${COLORS.muted};
+          font-size: 13px;
+          line-height: 1.7;
+        }
+
+        .error {
+          border-color: #F0C8CD;
+          color: #9C2F3C;
+        }
+
+        .error button,
+        .primaryButton,
+        .emptyState button {
+          display: inline-block;
+          padding: 10px 14px;
+          border: 0;
+          border-radius: 9px;
+          background: ${COLORS.green};
+          color: white;
+          font-size: 12px;
+          font-weight: 800;
+          text-decoration: none;
+          cursor: pointer;
+        }
+
+        .notice strong {
+          color: ${COLORS.ink};
+          font-size: 15px;
+        }
+
+        .notice p {
+          margin: 7px 0 15px;
+        }
+
+        .emptyState {
+          padding: 38px 20px;
+          border: 1px dashed #D7DEDA;
+          border-radius: 15px;
+          background: white;
+          text-align: center;
+        }
+
+        .emptyIcon {
+          display: inline-grid;
+          place-items: center;
+          width: 46px;
+          height: 46px;
+          border-radius: 15px;
+          background: ${COLORS.purpleSoft};
+          color: ${COLORS.purple};
+          font-size: 25px;
+        }
+
+        .emptyState h3 {
+          margin: 14px 0 7px;
+          font-size: 16px;
+        }
+
+        .emptyState p {
+          margin: 0 0 16px;
+          color: ${COLORS.muted};
+          font-size: 12px;
+        }
+
+        .footer {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 20px max(5%, calc((100% - 1160px) / 2));
+          border-top: 1px solid ${COLORS.line};
+          color: ${COLORS.muted};
+          font-size: 11px;
+        }
+
+        .premiumOverlay {
+          position: fixed;
+          z-index: 1000;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 14px;
+          padding: 24px;
+          background: rgba(4, 24, 20, 0.94);
+        }
+
+        .feedCard {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr);
+          width: min(900px, 100%);
+          max-height: 86vh;
+          overflow: auto;
+          border-radius: 20px;
+          background: white;
+        }
+
+        .feedVisual {
+          position: relative;
+          display: grid;
+          place-items: center;
+          min-height: 380px;
+          overflow: hidden;
+          background: #E8F3F0;
+          color: ${COLORS.green};
+          font-size: 55px;
+          font-weight: 800;
+        }
+
+        .feedVisual img {
+          width: 100%;
+          height: 100%;
+          min-height: 380px;
+          object-fit: cover;
+        }
+
+        .feedDetails {
+          align-self: center;
+          padding: 30px;
+        }
+
+        .feedCounter {
+          color: ${COLORS.purple};
           font-size: 11px;
           font-weight: 800;
         }
-        .empty-card { text-align: center; padding: 30px 20px; }
-        .empty-symbol {
-          display: grid;
-          place-items: center;
-          width: 50px;
-          height: 50px;
-          margin: 0 auto 12px;
-          border-radius: 16px;
-          background: ${C.purpleSoft};
-          color: ${C.purple};
-          font-size: 28px;
-        }
-        .empty-card h3 { margin: 0; color: ${C.ink}; font-size: 15px; }
-        .empty-card p { max-width: 400px; margin: 8px auto 14px; }
-        .clear-button {
-          border: 0;
-          border-radius: 10px;
-          padding: 10px 14px;
-          background: ${C.purpleSoft};
-          color: ${C.purple};
-          font-weight: 800;
-          cursor: pointer;
-        }
-        .error-card { background: #FFF5F4; border-color: #F3D0CC; color: ${C.red}; }
-        .error-card p { margin: 7px 0 12px; }
-        .primary-button {
-          display: inline-flex;
-          padding: 10px 13px;
-          border-radius: 10px;
-          background: ${C.green};
-          color: white;
-          text-decoration: none;
-          font-size: 12px;
-          font-weight: 800;
-        }
-        .feed-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 9999;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-          background: #080B0A;
-          color: white;
-        }
-        .feed-top {
-          position: absolute;
-          z-index: 4;
-          top: 0;
-          left: 0;
-          right: 0;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-          padding: 15px;
-          background: linear-gradient(to bottom, rgba(0,0,0,.7), transparent);
-        }
-        .feed-back {
-          padding: 9px 11px;
-          border: 1px solid rgba(255,255,255,.25);
-          border-radius: 10px;
-          background: rgba(0,0,0,.2);
-          color: white;
-          font-size: 12px;
-          font-weight: 800;
-          cursor: pointer;
-        }
-        .feed-title { font-size: 11px; font-weight: 900; letter-spacing: .07em; }
-        .feed-count { font-size: 11px; color: rgba(255,255,255,.8); }
-        .feed-media { position: relative; flex: 1; min-height: 0; display: grid; place-items: center; }
-        .feed-media > img, .feed-placeholder { width: 100%; height: 100%; object-fit: contain; }
-        .feed-placeholder {
-          display: grid;
-          place-items: center;
-          font-family: Georgia, serif;
-          font-size: clamp(60px, 15vw, 100px);
-          font-weight: 800;
-        }
-        .feed-shade {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(to top, rgba(0,0,0,.88), transparent 70%);
-          pointer-events: none;
-        }
-        .feed-details {
-          position: absolute;
-          z-index: 2;
-          right: 0;
-          bottom: 0;
-          left: 0;
-          padding: 28px 20px 38px;
-        }
-        .feed-badge {
-          display: inline-block;
-          padding: 6px 10px;
-          border-radius: 99px;
-          background: ${C.purple};
-          color: white;
-          font-size: 10px;
-          font-weight: 900;
-        }
-        .feed-details h2 {
-          margin: 12px 0;
-          font-family: 'Fraunces', Georgia, serif;
-          font-size: 27px;
-          line-height: 1.15;
-        }
-        .feed-details p { max-width: 650px; font-size: 13px; line-height: 1.55; }
-        .feed-location { color: rgba(255,255,255,.75); }
-        .feed-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 17px; }
-        .sms-button, .profile-button {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 12px 16px;
-          border-radius: 12px;
-          text-decoration: none;
-          font-size: 12px;
-          font-weight: 900;
-        }
-        .sms-button { background: ${C.gold}; color: ${C.deep}; }
-        .sms-button.disabled { opacity: .45; pointer-events: none; }
-        .profile-button { border: 1px solid rgba(255,255,255,.5); color: white; background: rgba(255,255,255,.1); }
-        .feed-arrow {
-          position: absolute;
-          z-index: 3;
-          top: 48%;
-          width: 40px;
-          height: 40px;
-          border: 1px solid rgba(255,255,255,.35);
-          border-radius: 50%;
-          background: rgba(0,0,0,.3);
-          color: white;
+
+        .feedDetails h2 {
+          margin: 13px 0;
           font-size: 26px;
-          cursor: pointer;
+          line-height: 1.2;
+          overflow-wrap: anywhere;
         }
-        .feed-prev { left: 10px; }
-        .feed-next { right: 10px; }
-        .feed-dots {
+
+        .feedDetails p {
+          color: ${COLORS.muted};
+          font-size: 13px;
+          line-height: 1.7;
+          white-space: pre-wrap;
+        }
+
+        .feedLocation {
+          margin: 14px 0 20px;
+          color: ${COLORS.faint};
+          font-size: 12px;
+        }
+
+        .viewProfileButton {
+          display: inline-block;
+          padding: 12px 17px;
+          border-radius: 10px;
+          background: ${COLORS.green};
+          color: white;
+          font-size: 12px;
+          font-weight: 800;
+          text-decoration: none;
+        }
+
+        .closeFeed {
           position: absolute;
-          z-index: 4;
-          bottom: 12px;
-          left: 0;
-          right: 0;
-          display: flex;
-          justify-content: center;
-          gap: 6px;
-        }
-        .feed-dots button {
-          width: 6px;
-          height: 6px;
-          padding: 0;
-          border: 0;
-          border-radius: 99px;
-          background: rgba(255,255,255,.45);
+          top: 17px;
+          right: 20px;
+          width: 42px;
+          height: 42px;
+          border: 1px solid rgba(255, 255, 255, 0.35);
+          border-radius: 50%;
+          background: transparent;
+          color: white;
+          font-size: 29px;
           cursor: pointer;
         }
-        .feed-dots button.active { width: 19px; background: ${C.gold}; }
-        @media (max-width: 540px) {
-          .topbar { padding-left: 14px; padding-right: 14px; }
-          .main-content { padding-left: 14px; padding-right: 14px; }
-          .business-grid { grid-template-columns: 1fr; }
-          .extra-filters { grid-template-columns: 1fr; }
-          .section-heading h2 { font-size: 19px; }
-          .feed-details { padding: 22px 16px 34px; }
-          .feed-details h2 { font-size: 23px; }
-          .feed-title { font-size: 9px; }
+
+        .feedArrow {
+          display: grid;
+          place-items: center;
+          flex-shrink: 0;
+          width: 42px;
+          height: 42px;
+          border: 1px solid rgba(255, 255, 255, 0.35);
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.1);
+          color: white;
+          font-size: 29px;
+          cursor: pointer;
         }
-        @media (prefers-reduced-motion: reduce) {
-          .business-card { transition: none; }
+
+        @media (max-width: 760px) {
+          .topbar {
+            padding: 15px 18px;
+          }
+
+          .hero {
+            padding: 32px 20px;
+          }
+
+          .content {
+            padding: 24px 15px 40px;
+          }
+
+          .premiumGrid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .businessGrid {
+            grid-template-columns: 1fr;
+          }
+
+          .filters {
+            grid-template-columns: 1fr;
+          }
+
+          .clearFilters {
+            justify-self: start;
+          }
+
+          .feedCard {
+            grid-template-columns: 1fr;
+            max-width: 460px;
+            max-height: 82vh;
+          }
+
+          .feedVisual,
+          .feedVisual img {
+            min-height: 230px;
+            max-height: 35vh;
+          }
+
+          .feedDetails {
+            padding: 22px;
+          }
+
+          .feedDetails h2 {
+            font-size: 22px;
+          }
+
+          .feedArrow {
+            position: absolute;
+            top: 45%;
+          }
+
+          .feedArrowLeft {
+            left: 8px;
+          }
+
+          .feedArrowRight {
+            right: 8px;
+          }
+        }
+
+        @media (max-width: 430px) {
+          .searchPanel {
+            padding: 14px;
+          }
+
+          .searchRow {
+            flex-wrap: wrap;
+          }
+
+          .searchRow input {
+            flex-basis: calc(100% - 45px);
+          }
+
+          .filterToggle {
+            margin-left: auto;
+          }
+
+          .premiumGrid {
+            grid-template-columns: 1fr;
+          }
+
+          .premiumImage {
+            height: 175px;
+          }
+
+          .sectionHeading h2 {
+            font-size: 19px;
+          }
+
+          .businessCard {
+            padding: 13px;
+          }
+
+          .businessAvatar {
+            width: 48px;
+            height: 48px;
+          }
+
+          .premiumOverlay {
+            padding: 12px;
+          }
+
+          .feedArrow {
+            width: 35px;
+            height: 35px;
+          }
+
+          .footer {
+            padding: 18px;
+          }
         }
       `}</style>
     </>
