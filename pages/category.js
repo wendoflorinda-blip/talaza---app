@@ -3,712 +3,592 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 
-const TONES = ['mint', 'sun', 'lilac', 'rose', 'sky'];
-
-const ICONS = {
-  sparkle: (
-    <>
-      <path d="M11 3l1.9 5.3L18 10l-5.1 1.7L11 17l-1.9-5.3L4 10l5.1-1.7L11 3z" />
-      <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z" />
-    </>
-  ),
-  cap: (
-    <>
-      <path d="M2 9l10-5 10 5-10 5L2 9z" />
-      <path d="M6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5" />
-    </>
-  ),
-  building: (
-    <>
-      <rect x="5" y="3" width="14" height="18" rx="1.5" />
-      <path d="M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-4h4v4" />
-    </>
-  ),
-  ticket: (
-    <>
-      <path d="M4 7h16v3a2 2 0 000 4v3H4v-3a2 2 0 000-4V7z" />
-      <path d="M14 7v10" strokeDasharray="2 2" />
-    </>
-  ),
-  utensils: (
-    <>
-      <path d="M7 3v8M4 3v5a3 3 0 006 0V3M7 11v10" />
-      <path d="M17 21V3c-2.5 1.5-3.5 4.5-3.5 8H17" />
-    </>
-  ),
-  bag: (
-    <>
-      <path d="M5 8h14l-1 12H6L5 8z" />
-      <path d="M9 8V6a3 3 0 016 0v2" />
-    </>
-  ),
-  home: (
-    <>
-      <path d="M3 11l9-8 9 8" />
-      <path d="M5 10v10h5v-6h4v6h5V10" />
-    </>
-  ),
-  health: (
-    <>
-      <path d="M12 20s-7-4.4-7-10a4 4 0 017-2.5A4 4 0 0119 10c0 5.6-7 10-7 10z" />
-      <path d="M12 9v5M9.5 11.5h5" />
-    </>
-  ),
-  gear: (
-    <>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8" />
-    </>
-  ),
-  truck: (
-    <>
-      <path d="M2 6h11v10H2zM13 9h4l3 3v4h-7" />
-      <circle cx="6.5" cy="17.5" r="1.8" />
-      <circle cx="16.5" cy="17.5" r="1.8" />
-    </>
-  ),
-  pin: (
-    <>
-      <path d="M12 21s-6-5.5-6-10a6 6 0 0112 0c0 4.5-6 10-6 10z" />
-      <circle cx="12" cy="11" r="2.2" />
-    </>
-  ),
-  chevron: <path d="M9 6l6 6-6 6" />,
-  back: <path d="M15 5l-7 7 7 7" />,
+const COLORS = {
+  green: '#0F6E5C',
+  darkGreen: '#083F35',
+  gold: '#DDA10A',
+  purple: '#7252B8',
+  purpleSoft: '#F1ECFA',
+  background: '#F8F6F3',
+  white: '#FFFFFF',
+  ink: '#17211F',
+  muted: '#596560',
+  line: '#E5E9E7',
+  mint: '#E8F3F0',
+  goldSoft: '#FBF1D7',
 };
 
-function Icon({ name, size = 22, strokeWidth = 1.8 }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {ICONS[name]}
-    </svg>
-  );
+const TONES = [
+  { background: '#E8F3F0', color: '#0F6E5C' },
+  { background: '#FBF1D7', color: '#8A6607' },
+  { background: '#F1ECFA', color: '#7252B8' },
+  { background: '#FAE9E4', color: '#AE4132' },
+  { background: '#E4ECF8', color: '#2F5CA4' },
+];
+
+function getInitial(name) {
+  const text = String(name || '').normalize('NFC').trim();
+  return text ? text.charAt(0).toLocaleUpperCase('pt-AO') : '?';
 }
 
-function iconFor(name = '') {
-  const n = name
+function Icon({ type, size = 22 }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.8,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': true,
+  };
+
+  const paths = {
+    back: <path d="M15 5l-7 7 7 7" />,
+    next: <path d="M9 6l6 6-6 6" />,
+    food: (
+      <>
+        <path d="M7 3v8M4 3v5a3 3 0 006 0V3M7 11v10" />
+        <path d="M17 21V3c-2.5 1.5-3.5 4.5-3.5 8H17" />
+      </>
+    ),
+    beauty: (
+      <>
+        <path d="M12 3v7M8.5 3v4a3.5 3.5 0 007 0V3" />
+        <path d="M12 10v11" />
+      </>
+    ),
+    education: (
+      <>
+        <path d="m3 9 9-5 9 5-9 5-9-5Z" />
+        <path d="M7 11.5V16c3 2 7 2 10 0v-4.5M21 9v7" />
+      </>
+    ),
+    health: (
+      <>
+        <path d="M12 21s-7-4.5-7-11a4 4 0 017-2.4A4 4 0 0119 10c0 6.5-7 11-7 11Z" />
+        <path d="M9 12h6M12 9v6" />
+      </>
+    ),
+    home: (
+      <>
+        <path d="m3 11 9-8 9 8" />
+        <path d="M5 10v10h14V10M9 20v-6h6v6" />
+      </>
+    ),
+    transport: (
+      <>
+        <path d="M3 6h12v11H3zM15 10h4l3 3v4h-7" />
+        <circle cx="7" cy="18" r="1.5" />
+        <circle cx="18" cy="18" r="1.5" />
+      </>
+    ),
+    services: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
+      </>
+    ),
+    other: (
+      <>
+        <circle cx="5" cy="12" r="1.5" />
+        <circle cx="12" cy="12" r="1.5" />
+        <circle cx="19" cy="12" r="1.5" />
+      </>
+    ),
+  };
+
+  return <svg {...common}>{paths[type] || paths.other}</svg>;
+}
+
+function getCategoryIcon(name = '') {
+  const value = String(name)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
-  if (n.includes('transport')) return 'truck';
-  if (n.includes('gastron')) return 'utensils';
-  if (n.includes('beleza')) return 'sparkle';
-  if (n.includes('loja')) return 'bag';
-  if (n.includes('servic')) return 'gear';
-  if (n.includes('saude')) return 'health';
-  if (n.includes('empresa')) return 'building';
-  if (n.includes('educa')) return 'cap';
-  if (n.includes('evento')) return 'ticket';
-  if (n.includes('imobili')) return 'home';
-  return 'pin';
+  if (/aliment|restaur|comida|bebida|gastronom|confeitaria|pastelaria/.test(value)) {
+    return 'food';
+  }
+  if (/beleza|estetica|cabeleire|barbear|tranca/.test(value)) return 'beauty';
+  if (/saude|medic|farmac/.test(value)) return 'health';
+  if (/educa|escola|formacao/.test(value)) return 'education';
+  if (/imove|habitacao|casa|construcao/.test(value)) return 'home';
+  if (/transport|logistica|automov|carro/.test(value)) return 'transport';
+  if (/servic|profission|manutenc|tecnologia/.test(value)) return 'services';
+
+  return 'other';
 }
 
 export default function Category() {
   const router = useRouter();
-
-  const {
-    id,
-    country,
-    province,
-  } = router.query;
+  const { id, country, province } = router.query;
 
   const [category, setCategory] = useState(null);
   const [subcategories, setSubcategories] = useState([]);
-
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!router.isReady) return;
 
-    if (!id || !country || !province) {
-      router.replace('/country');
+    if (!id || Array.isArray(id)) {
+      setError('Categoria inválida. Volte à Vitrine e escolha uma categoria.');
+      setLoading(false);
       return;
+    }
+
+    let cancelled = false;
+
+    async function loadData() {
+      setLoading(true);
+      setError('');
+
+      try {
+        const { data: categoryData, error: categoryError } = await supabase
+          .from('categories')
+          .select('id, name')
+          .eq('id', id)
+          .single();
+
+        if (categoryError || !categoryData) {
+          throw new Error('Não foi possível carregar esta categoria do Supabase.');
+        }
+
+        let loadedCountryName = '';
+        let loadedProvinceName = '';
+
+        if (country && province) {
+          const { data: provinceData, error: provinceError } = await supabase
+            .from('provinces')
+            .select('id, name, country_id')
+            .eq('id', province)
+            .eq('country_id', country)
+            .single();
+
+          if (provinceError || !provinceData) {
+            throw new Error('A província não pertence ao país selecionado.');
+          }
+
+          const { data: countryData } = await supabase
+            .from('countries')
+            .select('id, name')
+            .eq('id', country)
+            .single();
+
+          loadedCountryName = countryData?.name || '';
+          loadedProvinceName = provinceData.name || '';
+        }
+
+        const { data: subcategoryData, error: subcategoryError } = await supabase
+          .from('subcategories')
+          .select('id, name, description')
+          .eq('category_id', id)
+          .order('name', { ascending: true });
+
+        if (subcategoryError) {
+          throw new Error('Não foi possível carregar as subcategorias do Supabase.');
+        }
+
+        if (!cancelled) {
+          setCategory(categoryData);
+          setSubcategories(subcategoryData || []);
+          setCountryName(loadedCountryName);
+          setProvinceName(loadedProvinceName);
+        }
+      } catch (loadError) {
+        console.error('Erro em category.js:', loadError);
+        if (!cancelled) setError(loadError.message || 'Ocorreu um erro ao carregar a categoria.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
     loadData();
-  }, [
-    router.isReady,
-    id,
-    country,
-    province,
-  ]);
 
-  async function loadData() {
-    setLoading(true);
-    setError('');
-
-    const { data: categoryData, error: categoryError } =
-      await supabase
-        .from('categories')
-        .select('id, name')
-        .eq('id', id)
-        .single();
-
-    if (categoryError) {
-      console.error(categoryError);
-      setError('Não foi possível carregar esta categoria.');
-      setLoading(false);
-      return;
-    }
-
-    const { data: provinceData } = await supabase
-      .from('provinces')
-      .select('id, name, country_id')
-      .eq('id', province)
-      .eq('country_id', country)
-      .single();
-
-    if (!provinceData) {
-      setError(
-        'Esta província não pertence ao país selecionado.'
-      );
-      setLoading(false);
-      return;
-    }
-
-    const { data: countryData } = await supabase
-      .from('countries')
-      .select('id, name')
-      .eq('id', country)
-      .single();
-
-    setCategory(categoryData);
-    setProvinceName(provinceData.name);
-    setCountryName(countryData?.name || '');
-
-    const { data: subcategoryData, error: subcategoryError } =
-      await supabase
-        .from('subcategories')
-        .select('id, name, description')
-        .eq('category_id', id)
-        .order('name', { ascending: true });
-
-    if (subcategoryError) {
-      console.error(subcategoryError);
-      setError('Não foi possível carregar as subcategorias.');
-      setLoading(false);
-      return;
-    }
-
-    setSubcategories(subcategoryData || []);
-    setLoading(false);
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, [router.isReady, id, country, province]);
 
   const exploreHref = {
     pathname: '/explore',
     query: {
-      country,
-      province,
+      ...(country ? { country } : {}),
+      ...(province ? { province } : {}),
     },
   };
 
-  const ready = !loading && !error && category;
-  const count = subcategories.length;
-
   return (
-    <div className="ctg-page">
-      <header className={`ctg-hero${ready ? '' : ' ctg-hero--compact'}`}>
-        <div className="ctg-in">
-          {ready && (
-            <div className="ctg-mark" aria-hidden="true">
-              <Icon
-                name={iconFor(category.name)}
-                size={230}
-                strokeWidth={0.6}
-              />
-            </div>
-          )}
+    <div className="category-page">
+      <header className="category-hero">
+        <nav className="category-nav">
+          <Link href={exploreHref} className="brand">
+            <span className="brand-mark">T</span>
+            <span>Talaza</span>
+          </Link>
 
-          <nav className="ctg-nav">
-            <Link href={exploreHref} className="ctg-brand">
-              <span className="ctg-logo">T</span>
-              Talaza
-            </Link>
+          <Link href={exploreHref} className="back-link">
+            <Icon type="back" size={19} />
+            Voltar
+          </Link>
+        </nav>
 
-            <Link href={exploreHref} className="ctg-voltar">
-              <Icon name="back" size={20} />
-              Voltar
-            </Link>
-          </nav>
-
-          {loading && !error && (
-            <div className="ctg-hero-skl" aria-hidden="true">
-              <span className="ctg-skl ctg-skl--chip" />
-              <span className="ctg-skl ctg-skl--title" />
-              <span className="ctg-skl ctg-skl--text" />
-            </div>
-          )}
-
-          {ready && (
-            <>
-              <div className="ctg-chip">
-                <i />
-                {countryName} · {provinceName}
-              </div>
-
-              <h1>{category.name}</h1>
-
-              <p>
-                Escolha uma subcategoria para encontrar exatamente
-                o que procura.
-              </p>
-            </>
-          )}
-        </div>
-      </header>
-
-      <main className="ctg-body" aria-busy={loading}>
-        {loading && !error && (
-          <div className="ctg-grid" aria-label="A carregar">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div className="ctg-sk" key={i} />
-            ))}
+        {(countryName || provinceName) && (
+          <div className="location-chip">
+            <span className="location-dot" />
+            {[countryName, provinceName].filter(Boolean).join(' · ')}
           </div>
         )}
 
-        {error && <div className="ctg-error">{error}</div>}
+        <p className="eyebrow">VITRINE TALAZA</p>
+        <h1>{category?.name || (loading ? 'A carregar categoria…' : 'Categoria')}</h1>
+        <p className="hero-description">
+          Escolha uma subcategoria para encontrar os negócios e serviços que procura.
+        </p>
+        <div className="hero-decoration" aria-hidden="true">
+          <Icon type={getCategoryIcon(category?.name)} size={150} />
+        </div>
+      </header>
 
-        {ready && (
-          <>
-            <div className="ctg-bhead">
-              <h2>Subcategorias</h2>
-              {count > 0 && (
-                <span>
-                  {count} {count === 1 ? 'subcategoria' : 'subcategorias'}
-                </span>
-              )}
-            </div>
+      <main className="category-content">
+        <div className="section-heading">
+          <div>
+            <span className="section-kicker">EXPLORE</span>
+            <h2>Subcategorias</h2>
+          </div>
+          {!loading && !error && (
+            <span className="count">
+              {subcategories.length} {subcategories.length === 1 ? 'opção' : 'opções'}
+            </span>
+          )}
+        </div>
 
-            {count === 0 ? (
-              <div className="ctg-empty">
-                <div className="ctg-mono ctg-t-mint">
-                  <Icon name={iconFor(category.name)} size={28} />
-                </div>
+        {loading && (
+          <div className="status-card">
+            <span className="spinner" />
+            A carregar os dados do Supabase…
+          </div>
+        )}
 
-                <h3>Nada por aqui ainda</h3>
+        {error && (
+          <div className="error-card">
+            <strong>Não foi possível abrir esta categoria</strong>
+            <p>{error}</p>
+            <Link href={exploreHref} className="primary-button">Voltar à Vitrine</Link>
+          </div>
+        )}
 
-                <p>
-                  Ainda não existem subcategorias nesta categoria.
-                </p>
+        {!loading && !error && subcategories.length === 0 && (
+          <div className="empty-card">
+            <div className="empty-icon"><Icon type="other" size={28} /></div>
+            <h3>Ainda não há subcategorias</h3>
+            <p>Esta categoria ainda não tem subcategorias registadas no Supabase.</p>
+            <Link href={exploreHref} className="primary-button">Ver outras categorias</Link>
+          </div>
+        )}
 
-                <Link href={exploreHref} className="ctg-btn">
-                  Ver outras categorias
+        {!loading && !error && subcategories.length > 0 && (
+          <div className="subcategory-grid">
+            {subcategories.map((subcategory, index) => {
+              const tone = TONES[index % TONES.length];
+
+              return (
+                <Link
+                  key={subcategory.id}
+                  href={{
+                    pathname: '/subcategory',
+                    query: {
+                      id: subcategory.id,
+                      ...(country ? { country } : {}),
+                      ...(province ? { province } : {}),
+                    },
+                  }}
+                  className="subcategory-card"
+                  style={{
+                    '--tone-bg': tone.background,
+                    '--tone-color': tone.color,
+                    '--card-index': index,
+                  }}
+                >
+                  <span className="initial-box">{getInitial(subcategory.name)}</span>
+                  <span className="card-arrow"><Icon type="next" size={17} /></span>
+                  <h3>{subcategory.name}</h3>
+                  {subcategory.description && <p>{subcategory.description}</p>}
                 </Link>
-              </div>
-            ) : (
-              <div className="ctg-grid">
-                {subcategories.map((subcategory, i) => (
-                  <Link
-                    key={subcategory.id}
-                    href={{
-                      pathname: '/subcategory',
-                      query: {
-                        id: subcategory.id,
-                        country,
-                        province,
-                      },
-                    }}
-                    className={`ctg-sub ctg-t-${TONES[i % TONES.length]}`}
-                    style={{ '--i': i }}
-                  >
-                    <span className="ctg-mono">
-                      {(subcategory.name || '?').charAt(0).toUpperCase()}
-                    </span>
-
-                    <span className="ctg-go">
-                      <Icon name="chevron" size={16} />
-                    </span>
-
-                    <h3>{subcategory.name}</h3>
-
-                    {subcategory.description && (
-                      <p>{subcategory.description}</p>
-                    )}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </>
+              );
+            })}
+          </div>
         )}
       </main>
 
-      <style jsx global>{`
-        .ctg-page {
-          --bg: #F6F4EE;
-          --card: #FFFFFF;
-          --line: #D9E5E1;
-          --ink: #17342F;
-          --muted: #5E716C;
-          --green: #075B4E;
-          --gold: #E6A900;
-          --cream: #F7F5F0;
-          --hero-a: #087262;
-          --hero-b: #043D34;
-          --chip-bg: rgba(230, 169, 0, 0.2);
-          --chip-fg: #F6CD52;
-          --shadow: 0 1px 2px rgba(7, 60, 50, 0.06),
-            0 10px 22px -10px rgba(7, 60, 50, 0.16);
-
-          --mint-bg: #E3F1EC;  --mint-fg: #12705C;
-          --sun-bg: #FBF0D2;   --sun-fg: #9C6E00;
-          --lilac-bg: #ECE8F7; --lilac-fg: #5E43A8;
-          --rose-bg: #FAE9E4;  --rose-fg: #AE4132;
-          --sky-bg: #E4ECF8;   --sky-fg: #2F5CA4;
-
+      <style jsx>{`
+        .category-page {
           min-height: 100vh;
-          background: var(--bg);
-          color: var(--ink);
-          padding-bottom: 50px;
-          font-family: 'Avenir Next', 'Segoe UI Variable Display',
-            'Segoe UI', Roboto, system-ui, sans-serif;
+          background: ${COLORS.background};
+          color: ${COLORS.ink};
+          font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+          padding-bottom: 48px;
         }
-        .ctg-page *,
-        .ctg-page *::before,
-        .ctg-page *::after {
-          box-sizing: border-box;
-        }
-        .ctg-page a {
-          color: inherit;
-          text-decoration: none;
-        }
-        .ctg-page h1,
-        .ctg-page h2,
-        .ctg-page h3,
-        .ctg-page p {
-          margin: 0;
-        }
-        .ctg-page svg {
-          display: block;
-        }
-        .ctg-page a:focus-visible {
-          outline: 2px solid var(--gold);
-          outline-offset: 3px;
-        }
-
-        .ctg-t-mint { --t-bg: var(--mint-bg); --t-fg: var(--mint-fg); }
-        .ctg-t-sun { --t-bg: var(--sun-bg); --t-fg: var(--sun-fg); }
-        .ctg-t-lilac { --t-bg: var(--lilac-bg); --t-fg: var(--lilac-fg); }
-        .ctg-t-rose { --t-bg: var(--rose-bg); --t-fg: var(--rose-fg); }
-        .ctg-t-sky { --t-bg: var(--sky-bg); --t-fg: var(--sky-fg); }
-
-        /* ---------- Topo ---------- */
-        .ctg-hero {
+        .category-page * { box-sizing: border-box; }
+        .category-hero {
           position: relative;
           overflow: hidden;
-          padding: calc(14px + env(safe-area-inset-top)) 22px 34px;
-          color: var(--cream);
-          border-radius: 0 0 36px 36px;
-          background:
-            radial-gradient(110% 80% at 100% 0%, var(--hero-a) 0%, transparent 62%),
-            linear-gradient(165deg, #076152 0%, var(--hero-b) 100%);
+          padding: 22px max(20px, calc((100% - 920px) / 2)) 38px;
+          background: ${COLORS.darkGreen};
+          color: white;
+          border-radius: 0 0 30px 30px;
         }
-        .ctg-hero--compact {
-          padding-bottom: 22px;
-        }
-        .ctg-in {
+        .category-nav {
           position: relative;
-          max-width: 720px;
+          z-index: 2;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 14px;
+          max-width: 920px;
           margin: 0 auto;
         }
-        .ctg-mark {
-          position: absolute;
-          right: -34px;
-          bottom: -74px;
-          width: 230px;
-          height: 230px;
-          color: var(--gold);
-          opacity: 0.2;
-          pointer-events: none;
-        }
-        .ctg-nav {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        .ctg-brand {
+        .brand {
           display: flex;
           align-items: center;
           gap: 10px;
+          color: white;
           font-size: 19px;
           font-weight: 800;
-          letter-spacing: -0.02em;
+          text-decoration: none;
         }
-        .ctg-logo {
+        .brand-mark {
           width: 38px;
           height: 38px;
-          border-radius: 12px;
           display: grid;
           place-items: center;
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          color: var(--gold);
-          font-size: 20px;
-          font-weight: 800;
+          border-radius: 12px;
+          color: ${COLORS.darkGreen};
+          background: ${COLORS.gold};
+          font-size: 21px;
+          font-weight: 900;
         }
-        .ctg-voltar {
+        .back-link {
           display: inline-flex;
           align-items: center;
-          gap: 4px;
-          height: 38px;
-          padding: 0 14px 0 8px;
+          gap: 5px;
+          padding: 9px 13px;
+          border: 1px solid rgba(255,255,255,.2);
           border-radius: 99px;
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          font-size: 14px;
+          color: white;
+          text-decoration: none;
+          font-size: 13px;
           font-weight: 700;
+          background: rgba(255,255,255,.07);
         }
-        .ctg-chip {
+        .location-chip {
           position: relative;
+          z-index: 1;
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          margin-top: 30px;
-          padding: 7px 13px;
+          margin-top: 28px;
+          padding: 7px 12px;
           border-radius: 99px;
-          background: var(--chip-bg);
-          color: var(--chip-fg);
-          font-size: 13px;
+          background: rgba(221,161,10,.16);
+          color: #F8D977;
+          font-size: 12px;
           font-weight: 700;
         }
-        .ctg-chip i {
+        .location-dot {
           width: 7px;
           height: 7px;
           border-radius: 50%;
-          background: var(--gold);
+          background: ${COLORS.gold};
         }
-        .ctg-hero h1 {
+        .eyebrow {
           position: relative;
-          margin-top: 16px;
-          max-width: 9.5em;
-          font-size: 40px;
-          line-height: 1;
-          font-weight: 800;
-          letter-spacing: -0.04em;
-          text-wrap: balance;
+          z-index: 1;
+          margin: 30px 0 8px;
+          color: #EAC55B;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: .16em;
         }
-        .ctg-hero p {
+        h1 {
           position: relative;
-          margin-top: 12px;
-          max-width: 27ch;
-          font-size: 15.5px;
-          line-height: 1.5;
-          color: rgba(247, 245, 240, 0.78);
+          z-index: 1;
+          max-width: 650px;
+          margin: 0;
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: clamp(32px, 6vw, 48px);
+          line-height: 1.05;
+          letter-spacing: -.035em;
         }
-
-        .ctg-hero-skl {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 14px;
-          margin-top: 30px;
+        .hero-description {
+          position: relative;
+          z-index: 1;
+          max-width: 460px;
+          margin: 13px 0 0;
+          color: rgba(255,255,255,.78);
+          font-size: 14px;
+          line-height: 1.65;
         }
-        .ctg-skl {
-          display: block;
-          border-radius: 99px;
-          background: linear-gradient(
-            100deg,
-            rgba(255, 255, 255, 0.1) 30%,
-            rgba(255, 255, 255, 0.22) 50%,
-            rgba(255, 255, 255, 0.1) 70%
-          );
-          background-size: 220% 100%;
-          animation: ctg-shimmer 1.3s linear infinite;
+        .hero-decoration {
+          position: absolute;
+          right: max(10px, calc((100% - 980px) / 2));
+          bottom: -35px;
+          color: ${COLORS.gold};
+          opacity: .13;
+          transform: rotate(-9deg);
         }
-        .ctg-skl--chip { width: 130px; height: 28px; }
-        .ctg-skl--title { width: 70%; height: 38px; border-radius: 14px; }
-        .ctg-skl--text { width: 55%; height: 16px; margin-bottom: 8px; }
-
-        /* ---------- Conteúdo ---------- */
-        .ctg-body {
-          max-width: 720px;
+        .category-content {
+          max-width: 960px;
           margin: 0 auto;
-          padding: 26px 20px 0;
+          padding: 30px 20px 0;
         }
-        .ctg-bhead {
+        .section-heading {
           display: flex;
-          align-items: baseline;
+          align-items: flex-end;
           justify-content: space-between;
-          margin-bottom: 14px;
+          gap: 12px;
+          margin-bottom: 16px;
         }
-        .ctg-bhead h2 {
-          font-size: 21px;
-          font-weight: 800;
-          letter-spacing: -0.02em;
+        .section-kicker {
+          color: ${COLORS.purple};
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: .15em;
         }
-        .ctg-bhead span {
-          font-size: 13.5px;
-          font-weight: 600;
-          color: var(--muted);
+        .section-heading h2 {
+          margin: 5px 0 0;
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: 25px;
+          letter-spacing: -.025em;
         }
-
-        .ctg-grid {
+        .count { color: ${COLORS.muted}; font-size: 12px; }
+        .subcategory-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
           gap: 12px;
         }
-
-        .ctg-sub {
+        .subcategory-card {
           position: relative;
           display: flex;
+          min-height: 165px;
           flex-direction: column;
           align-items: flex-start;
-          min-height: 164px;
-          padding: 14px 14px 16px;
-          border-radius: 22px;
-          background: var(--card);
-          border: 1px solid var(--line);
-          box-shadow: var(--shadow);
-          transition: transform 0.18s ease, border-color 0.18s ease;
-          animation: ctg-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-          animation-delay: calc(var(--i) * 45ms);
+          padding: 15px;
+          border: 1px solid ${COLORS.line};
+          border-radius: 20px;
+          background: ${COLORS.white};
+          color: ${COLORS.ink};
+          text-decoration: none;
+          box-shadow: 0 6px 20px rgba(23,33,31,.035);
+          transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+          animation: rise .35s ease both;
+          animation-delay: calc(var(--card-index) * 25ms);
         }
-        .ctg-mono {
+        .subcategory-card:hover {
+          transform: translateY(-3px);
+          border-color: ${COLORS.purple};
+          box-shadow: 0 10px 25px rgba(114,82,184,.10);
+        }
+        .initial-box {
+          display: grid;
+          place-items: center;
           width: 46px;
           height: 46px;
           border-radius: 15px;
+          background: var(--tone-bg);
+          color: var(--tone-color);
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: 25px;
+          font-weight: 800;
+        }
+        .card-arrow {
+          position: absolute;
+          top: 15px;
+          right: 15px;
           display: grid;
           place-items: center;
-          background: var(--t-bg);
-          color: var(--t-fg);
-          font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-          font-size: 24px;
-          font-weight: 700;
-        }
-        .ctg-go {
-          position: absolute;
-          top: 14px;
-          right: 14px;
           width: 30px;
           height: 30px;
+          border: 1px solid ${COLORS.line};
           border-radius: 50%;
+          color: ${COLORS.purple};
+        }
+        .subcategory-card h3 {
+          margin: auto 0 0;
+          padding-top: 20px;
+          font-size: 15px;
+          line-height: 1.3;
+          font-weight: 800;
+        }
+        .subcategory-card p {
+          margin: 6px 0 0;
+          color: ${COLORS.muted};
+          font-size: 12px;
+          line-height: 1.45;
+        }
+        .status-card, .empty-card, .error-card {
+          padding: 24px;
+          border: 1px solid ${COLORS.line};
+          border-radius: 18px;
+          background: ${COLORS.white};
+          color: ${COLORS.muted};
+          font-size: 13px;
+          line-height: 1.6;
+        }
+        .status-card { display: flex; align-items: center; gap: 12px; }
+        .spinner {
+          width: 18px;
+          height: 18px;
+          border: 2px solid ${COLORS.mint};
+          border-top-color: ${COLORS.green};
+          border-radius: 50%;
+          animation: spin .8s linear infinite;
+        }
+        .empty-card { text-align: center; padding: 35px 20px; }
+        .empty-icon {
           display: grid;
           place-items: center;
-          color: var(--muted);
-          border: 1px solid var(--line);
-          transition: background 0.18s ease, color 0.18s ease,
-            border-color 0.18s ease;
+          width: 58px;
+          height: 58px;
+          margin: 0 auto 14px;
+          border-radius: 18px;
+          background: ${COLORS.purpleSoft};
+          color: ${COLORS.purple};
         }
-        .ctg-sub h3 {
-          margin-top: auto;
-          padding-top: 18px;
-          font-size: 16.5px;
-          line-height: 1.2;
-          font-weight: 800;
-          letter-spacing: -0.015em;
-          color: var(--ink);
-        }
-        .ctg-sub p {
-          margin-top: 5px;
-          font-size: 13px;
-          line-height: 1.42;
-          color: var(--muted);
-        }
-        @media (hover: hover) {
-          .ctg-sub:hover {
-            transform: translateY(-3px);
-            border-color: var(--gold);
-          }
-          .ctg-sub:hover .ctg-go {
-            background: var(--gold);
-            border-color: var(--gold);
-            color: #1B2A00;
-          }
-        }
-        .ctg-sub:active {
-          transform: scale(0.98);
-        }
-
-        /* Carregamento */
-        .ctg-sk {
-          min-height: 164px;
-          border-radius: 22px;
-          border: 1px solid var(--line);
-          background: linear-gradient(
-            100deg,
-            var(--card) 30%,
-            var(--mint-bg) 50%,
-            var(--card) 70%
-          );
-          background-size: 220% 100%;
-          animation: ctg-shimmer 1.3s linear infinite;
-        }
-
-        /* Erro */
-        .ctg-error {
-          margin-top: 4px;
-          padding: 16px;
-          border-radius: 16px;
-          background: #FFF1F0;
-          border: 1px solid #F3CFCB;
-          color: #9B2C2C;
-          font-size: 14px;
-          line-height: 1.5;
-        }
-
-        /* Vazio */
-        .ctg-empty {
-          text-align: center;
-          padding: 28px 18px 10px;
-        }
-        .ctg-empty .ctg-mono {
-          margin: 0 auto 18px;
-          width: 64px;
-          height: 64px;
-          border-radius: 22px;
-        }
-        .ctg-empty h3 {
-          font-size: 19px;
-          font-weight: 800;
-          letter-spacing: -0.02em;
-        }
-        .ctg-empty p {
-          margin: 8px auto 20px;
-          max-width: 28ch;
-          color: var(--muted);
-          font-size: 14.5px;
-          line-height: 1.5;
-        }
-        .ctg-btn {
+        .empty-card h3, .error-card strong { color: ${COLORS.ink}; }
+        .empty-card p, .error-card p { margin: 8px 0 18px; }
+        .error-card { background: #FFF5F4; border-color: #F3D0CC; color: #9B2C2C; }
+        .primary-button {
           display: inline-flex;
           align-items: center;
-          height: 48px;
-          padding: 0 22px;
-          border-radius: 14px;
-          background: var(--green);
-          color: #fff !important;
-          font-weight: 700;
-          font-size: 15px;
-          box-shadow: 0 8px 18px -8px rgba(7, 91, 78, 0.6);
+          justify-content: center;
+          padding: 11px 16px;
+          border-radius: 12px;
+          background: ${COLORS.green};
+          color: white;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 800;
         }
-
-        @keyframes ctg-rise {
-          from { opacity: 0; transform: translateY(14px); }
-          to { opacity: 1; transform: none; }
+        @keyframes rise {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes ctg-shimmer {
-          from { background-position: 120% 0; }
-          to { background-position: -120% 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 480px) {
+          .category-hero { padding-left: 18px; padding-right: 18px; }
+          .category-content { padding-left: 14px; padding-right: 14px; }
+          .subcategory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+          .subcategory-card { min-height: 150px; padding: 12px; border-radius: 17px; }
+          .subcategory-card h3 { font-size: 13.5px; }
+          .hero-decoration { right: -45px; }
         }
-
         @media (prefers-reduced-motion: reduce) {
-          .ctg-sub { animation: none; transition: none; }
-          .ctg-sk, .ctg-skl { animation: none; }
+          .subcategory-card, .spinner { animation: none; transition: none; }
         }
       `}</style>
     </div>
