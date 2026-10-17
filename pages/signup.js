@@ -1,124 +1,633 @@
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 
-const FLAGS = { Angola: '🇦🇴', 'Moçambique': '🇲🇿', Mozambique: '🇲🇿', Portugal: '🇵🇹', Brasil: '🇧🇷', 'África do Sul': '🇿🇦' };
+const COLORS = {
+  green: '#0F6E5C',
+  dark: '#083F35',
+  gold: '#DDA10A',
+  ink: '#17211F',
+  muted: '#596560',
+  line: '#E5E9E7',
+  canvas: '#F8F6F3',
+  white: '#FFFFFF',
+  red: '#B93845',
+  greenSoft: '#E8F3F0',
+};
+
+const COUNTRIES = [
+  { name: 'Angola', flag: '🇦🇴', code: '+244', available: true },
+  { name: 'Brasil', flag: '🇧🇷', code: '+55', available: false },
+  { name: 'Portugal', flag: '🇵🇹', code: '+351', available: false },
+  { name: 'Estados Unidos', flag: '🇺🇸', code: '+1', available: false },
+  { name: 'Espanha', flag: '🇪🇸', code: '+34', available: false },
+  { name: 'Alemanha', flag: '🇩🇪', code: '+49', available: false },
+  { name: 'África do Sul', flag: '🇿🇦', code: '+27', available: false },
+  { name: 'Moçambique', flag: '🇲🇿', code: '+258', available: false },
+  { name: 'Cabo Verde', flag: '🇨🇻', code: '+238', available: false },
+  { name: 'Namíbia', flag: '🇳🇦', code: '+264', available: false },
+];
+
+const inputStyle = {
+  width: '100%',
+  boxSizing: 'border-box',
+  padding: '14px 15px',
+  border: `1px solid ${COLORS.line}`,
+  borderRadius: 12,
+  background: COLORS.white,
+  color: COLORS.ink,
+  fontSize: 15,
+  outline: 'none',
+};
+
+const labelStyle = {
+  display: 'block',
+  marginBottom: 8,
+  color: COLORS.ink,
+  fontSize: 14,
+  fontWeight: 700,
+};
 
 export default function Signup() {
   const router = useRouter();
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [countryName, setCountryName] = useState('Angola');
   const [accountType, setAccountType] = useState('cliente');
-  const [lockedType, setLockedType] = useState(false);
+
   const [countryId, setCountryId] = useState('');
-  const [provinceId, setProvinceId] = useState('');
-  const [countries, setCountries] = useState([]);
-  const [provinces, setProvinces] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [countryLoading, setCountryLoading] = useState(true);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const selectedCountry =
+    COUNTRIES.find((item) => item.name === countryName) ||
+    COUNTRIES[0];
 
   useEffect(() => {
-    if (!router.isReady) return;
-    const t = router.query.type;
-    if (t === 'cliente' || t === 'vendedor') { setAccountType(t); setLockedType(true); }
-    loadCountries();
-  }, [router.isReady]);
+    let active = true;
 
-  useEffect(() => { if (countryId) loadProvinces(countryId); else { setProvinces([]); setProvinceId(''); } }, [countryId]);
+    async function loadAngola() {
+      const { data, error: countryError } = await supabase
+        .from('countries')
+        .select('id, name')
+        .ilike('name', 'Angola')
+        .maybeSingle();
 
-  async function loadCountries() {
-    const { data } = await supabase.from('countries').select('id, name').order('name');
-    setCountries(data || []);
-  }
-  async function loadProvinces(cid) {
-    const { data } = await supabase.from('provinces').select('id, name').eq('country_id', cid).order('name');
-    setProvinces(data || []);
-  }
+      if (!active) return;
+
+      if (countryError) {
+        console.error(countryError);
+        setError(
+          'Não foi possível carregar os países. Tente novamente.'
+        );
+      } else if (data) {
+        setCountryId(data.id);
+      } else {
+        setError(
+          'Angola ainda não está configurada na base de dados. Contacte o administrador.'
+        );
+      }
+
+      setCountryLoading(false);
+    }
+
+    loadAngola();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function handleSignup(e) {
     e.preventDefault();
-    setError(''); setNotice('');
-    if (!name.trim() ||!phone.trim() ||!email.trim() ||!password ||!countryId ||!provinceId) { setError('Preencha todos os campos.'); return; }
-    if (password.length < 8) { setError('A senha deve ter 8 caracteres.'); return; }
+    setError('');
+
+    const cleanName = fullName.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phone.replace(/[^\d]/g, '');
+
+    if (cleanName.length < 2) {
+      setError('Introduza o seu nome completo.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError(
+        'A palavra-passe deve ter pelo menos 6 caracteres.'
+      );
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('As palavras-passe não coincidem.');
+      return;
+    }
+
+    if (!selectedCountry.available) {
+      setError(
+        `${selectedCountry.name} ainda não está disponível para cadastro. Por enquanto, apenas Angola está ativa.`
+      );
+      return;
+    }
+
+    if (!countryId) {
+      setError(
+        'Não foi possível identificar Angola na base de dados. Tente novamente mais tarde.'
+      );
+      return;
+    }
+
     setLoading(true);
+
     try {
-      const { data: prov } = await supabase.from('provinces').select('id').eq('id', provinceId).eq('country_id', countryId).maybeSingle();
-      if (!prov) throw new Error('A província não pertence a este país.');
+      const { data: authData, error: authError } =
+        await supabase.auth.signUp({
+          email: cleanEmail,
+          password,
+          options: {
+            data: {
+              name: cleanName,
+              account_type: accountType,
+            },
+          },
+        });
 
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
-        options: { data: { name: name.trim(), phone: phone.trim(), account_type: accountType } }
-      });
-      if (error) throw error;
-      if (!data.session) { setNotice('Conta criada. Verifique seu e-mail para confirmar.'); return; }
+      if (authError) {
+        console.error(authError);
 
-      const user = data.user;
-      const { error: pErr } = await supabase.from('profiles').upsert({
-        id: user.id, name: name.trim(), phone: phone.trim(), country_id: countryId, province_id: provinceId, account_type: accountType
-      }, { onConflict: 'id' });
-      if (pErr) throw pErr;
+        if (
+          authError.message?.toLowerCase().includes('already registered')
+        ) {
+          setError(
+            'Este e-mail já está registado. Experimente entrar na sua conta.'
+          );
+        } else {
+          setError(
+            'Não foi possível criar a conta. Verifique os dados e tente novamente.'
+          );
+        }
 
-      const dest = accountType === 'vendedor'? '/post-business' : '/explore';
-      await router.replace({ pathname: dest, query: { country: countryId, province: provinceId } });
-    } catch (err) { setError(err.message); } finally { setLoading(false); }
+        return;
+      }
+
+      if (!authData?.user) {
+        setError(
+          'Não foi possível confirmar a criação da conta. Tente novamente.'
+        );
+        return;
+      }
+
+      const profileData = {
+        id: authData.user.id,
+        name: cleanName,
+        country_id: countryId,
+        account_type: accountType,
+        phone: cleanPhone
+          ? `${selectedCountry.code}${cleanPhone}`
+          : null,
+      };
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert(profileData, { onConflict: 'id' });
+
+      if (profileError) {
+        console.error(profileError);
+
+        setError(
+          'A conta de autenticação foi criada, mas não foi possível guardar o perfil. Entre em contacto com o suporte antes de tentar criar outra conta.'
+        );
+        return;
+      }
+
+      /*
+       * Se o Supabase exigir confirmação por e-mail,
+       * o utilizador poderá ter de confirmar o endereço
+       * antes de entrar.
+       */
+      if (!authData.session) {
+        await router.push({
+          pathname: '/login',
+          query: { created: '1' },
+        });
+        return;
+      }
+
+      if (accountType === 'vendedor') {
+        await router.push({
+          pathname: '/post-business',
+          query: { country: countryId },
+        });
+      } else {
+        await router.push({
+          pathname: '/explore',
+          query: { country: countryId },
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Ocorreu um erro inesperado. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <main style={{ maxWidth: 480, margin: '0 auto', padding: 24, paddingBottom: 60 }}>
-      <Link href="/" style={{ color: '#0F6E5C', textDecoration: 'none' }}>← Talaza</Link>
-      <h1 style={{ marginTop: 20 }}>Criar conta</h1>
+    <main
+      style={{
+        minHeight: '100vh',
+        boxSizing: 'border-box',
+        padding: '28px 16px',
+        background: COLORS.canvas,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'Arial, sans-serif',
+      }}
+    >
+      <section
+        style={{
+          width: '100%',
+          maxWidth: 520,
+          boxSizing: 'border-box',
+          padding: 'clamp(22px, 5vw, 36px)',
+          border: `1px solid ${COLORS.line}`,
+          borderRadius: 24,
+          background: COLORS.white,
+          boxShadow: '0 12px 38px rgba(8,63,53,0.06)',
+        }}
+      >
+        <Link
+          href="/"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 10,
+            textDecoration: 'none',
+            color: COLORS.dark,
+          }}
+        >
+          <span
+            style={{
+              width: 46,
+              height: 46,
+              borderRadius: 14,
+              background: COLORS.green,
+              color: COLORS.gold,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 25,
+              fontWeight: 900,
+            }}
+          >
+            T
+          </span>
+          <span style={{ fontSize: 22, fontWeight: 900 }}>
+            Talaza
+          </span>
+        </Link>
 
-      {accountType === 'cliente'? (
-        <div style={infoGreen}><b>🛒 Conta de cliente - Explora Talaza</b><br/>Você vai ver negócios e produtos perto de você. Pode comprar, falar com vendedores e salvar favoritos.</div>
-      ) : (
-        <div style={infoYellow}><b>🏪 Conta de vendedor</b><br/>Você vai criar sua loja, adicionar produtos/serviços e receber clientes. Após criar, vamos configurar seu negócio.</div>
-      )}
+        <div style={{ marginTop: 28 }}>
+          <p
+            style={{
+              color: COLORS.green,
+              fontWeight: 800,
+              fontSize: 12,
+              letterSpacing: 1.2,
+              textTransform: 'uppercase',
+            }}
+          >
+            A sua próxima oportunidade começa aqui
+          </p>
 
-      <form onSubmit={handleSignup} style={{ display: 'grid', gap: 14, marginTop: 16 }}>
-        <label>Tipo de conta
-          <select value={accountType} onChange={e => setAccountType(e.target.value)} disabled={lockedType} required style={field}>
-            <option value="cliente">Cliente - Explorar</option>
-            <option value="vendedor">Vendedor - Vender</option>
-          </select>
-        </label>
-        <label>Nome completo<input value={name} onChange={e => setName(e.target.value)} required style={field}/></label>
-        <label>Telefone (com DDI)<input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+244 923 000 000" required style={field}/></label>
-        <label>E-mail<input type="email" value={email} onChange={e => setEmail(e.target.value)} required style={field}/></label>
-        <label>Palavra-passe
-          <div style={{ position: 'relative' }}>
-            <input type={showPass? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required style={{...field, paddingRight: 42 }} />
-            <span onClick={() => setShowPass(!showPass)} style={{ position: 'absolute', right: 10, top: 16, cursor: 'pointer' }}>{showPass? '🙈' : '👁️'}</span>
+          <h1
+            style={{
+              color: COLORS.dark,
+              fontSize: 30,
+              lineHeight: 1.2,
+              margin: '10px 0',
+            }}
+          >
+            Criar conta
+          </h1>
+
+          <p
+            style={{
+              color: COLORS.muted,
+              fontSize: 14,
+              lineHeight: 1.7,
+              marginBottom: 24,
+            }}
+          >
+            Escolha como pretende utilizar a Talaza e crie
+            a sua conta.
+          </p>
+        </div>
+
+        <form onSubmit={handleSignup}>
+          <label style={labelStyle}>Quero utilizar a Talaza como</label>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: 10,
+              marginBottom: 22,
+            }}
+          >
+            {[
+              {
+                value: 'cliente',
+                title: 'Cliente',
+                description: 'Descobrir negócios e serviços',
+                icon: '⌕',
+              },
+              {
+                value: 'vendedor',
+                title: 'Vendedor',
+                description: 'Criar a minha loja ou negócio',
+                icon: '▦',
+              },
+            ].map((option) => {
+              const selected = accountType === option.value;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setAccountType(option.value)}
+                  aria-pressed={selected}
+                  style={{
+                    textAlign: 'left',
+                    padding: 15,
+                    borderRadius: 15,
+                    border: `1px solid ${
+                      selected ? COLORS.green : COLORS.line
+                    }`,
+                    background: selected
+                      ? COLORS.greenSoft
+                      : COLORS.white,
+                    cursor: 'pointer',
+                    color: COLORS.ink,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'block',
+                      fontSize: 24,
+                      color: COLORS.green,
+                      marginBottom: 8,
+                    }}
+                  >
+                    {option.icon}
+                  </span>
+                  <strong style={{ fontSize: 15 }}>
+                    {option.title}
+                  </strong>
+                  <span
+                    style={{
+                      display: 'block',
+                      marginTop: 6,
+                      color: COLORS.muted,
+                      fontSize: 12,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {option.description}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        </label>
-        <label>País
-          <select value={countryId} onChange={e => setCountryId(e.target.value)} required style={field}>
-            <option value="">Escolha o país</option>
-            {countries.map(c => <option key={c.id} value={c.id}>{FLAGS[c.name] || '🏳️'} {c.name}</option>)}
-          </select>
-        </label>
-        <label>Província
-          <select value={provinceId} onChange={e => setProvinceId(e.target.value)} required disabled={!countryId} style={field}>
-            <option value="">Escolha a província</option>
-            {provinces.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </label>
 
-        {error && <p style={{ color: '#B93845', fontSize: 13 }}>{error}</p>}
-        {notice && <p style={{ color: '#0F6E5C', fontSize: 13 }}>{notice}</p>}
+          <div style={{ marginBottom: 17 }}>
+            <label style={labelStyle} htmlFor="fullName">
+              Nome completo
+            </label>
+            <input
+              id="fullName"
+              autoComplete="name"
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Introduza o seu nome"
+              required
+              minLength={2}
+              style={inputStyle}
+            />
+          </div>
 
-        <button type="submit" disabled={loading} style={btn}>{loading? 'A criar...' : 'Criar conta'}</button>
-      </form>
-      <p style={{ marginTop: 18, fontSize: 14 }}>Já tem conta? <Link href="/login">Entrar</Link></p>
+          <div style={{ marginBottom: 17 }}>
+            <label style={labelStyle} htmlFor="email">
+              E-mail
+            </label>
+            <input
+              id="email"
+              autoComplete="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="seu@email.com"
+              required
+              style={inputStyle}
+            />
+          </div>
+
+          <div style={{ marginBottom: 17 }}>
+            <label style={labelStyle} htmlFor="country">
+              País
+            </label>
+            <select
+              id="country"
+              value={countryName}
+              onChange={(e) => setCountryName(e.target.value)}
+              required
+              style={{
+                ...inputStyle,
+                cursor: 'pointer',
+              }}
+            >
+              {COUNTRIES.map((country) => (
+                <option key={country.name} value={country.name}>
+                  {country.flag} {country.name}
+                  {country.available ? '' : ' — Em breve'}
+                </option>
+              ))}
+            </select>
+
+            {!selectedCountry.available && (
+              <p
+                style={{
+                  margin: '8px 0 0',
+                  color: COLORS.muted,
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                }}
+              >
+                Estamos a preparar a chegada da Talaza a este país.
+                O cadastro estará disponível numa próxima fase.
+              </p>
+            )}
+          </div>
+
+          <div style={{ marginBottom: 17 }}>
+            <label style={labelStyle} htmlFor="phone">
+              Número de telefone (opcional)
+            </label>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div
+                aria-label={`Indicativo ${selectedCountry.code}`}
+                style={{
+                  ...inputStyle,
+                  width: 100,
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: COLORS.greenSoft,
+                  borderColor: '#D4E8E2',
+                  fontWeight: 800,
+                }}
+              >
+                {selectedCountry.flag} {selectedCountry.code}
+              </div>
+
+              <input
+                id="phone"
+                type="tel"
+                autoComplete="tel-national"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Número de telefone"
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 17 }}>
+            <label style={labelStyle} htmlFor="password">
+              Palavra-passe
+            </label>
+            <input
+              id="password"
+              autoComplete="new-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Mínimo de 6 caracteres"
+              minLength={6}
+              required
+              style={inputStyle}
+            />
+          </div>
+
+          <div style={{ marginBottom: 17 }}>
+            <label style={labelStyle} htmlFor="confirmPassword">
+              Confirmar palavra-passe
+            </label>
+            <input
+              id="confirmPassword"
+              autoComplete="new-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Repita a palavra-passe"
+              minLength={6}
+              required
+              style={inputStyle}
+            />
+          </div>
+
+          {error && (
+            <div
+              role="alert"
+              style={{
+                padding: 13,
+                borderRadius: 12,
+                background: '#FFF0F0',
+                color: COLORS.red,
+                fontSize: 13,
+                lineHeight: 1.6,
+                marginTop: 12,
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading || countryLoading}
+            style={{
+              width: '100%',
+              marginTop: 18,
+              padding: 16,
+              border: 'none',
+              borderRadius: 13,
+              background:
+                loading || countryLoading
+                  ? '#91B5AC'
+                  : COLORS.green,
+              color: COLORS.white,
+              fontSize: 15,
+              fontWeight: 800,
+              cursor:
+                loading || countryLoading ? 'wait' : 'pointer',
+            }}
+          >
+            {countryLoading
+              ? 'A preparar o cadastro…'
+              : loading
+                ? 'A criar conta…'
+                : 'Criar a minha conta →'}
+          </button>
+        </form>
+
+        <div
+          style={{
+            marginTop: 23,
+            paddingTop: 20,
+            borderTop: `1px solid ${COLORS.line}`,
+            textAlign: 'center',
+            color: COLORS.muted,
+            fontSize: 14,
+            lineHeight: 1.8,
+          }}
+        >
+          Já tem uma conta?{' '}
+          <Link
+            href="/login"
+            style={{
+              color: COLORS.green,
+              fontWeight: 800,
+              textDecoration: 'none',
+            }}
+          >
+            Entrar
+          </Link>
+
+          <div style={{ marginTop: 12 }}>
+            <Link
+              href="/"
+              style={{
+                color: COLORS.muted,
+                textDecoration: 'none',
+              }}
+            >
+              ← Voltar ao início
+            </Link>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
-const field = { display: 'block', width: '100%', marginTop: 6, padding: '12px', border: '1px solid #E5E9E7', borderRadius: 10 };
-const btn = { border: 0, borderRadius: 10, padding: 14, background: '#0F6E5C', color: 'white', fontWeight: 700, cursor: 'pointer' };
-const infoGreen = { background: '#ECFDF5', border: '1px solid #A7F3D0', padding: 12, borderRadius: 10, fontSize: 13, lineHeight: 1.5 };
-const infoYellow = { background: '#FFFBEB', border: '1px solid #FCD34D', padding: 12, borderRadius: 10, fontSize: 13, lineHeight: 1.5 };
