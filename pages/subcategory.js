@@ -1,1173 +1,596 @@
-import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 
-// Paleta de apoio só para dar cor aos cartões quando não há foto —
-// mesma lógica visual do protótipo (cada negócio ganha uma cor fixa).
-const HUES = ['#0F6E5C', '#8A4B2B', '#6B3FA0', '#2E6B7A', '#A0522D', '#4B5D67', '#7A5C2E'];
-function getHue(business, index) {
-  return HUES[index % HUES.length];
-}
-function getInitials(name) {
-  return (name || '')
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase();
+const COLORS = {
+  green: '#0F6E5C',
+  darkGreen: '#083F35',
+  gold: '#DDA10A',
+  purple: '#7252B8',
+  purpleSoft: '#F1ECFA',
+  background: '#F8F6F3',
+  white: '#FFFFFF',
+  ink: '#17211F',
+  muted: '#596560',
+  line: '#E5E9E7',
+  mint: '#E8F3F0',
+  goldSoft: '#FBF1D7',
+};
+
+const TONES = [
+  { background: '#E8F3F0', color: '#0F6E5C' },
+  { background: '#FBF1D7', color: '#8A6607' },
+  { background: '#F1ECFA', color: '#7252B8' },
+  { background: '#FAE9E4', color: '#AE4132' },
+  { background: '#E4ECF8', color: '#2F5CA4' },
+];
+
+function getInitial(name) {
+  const text = String(name || '').normalize('NFC').trim();
+  return text ? text.charAt(0).toLocaleUpperCase('pt-AO') : '?';
 }
 
-export default function Subcategory() {
+function Icon({ type, size = 22 }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.8,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': true,
+  };
+
+  const paths = {
+    back: <path d="M15 5l-7 7 7 7" />,
+    next: <path d="M9 6l6 6-6 6" />,
+    food: (
+      <>
+        <path d="M7 3v8M4 3v5a3 3 0 006 0V3M7 11v10" />
+        <path d="M17 21V3c-2.5 1.5-3.5 4.5-3.5 8H17" />
+      </>
+    ),
+    beauty: (
+      <>
+        <path d="M12 3v7M8.5 3v4a3.5 3.5 0 007 0V3" />
+        <path d="M12 10v11" />
+      </>
+    ),
+    education: (
+      <>
+        <path d="m3 9 9-5 9 5-9 5-9-5Z" />
+        <path d="M7 11.5V16c3 2 7 2 10 0v-4.5M21 9v7" />
+      </>
+    ),
+    health: (
+      <>
+        <path d="M12 21s-7-4.5-7-11a4 4 0 017-2.4A4 4 0 0119 10c0 6.5-7 11-7 11Z" />
+        <path d="M9 12h6M12 9v6" />
+      </>
+    ),
+    home: (
+      <>
+        <path d="m3 11 9-8 9 8" />
+        <path d="M5 10v10h14V10M9 20v-6h6v6" />
+      </>
+    ),
+    transport: (
+      <>
+        <path d="M3 6h12v11H3zM15 10h4l3 3v4h-7" />
+        <circle cx="7" cy="18" r="1.5" />
+        <circle cx="18" cy="18" r="1.5" />
+      </>
+    ),
+    services: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
+      </>
+    ),
+    other: (
+      <>
+        <circle cx="5" cy="12" r="1.5" />
+        <circle cx="12" cy="12" r="1.5" />
+        <circle cx="19" cy="12" r="1.5" />
+      </>
+    ),
+  };
+
+  return <svg {...common}>{paths[type] || paths.other}</svg>;
+}
+
+function getCategoryIcon(name = '') {
+  const value = String(name)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  if (/aliment|restaur|comida|bebida|gastronom|confeitaria|pastelaria/.test(value)) {
+    return 'food';
+  }
+  if (/beleza|estetica|cabeleire|barbear|tranca/.test(value)) return 'beauty';
+  if (/saude|medic|farmac/.test(value)) return 'health';
+  if (/educa|escola|formacao/.test(value)) return 'education';
+  if (/imove|habitacao|casa|construcao/.test(value)) return 'home';
+  if (/transport|logistica|automov|carro/.test(value)) return 'transport';
+  if (/servic|profission|manutenc|tecnologia/.test(value)) return 'services';
+
+  return 'other';
+}
+
+export default function Category() {
   const router = useRouter();
+  const { id, country, province } = router.query;
 
-  const {
-    id,
-    country,
-    province,
-  } = router.query;
-
-  const [subcategory, setSubcategory] = useState(null);
-  const [businesses, setBusinesses] = useState([]);
-  const [premiumBusinesses, setPremiumBusinesses] = useState([]);
-
+  const [category, setCategory] = useState(null);
+  const [subcategories, setSubcategories] = useState([]);
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
-
-  const [query, setQuery] = useState('');
-  const [municipality, setMunicipality] = useState('');
-  const [neighborhood, setNeighborhood] = useState('');
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
-
   const [loading, setLoading] = useState(true);
-  const [premiumLoading, setPremiumLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const [premiumOpen, setPremiumOpen] = useState(false);
-  const [premiumIndex, setPremiumIndex] = useState(0);
 
   useEffect(() => {
     if (!router.isReady) return;
 
-    if (!id || !country || !province) {
-      router.replace('/country');
-      return;
-    }
-
-    loadSubcategory();
-  }, [
-    router.isReady,
-    id,
-    country,
-    province,
-  ]);
-
-  useEffect(() => {
-    if (
-      !router.isReady ||
-      !id ||
-      !country ||
-      !province
-    ) {
-      return;
-    }
-
-    loadBusinesses();
-    loadPremiumBusinesses();
-  }, [
-    router.isReady,
-    id,
-    country,
-    province,
-    query,
-    municipality,
-    neighborhood,
-  ]);
-
-  async function loadSubcategory() {
-    setLoading(true);
-    setError('');
-
-    const {
-      data,
-      error: subcategoryError,
-    } = await supabase
-      .from('subcategories')
-      .select(`
-        id,
-        created_at,
-        category_id,
-        name,
-        description
-      `)
-      .eq('id', id)
-      .single();
-
-    if (subcategoryError) {
-      console.error(subcategoryError);
-
-      setError(
-        'Não foi possível carregar esta subcategoria.'
-      );
-
+    if (!id || Array.isArray(id)) {
+      setError('Categoria inválida. Volte à Vitrine e escolha uma categoria.');
       setLoading(false);
       return;
     }
 
-    const {
-      data: provinceData,
-      error: provinceError,
-    } = await supabase
-      .from('provinces')
-      .select('id, name, country_id')
-      .eq('id', province)
-      .eq('country_id', country)
-      .single();
+    let cancelled = false;
 
-    if (provinceError || !provinceData) {
-      setError(
-        'A província selecionada não pertence ao país escolhido.'
-      );
+    async function loadData() {
+      setLoading(true);
+      setError('');
 
-      setLoading(false);
-      return;
+      try {
+        const { data: categoryData, error: categoryError } = await supabase
+          .from('categories')
+          .select('id, name')
+          .eq('id', id)
+          .single();
+
+        if (categoryError || !categoryData) {
+          throw new Error('Não foi possível carregar esta categoria do Supabase.');
+        }
+
+        let loadedCountryName = '';
+        let loadedProvinceName = '';
+
+        if (country && province) {
+          const { data: provinceData, error: provinceError } = await supabase
+            .from('provinces')
+            .select('id, name, country_id')
+            .eq('id', province)
+            .eq('country_id', country)
+            .single();
+
+          if (provinceError || !provinceData) {
+            throw new Error('A província não pertence ao país selecionado.');
+          }
+
+          const { data: countryData } = await supabase
+            .from('countries')
+            .select('id, name')
+            .eq('id', country)
+            .single();
+
+          loadedCountryName = countryData?.name || '';
+          loadedProvinceName = provinceData.name || '';
+        }
+
+        const { data: subcategoryData, error: subcategoryError } = await supabase
+          .from('subcategories')
+          .select('id, name, description')
+          .eq('category_id', id)
+          .order('name', { ascending: true });
+
+        if (subcategoryError) {
+          throw new Error('Não foi possível carregar as subcategorias do Supabase.');
+        }
+
+        if (!cancelled) {
+          setCategory(categoryData);
+          setSubcategories(subcategoryData || []);
+          setCountryName(loadedCountryName);
+          setProvinceName(loadedProvinceName);
+        }
+      } catch (loadError) {
+        console.error('Erro em category.js:', loadError);
+        if (!cancelled) setError(loadError.message || 'Ocorreu um erro ao carregar a categoria.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
-    const {
-      data: countryData,
-    } = await supabase
-      .from('countries')
-      .select('id, name')
-      .eq('id', country)
-      .single();
+    loadData();
 
-    setSubcategory(data);
-    setProvinceName(provinceData.name);
-    setCountryName(countryData?.name || '');
+    return () => {
+      cancelled = true;
+    };
+  }, [router.isReady, id, country, province]);
 
-    setLoading(false);
-  }
-
-  async function loadBusinesses() {
-    setLoading(true);
-
-    let request = supabase
-      .from('businesses')
-      .select(`
-        id,
-        name,
-        description,
-        municipality,
-        neighborhood,
-        logo_url
-      `)
-      .eq('country_id', country)
-      .eq('province_id', province)
-      .eq('subcategory_id', id)
-      .eq('is_active', true)
-      .eq('approval_status', 'approved')
-      .order('created_at', {
-        ascending: false,
-      });
-
-    if (query.trim()) {
-      request = request.ilike(
-        'name',
-        `%${query.trim()}%`
-      );
-    }
-
-    if (municipality.trim()) {
-      request = request.ilike(
-        'municipality',
-        `%${municipality.trim()}%`
-      );
-    }
-
-    if (neighborhood.trim()) {
-      request = request.ilike(
-        'neighborhood',
-        `%${neighborhood.trim()}%`
-      );
-    }
-
-    const {
-      data,
-      error: businessesError,
-    } = await request;
-
-    if (businessesError) {
-      console.error(businessesError);
-      setBusinesses([]);
-      setLoading(false);
-      return;
-    }
-
-    setBusinesses(data || []);
-    setLoading(false);
-  }
-
-  async function loadPremiumBusinesses() {
-    setPremiumLoading(true);
-
-    /*
-      Destaques Premium usam a tabela existente:
-
-      business_subscriptions
-      - id
-      - created_at
-      - business_id
-      - plan_id
-      - starts_at
-      - ends_at
-      - status
-
-      Um negócio só entra aqui quando possui uma
-      assinatura válida neste momento.
-    */
-
-    const now = new Date().toISOString();
-
-    const {
-      data: subscriptions,
-      error: subscriptionError,
-    } = await supabase
-      .from('business_subscriptions')
-      .select(`
-        id,
-        business_id,
-        plan_id,
-        starts_at,
-        ends_at,
-        status
-      `)
-      .eq('status', 'active')
-      .lte('starts_at', now)
-      .gte('ends_at', now);
-
-    if (subscriptionError) {
-      console.error(subscriptionError);
-      setPremiumBusinesses([]);
-      setPremiumLoading(false);
-      return;
-    }
-
-    if (!subscriptions || subscriptions.length === 0) {
-      setPremiumBusinesses([]);
-      setPremiumLoading(false);
-      return;
-    }
-
-    const businessIds = [
-      ...new Set(
-        subscriptions
-          .map((subscription) => subscription.business_id)
-          .filter(Boolean)
-      ),
-    ];
-
-    if (businessIds.length === 0) {
-      setPremiumBusinesses([]);
-      setPremiumLoading(false);
-      return;
-    }
-
-    const {
-      data: premiumData,
-      error: premiumError,
-    } = await supabase
-      .from('businesses')
-      .select(`
-        id,
-        name,
-        description,
-        municipality,
-        neighborhood,
-        logo_url,
-        country_id,
-        province_id,
-        subcategory_id,
-        is_active,
-        approval_status
-      `)
-      .in('id', businessIds)
-      .eq('country_id', country)
-      .eq('province_id', province)
-      .eq('subcategory_id', id)
-      .eq('is_active', true)
-      .eq('approval_status', 'approved');
-
-    if (premiumError) {
-      console.error(premiumError);
-      setPremiumBusinesses([]);
-      setPremiumLoading(false);
-      return;
-    }
-
-    /*
-      Mantemos apenas os negócios que possuem
-      assinatura válida.
-    */
-
-    const validSubscriptionBusinessIds = new Set(
-      subscriptions.map(
-        (subscription) => subscription.business_id
-      )
-    );
-
-    const filteredPremium = (premiumData || []).filter(
-      (business) =>
-        validSubscriptionBusinessIds.has(business.id)
-    );
-
-    setPremiumBusinesses(filteredPremium);
-    setPremiumLoading(false);
-  }
-
-  function openPremiumFeed(index) {
-    setPremiumIndex(index);
-    setPremiumOpen(true);
-
-    if (typeof document !== 'undefined') {
-      document.body.style.overflow = 'hidden';
-    }
-  }
-
-  function closePremiumFeed() {
-    setPremiumOpen(false);
-
-    if (typeof document !== 'undefined') {
-      document.body.style.overflow = '';
-    }
-  }
-
-  function nextPremium() {
-    if (premiumBusinesses.length === 0) return;
-
-    setPremiumIndex((current) =>
-      current >= premiumBusinesses.length - 1
-        ? 0
-        : current + 1
-    );
-  }
-
-  function previousPremium() {
-    if (premiumBusinesses.length === 0) return;
-
-    setPremiumIndex((current) =>
-      current <= 0
-        ? premiumBusinesses.length - 1
-        : current - 1
-    );
-  }
-
-  function handlePremiumWheel(event) {
-    if (event.deltaY > 0) {
-      nextPremium();
-    } else if (event.deltaY < 0) {
-      previousPremium();
-    }
-  }
-
-  const currentPremium =
-    premiumBusinesses[premiumIndex];
-  const currentPremiumHue =
-    currentPremium
-      ? getHue(currentPremium, premiumBusinesses.indexOf(currentPremium))
-      : '#0F6E5C';
+  const exploreHref = {
+    pathname: '/explore',
+    query: {
+      ...(country ? { country } : {}),
+      ...(province ? { province } : {}),
+    },
+  };
 
   return (
-    <>
-      <Head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </Head>
+    <div className="category-page">
+      <header className="category-hero">
+        <nav className="category-nav">
+          <Link href={exploreHref} className="brand">
+            <span className="brand-mark">T</span>
+            <span>Talaza</span>
+          </Link>
 
-      <div style={{ background: '#FAF7F2', minHeight: '100vh' }}>
-        {/* BARRA VERDE DO TOPO */}
-        <div
-          style={{
-            background: '#0A2E27',
-            color: '#fff',
-            padding: '16px 18px 14px',
-          }}
-        >
-          <div
-            style={{
-              maxWidth: 1080,
-              margin: '0 auto',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Link
-              href={{
-                pathname: '/explore',
-                query: { country, province },
-              }}
-              style={{
-                textDecoration: 'none',
-                color: 'inherit',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              <div
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: 8,
-                  background: '#DDA10A',
-                  color: '#0A2E27',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontFamily: "'Fraunces', serif",
-                  fontWeight: 700,
-                  fontSize: 15,
-                }}
-              >
-                T
-              </div>
-              <b
-                style={{
-                  fontFamily: "'Fraunces', serif",
-                  fontWeight: 600,
-                  fontSize: 19,
-                  letterSpacing: '.2px',
-                }}
-              >
-                Talaza
-              </b>
-            </Link>
+          <Link href={exploreHref} className="back-link">
+            <Icon type="back" size={19} />
+            Voltar
+          </Link>
+        </nav>
 
-            <Link
-              href={{
-                pathname: '/category',
-                query: {
-                  id: subcategory?.category_id,
-                  country,
-                  province,
-                },
-              }}
-              style={{
-                textDecoration: 'none',
-                width: 34,
-                height: 34,
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.1)',
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 15,
-              }}
-              title="Voltar à categoria"
-            >
-              ←
-            </Link>
+        {(countryName || provinceName) && (
+          <div className="location-chip">
+            <span className="location-dot" />
+            {[countryName, provinceName].filter(Boolean).join(' · ')}
           </div>
+        )}
 
-          <div
-            style={{
-              maxWidth: 1080,
-              margin: '12px auto 0',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              fontSize: 12.5,
-              color: 'rgba(255,255,255,0.75)',
-            }}
-          >
-            📍 <b style={{ color: '#fff', fontWeight: 600 }}>{countryName}</b> · {provinceName}
+        <p className="eyebrow">VITRINE TALAZA</p>
+        <h1>{category?.name || (loading ? 'A carregar categoria…' : 'Categoria')}</h1>
+        <p className="hero-description">
+          Escolha uma subcategoria para encontrar os negócios e serviços que procura.
+        </p>
+        <div className="hero-decoration" aria-hidden="true">
+          <Icon type={getCategoryIcon(category?.name)} size={150} />
+        </div>
+      </header>
+
+      <main className="category-content">
+        <div className="section-heading">
+          <div>
+            <span className="section-kicker">EXPLORE</span>
+            <h2>Subcategorias</h2>
           </div>
+          {!loading && !error && (
+            <span className="count">
+              {subcategories.length} {subcategories.length === 1 ? 'opção' : 'opções'}
+            </span>
+          )}
         </div>
 
-        <div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 18px 50px' }}>
-          {loading && (
-            <p style={{ color: '#5B655F', fontSize: 13, marginTop: 20 }}>
-              A carregar…
-            </p>
-          )}
-
-          {error && (
-            <div
-              style={{
-                marginTop: 20,
-                padding: 14,
-                borderRadius: 12,
-                background: '#FFF1F0',
-                border: '1px solid #F7C9C4',
-                color: '#9B2C2C',
-                fontSize: 13,
-              }}
-            >
-              {error}
-            </div>
-          )}
-
-          {!loading && !error && subcategory && (
-            <>
-              {/* TÍTULO */}
-              <h1
-                style={{
-                  fontFamily: "'Fraunces', serif",
-                  fontWeight: 600,
-                  fontSize: 27,
-                  marginTop: 20,
-                  marginBottom: 6,
-                  color: '#1C2321',
-                }}
-              >
-                {subcategory.name}
-              </h1>
-
-              {subcategory.description && (
-                <p
-                  style={{
-                    color: '#5B655F',
-                    fontSize: 13.5,
-                    marginTop: 0,
-                    maxWidth: 480,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {subcategory.description}
-                </p>
-              )}
-
-              {/* PESQUISA — compacta, numa linha */}
-              <div style={{ marginTop: 16 }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    background: '#fff',
-                    border: '1px solid #E7E2D6',
-                    borderRadius: 13,
-                    padding: '11px 14px',
-                  }}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA39D" strokeWidth="2">
-                    <circle cx="11" cy="11" r="7" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                  <input
-                    style={{
-                      border: 'none',
-                      outline: 'none',
-                      background: 'transparent',
-                      fontSize: 13.5,
-                      width: '100%',
-                      fontFamily: 'inherit',
-                    }}
-                    placeholder="Pesquisar por nome…"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowMoreFilters((v) => !v)}
-                    style={{
-                      border: 'none',
-                      background: 'transparent',
-                      color: '#0F6E5C',
-                      fontSize: 11.5,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {showMoreFilters ? 'Fechar' : 'Município/Bairro'}
-                  </button>
-                </div>
-
-                {showMoreFilters && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: 7,
-                      marginTop: 7,
-                    }}
-                  >
-                    <input
-                      style={{
-                        flex: 1,
-                        border: '1px solid #E7E2D6',
-                        borderRadius: 10,
-                        padding: '8px 11px',
-                        fontSize: 12,
-                        outline: 'none',
-                        fontFamily: 'inherit',
-                      }}
-                      placeholder="Município"
-                      value={municipality}
-                      onChange={(e) => setMunicipality(e.target.value)}
-                    />
-                    <input
-                      style={{
-                        flex: 1,
-                        border: '1px solid #E7E2D6',
-                        borderRadius: 10,
-                        padding: '8px 11px',
-                        fontSize: 12,
-                        outline: 'none',
-                        fontFamily: 'inherit',
-                      }}
-                      placeholder="Bairro"
-                      value={neighborhood}
-                      onChange={(e) => setNeighborhood(e.target.value)}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* DESTAQUES PREMIUM */}
-              <section style={{ marginTop: 26, marginBottom: 8 }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'baseline',
-                    justifyContent: 'space-between',
-                    marginBottom: 12,
-                  }}
-                >
-                  <h2
-                    style={{
-                      fontFamily: "'Fraunces', serif",
-                      fontSize: 18,
-                      fontWeight: 600,
-                      margin: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      color: '#1C2321',
-                    }}
-                  >
-                    <span style={{ fontSize: 16 }}>👑</span> Destaques Premium
-                  </h2>
-                  {premiumBusinesses.length > 0 && (
-                    <span style={{ fontSize: 11.5, color: '#5B655F' }}>deslize →</span>
-                  )}
-                </div>
-
-                {premiumLoading && (
-                  <p style={{ color: '#5B655F', fontSize: 12 }}>A carregar destaques…</p>
-                )}
-
-                {!premiumLoading && premiumBusinesses.length === 0 && (
-                  <div
-                    style={{
-                      padding: 16,
-                      borderRadius: 14,
-                      background: '#FFFFFF',
-                      border: '1px solid #E7E2D6',
-                      color: '#5B655F',
-                      fontSize: 12.5,
-                    }}
-                  >
-                    Ainda não existem Destaques Premium nesta subcategoria.
-                  </div>
-                )}
-
-                {!premiumLoading && premiumBusinesses.length > 0 && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: 12,
-                      overflowX: 'auto',
-                      paddingBottom: 6,
-                    }}
-                  >
-                    {premiumBusinesses.map((business, index) => {
-                      const hue = getHue(business, index);
-                      return (
-                        <button
-                          key={business.id}
-                          type="button"
-                          onClick={() => openPremiumFeed(index)}
-                          style={{
-                            flex: '0 0 120px',
-                            border: 'none',
-                            background: 'transparent',
-                            padding: 0,
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 120,
-                              height: 142,
-                              borderRadius: 16,
-                              position: 'relative',
-                              overflow: 'hidden',
-                              boxShadow: '0 6px 16px -6px rgba(10,46,39,0.3)',
-                              backgroundImage: business.logo_url
-                                ? `url(${business.logo_url})`
-                                : undefined,
-                              backgroundSize: 'cover',
-                              backgroundPosition: 'center',
-                              background: business.logo_url ? undefined : hue,
-                              display: 'flex',
-                              alignItems: 'flex-end',
-                            }}
-                          >
-                            <div
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
-                                background:
-                                  'linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.55) 100%)',
-                              }}
-                            />
-                            <span
-                              style={{
-                                position: 'absolute',
-                                top: 8,
-                                left: 8,
-                                background: '#DDA10A',
-                                color: '#0A2E27',
-                                fontSize: 10,
-                                fontWeight: 700,
-                                padding: '3px 7px',
-                                borderRadius: 20,
-                                zIndex: 2,
-                              }}
-                            >
-                              👑 Premium
-                            </span>
-                            <span
-                              style={{
-                                position: 'relative',
-                                zIndex: 2,
-                                color: '#fff',
-                                fontSize: 12.5,
-                                fontWeight: 600,
-                                padding: '0 10px 10px',
-                                lineHeight: 1.25,
-                              }}
-                            >
-                              {business.name}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-
-              {/* NEGÓCIOS — "Encontre aqui" */}
-              <section style={{ marginTop: 22 }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 12,
-                  }}
-                >
-                  <h2
-                    style={{
-                      fontFamily: "'Fraunces', serif",
-                      fontSize: 18,
-                      fontWeight: 600,
-                      margin: 0,
-                      color: '#1C2321',
-                    }}
-                  >
-                    Encontre aqui
-                  </h2>
-                  <span style={{ color: '#5B655F', fontSize: 11 }}>{provinceName}</span>
-                </div>
-
-                {loading && (
-                  <p style={{ color: '#5B655F', fontSize: 13 }}>A carregar…</p>
-                )}
-
-                {!loading && businesses.length === 0 && (
-                  <div
-                    style={{
-                      padding: 17,
-                      borderRadius: 13,
-                      background: '#FFFFFF',
-                      border: '1px solid #E7E2D6',
-                      color: '#5B655F',
-                      fontSize: 13,
-                    }}
-                  >
-                    Ainda não há negócios cadastrados nesta subcategoria nesta região.
-                  </div>
-                )}
-
-                {!loading && businesses.length > 0 && (
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))',
-                      gap: 10,
-                    }}
-                  >
-                    {businesses.map((business, index) => {
-                      const hue = getHue(business, index);
-                      return (
-                        <Link
-                          key={business.id}
-                          href={`/businesses/${business.id}?country=${country}&province=${province}`}
-                          style={{
-                            textDecoration: 'none',
-                            color: 'inherit',
-                            display: 'flex',
-                            gap: 12,
-                            background: '#FFFFFF',
-                            border: '1px solid #E7E2D6',
-                            borderRadius: 14,
-                            padding: 10,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 64,
-                              height: 64,
-                              borderRadius: 10,
-                              flexShrink: 0,
-                              backgroundImage: business.logo_url
-                                ? `url(${business.logo_url})`
-                                : undefined,
-                              backgroundSize: 'cover',
-                              backgroundPosition: 'center',
-                              background: business.logo_url ? undefined : hue,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#fff',
-                              fontFamily: "'Fraunces', serif",
-                              fontWeight: 600,
-                              fontSize: 20,
-                            }}
-                          >
-                            {!business.logo_url && getInitials(business.name)}
-                          </div>
-
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: '#1C2321' }}>
-                              {business.name}
-                            </p>
-                            {(business.municipality || business.neighborhood) && (
-                              <p style={{ fontSize: 12, color: '#5B655F', margin: '3px 0 5px' }}>
-                                {business.neighborhood}
-                                {business.municipality && business.neighborhood ? ' · ' : ''}
-                                {business.municipality}
-                              </p>
-                            )}
-                            {business.description && (
-                              <p
-                                style={{
-                                  fontSize: 11.5,
-                                  color: '#5B655F',
-                                  margin: '0 0 6px',
-                                  lineHeight: 1.4,
-                                  display: '-webkit-box',
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: 'vertical',
-                                  overflow: 'hidden',
-                                }}
-                              >
-                                {business.description}
-                              </p>
-                            )}
-                            <span
-                              style={{
-                                fontSize: 12,
-                                fontWeight: 600,
-                                color: '#0F6E5C',
-                              }}
-                            >
-                              Ver perfil →
-                            </span>
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* FEED DOS DESTAQUES PREMIUM — ecrã cheio */}
-      {premiumOpen && currentPremium && (
-        <div
-          onWheel={handlePremiumWheel}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            background: '#0A0A0A',
-            color: '#FFFFFF',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          {/* TOPO DO FEED */}
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              zIndex: 5,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px 16px',
-              background: 'linear-gradient(to bottom, rgba(0,0,0,0.65), transparent)',
-            }}
-          >
-            <button
-              type="button"
-              onClick={closePremiumFeed}
-              style={{
-                border: '1px solid rgba(255,255,255,0.25)',
-                background: 'rgba(0,0,0,0.35)',
-                color: '#FFFFFF',
-                borderRadius: 10,
-                padding: '9px 12px',
-                cursor: 'pointer',
-                fontWeight: 700,
-                fontSize: 13,
-              }}
-            >
-              ← Voltar
-            </button>
-
-            <div
-              style={{
-                fontSize: 11.5,
-                fontWeight: 800,
-                letterSpacing: 0.5,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              👑 DESTAQUE PREMIUM
-            </div>
-
-            <div style={{ fontSize: 11, opacity: 0.8 }}>
-              {premiumIndex + 1}/{premiumBusinesses.length}
-            </div>
+        {loading && (
+          <div className="status-card">
+            <span className="spinner" />
+            A carregar os dados do Supabase…
           </div>
+        )}
 
-          {/* CONTEÚDO PRINCIPAL */}
-          <div
-            style={{
-              flex: 1,
-              position: 'relative',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
-            }}
-          >
-            {currentPremium.logo_url ? (
-              <img
-                src={currentPremium.logo_url}
-                alt={currentPremium.name}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  background: `linear-gradient(145deg, ${currentPremiumHue}, #0A2E27)`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontFamily: "'Fraunces', serif",
-                  fontSize: 90,
-                  fontWeight: 600,
-                }}
-              >
-                {getInitials(currentPremium.name)}
-              </div>
-            )}
+        {error && (
+          <div className="error-card">
+            <strong>Não foi possível abrir esta categoria</strong>
+            <p>{error}</p>
+            <Link href={exploreHref} className="primary-button">Voltar à Vitrine</Link>
+          </div>
+        )}
 
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                background:
-                  'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.05) 55%, rgba(0,0,0,0.18) 100%)',
-              }}
-            />
+        {!loading && !error && subcategories.length === 0 && (
+          <div className="empty-card">
+            <div className="empty-icon"><Icon type="other" size={28} /></div>
+            <h3>Ainda não há subcategorias</h3>
+            <p>Esta categoria ainda não tem subcategorias registadas no Supabase.</p>
+            <Link href={exploreHref} className="primary-button">Ver outras categorias</Link>
+          </div>
+        )}
 
-            <div
-              style={{
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                bottom: 0,
-                padding: '24px 18px 28px',
-              }}
-            >
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  background: '#DDA10A',
-                  color: '#0A2E27',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '4px 10px',
-                  borderRadius: 20,
-                  marginBottom: 10,
-                }}
-              >
-                👑 Destaque Premium
-              </span>
+        {!loading && !error && subcategories.length > 0 && (
+          <div className="subcategory-grid">
+            {subcategories.map((subcategory, index) => {
+              const tone = TONES[index % TONES.length];
 
-              <div
-                style={{
-                  fontFamily: "'Fraunces', serif",
-                  fontSize: 24,
-                  fontWeight: 600,
-                  marginBottom: 14,
-                }}
-              >
-                {currentPremium.name}
-              </div>
-
-              <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-                <a
-                  href={currentPremium.phone ? `sms:${currentPremium.phone}` : '#'}
-                  onClick={(event) => {
-                    if (!currentPremium.phone) {
-                      event.preventDefault();
-                    }
-                  }}
-                  style={{
-                    textDecoration: 'none',
-                    border: 'none',
-                    background: '#DDA10A',
-                    color: '#0A2E27',
-                    borderRadius: 12,
-                    padding: '11px 15px',
-                    fontWeight: 700,
-                    fontSize: 12,
-                    opacity: currentPremium.phone ? 1 : 0.55,
-                  }}
-                >
-                  Enviar SMS
-                </a>
-
+              return (
                 <Link
-                  href={`/businesses/${currentPremium.id}?country=${country}&province=${province}`}
+                  key={subcategory.id}
+                  href={{
+                    pathname: '/subcategory',
+                    query: {
+                      id: subcategory.id,
+                      ...(country ? { country } : {}),
+                      ...(province ? { province } : {}),
+                    },
+                  }}
+                  className="subcategory-card"
                   style={{
-                    textDecoration: 'none',
-                    border: '1px solid rgba(255,255,255,0.5)',
-                    background: 'rgba(255,255,255,0.12)',
-                    color: '#FFFFFF',
-                    borderRadius: 12,
-                    padding: '11px 15px',
-                    fontWeight: 600,
-                    fontSize: 12,
+                    '--tone-bg': tone.background,
+                    '--tone-color': tone.color,
+                    '--card-index': index,
                   }}
                 >
-                  Ver perfil
+                  <span className="initial-box">{getInitial(subcategory.name)}</span>
+                  <span className="card-arrow"><Icon type="next" size={17} /></span>
+                  <h3>{subcategory.name}</h3>
+                  {subcategory.description && <p>{subcategory.description}</p>}
                 </Link>
-              </div>
-            </div>
-
-            {premiumBusinesses.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={previousPremium}
-                  aria-label="Destaque anterior"
-                  style={{
-                    position: 'absolute',
-                    left: 10,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: 40,
-                    height: 40,
-                    borderRadius: '50%',
-                    border: '1px solid rgba(255,255,255,0.3)',
-                    background: 'rgba(0,0,0,0.25)',
-                    color: '#FFFFFF',
-                    fontSize: 20,
-                    cursor: 'pointer',
-                  }}
-                >
-                  ‹
-                </button>
-
-                <button
-                  type="button"
-                  onClick={nextPremium}
-                  aria-label="Próximo destaque"
-                  style={{
-                    position: 'absolute',
-                    right: 10,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: 40,
-                    height: 40,
-                    borderRadius: '50%',
-                    border: '1px solid rgba(255,255,255,0.3)',
-                    background: 'rgba(0,0,0,0.25)',
-                    color: '#FFFFFF',
-                    fontSize: 20,
-                    cursor: 'pointer',
-                  }}
-                >
-                  ›
-                </button>
-              </>
-            )}
+              );
+            })}
           </div>
+        )}
+      </main>
 
-          {premiumBusinesses.length > 1 && (
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 10,
-                left: 0,
-                right: 0,
-                display: 'flex',
-                justifyContent: 'center',
-                gap: 4,
-                zIndex: 4,
-              }}
-            >
-              {premiumBusinesses.map((business, index) => (
-                <span
-                  key={business.id}
-                  style={{
-                    width: index === premiumIndex ? 18 : 5,
-                    height: 4,
-                    borderRadius: 5,
-                    background: index === premiumIndex ? '#DDA10A' : 'rgba(255,255,255,0.45)',
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </>
+      <style jsx>{`
+        .category-page {
+          min-height: 100vh;
+          background: ${COLORS.background};
+          color: ${COLORS.ink};
+          font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+          padding-bottom: 48px;
+        }
+        .category-page * { box-sizing: border-box; }
+        .category-hero {
+          position: relative;
+          overflow: hidden;
+          padding: 22px max(20px, calc((100% - 920px) / 2)) 38px;
+          background: ${COLORS.darkGreen};
+          color: white;
+          border-radius: 0 0 30px 30px;
+        }
+        .category-nav {
+          position: relative;
+          z-index: 2;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 14px;
+          max-width: 920px;
+          margin: 0 auto;
+        }
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          color: white;
+          font-size: 19px;
+          font-weight: 800;
+          text-decoration: none;
+        }
+        .brand-mark {
+          width: 38px;
+          height: 38px;
+          display: grid;
+          place-items: center;
+          border-radius: 12px;
+          color: ${COLORS.darkGreen};
+          background: ${COLORS.gold};
+          font-size: 21px;
+          font-weight: 900;
+        }
+        .back-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 9px 13px;
+          border: 1px solid rgba(255,255,255,.2);
+          border-radius: 99px;
+          color: white;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 700;
+          background: rgba(255,255,255,.07);
+        }
+        .location-chip {
+          position: relative;
+          z-index: 1;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 28px;
+          padding: 7px 12px;
+          border-radius: 99px;
+          background: rgba(221,161,10,.16);
+          color: #F8D977;
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .location-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: ${COLORS.gold};
+        }
+        .eyebrow {
+          position: relative;
+          z-index: 1;
+          margin: 30px 0 8px;
+          color: #EAC55B;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: .16em;
+        }
+        h1 {
+          position: relative;
+          z-index: 1;
+          max-width: 650px;
+          margin: 0;
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: clamp(32px, 6vw, 48px);
+          line-height: 1.05;
+          letter-spacing: -.035em;
+        }
+        .hero-description {
+          position: relative;
+          z-index: 1;
+          max-width: 460px;
+          margin: 13px 0 0;
+          color: rgba(255,255,255,.78);
+          font-size: 14px;
+          line-height: 1.65;
+        }
+        .hero-decoration {
+          position: absolute;
+          right: max(10px, calc((100% - 980px) / 2));
+          bottom: -35px;
+          color: ${COLORS.gold};
+          opacity: .13;
+          transform: rotate(-9deg);
+        }
+        .category-content {
+          max-width: 960px;
+          margin: 0 auto;
+          padding: 30px 20px 0;
+        }
+        .section-heading {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+        .section-kicker {
+          color: ${COLORS.purple};
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: .15em;
+        }
+        .section-heading h2 {
+          margin: 5px 0 0;
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: 25px;
+          letter-spacing: -.025em;
+        }
+        .count { color: ${COLORS.muted}; font-size: 12px; }
+        .subcategory-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+          gap: 12px;
+        }
+        .subcategory-card {
+          position: relative;
+          display: flex;
+          min-height: 165px;
+          flex-direction: column;
+          align-items: flex-start;
+          padding: 15px;
+          border: 1px solid ${COLORS.line};
+          border-radius: 20px;
+          background: ${COLORS.white};
+          color: ${COLORS.ink};
+          text-decoration: none;
+          box-shadow: 0 6px 20px rgba(23,33,31,.035);
+          transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+          animation: rise .35s ease both;
+          animation-delay: calc(var(--card-index) * 25ms);
+        }
+        .subcategory-card:hover {
+          transform: translateY(-3px);
+          border-color: ${COLORS.purple};
+          box-shadow: 0 10px 25px rgba(114,82,184,.10);
+        }
+        .initial-box {
+          display: grid;
+          place-items: center;
+          width: 46px;
+          height: 46px;
+          border-radius: 15px;
+          background: var(--tone-bg);
+          color: var(--tone-color);
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: 25px;
+          font-weight: 800;
+        }
+        .card-arrow {
+          position: absolute;
+          top: 15px;
+          right: 15px;
+          display: grid;
+          place-items: center;
+          width: 30px;
+          height: 30px;
+          border: 1px solid ${COLORS.line};
+          border-radius: 50%;
+          color: ${COLORS.purple};
+        }
+        .subcategory-card h3 {
+          margin: auto 0 0;
+          padding-top: 20px;
+          font-size: 15px;
+          line-height: 1.3;
+          font-weight: 800;
+        }
+        .subcategory-card p {
+          margin: 6px 0 0;
+          color: ${COLORS.muted};
+          font-size: 12px;
+          line-height: 1.45;
+        }
+        .status-card, .empty-card, .error-card {
+          padding: 24px;
+          border: 1px solid ${COLORS.line};
+          border-radius: 18px;
+          background: ${COLORS.white};
+          color: ${COLORS.muted};
+          font-size: 13px;
+          line-height: 1.6;
+        }
+        .status-card { display: flex; align-items: center; gap: 12px; }
+        .spinner {
+          width: 18px;
+          height: 18px;
+          border: 2px solid ${COLORS.mint};
+          border-top-color: ${COLORS.green};
+          border-radius: 50%;
+          animation: spin .8s linear infinite;
+        }
+        .empty-card { text-align: center; padding: 35px 20px; }
+        .empty-icon {
+          display: grid;
+          place-items: center;
+          width: 58px;
+          height: 58px;
+          margin: 0 auto 14px;
+          border-radius: 18px;
+          background: ${COLORS.purpleSoft};
+          color: ${COLORS.purple};
+        }
+        .empty-card h3, .error-card strong { color: ${COLORS.ink}; }
+        .empty-card p, .error-card p { margin: 8px 0 18px; }
+        .error-card { background: #FFF5F4; border-color: #F3D0CC; color: #9B2C2C; }
+        .primary-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 11px 16px;
+          border-radius: 12px;
+          background: ${COLORS.green};
+          color: white;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 800;
+        }
+        @keyframes rise {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 480px) {
+          .category-hero { padding-left: 18px; padding-right: 18px; }
+          .category-content { padding-left: 14px; padding-right: 14px; }
+          .subcategory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+          .subcategory-card { min-height: 150px; padding: 12px; border-radius: 17px; }
+          .subcategory-card h3 { font-size: 13.5px; }
+          .hero-decoration { right: -45px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .subcategory-card, .spinner { animation: none; transition: none; }
+        }
+      `}</style>
+    </div>
   );
 }
