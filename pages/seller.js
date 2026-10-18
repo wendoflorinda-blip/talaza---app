@@ -55,6 +55,7 @@ export default function Seller() {
           category_id,
           subcategory_id,
           logo_url,
+          cover_url,
           is_active,
           approval_status
         `)
@@ -91,7 +92,7 @@ export default function Seller() {
     }
     setUser(null);
     setBusiness(null);
-    await router.replace('/login');
+    await router.replace('/');
   }
 
   if (loading) {
@@ -257,6 +258,9 @@ export default function Seller() {
             {business.name}
           </h1>
 
+          {business.logo_url && (
+            <img src={business.logo_url} alt={"Logo de " + business.name} style={{ width: 86, height: 86, objectFit: 'cover', borderRadius: 20, border: '3px solid rgba(255,255,255,.65)', marginBottom: 12 }} />
+          )}
           <p
             style={{
               margin: 0,
@@ -281,12 +285,27 @@ export default function Seller() {
               fontWeight: 700
             }}
           >
-            {business.approval_status === 'pending'
-              ? 'Em preparação'
+            {String(business.approval_status || '').toLowerCase() === 'pending'
+              ? 'Pendente de validação'
               : business.is_active
               ? 'Ativo'
               : 'Inativo'}
           </div>
+        </div>
+
+        {business.cover_url && (
+          <div style={{ marginTop: 18, borderRadius: 20, overflow: 'hidden', background: '#EAF4F1' }}>
+            <img src={business.cover_url} alt={"Imagem principal de " + business.name} style={{ display: 'block', width: '100%', maxHeight: 320, objectFit: 'cover' }} />
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 18 }}>
+          <Link href={{ pathname: '/impulsionar', query: { business: business.id } }} style={{ padding: '13px 18px', background: '#E6A900', color: '#17342F', borderRadius: 12, textDecoration: 'none', fontWeight: 800 }}>
+            Mudar plano / Ver planos
+          </Link>
+          <Link href={{ pathname: '/seller', query: { edit: '1' } }} style={{ padding: '13px 18px', background: '#FFFFFF', color: '#075B4E', border: '1px solid #BFD8D0', borderRadius: 12, textDecoration: 'none', fontWeight: 800 }}>
+            Editar negócio
+          </Link>
         </div>
 
         <section
@@ -360,8 +379,7 @@ export default function Seller() {
           </h3>
 
           <p style={{ color: '#66736F', lineHeight: 1.6 }}>
-            {business.description ||
-              'Ainda não adicionou uma descrição.'}
+            {business.description || 'Ainda não adicionou uma descrição.'}
           </p>
 
           <div
