@@ -3,6 +3,26 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
+const COUNTRY_DISPLAY = {
+  angola: ['🇦🇴', '+244'], brasil: ['🇧🇷', '+55'], brazil: ['🇧🇷', '+55'],
+  portugal: ['🇵🇹', '+351'], moçambique: ['🇲🇿', '+258'], mozambique: ['🇲🇿', '+258'],
+  'cabo verde': ['🇨🇻', '+238'], 'guiné-bissau': ['🇬🇼', '+245'], 'são tomé e príncipe': ['🇸🇹', '+239'],
+  'estados unidos': ['🇺🇸', '+1'], 'united states': ['🇺🇸', '+1'], canadá: ['🇨🇦', '+1'], canada: ['🇨🇦', '+1'],
+  'reino unido': ['🇬🇧', '+44'], 'united kingdom': ['🇬🇧', '+44'], frança: ['🇫🇷', '+33'], france: ['🇫🇷', '+33'],
+  espanha: ['🇪🇸', '+34'], spain: ['🇪🇸', '+34'], alemanha: ['🇩🇪', '+49'], germany: ['🇩🇪', '+49'],
+  namíbia: ['🇳🇦', '+264'], namibia: ['🇳🇦', '+264'], 'áfrica do sul': ['🇿🇦', '+27'], 'south africa': ['🇿🇦', '+27'],
+  zâmbia: ['🇿🇲', '+260'], zambia: ['🇿🇲', '+260'], zimbábue: ['🇿🇼', '+263'], zimbabwe: ['🇿🇼', '+263'],
+  congo: ['🇨🇬', '+242'], 'república democrática do congo': ['🇨🇩', '+243'], nigeria: ['🇳🇬', '+234'], nigéria: ['🇳🇬', '+234'],
+  quênia: ['🇰🇪', '+254'], kenya: ['🇰🇪', '+254'], tanzânia: ['🇹🇿', '+255'], tanzania: ['🇹🇿', '+255'],
+  senegal: ['🇸🇳', '+221'], ghana: ['🇬🇭', '+233'], índia: ['🇮🇳', '+91'], india: ['🇮🇳', '+91'],
+  china: ['🇨🇳', '+86'], japão: ['🇯🇵', '+81'], japan: ['🇯🇵', '+81'], austrália: ['🇦🇺', '+61'], australia: ['🇦🇺', '+61']
+};
+function countryInfo(name) {
+  const key = String(name || '').trim().toLocaleLowerCase('pt-AO');
+  const entry = COUNTRY_DISPLAY[key];
+  return entry ? { flag: entry[0], dial: entry[1] } : { flag: '🌍', dial: '' };
+}
+
 const C = {
   green: '#0F6E5C',
   dark: '#083F35',
@@ -19,6 +39,7 @@ export default function Country() {
   const [countries, setCountries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [unavailableCountry, setUnavailableCountry] = useState('');
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -43,14 +64,8 @@ export default function Country() {
         return;
       }
 
-      // Por agora, apenas Angola fica disponível.
-      const available = (data || []).filter(
-        (country) =>
-          String(country.name || '').trim().toLocaleLowerCase('pt-AO') ===
-          'angola'
-      );
-
-      setCountries(available);
+      // Mostramos todos os países cadastrados, mas só permitimos entrar em Angola.
+      setCountries(data || []);
       setLoading(false);
     }
 
@@ -62,6 +77,12 @@ export default function Country() {
   }, [router.isReady]);
 
   function chooseCountry(country) {
+    setUnavailableCountry('');
+    const name = String(country.name || '').trim().toLocaleLowerCase('pt-AO');
+    if (name !== 'angola') {
+      setUnavailableCountry(country.name);
+      return;
+    }
     router.push({
       pathname: '/province',
       query: { country: country.id },
@@ -106,21 +127,37 @@ export default function Country() {
           )}
 
           <div className="countries">
-            {countries.map((country) => (
-              <button
-                key={country.id}
-                className="country"
-                onClick={() => chooseCountry(country)}
-              >
-                <span className="flag">🇦🇴</span>
-                <span className="country-name">{country.name}</span>
-                <span className="arrow">→</span>
-              </button>
-            ))}
+            {countries.map((country) => {
+              const info = countryInfo(country.name);
+              const isAngola = String(country.name || '').trim().toLocaleLowerCase('pt-AO') === 'angola';
+              return (
+                <button
+                  key={country.id}
+                  className={`country ${isAngola ? 'countryAvailable' : 'countryUnavailable'}`}
+                  onClick={() => chooseCountry(country)}
+                  aria-label={isAngola ? `Entrar em ${country.name}` : `${country.name}, país indisponível`}
+                >
+                  <span className="flag">{info.flag}</span>
+                  <span className="country-details">
+                    <span className="country-name">{country.name}</span>
+                    <span className="dial">{info.dial ? `Indicativo ${info.dial}` : 'Indicativo a configurar'}</span>
+                  </span>
+                  <span className="country-status">{isAngola ? 'Disponível' : 'Em breve'}</span>
+                </button>
+              );
+            })}
           </div>
 
+          {unavailableCountry && (
+            <div className="unavailableNotice" role="alert">
+              <strong>País indisponível para a sua localização</strong>
+              <p>A Talaza ainda não está disponível em {unavailableCountry}. Por enquanto, só é possível entrar na área de Angola. Quando esse país for ativado, terá acesso apenas aos negócios da sua própria região.</p>
+              <button onClick={() => setUnavailableCountry('')}>Entendi</button>
+            </div>
+          )}
+
           <p className="note">
-            Outros países poderão ser disponibilizados futuramente.
+            A seleção de país é isolada por região. Outros países serão liberados apenas quando a Talaza estiver preparada para operar neles.
           </p>
         </div>
       </main>
@@ -179,22 +216,31 @@ export default function Country() {
           display: flex;
           align-items: center;
           gap: 15px;
-          padding: 18px;
+          padding: 16px;
           border: 1px solid ${C.line};
-          border-radius: 15px;
+          border-radius: 16px;
           background: ${C.white};
           text-align: left;
           cursor: pointer;
+          transition: border-color .18s, transform .18s, box-shadow .18s;
         }
+        .country:hover { border-color: ${C.green}; transform: translateY(-1px); box-shadow: 0 8px 22px rgba(8,63,53,.07); }
+        .countryUnavailable { opacity: .86; }
+        .country-details { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; }
+        .dial { color: ${C.muted}; font-size: 12px; }
+        .country-status { color: ${C.green}; font-size: 11px; font-weight: 800; background: #EAF4F1; padding: 6px 8px; border-radius: 999px; white-space: nowrap; }
+        .countryUnavailable .country-status { color: #765A9C; background: #F1ECFA; }
+        .unavailableNotice { margin-top: 16px; padding: 16px; border: 1px solid #DCCBF0; border-radius: 14px; background: #F7F2FC; color: #4B2B70; line-height: 1.6; }
+        .unavailableNotice p { margin: 7px 0 12px; font-size: 13px; }
+        .unavailableNotice button { border: 0; border-radius: 9px; background: #5B2A86; color: white; padding: 9px 13px; font-weight: 800; cursor: pointer; }
 
         .flag {
           font-size: 30px;
         }
 
         .country-name {
-          flex: 1;
           color: ${C.dark};
-          font-size: 17px;
+          font-size: 16px;
           font-weight: 800;
         }
 
