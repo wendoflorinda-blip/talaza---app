@@ -8,6 +8,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [businesses, setBusinesses] = useState([]);
+  const [subscriptionRequests, setSubscriptionRequests] = useState([]);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function Admin() {
 
     setAuthorized(true);
     await loadBusinesses();
+    await loadSubscriptionRequests();
 
     setLoading(false);
   }
@@ -93,20 +95,100 @@ export default function Admin() {
     setBusinesses(data || []);
   }
 
-  async function updateBusiness(id, status) {
-    const { error } = await supabase
-      .from('businesses')
-      .update({
-        approval_status: status,
-        is_active: false,
-      })
-      .eq('id', id);
+  async function loadSubscriptionRequests() {
+    const { data, error } = await supabase
+      .from('subscription_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('Erro ao carregar pagamentos:', error);
+      setMessage('Perfis carregados. Não foi possível carregar pedidos de pagamento: ' + error.message);
+      setSubscriptionRequests([]);
+      return;
+    }
+    setSubscriptionRequests(data || []);
+  }
 
+  async function updateBusiness(id, status) {
+    let isPaid = false;
+    let endDate = null;
+
+    if (status === 'approved') {
+      const { data: payment, error: paymentError } = await supabase
+        .from('subscription_requests')
+        .select('plan_id, status')
+        .eq('business_id', id)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (paymentError) {
+        alert('Não foi possível confirmar o pagamento: ' + paymentError.message);
+        return;
+      }
+
+      if (payment?.plan_id) {
+        const { data: plan, error: planError } = await supabase
+          .from('plans')
+          .select('duration_days')
+          .eq('id', payment.plan_id)
+          .maybeSingle();
+
+        if (planError) {
+          alert('Não foi possível confirmar a duração do plano: ' + planError.message);
+          return;
+        }
+
+        if (plan?.duration_days) {
+          isPaid = true;
+          endDate = new Date(Date.now() + Number(plan.duration_days) * 86400000).toISOString();
+        }
+      }
+    }
+
+    const updates = { approval_status: status, is_active: isPaid };
+    if (isPaid && endDate) updates.trial_ends_at = endDate;
+    const { error } = await supabase.from('businesses').update(updates).eq('id', id);
     if (error) {
       alert('Erro: ' + error.message);
       return;
     }
+    await loadBusinesses();
+  }
 
+  async function reviewPayment(request, approved) {
+    const nextStatus = approved ? 'approved' : 'rejected';
+    const { error } = await supabase
+      .from('subscription_requests')
+      .update({ status: nextStatus })
+      .eq('id', request.id);
+    if (error) {
+      alert('Não foi possível atualizar o pagamento: ' + error.message);
+      return;
+    }
+
+    if (approved && request.business_id && request.plan_id) {
+      const [{ data: business, error: businessError }, { data: plan, error: planError }] = await Promise.all([
+        supabase.from('businesses').select('approval_status').eq('id', request.business_id).maybeSingle(),
+        supabase.from('plans').select('duration_days').eq('id', request.plan_id).maybeSingle()
+      ]);
+      if (businessError || planError) {
+        alert('O pagamento foi aprovado, mas não foi possível verificar a ativação do perfil. Verifique o painel novamente.');
+      } else if (business?.approval_status === 'approved' && plan?.duration_days) {
+        const trialEndsAt = new Date(Date.now() + Number(plan.duration_days) * 86400000).toISOString();
+        const { error: activationError } = await supabase.from('businesses').update({
+          is_active: true,
+          plan_id: request.plan_id,
+          trial_ends_at: trialEndsAt
+        }).eq('id', request.business_id);
+        if (activationError) alert('Pagamento aprovado, mas a ativação falhou: ' + activationError.message);
+      }
+    } else if (!approved && request.business_id) {
+      await supabase.from('businesses').update({ is_active: false }).eq('id', request.business_id);
+    }
+
+    await loadSubscriptionRequests();
     await loadBusinesses();
   }
 
@@ -332,6 +414,48 @@ export default function Admin() {
           </div>
         )}
 
+        <section style={{ marginTop: 42 }}>
+          <div style={styles.titleRow}>
+            <div>
+              <h2 style={styles.title}>Pagamentos e hospedagens</h2>
+              <p style={styles.description}>Confirme os comprovativos antes de ativar um perfil. A aprovação do perfil, sozinha, não ativa a hospedagem.</p>
+            </div>
+            <div style={styles.counter}>{subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending').length} pagamentos pendentes</div>
+          </div>
+          {subscriptionRequests.length === 0 ? (
+            <div style={styles.empty}>
+              <div style={styles.emptyIcon}>◇</div>
+              <h2>Sem pedidos de pagamento</h2>
+              <p>Os pedidos de hospedagem e comprovativos aparecerão aqui quando forem enviados.</p>
+            </div>
+          ) : (
+            <div style={styles.list}>
+              {subscriptionRequests.map(request => {
+                const pending = String(request.status || '').toLowerCase() === 'pending';
+                return <article key={request.id} style={styles.card}>
+                  <div style={styles.cardTop}>
+                    <div style={styles.logoPlaceholder}>₭</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={styles.businessName}>Pedido de hospedagem</h3>
+                      <div style={styles.meta}>Negócio: {request.business_id || '—'} · Plano: {request.plan_id || '—'}</div>
+                    </div>
+                    <span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span>
+                  </div>
+                  <div style={styles.details}>
+                    <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
+                    <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
+                    {request.proof_image_path && <p><strong>Comprovativo imagem:</strong> {request.proof_image_path}</p>}
+                    {request.proof_pdf_path && <p><strong>Comprovativo PDF:</strong> {request.proof_pdf_path}</p>}
+                  </div>
+                  {pending && <div style={styles.actions}>
+                    <button style={styles.reject} onClick={() => reviewPayment(request, false)}>Rejeitar pagamento</button>
+                    <button style={styles.approve} onClick={() => reviewPayment(request, true)}>Confirmar pagamento</button>
+                  </div>}
+                </article>;
+              })}
+            </div>
+          )}
+        </section>
       </section>
     </main>
   );
@@ -483,6 +607,8 @@ const styles = {
     color: '#687772',
     fontSize: 13,
   },
+
+  paymentStatus: { background: '#EDE6F6', color: '#64358B', padding: '7px 10px', borderRadius: 999, fontSize: 11, fontWeight: 800, textTransform: 'capitalize' },
 
   pending: {
     background: '#FFF3C7',
