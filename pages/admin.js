@@ -12,6 +12,7 @@ export default function Admin() {
   const [businessNames, setBusinessNames] = useState({});
   const [planNames, setPlanNames] = useState({});
   const [communityReports, setCommunityReports] = useState([]);
+  const [communityPosts, setCommunityPosts] = useState([]);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -54,6 +55,7 @@ export default function Admin() {
     await loadBusinesses();
     await loadSubscriptionRequests();
     await loadCommunityReports();
+    await loadPendingCommunityPosts();
 
     setLoading(false);
   }
@@ -206,6 +208,44 @@ export default function Admin() {
       return;
     }
     setCommunityReports(data || []);
+  }
+
+  async function loadPendingCommunityPosts() {
+    const { data, error } = await supabase
+      .from('community_posts')
+      .select('id, user_id, country_id, province_id, post_type, title, content, image_url, created_at, scope, duration_days, expires_at, status, moderation_status')
+      .eq('moderation_status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao carregar publicações pendentes da comunidade:', error);
+      setCommunityPosts([]);
+      setMessage('Não foi possível carregar as publicações pendentes da Comunidade Talaza: ' + error.message);
+      return;
+    }
+
+    setCommunityPosts(data || []);
+  }
+
+  async function reviewCommunityPost(post, approved) {
+    const nextModerationStatus = approved ? 'approved' : 'rejected';
+    const nextStatus = approved ? 'published' : 'rejected';
+
+    const { error } = await supabase
+      .from('community_posts')
+      .update({
+        moderation_status: nextModerationStatus,
+        status: nextStatus,
+      })
+      .eq('id', post.id)
+      .eq('moderation_status', 'pending');
+
+    if (error) {
+      alert('Não foi possível atualizar a publicação: ' + error.message);
+      return;
+    }
+
+    await loadPendingCommunityPosts();
   }
 
   async function reviewReport(report, status) {
@@ -486,6 +526,53 @@ export default function Admin() {
 
           </div>
         )}
+
+        <section style={{ marginTop: 42 }}>
+          <div style={styles.titleRow}>
+            <div>
+              <h2 style={styles.title}>Aprovação da Comunidade Talaza</h2>
+              <p style={styles.description}>As publicações só aparecem na comunidade depois da aprovação administrativa.</p>
+            </div>
+            <div style={styles.counter}>{communityPosts.length} publicação{communityPosts.length === 1 ? '' : 'ões'} pendente{communityPosts.length === 1 ? '' : 's'}</div>
+          </div>
+          {communityPosts.length === 0 ? (
+            <div style={styles.empty}>
+              <div style={styles.emptyIcon}>✓</div>
+              <h2>Sem publicações para aprovar</h2>
+              <p>Quando alguém enviar uma pergunta, “Achei!”, “Procura-se” ou outro conteúdo sujeito a moderação, aparecerá aqui enquanto aguarda análise.</p>
+            </div>
+          ) : (
+            <div style={styles.list}>
+              {communityPosts.map(post => (
+                <article key={post.id} style={styles.card}>
+                  <div style={styles.cardTop}>
+                    <div style={styles.logoPlaceholder}>
+                      {post.post_type === 'question' ? '❔' : post.post_type === 'found_item' ? '🔎' : '📝'}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={styles.businessName}>{post.title || 'Pergunta da comunidade'}</h3>
+                      <div style={styles.meta}>
+                        Tipo: {post.post_type || '—'} · Alcance: {post.scope === 'country' ? 'Nacional' : 'Provincial'} · {post.created_at ? new Date(post.created_at).toLocaleString('pt-AO') : 'Data não disponível'}
+                      </div>
+                    </div>
+                    <span style={styles.pending}>Aguardando aprovação</span>
+                  </div>
+                  <div style={styles.details}>
+                    <p style={{ whiteSpace: 'pre-wrap' }}>{post.content || 'Sem descrição.'}</p>
+                    <p><strong>Autor (ID):</strong> {post.user_id || '—'}</p>
+                    <p><strong>Província (ID):</strong> {post.province_id || 'Nacional / não indicada'}</p>
+                    <p><strong>Expira em:</strong> {post.expires_at ? new Date(post.expires_at).toLocaleString('pt-AO') : 'Não definido'}</p>
+                    {post.image_url && <p><a href={post.image_url} target="_blank" rel="noreferrer" style={{ color: '#075B4E', fontWeight: 700 }}>Ver imagem da publicação ↗</a></p>}
+                  </div>
+                  <div style={styles.actions}>
+                    <button type="button" style={styles.reject} onClick={() => reviewCommunityPost(post, false)}>Rejeitar publicação</button>
+                    <button type="button" style={styles.approve} onClick={() => reviewCommunityPost(post, true)}>Aprovar e publicar</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
         <section style={{ marginTop: 42 }}>
           <div style={styles.titleRow}>
