@@ -4,270 +4,133 @@ import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 
 const COLORS = {
-  brand: '#075B4E',
-  brandLight: '#EAF4F1',
-  gold: '#E6A900',
-  ink: '#17342F',
-  muted: '#66736F',
-  background: '#F5F7F6',
-  line: '#DDE7E3',
-  white: '#FFFFFF',
+  green: '#08745F', greenDark: '#06483D', greenSoft: '#E8F6F1',
+  purple: '#64358B', purpleDark: '#3F1D60', purpleSoft: '#F2EAF9',
+  gold: '#D8A319', goldDark: '#5B4300', goldSoft: '#FFF5D6',
+  ink: '#182722', muted: '#66736F', background: '#F7F6F3', line: '#E3E8E4', white: '#FFFFFF'
 };
-
-function formatPrice(plan) {
+const THEMES = [
+  { name: 'Essencial', icon: '◈', color: COLORS.green, dark: COLORS.greenDark, soft: COLORS.greenSoft, border: '#B8E0D2' },
+  { name: 'Prestígio', icon: '✦', color: COLORS.purple, dark: COLORS.purpleDark, soft: COLORS.purpleSoft, border: '#D7C3EA' },
+  { name: 'Elite', icon: '♛', color: COLORS.gold, dark: COLORS.goldDark, soft: COLORS.goldSoft, border: '#EBD58C' }
+];
+function priceOf(plan) {
   const value = plan.price ?? plan.price_kz ?? plan.amount ?? plan.valor;
   if (value === null || value === undefined || value === '') return 'Preço não definido';
-  const numeric = Number(value);
-  return Number.isFinite(numeric)
-    ? new Intl.NumberFormat('pt-PT').format(numeric) + ' Kz'
-    : String(value);
+  const n = Number(value);
+  return Number.isFinite(n) ? new Intl.NumberFormat('pt-AO', { maximumFractionDigits: 0 }).format(n) + ' Kz' : String(value);
 }
-
-function planTitle(plan) {
-  return plan.name || plan.title || plan.plan_name || plan.nome || plan.description || 'Plano de hospedagem';
+function titleOf(plan, index) {
+  return plan.name || plan.title || plan.plan_name || plan.nome || (plan.duration_days ? 'Hospedagem por ' + plan.duration_days + ' dias' : THEMES[index % 3].name);
 }
-
-function planType(plan) {
-  return String(plan.plan_type || plan.type || '').trim().toLowerCase();
+function benefitsOf(plan) {
+  const description = String(plan.description || '').trim();
+  if (!description) return [];
+  return description.split(/\n|;|\|/).map(item => item.replace(/^[-•✓✔\s]+/, '').trim()).filter(Boolean);
 }
-
 export default function Impulsionar() {
   const router = useRouter();
   const [business, setBusiness] = useState(null);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (!router.isReady) return;
-    loadData();
-  }, [router.isReady]);
-
+  useEffect(() => { if (router.isReady) loadData(); }, [router.isReady]);
   async function loadData() {
-    setLoading(true);
-    setError('');
-
+    setLoading(true); setError('');
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-    if (sessionError || !session?.user) {
-      router.replace('/login');
-      return;
-    }
-
-    const { data: businessData, error: businessError } = await supabase
-      .from('businesses')
+    if (sessionError || !session?.user) { router.replace('/login'); return; }
+    const { data: businessData, error: businessError } = await supabase.from('businesses')
       .select('id, name, category_id, subcategory_id, country_id, province_id, is_active, approval_status')
-      .eq('owner_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (businessError) {
+      .eq('owner_id', session.user.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (businessError || !businessData) {
       console.error(businessError);
-      setError('Não foi possível carregar o seu negócio. Tente novamente.');
-      setLoading(false);
-      return;
+      setError(businessError ? 'Não foi possível carregar o seu negócio. Tente novamente.' : 'Não encontramos um negócio associado à sua conta.');
+      setLoading(false); return;
     }
-
-    if (!businessData) {
-      setError('Ainda não encontramos um negócio associado à sua conta. Crie primeiro o seu perfil de negócio.');
-      setLoading(false);
-      return;
-    }
-
     setBusiness(businessData);
-
-    const { data: planData, error: plansError } = await supabase
-      .from('plans')
-      .select('*');
-
+    const { data, error: plansError } = await supabase.from('plans').select('*');
     if (plansError) {
-      console.error(plansError);
-      setError('O perfil foi carregado, mas não foi possível consultar os planos. Verifique as permissões da tabela plans no Supabase.');
-      setLoading(false);
-      return;
+      console.error(plansError); setError('Não foi possível carregar os planos. Verifique as permissões da tabela plans.'); setLoading(false); return;
     }
-
-    setPlans(planData || []);
-    setLoading(false);
+    setPlans(data || []); setLoading(false);
   }
-
   const hostingPlans = useMemo(() => {
     if (!business) return [];
-    return plans.filter((plan) => {
-      const type = planType(plan);
-      const matchesType = type === 'hospedagem';
-      const matchesCategory = !plan.category_id || String(plan.category_id) === String(business.category_id);
-      const subcategoryId = plan.subcategory_id;
-      const matchesSubcategory = !subcategoryId || String(subcategoryId) === String(business.subcategory_id);
-      const isEnabled = plan.is_active !== false && plan.active !== false && plan.enabled !== false;
-      return matchesType && matchesCategory && matchesSubcategory && isEnabled;
-    }).sort((a, b) => Number(a.duration_days || 0) - Number(b.duration_days || 0));
+    return plans.filter(plan => {
+      const type = String(plan.plan_type || plan.type || '').trim().toLocaleLowerCase('pt-AO');
+      const categoryMatches = !plan.category_id || String(plan.category_id) === String(business.category_id);
+      const subcategoryMatches = !plan.subcategory_id || String(plan.subcategory_id) === String(business.subcategory_id);
+      const enabled = plan.is_active !== false && plan.active !== false && plan.enabled !== false;
+      return type === 'hospedagem' && categoryMatches && subcategoryMatches && enabled;
+    }).sort((a,b) => Number(a.duration_days || 0) - Number(b.duration_days || 0));
   }, [plans, business]);
-
-  const premiumPlans = useMemo(() => {
-    if (!business) return [];
-    return plans.filter((plan) => {
-      const type = planType(plan);
-      const isPremium = type.includes('destaque') || type.includes('premium');
-      const matchesCategory = !plan.category_id || String(plan.category_id) === String(business.category_id);
-      const subcategoryId = plan.subcategory_id;
-      const matchesSubcategory = !subcategoryId || String(subcategoryId) === String(business.subcategory_id);
-      const isEnabled = plan.is_active !== false && plan.active !== false && plan.enabled !== false;
-      return isPremium && matchesCategory && matchesSubcategory && isEnabled;
-    });
-  }, [plans, business]);
-
-  if (loading) {
-    return <main style={styles.center}><p>A carregar a área Impulsionar…</p></main>;
-  }
-
-  return (
-    <main style={styles.page}>
-      <header style={styles.header}>
-        <div style={styles.headerInner}>
-          <div>
-            <div style={styles.brand}>TALAZA</div>
-            <div style={styles.headerTitle}>Impulsionar</div>
-          </div>
-          <Link href="/seller" style={styles.backLink}>Painel do vendedor</Link>
-        </div>
-      </header>
-
-      <div style={styles.content}>
-        {error && <div style={styles.error}>{error}</div>}
-
-        {business && (
-          <section style={styles.intro}>
-            <div style={styles.eyebrow}>ÁREA DO VENDEDOR</div>
-            <h1 style={styles.title}>Dê mais visibilidade ao seu negócio</h1>
-            <p style={styles.subtitle}>
-              Negócio: <strong>{business.name}</strong>. A hospedagem mantém o perfil elegível para aparecer na Vitrine; os destaques são uma contratação separada.
-            </p>
-            <div style={styles.status}>
-              Estado do perfil: {business.is_active ? 'Ativo' : 'Inativo'}
-              {business.approval_status ? ' · ' + business.approval_status : ''}
-            </div>
-          </section>
-        )}
-
-        <section style={styles.section}>
-          <div style={styles.sectionHeading}>
-            <div style={styles.iconBox}>◷</div>
-            <div>
-              <h2 style={styles.sectionTitle}>Hospedagem</h2>
-              <p style={styles.sectionDescription}>Consulte os planos registados no sistema para a categoria do seu negócio.</p>
-            </div>
-          </div>
-
-          {hostingPlans.length === 0 ? (
-            <div style={styles.empty}>
-              Ainda não há planos de hospedagem disponíveis para esta categoria, ou os planos não puderam ser associados ao perfil.
-            </div>
-          ) : (
-            <div style={styles.grid}>
-              {hostingPlans.map((plan) => (
-                <article key={plan.id} style={styles.planCard}>
-                  <div style={styles.planTag}>HOSPEDAGEM</div>
-                  <h3 style={styles.planTitle}>{planTitle(plan)}</h3>
-                  <div style={styles.price}>{formatPrice(plan)}</div>
-                  <div style={styles.duration}>
-                    {plan.duration_days ? plan.duration_days + ' dias' : 'Duração conforme o plano'}
-                  </div>
-                  {plan.description && <p style={styles.planDescription}>{plan.description}</p>}
-                  <div style={styles.pendingAction}>
-                    Pagamento online e ativação serão ligados nesta etapa seguinte.
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
+  if (loading) return <main style={S.center}>A carregar os planos da sua categoria…</main>;
+  return <main style={S.page}>
+    <header style={S.header}><div style={S.headerInner}>
+      <div><div style={S.brand}>TALAZA</div><div style={S.headerTitle}>Planos de hospedagem</div></div>
+      <Link href={{ pathname: '/seller', query: { country: business?.country_id, province: business?.province_id } }} style={S.back}>← Painel</Link>
+    </div></header>
+    <div style={S.content}>
+      {error && <div role="alert" style={S.error}>{error}</div>}
+      {business && <>
+        <section style={S.hero}>
+          <span style={S.eyebrow}>O SEU NEGÓCIO</span>
+          <h1 style={S.heroTitle}>Escolha a hospedagem ideal</h1>
+          <p style={S.heroText}>Os planos apresentados correspondem à categoria do negócio <strong>{business.name}</strong>. Escolha um período para avançar para o pagamento por Multicaixa Express e enviar o comprovativo.</p>
+          <span style={S.status}>Estado do perfil: {business.is_active ? 'Ativo' : 'A aguardar ativação'}{business.approval_status ? ' · ' + business.approval_status : ''}</span>
         </section>
-
-        <section style={styles.section}>
-          <div style={styles.sectionHeading}>
-            <div style={{ ...styles.iconBox, background: '#FFF4D2', color: '#8A6500' }}>✦</div>
-            <div>
-              <h2 style={styles.sectionTitle}>Destaque Premium</h2>
-              <p style={styles.sectionDescription}>
-                Um plano separado para destacar o negócio na Vitrine principal, na Vitrine da subcategoria ou em ambas, conforme a opção contratada.
-              </p>
-            </div>
-          </div>
-
-          {premiumPlans.length === 0 ? (
-            <div style={styles.empty}>
-              Os planos de Destaque Premium ainda não estão registados na tabela plans. Não apresentamos preços nem opções inventadas. Quando forem cadastrados, esta área poderá mostrá-los.
-            </div>
-          ) : (
-            <div style={styles.grid}>
-              {premiumPlans.map((plan) => (
-                <article key={plan.id} style={styles.planCard}>
-                  <div style={{ ...styles.planTag, background: '#FFF4D2', color: '#8A6500' }}>DESTAQUE PREMIUM</div>
-                  <h3 style={styles.planTitle}>{planTitle(plan)}</h3>
-                  <div style={styles.price}>{formatPrice(plan)}</div>
-                  <div style={styles.duration}>
-                    {plan.duration_days ? plan.duration_days + ' dias' : 'Duração conforme o plano'}
-                  </div>
-                  {plan.description && <p style={styles.planDescription}>{plan.description}</p>}
-                  <div style={styles.pendingAction}>
-                    A contratação e a escolha das posições de destaque serão ligadas na etapa de pagamento.
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section style={styles.promotionNote}>
-          <div style={styles.iconBox}>↗</div>
-          <div>
-            <h2 style={styles.sectionTitle}>Promoção de publicações</h2>
-            <p style={styles.sectionDescription}>
-              Será um produto independente para destacar uma publicação na área “Novidades”, futuramente chamada “Promoção”. Não está incluído na hospedagem nem no Destaque Premium.
-            </p>
-            <span style={styles.comingSoon}>Estrutura comercial definida · integração futura</span>
-          </div>
-        </section>
-
-        <Link href={{ pathname: '/seller', query: { country: business?.country_id, province: business?.province_id } }} style={styles.footerLink}>
-          ← Voltar ao painel do vendedor
-        </Link>
-      </div>
-    </main>
-  );
+        {hostingPlans.length === 0 ? <section style={S.empty}><div style={S.emptyIcon}>♧</div><h2>Planos em preparação</h2><p>Não encontramos planos de hospedagem registados para esta categoria. Não vamos mostrar preços de outras categorias nem inventar valores.</p></section> :
+        <section style={S.grid}>{hostingPlans.map((plan, index) => {
+          const theme = THEMES[index % THEMES.length];
+          const benefits = benefitsOf(plan);
+          return <article key={plan.id} style={{ ...S.card, borderColor: theme.border, background: theme.soft }}>
+            <div style={{ ...S.icon, background: theme.color, color: '#fff' }}>{theme.icon}</div>
+            <div style={{ ...S.tag, color: theme.dark, background: 'rgba(255,255,255,.72)' }}>HOSPEDAGEM TALAZA</div>
+            <h2 style={{ ...S.cardTitle, color: theme.dark }}>{titleOf(plan,index)}</h2>
+            <div style={{ ...S.price, color: theme.dark }}>{priceOf(plan)}</div>
+            <div style={S.duration}><span>◷</span> {plan.duration_days ? plan.duration_days + ' dias de hospedagem' : 'Duração conforme o plano'}</div>
+            <div style={S.benefitTitle}>O que está incluído</div>
+            {benefits.length ? <ul style={S.benefits}>{benefits.map((benefit,i)=><li key={i}><span style={{ ...S.check, background: theme.color }}>✓</span><span>{benefit}</span></li>)}</ul> : <p style={S.noBenefits}>Consulte as condições deste plano antes de efetuar o pagamento.</p>}
+            <button type="button" onClick={() => router.push({ pathname: '/Pagamento', query: { plan: plan.id, business: business.id } })} style={{ ...S.cta, background: theme.color }}>Escolher este plano <span>→</span></button>
+            <p style={S.footnote}>O perfil será ativado após a validação do pagamento e os requisitos de aprovação aplicáveis.</p>
+          </article>;
+        })}</section>}
+        <div style={S.info}><span style={S.infoIcon}>ⓘ</span><p>O Destaque Premium e a promoção de publicações serão configurados separadamente numa próxima etapa. Esta página mostra apenas os planos de hospedagem já registados.</p></div>
+      </>}
+    </div>
+  </main>;
 }
-
-const styles = {
-  page: { minHeight: '100vh', background: COLORS.background, color: COLORS.ink, paddingBottom: 48 },
-  center: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: COLORS.background, color: COLORS.brand, padding: 24 },
-  header: { background: COLORS.brand, color: COLORS.white, padding: '16px 20px' },
-  headerInner: { maxWidth: 1000, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
-  brand: { color: COLORS.gold, fontSize: 12, fontWeight: 900, letterSpacing: 2 },
-  headerTitle: { fontSize: 18, fontWeight: 800, marginTop: 3 },
-  backLink: { color: COLORS.white, textDecoration: 'none', border: '1px solid rgba(255,255,255,.35)', borderRadius: 10, padding: '9px 12px', fontSize: 12, fontWeight: 700 },
-  content: { maxWidth: 1000, margin: '0 auto', padding: '26px 18px' },
-  intro: { background: 'linear-gradient(145deg,#075B4E,#0B7563)', color: COLORS.white, borderRadius: 24, padding: 25, boxShadow: '0 15px 40px rgba(0,70,60,.12)' },
-  eyebrow: { color: COLORS.gold, fontSize: 11, letterSpacing: 1.5, fontWeight: 900 },
-  title: { fontSize: 'clamp(26px,5vw,36px)', margin: '10px 0' },
-  subtitle: { color: 'rgba(255,255,255,.84)', lineHeight: 1.6, marginBottom: 0 },
-  status: { display: 'inline-block', marginTop: 16, padding: '7px 10px', borderRadius: 999, background: 'rgba(255,255,255,.13)', fontSize: 12, fontWeight: 700 },
-  section: { marginTop: 26 },
-  sectionHeading: { display: 'flex', alignItems: 'center', gap: 13, marginBottom: 15 },
-  iconBox: { width: 46, height: 46, flexShrink: 0, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: COLORS.brandLight, color: COLORS.brand, fontSize: 22, fontWeight: 900 },
-  sectionTitle: { margin: 0, fontSize: 21, color: COLORS.brand },
-  sectionDescription: { margin: '6px 0 0', color: COLORS.muted, lineHeight: 1.55, fontSize: 13 },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 14 },
-  planCard: { background: COLORS.white, border: '1px solid ' + COLORS.line, borderRadius: 18, padding: 20, boxShadow: '0 8px 24px rgba(20,50,43,.04)' },
-  planTag: { display: 'inline-block', background: COLORS.brandLight, color: COLORS.brand, borderRadius: 999, padding: '6px 9px', fontSize: 10, fontWeight: 900, letterSpacing: .6 },
-  planTitle: { fontSize: 17, lineHeight: 1.35, margin: '14px 0 8px' },
-  price: { color: COLORS.brand, fontSize: 25, fontWeight: 900 },
-  duration: { color: COLORS.muted, marginTop: 4, fontSize: 12, fontWeight: 700 },
-  planDescription: { color: COLORS.muted, fontSize: 12, lineHeight: 1.5 },
-  pendingAction: { marginTop: 14, padding: 11, background: '#F7F8F7', borderRadius: 10, color: COLORS.muted, fontSize: 11, lineHeight: 1.5 },
-  empty: { background: COLORS.white, border: '1px dashed ' + COLORS.line, borderRadius: 16, padding: 20, color: COLORS.muted, lineHeight: 1.6, fontSize: 13 },
-  promotionNote: { display: 'flex', gap: 14, marginTop: 26, background: COLORS.white, border: '1px solid ' + COLORS.line, borderRadius: 18, padding: 20 },
-  comingSoon: { display: 'inline-block', marginTop: 10, color: '#8A6500', fontSize: 11, fontWeight: 800 },
-  footerLink: { display: 'block', marginTop: 24, color: COLORS.brand, textAlign: 'center', textDecoration: 'none', fontWeight: 800, fontSize: 13 },
-  error: { background: '#FFF0EE', color: '#9C3027', padding: 14, borderRadius: 12, marginBottom: 18, lineHeight: 1.5 },
+const S = {
+ page:{minHeight:'100vh',background:COLORS.background,color:COLORS.ink,paddingBottom:50},
+ center:{minHeight:'100vh',display:'grid',placeItems:'center',background:COLORS.background,color:COLORS.green,fontWeight:800,padding:24},
+ header:{background:COLORS.greenDark,color:'#fff',padding:'17px 20px'},
+ headerInner:{maxWidth:1080,margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'space-between',gap:14},
+ brand:{fontSize:11,letterSpacing:2.5,color:COLORS.gold,fontWeight:900},
+ headerTitle:{fontSize:18,fontWeight:800,marginTop:5},
+ back:{color:'#fff',textDecoration:'none',fontWeight:800,fontSize:12,border:'1px solid rgba(255,255,255,.3)',padding:'10px 13px',borderRadius:11},
+ content:{maxWidth:1080,margin:'0 auto',padding:'26px 18px'},
+ hero:{padding:'28px',borderRadius:24,background:'linear-gradient(125deg,#06483D,#08745F 58%,#64358B)',color:'#fff',boxShadow:'0 18px 44px rgba(6,72,61,.14)'},
+ eyebrow:{fontSize:11,letterSpacing:2,color:'#F4D36B',fontWeight:900},
+ heroTitle:{fontSize:'clamp(27px,5vw,39px)',lineHeight:1.12,margin:'12px 0'},
+ heroText:{maxWidth:760,lineHeight:1.7,fontSize:14,color:'rgba(255,255,255,.88)',margin:0},
+ status:{display:'inline-block',marginTop:17,padding:'7px 11px',borderRadius:999,background:'rgba(255,255,255,.14)',fontSize:11,fontWeight:800},
+ grid:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,285px),1fr))',gap:19,marginTop:25,alignItems:'stretch'},
+ card:{position:'relative',display:'flex',flexDirection:'column',padding:23,border:'1px solid',borderRadius:23,boxShadow:'0 12px 32px rgba(30,40,35,.06)',minWidth:0},
+ icon:{width:52,height:52,borderRadius:17,display:'grid',placeItems:'center',fontSize:27,fontWeight:900,boxShadow:'0 8px 18px rgba(0,0,0,.12)'},
+ tag:{alignSelf:'flex-start',marginTop:16,borderRadius:999,padding:'7px 10px',fontSize:10,fontWeight:900,letterSpacing:1},
+ cardTitle:{fontSize:22,lineHeight:1.2,margin:'15px 0 8px',overflowWrap:'anywhere'},
+ price:{fontSize:30,fontWeight:900,letterSpacing:-.7,marginTop:5},
+ duration:{display:'flex',gap:8,alignItems:'center',marginTop:7,color:COLORS.muted,fontSize:12,fontWeight:800},
+ benefitTitle:{fontSize:12,fontWeight:900,textTransform:'uppercase',letterSpacing:.8,marginTop:23,color:COLORS.ink},
+ benefits:{listStyle:'none',margin:'13px 0 22px',padding:0,display:'grid',gap:11},
+ check:{display:'grid',placeItems:'center',flex:'0 0 21px',width:21,height:21,borderRadius:'50%',color:'#fff',fontSize:12,fontWeight:900},
+ cta:{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,width:'100%',marginTop:'auto',padding:'14px 16px',border:0,borderRadius:13,color:'#fff',fontSize:14,fontWeight:900,cursor:'pointer',boxShadow:'0 7px 15px rgba(0,0,0,.10)'},
+ footnote:{fontSize:10,lineHeight:1.5,color:COLORS.muted,margin:'12px 0 0'},
+ empty:{marginTop:25,padding:28,border:'1px dashed #C8D4CE',borderRadius:20,background:'#fff',textAlign:'center'},
+ emptyIcon:{fontSize:30,color:COLORS.purple},
+ info:{display:'flex',gap:13,alignItems:'flex-start',marginTop:22,padding:17,border:'1px solid #E2D8EE',borderRadius:15,background:COLORS.purpleSoft,color:COLORS.purpleDark,fontSize:12,lineHeight:1.6},
+ infoIcon:{fontSize:20,fontWeight:900},
+ error:{padding:14,marginBottom:16,borderRadius:12,background:'#FFF0EE',color:'#9C3027',lineHeight:1.5},
+ noBenefits:{fontSize:12,lineHeight:1.6,color:COLORS.muted,margin:'13px 0 22px'}
 };
+S.benefits = { ...S.benefits };
