@@ -55,21 +55,44 @@ export default function Login() {
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('account_type')
+        .select('*')
         .eq('id', user.id)
         .maybeSingle();
 
       if (profileError) throw profileError;
 
-      const accountType = String(profile?.account_type || '')
+      const accountType = String(profile?.account_type || profile?.user_type || profile?.role || '')
         .trim()
         .toLowerCase();
 
-      if (accountType.includes('vendedor') || accountType.includes('seller')) {
-        await router.replace('/dashboard');
-      } else {
-        await router.replace('/country');
+      let isSeller = accountType.includes('vendedor') || accountType.includes('seller');
+
+      // Algumas contas antigas não têm account_type preenchido; confirmar pela existência do negócio.
+      if (!isSeller) {
+        const { data: ownedBusiness, error: businessError } = await supabase
+          .from('businesses')
+          .select('id')
+          .eq('owner_id', user.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (!businessError && ownedBusiness) isSeller = true;
       }
+
+      if (isSeller) {
+        await router.replace('/seller');
+        return;
+      }
+
+      if (!profile?.country_id || !profile?.province_id) {
+        await router.replace('/signup');
+        return;
+      }
+
+      await router.replace({
+        pathname: '/explore',
+        query: { country: profile.country_id, province: profile.province_id },
+      });
     } catch (err) {
       console.error('Erro ao entrar:', err);
 
