@@ -264,6 +264,11 @@ export default function Pagamento() {
       return;
     }
 
+    if (imageFile && pdfFile) {
+      setError('Envie apenas um comprovativo: escolha a imagem ou o PDF.');
+      return;
+    }
+
     setSending(true);
 
     let submissionStage = 'preparar envio';
