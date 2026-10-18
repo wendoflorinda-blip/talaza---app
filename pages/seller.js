@@ -85,16 +85,22 @@ export default function Seller() {
 
     const { data: pendingRequest, error: pendingRequestError } = await supabase
       .from('subscription_requests')
-      .select('id, plan_id, amount, created_at')
+      .select('id, plan_id, amount, created_at, status')
       .eq('business_id', data.id)
-      .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (pendingRequestError) console.error('Erro ao verificar pagamento pendente:', pendingRequestError);
-    setSubscriptionPending(Boolean(pendingRequest));
-    if (pendingRequest?.plan_id) {
+    const requestStatus = String(pendingRequest?.status || '').toLowerCase();
+    const isInVerification = Boolean(
+      pendingRequest &&
+      (requestStatus === 'pending' ||
+        (requestStatus === 'approved' &&
+          (!data.is_active || String(data.approval_status || '').toLowerCase() !== 'approved')))
+    );
+    setSubscriptionPending(isInVerification);
+    if (pendingRequest?.plan_id && isInVerification) {
       const { data: selectedPlan, error: selectedPlanError } = await supabase
         .from('plans')
         .select('id, name, title, plan_name, nome, duration_days, price')
@@ -112,6 +118,11 @@ export default function Seller() {
     event.preventDefault();
     setError('');
     setNotice('');
+    if (subscriptionPending) {
+      setEditing(false);
+      setError('O perfil está em verificação para aprovação. Edite mais tarde, depois da validação.');
+      return;
+    }
     if (!editName.trim()) {
       setError('O nome do negócio é obrigatório.');
       return;
