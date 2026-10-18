@@ -124,6 +124,19 @@ export default function PostBusiness() {
 
     if (profile?.name) setProfileName(profile.name);
     if (profile?.country_id) setCountryId(profile.country_id);
+
+    // Se já existe um negócio, não repetir o cadastro: abrir diretamente o painel.
+    const { data: existingBusiness, error: existingBusinessError } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('owner_id', session.user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!existingBusinessError && existingBusiness?.id) {
+      window.location.replace('/seller');
+    }
   }
 
   async function loadCountries() {
