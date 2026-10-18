@@ -148,7 +148,11 @@ export default function Admin() {
     }
 
     const updates = { approval_status: status, is_active: isPaid };
-    if (isPaid && endDate) updates.trial_ends_at = endDate;
+    if (isPaid && endDate) {
+      updates.trial_ends_at = endDate;
+      const { data: paidRequest } = await supabase.from('subscription_requests').select('plan_id').eq('business_id', id).eq('status', 'approved').order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (paidRequest?.plan_id) updates.plan_id = paidRequest.plan_id;
+    }
     const { error } = await supabase.from('businesses').update(updates).eq('id', id);
     if (error) {
       alert('Erro: ' + error.message);
