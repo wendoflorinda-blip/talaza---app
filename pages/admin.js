@@ -103,7 +103,7 @@ export default function Admin() {
 
   async function loadSubscriptionRequests() {
     const { data, error } = await supabase
-      .from('subscription_requests')
+      .from('payment_submissions')
       .select('*')
       .order('created_at', { ascending: false });
     if (error) {
@@ -150,7 +150,7 @@ export default function Admin() {
 
     if (status === 'approved') {
       const { data: payment, error: paymentError } = await supabase
-        .from('subscription_requests')
+        .from('payment_submissions')
         .select('plan_id, status')
         .eq('business_id', id)
         .eq('status', 'approved')
@@ -185,7 +185,7 @@ export default function Admin() {
     const updates = { approval_status: status, is_active: isPaid };
     if (isPaid && endDate) {
       updates.trial_ends_at = endDate;
-      const { data: paidRequest } = await supabase.from('subscription_requests').select('plan_id').eq('business_id', id).eq('status', 'approved').order('created_at', { ascending: false }).limit(1).maybeSingle();
+      const { data: paidRequest } = await supabase.from('payment_submissions').select('plan_id').eq('business_id', id).eq('status', 'approved').order('created_at', { ascending: false }).limit(1).maybeSingle();
       if (paidRequest?.plan_id) updates.plan_id = paidRequest.plan_id;
     }
     const { data: updatedBusiness, error } = await supabase
@@ -288,8 +288,8 @@ export default function Admin() {
   async function reviewPayment(request, approved) {
     const nextStatus = approved ? 'approved' : 'rejected';
     const { error } = await supabase
-      .from('subscription_requests')
-      .update({ status: nextStatus })
+      .from('payment_submissions')
+      .update({ status: nextStatus, reviewed_at: new Date().toISOString() })
       .eq('id', request.id);
     if (error) {
       alert('Não foi possível atualizar o pagamento: ' + error.message);
