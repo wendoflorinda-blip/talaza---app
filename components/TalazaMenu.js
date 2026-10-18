@@ -298,6 +298,7 @@ export default function TalazaMenu({
   const [screen, setScreen] = useState('menu');
   const [provinces, setProvinces] = useState([]);
   const [userName, setUserName] = useState('');
+  const [isSellerAccount, setIsSellerAccount] = useState(false);
   const [primaryCountry, setPrimaryCountry] = useState(country || '');
   const [primaryProvince, setPrimaryProvince] = useState(province || '');
   const [loadingProvinces, setLoadingProvinces] = useState(false);
@@ -309,7 +310,7 @@ export default function TalazaMenu({
 
     loadUser();
     loadProvinces();
-  }, [open, country, province]);
+  }, [open, country, province, isSellerAccount]);
 
   async function loadUser() {
     try {
@@ -324,13 +325,19 @@ export default function TalazaMenu({
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('name, country_id, province_id')
+        .select('name, country_id, province_id, account_type, user_type, role')
         .eq('id', user.id)
         .maybeSingle();
 
       setUserName(profile?.name || user.email || 'Utilizador');
       setPrimaryCountry(profile?.country_id || country || '');
       setPrimaryProvince(profile?.province_id || province || '');
+      let seller = /vendedor|seller/i.test(String(profile?.account_type || profile?.user_type || profile?.role || ''));
+      if (!seller) {
+        const { data: ownedBusiness } = await supabase.from('businesses').select('id').eq('owner_id', user.id).limit(1).maybeSingle();
+        seller = Boolean(ownedBusiness);
+      }
+      setIsSellerAccount(seller);
     } catch (error) {
       console.error(
         'Erro ao carregar utilizador:',
@@ -342,7 +349,8 @@ export default function TalazaMenu({
   }
 
   async function loadProvinces() {
-    if (!country) {
+    // O vendedor fica vinculado à província do negócio; o explorador pode navegar.
+    if (isSellerAccount || !country) {
       setProvinces([]);
       return;
     }
@@ -718,15 +726,15 @@ export default function TalazaMenu({
 
                   <Divider />
 
-                  <MenuItem
-                    icon="seller"
-                    color={COLORS.purple}
-                    bg={COLORS.purpleSoft}
-                    label="Voltar ao painel de vendedor"
-                    onClick={
-                      openSellerPanel
-                    }
-                  />
+                  {!isSellerAccount && (
+                    <MenuItem
+                      icon="seller"
+                      color={COLORS.purple}
+                      bg={COLORS.purpleSoft}
+                      label="Painel de vendedor"
+                      onClick={openSellerPanel}
+                    />
+                  )}
 
                   <Divider />
 
