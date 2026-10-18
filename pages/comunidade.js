@@ -187,6 +187,29 @@ export default function Comunidade() {
         }
       }
 
+      // A Comunidade Talaza pertence sempre à província principal do perfil,
+      // mesmo quando o explorador está a navegar noutra província na Vitrine.
+      if (authData?.user) {
+        const { data: homeProfile, error: homeProfileError } = await supabase
+          .from('profiles')
+          .select('country_id, province_id')
+          .eq('id', authData.user.id)
+          .maybeSingle();
+
+        if (!cancelled && !homeProfileError && homeProfile?.country_id && homeProfile?.province_id) {
+          const [{ data: homeCountry }, { data: homeProvince }] = await Promise.all([
+            supabase.from('countries').select('id, name').eq('id', homeProfile.country_id).maybeSingle(),
+            supabase.from('provinces').select('id, name, country_id').eq('id', homeProfile.province_id).maybeSingle(),
+          ]);
+          if (!cancelled) {
+            setCountryId(homeProfile.country_id);
+            setProvinceId(homeProfile.province_id);
+            setCountryName(homeCountry?.name || '');
+            setProvinceName(homeProvince?.name || '');
+          }
+        }
+      }
+
       setLoading(false);
     }
 
