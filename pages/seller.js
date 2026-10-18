@@ -370,25 +370,20 @@ export default function Seller() {
               : ''}
           </p>
 
-          <div
-            style={{
-              display: 'inline-flex',
-              marginTop: 18,
-              padding: '7px 11px',
-              borderRadius: 999,
-              background: 'rgba(255,255,255,.12)',
-              fontSize: 12,
-              fontWeight: 700
-            }}
-          >
-            {subscriptionPending
-              ? 'Em verificação para ativação do negócio'
-              : String(business.approval_status || '').toLowerCase() === 'pending'
-              ? 'Perfil criado · aguarda plano e validação'
-              : business.is_active
-              ? 'Ativo'
-              : 'Inativo'}
-          </div>
+          {subscriptionPending && pendingPlan?.id ? (
+            <Link
+              href={{ pathname: '/Pagamento', query: { plan: pendingPlan.id, business: business.id, status: 'verification' } }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 18, padding: '9px 13px', borderRadius: 999, background: '#FFF1C2', color: '#5B4300', fontSize: 12, fontWeight: 900, textDecoration: 'none', border: '1px solid #EBD58C' }}
+            >
+              Em verificação · Ver plano e referência <span aria-hidden="true">→</span>
+            </Link>
+          ) : (
+            <div style={{ display: 'inline-flex', marginTop: 18, padding: '7px 11px', borderRadius: 999, background: 'rgba(255,255,255,.12)', fontSize: 12, fontWeight: 700 }}>
+              {String(business.approval_status || '').toLowerCase() === 'pending'
+                ? 'Perfil criado · aguarda plano e validação'
+                : business.is_active ? 'Ativo' : 'Inativo'}
+            </div>
+          )}
         </div>
 
         {business.cover_url && (
