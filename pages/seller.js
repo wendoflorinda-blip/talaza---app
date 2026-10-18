@@ -23,6 +23,7 @@ export default function Seller() {
   const [logoFile, setLogoFile] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
   const [subscriptionPending, setSubscriptionPending] = useState(false);
+  const [pendingPlan, setPendingPlan] = useState(null);
   const [notice, setNotice] = useState('');
 
   const [loading, setLoading] = useState(true);
@@ -82,14 +83,28 @@ export default function Seller() {
     setEditMunicipality(data.municipality || '');
     setEditNeighborhood(data.neighborhood || '');
 
-    const { data: pendingRequest } = await supabase
+    const { data: pendingRequest, error: pendingRequestError } = await supabase
       .from('subscription_requests')
-      .select('id')
+      .select('id, plan_id, amount, created_at')
       .eq('business_id', data.id)
       .eq('status', 'pending')
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    if (pendingRequestError) console.error('Erro ao verificar pagamento pendente:', pendingRequestError);
     setSubscriptionPending(Boolean(pendingRequest));
+    if (pendingRequest?.plan_id) {
+      const { data: selectedPlan, error: selectedPlanError } = await supabase
+        .from('plans')
+        .select('id, name, title, plan_name, nome, duration_days, price')
+        .eq('id', pendingRequest.plan_id)
+        .maybeSingle();
+      if (selectedPlanError) console.error('Erro ao carregar plano pendente:', selectedPlanError);
+      setPendingPlan(selectedPlan ? { ...selectedPlan, request: pendingRequest } : { id: pendingRequest.plan_id, request: pendingRequest });
+    } else {
+      setPendingPlan(null);
+    }
     setLoading(false);
   }
 
@@ -114,35 +129,40 @@ export default function Seller() {
       };
       const stamp = Date.now();
       if (logoFile) {
+        if (!logoFile.type.startsWith('image/')) throw new Error('O logo deve ser um ficheiro de imagem.');
+        if (logoFile.size > 8 * 1024 * 1024) throw new Error('O logo deve ter no máximo 8 MB.');
         const ext = (logoFile.name.split('.').pop() || 'jpg').toLowerCase();
         const path = user.id + '/logo-edit-' + stamp + '.' + ext;
-        const { error: uploadError } = await supabase.storage.from('business-media').upload(path, logoFile, { upsert: true, contentType: logoFile.type });
+        const { error: uploadError } = await supabase.storage.from('business-media').upload(path, logoFile, { upsert: true, contentType: logoFile.type, cacheControl: '3600' });
         if (uploadError) throw uploadError;
         updates.logo_url = supabase.storage.from('business-media').getPublicUrl(path).data?.publicUrl || null;
       }
       if (coverFile) {
+        if (!coverFile.type.startsWith('image/')) throw new Error('A imagem principal deve ser um ficheiro de imagem.');
+        if (coverFile.size > 10 * 1024 * 1024) throw new Error('A imagem principal deve ter no máximo 10 MB.');
         const ext = (coverFile.name.split('.').pop() || 'jpg').toLowerCase();
         const path = user.id + '/cover-edit-' + stamp + '.' + ext;
-        const { error: uploadError } = await supabase.storage.from('business-media').upload(path, coverFile, { upsert: true, contentType: coverFile.type });
+        const { error: uploadError } = await supabase.storage.from('business-media').upload(path, coverFile, { upsert: true, contentType: coverFile.type, cacheControl: '3600' });
         if (uploadError) throw uploadError;
         updates.cover_url = supabase.storage.from('business-media').getPublicUrl(path).data?.publicUrl || null;
       }
-      const { data: saved, error: saveError } = await supabase
+      const { error: saveError } = await supabase
         .from('businesses')
         .update(updates)
         .eq('id', business.id)
-        .eq('owner_id', user.id)
-        .select('*')
-        .single();
+        .eq('owner_id', user.id);
       if (saveError) throw saveError;
-      setBusiness({ ...business, ...saved });
+
+      // Atualiza a interface local sem depender de um SELECT de retorno,
+      // que pode ser bloqueado por políticas RLS mesmo quando o UPDATE funciona.
+      setBusiness({ ...business, ...updates });
       setLogoFile(null);
       setCoverFile(null);
       setEditing(false);
       setNotice('As alterações do negócio foram guardadas.');
     } catch (saveError) {
       console.error(saveError);
-      setError(saveError.message || 'Não foi possível guardar as alterações. Confirme as permissões de edição no Supabase.');
+      setError('Não foi possível guardar as alterações. ' + (saveError.message || 'Confirme as permissões de edição no Supabase.'));
     } finally {
       setSaving(false);
     }
@@ -178,7 +198,7 @@ export default function Seller() {
     );
   }
 
-  if (error) {
+  if (error && !business) {
     return (
       <div
         style={{
@@ -323,9 +343,9 @@ export default function Seller() {
             {business.name}
           </h1>
 
-          {business.logo_url && (
-            <img src={business.logo_url} alt={"Logo de " + business.name} style={{ width: 86, height: 86, objectFit: 'cover', borderRadius: 20, border: '3px solid rgba(255,255,255,.65)', marginBottom: 12 }} />
-          )}
+          {business.logo_url ? (
+            <img src={business.logo_url} alt={"Logo de " + business.name} onError={(event) => { event.currentTarget.style.display = 'none'; }} style={{ width: 86, height: 86, objectFit: 'cover', borderRadius: 20, border: '3px solid rgba(255,255,255,.65)', marginBottom: 12 }} />
+          ) : <div aria-label="Logo ainda não adicionado" style={{ width: 86, height: 86, display: 'grid', placeItems: 'center', background: '#E6A900', color: '#075B4E', borderRadius: 20, fontSize: 30, fontWeight: 900, marginBottom: 12 }}>{(business.name || 'T').charAt(0).toUpperCase()}</div>}
           <p
             style={{
               margin: 0,
@@ -350,8 +370,10 @@ export default function Seller() {
               fontWeight: 700
             }}
           >
-            {String(business.approval_status || '').toLowerCase() === 'pending'
-              ? 'Pendente de validação'
+            {subscriptionPending
+              ? 'Em verificação para ativação do negócio'
+              : String(business.approval_status || '').toLowerCase() === 'pending'
+              ? 'Perfil criado · aguarda plano e validação'
               : business.is_active
               ? 'Ativo'
               : 'Inativo'}
@@ -360,22 +382,30 @@ export default function Seller() {
 
         {business.cover_url && (
           <div style={{ marginTop: 18, borderRadius: 20, overflow: 'hidden', background: '#EAF4F1' }}>
-            <img src={business.cover_url} alt={"Imagem principal de " + business.name} style={{ display: 'block', width: '100%', maxHeight: 320, objectFit: 'cover' }} />
+            <img src={business.cover_url} alt={"Imagem principal de " + business.name} onError={(event) => { event.currentTarget.style.display = 'none'; }} style={{ display: 'block', width: '100%', maxHeight: 320, objectFit: 'cover' }} />
+          </div>
+        )}
+
+        {subscriptionPending && (
+          <div style={{ marginTop: 18, padding: 16, background: '#FFF5D6', border: '1px solid #EBD58C', borderRadius: 14, color: '#5B4300' }}>
+            <strong style={{ display: 'block', marginBottom: 6 }}>Em verificação para ativação do negócio</strong>
+            <span>O comprovativo já foi enviado. Não é possível mudar de plano nem editar o perfil enquanto a equipa Talaza verifica o pagamento e a aprovação do negócio.</span>
+            {pendingPlan && <div style={{ marginTop: 8 }}><strong>Plano escolhido:</strong> {pendingPlan.name || pendingPlan.title || pendingPlan.plan_name || pendingPlan.nome || (pendingPlan.duration_days ? pendingPlan.duration_days + ' dias' : 'Plano selecionado')}</div>}
           </div>
         )}
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 18 }}>
           {subscriptionPending ? (
-            <button type="button" disabled title="Aguarde a validação do comprovativo" style={{ padding: '13px 18px', background: '#E6E9E7', color: '#596560', border: 0, borderRadius: 12, fontWeight: 800, cursor: 'not-allowed' }}>
-              Plano em validação
+            <button type="button" disabled title="O comprovativo está em verificação" style={{ padding: '13px 18px', background: '#E6E9E7', color: '#596560', border: 0, borderRadius: 12, fontWeight: 800, cursor: 'not-allowed' }}>
+              Em verificação
             </button>
           ) : (
-            <Link href={{ pathname: '/impulsionar', query: { business: business.id } }} style={{ padding: '13px 18px', background: '#E6A900', color: '#17342F', borderRadius: 12, textDecoration: 'none', fontWeight: 800 }}>
+            <Link href={{ pathname: '/impulsionar', query: { business: business.id } }} onClick={(event) => { if (!window.confirm('Pretende consultar ou mudar o plano de hospedagem deste negócio?')) event.preventDefault(); }} style={{ padding: '13px 18px', background: '#E6A900', color: '#17342F', borderRadius: 12, textDecoration: 'none', fontWeight: 800 }}>
               Mudar plano / Ver planos
             </Link>
           )}
-          <button type="button" onClick={() => { setEditing((v) => !v); setError(''); setNotice(''); }} style={{ padding: '13px 18px', background: '#FFFFFF', color: '#075B4E', border: '1px solid #BFD8D0', borderRadius: 12, fontWeight: 800, cursor: 'pointer' }}>
-            {editing ? 'Cancelar edição' : 'Editar negócio'}
+          <button type="button" disabled={subscriptionPending} onClick={() => { setEditing((v) => !v); setError(''); setNotice(''); }} style={{ padding: '13px 18px', background: subscriptionPending ? '#E6E9E7' : '#FFFFFF', color: subscriptionPending ? '#596560' : '#075B4E', border: '1px solid #BFD8D0', borderRadius: 12, fontWeight: 800, cursor: subscriptionPending ? 'not-allowed' : 'pointer' }}>
+            {subscriptionPending ? 'Edição bloqueada durante a verificação' : editing ? 'Cancelar edição' : 'Editar negócio'}
           </button>
         </div>
 
