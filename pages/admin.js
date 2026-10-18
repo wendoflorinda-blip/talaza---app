@@ -9,6 +9,8 @@ export default function Admin() {
   const [authorized, setAuthorized] = useState(false);
   const [businesses, setBusinesses] = useState([]);
   const [subscriptionRequests, setSubscriptionRequests] = useState([]);
+  const [businessNames, setBusinessNames] = useState({});
+  const [planNames, setPlanNames] = useState({});
   const [communityReports, setCommunityReports] = useState([]);
   const [message, setMessage] = useState('');
 
@@ -108,7 +110,25 @@ export default function Admin() {
       setSubscriptionRequests([]);
       return;
     }
-    setSubscriptionRequests(data || []);
+    const requests = data || [];
+    setSubscriptionRequests(requests);
+
+    const businessIds = [...new Set(requests.map(item => item.business_id).filter(Boolean))];
+    const planIds = [...new Set(requests.map(item => item.plan_id).filter(Boolean))];
+
+    if (businessIds.length) {
+      const { data: businessRows, error: businessNamesError } = await supabase
+        .from('businesses').select('id, name').in('id', businessIds);
+      if (businessNamesError) console.error('Erro ao carregar nomes dos negócios:', businessNamesError);
+      else setBusinessNames(Object.fromEntries((businessRows || []).map(item => [item.id, item.name])));
+    } else setBusinessNames({});
+
+    if (planIds.length) {
+      const { data: planRows, error: planNamesError } = await supabase
+        .from('plans').select('id, name, title, plan_name, nome, duration_days').in('id', planIds);
+      if (planNamesError) console.error('Erro ao carregar nomes dos planos:', planNamesError);
+      else setPlanNames(Object.fromEntries((planRows || []).map(item => [item.id, item.name || item.title || item.plan_name || item.nome || (item.duration_days ? item.duration_days + ' dias' : 'Plano'))]));
+    } else setPlanNames({});
   }
 
   async function updateBusiness(id, status) {
@@ -478,8 +498,8 @@ export default function Admin() {
                   <div style={styles.cardTop}>
                     <div style={styles.logoPlaceholder}>₭</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={styles.businessName}>Pedido de hospedagem</h3>
-                      <div style={styles.meta}>Negócio: {request.business_id || '—'} · Plano: {request.plan_id || '—'}</div>
+                      <h3 style={styles.businessName}>{businessNames[request.business_id] || 'Pedido de hospedagem'}</h3>
+                      <div style={styles.meta}>Negócio: {businessNames[request.business_id] || 'A carregar nome…'} · Plano: {planNames[request.plan_id] || 'A carregar plano…'}</div>
                     </div>
                     <span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span>
                   </div>
