@@ -1,691 +1,972 @@
-import Head from 'next/head';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
+import Link from 'next/link';
+import Head from 'next/head';
 import { supabase } from '../lib/supabaseClient';
+import AuthShell from '../components/AuthShell';
+import Unavailable from '../components/Unavailable';
+import {
+  Card,
+  Field,
+  ErrorBox,
+  PrimaryButton,
+  ImagePicker,
+  CountrySelect,
+  PhoneField,
+  PasswordField,
+  Progress,
+  inputStyle,
+} from '../components/Fields';
+import {
+  C,
+  countryInfo,
+  isAngola,
+  validAngolanPhone,
+  fullPhone,
+  resizeImage,
+  uploadPublicImage,
+} from '../lib/talaza';
 
-const MEDIA_BUCKET = 'business-media';
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const DAYS_OPTIONS = [
+  'Segunda a sexta',
+  'Segunda a sábado',
+  'Todos os dias',
+  'Fins de semana',
+];
 
-const C = {
-  green: '#0F6E5C',
-  dark: '#083F35',
-  ink: '#17211F',
-  muted: '#596560',
-  canvas: '#F8F6F3',
-  white: '#FFFFFF',
-  line: '#E5E9E7',
-  gold: '#DDA10A',
-};
-
-function cleanFileName(name) {
-  return String(name || 'imagem')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9._-]/g, '-');
-}
-
-export default function PostBusinesses() {
-  const router = useRouter();
+export default function PostBusiness() {
+  const [step, setStep] = useState(1);
+  const [blockedCountry, setBlockedCountry] = useState('');
 
   const [user, setUser] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [subcategories, setSubcategories] = useState([]);
-  const [countries, setCountries] = useState([]);
-  const [provinces, setProvinces] = useState([]);
+  const [profileName, setProfileName] = useState('');
 
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  /* Passo 1: os dados do vendedor */
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [countryId, setCountryId] = useState('');
+  const [password, setPassword] = useState('');
+
+  /* Passo 2: o negócio */
+  const [storeName, setStoreName] = useState('');
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [subcategoryId, setSubcategoryId] = useState('');
-  const [countryId, setCountryId] = useState('');
   const [provinceId, setProvinceId] = useState('');
   const [municipality, setMunicipality] = useState('');
   const [neighborhood, setNeighborhood] = useState('');
+  const [description, setDescription] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+  const [days, setDays] = useState(DAYS_OPTIONS[0]);
+  const [opensAt, setOpensAt] = useState('08:00');
+  const [closesAt, setClosesAt] = useState('18:00');
+  const [coverFile, setCoverFile] = useState(null);
+  const [coverPreview, setCoverPreview] = useState('');
 
-  const [logoFile, setLogoFile] = useState(null);
-  const [galleryFiles, setGalleryFiles] = useState([]);
+  /* Listas */
+  const [countries, setCountries] = useState([]);
+  const [provinces, setProvinces] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  /* Resultado */
+  const [businessId, setBusinessId] = useState('');
+
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+
+  const country = countries.find((c) => c.id === countryId);
+  const dial = countryInfo(country?.name).dial;
 
   useEffect(() => {
-    let active = true;
-
-    async function initialise() {
-      const { data: authData } = await supabase.auth.getUser();
-
-      if (!active) return;
-
-      if (!authData?.user) {
-        router.replace('/login');
-        return;
-      }
-
-      setUser(authData.user);
-
-      const [categoryResult, countryResult] = await Promise.all([
-        supabase.from('categories').select('id, name').order('name'),
-        supabase.from('countries').select('id, name').order('name'),
-      ]);
-
-      if (!active) return;
-
-      if (categoryResult.error || countryResult.error) {
-        setError('Não foi possível carregar as categorias e os países.');
-      } else {
-        setCategories(categoryResult.data || []);
-
-        // Apenas Angola fica disponível nesta fase.
-        const angola = (countryResult.data || []).filter(
-          (item) =>
-            String(item.name || '').trim().toLocaleLowerCase('pt-AO') ===
-            'angola'
-        );
-
-        setCountries(angola);
-      }
-
-      setLoading(false);
-    }
-
-    initialise();
-
-    return () => {
-      active = false;
-    };
-  }, [router]);
+    loadCountries();
+    loadCategories();
+    checkSession();
+  }, []);
 
   useEffect(() => {
-    let active = true;
+    setProvinceId('');
 
-    async function loadSubcategories() {
-      setSubcategoryId('');
-      setSubcategories([]);
-
-      if (!categoryId) return;
-
-      const { data, error: queryError } = await supabase
-        .from('subcategories')
-        .select('id, name')
-        .eq('category_id', categoryId)
-        .order('name', { ascending: true });
-
-      if (!active) return;
-
-      if (queryError) {
-        setError('Não foi possível carregar as subcategorias.');
-        return;
-      }
-
-      setSubcategories(data || []);
-    }
-
-    loadSubcategories();
-
-    return () => {
-      active = false;
-    };
-  }, [categoryId]);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadProvinces() {
-      setProvinceId('');
+    if (!countryId) {
       setProvinces([]);
-
-      if (!countryId) return;
-
-      const { data, error: queryError } = await supabase
-        .from('provinces')
-        .select('id, name')
-        .eq('country_id', countryId)
-        .order('name', { ascending: true });
-
-      if (!active) return;
-
-      if (queryError) {
-        setError('Não foi possível carregar as províncias.');
-        return;
-      }
-
-      setProvinces(data || []);
+      return;
     }
 
-    loadProvinces();
-
-    return () => {
-      active = false;
-    };
+    loadProvinces(countryId);
   }, [countryId]);
 
-  function validateFiles(files) {
-    for (const file of files) {
-      if (!file.type.startsWith('image/')) {
-        return 'Seleccione apenas ficheiros de imagem.';
-      }
+  useEffect(() => {
+    setSubcategoryId('');
 
-      if (file.size > MAX_FILE_SIZE) {
-        return 'Cada imagem deve ter no máximo 5 MB.';
-      }
+    if (!categoryId) {
+      setSubcategories([]);
+      return;
     }
 
-    return '';
+    loadSubcategories(categoryId);
+  }, [categoryId]);
+
+  async function checkSession() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) return;
+
+    setUser(session.user);
+    setEmail(session.user.email || '');
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('name, country_id')
+      .eq('id', session.user.id)
+      .maybeSingle();
+
+    if (profile?.name) setProfileName(profile.name);
+    if (profile?.country_id) setCountryId(profile.country_id);
   }
 
-  async function uploadImage(file, folder) {
-    const extension = file.name.includes('.')
-      ? file.name.split('.').pop().toLowerCase()
-      : 'jpg';
+  async function loadCountries() {
+    const { data, error: countriesError } = await supabase
+      .from('countries')
+      .select('id, name')
+      .order('name', { ascending: true });
 
-    const path = `${folder}/${user.id}/${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}-${cleanFileName(file.name)}`;
+    if (countriesError) {
+      console.error(countriesError);
+      setError('Não foi possível carregar a lista de países.');
+      return;
+    }
 
-    const { error: uploadError } = await supabase.storage
-      .from(MEDIA_BUCKET)
-      .upload(path, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type || `image/${extension}`,
-      });
+    const list = [...(data || [])].sort(
+      (a, b) => (isAngola(b.name) ? 1 : 0) - (isAngola(a.name) ? 1 : 0)
+    );
 
-    if (uploadError) {
-      throw new Error(
-        `Não foi possível enviar a imagem "${file.name}". ${uploadError.message}`
+    setCountries(list);
+
+    const angola = list.find((c) => isAngola(c.name));
+    setCountryId((prev) => prev || angola?.id || list[0]?.id || '');
+  }
+
+  async function loadProvinces(id) {
+    const { data, error: provincesError } = await supabase
+      .from('provinces')
+      .select('id, name')
+      .eq('country_id', id)
+      .order('name', { ascending: true });
+
+    if (provincesError) {
+      console.error(provincesError);
+      return;
+    }
+
+    setProvinces(data || []);
+  }
+
+  async function loadCategories() {
+    const { data, error: categoriesError } = await supabase
+      .from('categories')
+      .select('id, name')
+      .order('name', { ascending: true });
+
+    if (categoriesError) {
+      console.error(categoriesError);
+      setError('Não foi possível carregar as categorias.');
+      return;
+    }
+
+    setCategories(data || []);
+  }
+
+  async function loadSubcategories(id) {
+    const { data, error: subcategoriesError } = await supabase
+      .from('subcategories')
+      .select('id, name')
+      .eq('category_id', id)
+      .order('name', { ascending: true });
+
+    if (subcategoriesError) {
+      console.error(subcategoriesError);
+      setError('Não foi possível carregar as subcategorias.');
+      return;
+    }
+
+    setSubcategories(data || []);
+  }
+
+  function pickLogo(file) {
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+  }
+
+  function pickCover(file) {
+    setCoverFile(file);
+    setCoverPreview(URL.createObjectURL(file));
+  }
+
+  // Passo 1: criar a conta
+
+  async function ensureAccount() {
+    if (user) return user;
+
+    const { data, error: signupError } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+
+    if (signupError) {
+      console.error(signupError);
+
+      setError(
+        signupError.message?.toLowerCase().includes('already registered')
+          ? 'Este e-mail já tem uma conta. Volte à página inicial e toque em Entrar.'
+          : signupError.message || 'Não foi possível criar a sua conta.'
       );
+
+      return null;
     }
 
-    const { data } = supabase.storage
-      .from(MEDIA_BUCKET)
-      .getPublicUrl(path);
-
-    if (!data?.publicUrl) {
-      throw new Error('A imagem foi enviada, mas não foi possível obter o URL.');
+    if (!data?.user) {
+      setError('Não foi possível criar a sua conta.');
+      return null;
     }
 
-    return data.publicUrl;
+    /* Se o Supabase exigir confirmação de e-mail, ainda não há sessão. */
+    if (!data.session) {
+      setError(
+        'A conta foi criada. Confirme o seu e-mail e depois toque em Entrar na página inicial para concluir o perfil do negócio.'
+      );
+      return null;
+    }
+
+    setUser(data.user);
+
+    return data.user;
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
+  async function handleStep1(e) {
+    e.preventDefault();
     setError('');
-    setSuccess('');
+
+    if (!country) {
+      setError('Escolha o seu país.');
+      return;
+    }
+
+    /* Só Angola segue. Outro país vai para o ecrã "País indisponível". */
+    if (!isAngola(country.name)) {
+      setBlockedCountry(country.name);
+      return;
+    }
+
+    if (!email.trim()) {
+      setError('Digite o seu e-mail.');
+      return;
+    }
+
+    if (!validAngolanPhone(phone, dial)) {
+      setError(
+        'Digite um número de telefone válido, com 9 dígitos (ex.: 923 456 789).'
+      );
+      return;
+    }
+
+    if (!user && password.length < 6) {
+      setError('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    setLoading(true);
+
+    const account = await ensureAccount();
+
+    setLoading(false);
+
+    if (!account) return;
+
+    setStep(2);
+    window.scrollTo(0, 0);
+  }
+
+  // Passo 2: criar o negócio
+
+  async function handleStep2(e) {
+    e.preventDefault();
+    setError('');
+
+    if (!storeName.trim()) {
+      setError('Digite o nome da loja.');
+      return;
+    }
+
+    if (!categoryId) {
+      setError('Escolha uma categoria.');
+      return;
+    }
+
+    if (!subcategoryId) {
+      setError('Escolha uma subcategoria.');
+      return;
+    }
+
+    if (!provinceId) {
+      setError('Escolha a província.');
+      return;
+    }
+
+    if (whatsapp.trim() && !validAngolanPhone(whatsapp, dial)) {
+      setError('O WhatsApp deve ter 9 dígitos (ex.: 923 456 789).');
+      return;
+    }
 
     if (!user) {
-      setError('Inicie sessão para publicar o seu negócio.');
+      setError('A sessão expirou. Volte ao passo 1.');
       return;
     }
 
-    if (
-      !name.trim() ||
-      !categoryId ||
-      !subcategoryId ||
-      !countryId ||
-      !provinceId
-    ) {
-      setError(
-        'Preencha o nome, a categoria, a subcategoria, o país e a província.'
-      );
-      return;
-    }
-
-    if (!logoFile) {
-      setError('Seleccione o logótipo do seu negócio.');
-      return;
-    }
-
-    const fileError = validateFiles([logoFile, ...galleryFiles]);
-
-    if (fileError) {
-      setError(fileError);
-      return;
-    }
-
-    setSaving(true);
-
-    let createdBusinessId = null;
-    let uploadedPaths = [];
+    setLoading(true);
 
     try {
-      const logoUrl = await uploadImage(logoFile, 'logos');
+      const userId = user.id;
+      const stamp = Date.now();
 
-      // Guardamos o caminho para permitir uma limpeza se a criação falhar.
-      const logoPath = logoUrl.split(`/${MEDIA_BUCKET}/`)[1];
-      if (logoPath) uploadedPaths.push(logoPath);
+      /* Imagens (opcionais) */
+      let logoUrl = null;
+      let coverUrl = null;
 
-      const { data: business, error: businessError } = await supabase
-        .from('businesses')
-        .insert({
-          owner_id: user.id,
-          name: name.trim(),
-          description: description.trim() || null,
-          category_id: categoryId,
-          subcategory_id: subcategoryId,
-          country_id: countryId,
-          province_id: provinceId,
-          municipality: municipality.trim() || null,
-          neighborhood: neighborhood.trim() || null,
-          whatsapp: whatsapp.trim() || null,
-          logo_url: logoUrl,
-          is_active: false,
-          approval_status: 'pending',
-        })
-        .select('id')
-        .single();
+      if (logoFile) {
+        try {
+          const blob = await resizeImage(logoFile, {
+            max: 640,
+            square: true,
+          });
 
-      if (businessError) {
-        throw new Error(businessError.message);
+          logoUrl = await uploadPublicImage(
+            supabase,
+            'business-media',
+            `${userId}/logo-${stamp}.jpg`,
+            blob
+          );
+        } catch (uploadError) {
+          console.warn('Não foi possível enviar o logo:', uploadError);
+        }
       }
 
-      createdBusinessId = business.id;
+      if (coverFile) {
+        try {
+          const blob = await resizeImage(coverFile, { max: 1280 });
 
-      if (galleryFiles.length > 0) {
-        const photoRows = [];
-
-        for (const file of galleryFiles) {
-          const imageUrl = await uploadImage(file, 'businesses');
-
-          const imagePath = imageUrl.split(`/${MEDIA_BUCKET}/`)[1];
-          if (imagePath) uploadedPaths.push(imagePath);
-
-          photoRows.push({
-            business_id: createdBusinessId,
-            image_url: imageUrl,
-          });
-        }
-
-        const { error: photosError } = await supabase
-          .from('business_photos')
-          .insert(photoRows);
-
-        if (photosError) {
-          throw new Error(
-            `O negócio foi criado, mas não foi possível guardar a galeria: ${photosError.message}`
+          coverUrl = await uploadPublicImage(
+            supabase,
+            'business-media',
+            `${userId}/vitrine-${stamp}.jpg`,
+            blob
+          );
+        } catch (uploadError) {
+          console.warn(
+            'Não foi possível enviar a imagem de vitrine:',
+            uploadError
           );
         }
       }
 
-      setSuccess(
-        'O negócio foi enviado para aprovação. As imagens foram guardadas.'
+      /*
+        O login procura o negócio pelo país e pela província do perfil,
+        por isso o perfil fica com a mesma localização do negócio.
+      */
+      const { error: profileError } = await supabase.from('profiles').upsert(
+        {
+          id: userId,
+          name: profileName || storeName.trim(),
+          country_id: countryId,
+          province_id: provinceId,
+        },
+        { onConflict: 'id' }
       );
 
-      setTimeout(() => {
-        router.push('/seller');
-      }, 1600);
-    } catch (err) {
-      setError(err.message || 'Ocorreu um erro ao publicar o negócio.');
+      if (profileError) {
+        console.error(profileError);
 
-      // Se a criação do negócio falhou antes de existir um registo,
-      // tentamos apagar os ficheiros enviados nesta operação.
-      if (!createdBusinessId && uploadedPaths.length > 0) {
-        await supabase.storage.from(MEDIA_BUCKET).remove(uploadedPaths);
+        setError(
+          'Não foi possível criar o seu perfil Talaza. Verifique os dados e tente novamente.'
+        );
+
+        setLoading(false);
+        return;
       }
-    } finally {
-      setSaving(false);
+
+      const newBusinessId = crypto.randomUUID();
+
+      const { error: businessError } = await supabase
+        .from('businesses')
+        .insert({
+          id: newBusinessId,
+          owner_id: userId,
+          name: storeName.trim(),
+          description: description.trim() || null,
+          country_id: countryId,
+          province_id: provinceId,
+          category_id: categoryId,
+          subcategory_id: subcategoryId,
+          municipality: municipality.trim() || null,
+          neighborhood: neighborhood.trim() || null,
+          phone: fullPhone(dial, phone) || null,
+          whatsapp: fullPhone(dial, whatsapp) || null,
+          email: (user.email || email).trim().toLowerCase(),
+          opening_hours: `${days}, ${opensAt} às ${closesAt}`,
+          logo_url: logoUrl,
+          is_active: true,
+          approval_status: 'pending',
+        });
+
+      if (businessError) {
+        console.error(businessError);
+
+        setError(
+          'A conta foi criada, mas não foi possível criar o perfil do negócio. Verifique as permissões do Supabase.'
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      /* Imagem de vitrine: guardada à parte para não bloquear o cadastro */
+      if (coverUrl) {
+        const { error: coverError } = await supabase
+          .from('businesses')
+          .update({ cover_url: coverUrl })
+          .eq('id', newBusinessId);
+
+        if (coverError) {
+          console.warn(
+            'Imagem de vitrine não guardada (falta a coluna cover_url em businesses):',
+            coverError
+          );
+        }
+      }
+
+      setBusinessId(newBusinessId);
+      setStep(3);
+      setLoading(false);
+      window.scrollTo(0, 0);
+    } catch (err) {
+      console.error(err);
+      setError('Ocorreu um erro inesperado. Tente novamente.');
+      setLoading(false);
     }
   }
 
-  if (loading) {
-    return <main className="loading">A preparar o formulário…</main>;
+  // Ecrãs
+
+  if (blockedCountry) {
+    return (
+      <AuthShell backHref="/start">
+        <Head>
+          <title>País indisponível | Talaza</title>
+        </Head>
+
+        <Unavailable
+          country={blockedCountry}
+          onBack={() => setBlockedCountry('')}
+        />
+      </AuthShell>
+    );
   }
 
-  return (
-    <>
-      <Head>
-        <title>Publicar negócio | Talaza</title>
-      </Head>
+  /* Passo 3: perfil criado, pendente */
+  if (step === 3) {
+    const displayName = storeName.trim() || 'Nome da loja';
+    const initial = displayName.charAt(0).toLocaleUpperCase('pt-AO');
 
-      <main className="page">
-        <button className="back" onClick={() => router.back()}>
-          ← Voltar
-        </button>
+    return (
+      <AuthShell backHref="/" backLabel="Início">
+        <Head>
+          <title>O seu perfil | Talaza</title>
+        </Head>
 
-        <section className="content">
-          <div className="eyebrow">ÁREA DO VENDEDOR</div>
-          <h1>Apresente o seu negócio</h1>
-          <p className="intro">
-            Preencha os dados e adicione o logótipo e as imagens da sua loja.
-            Depois da aprovação, o negócio poderá aparecer na subcategoria
-            correspondente.
+        <Progress current={3} total={5} label="confirme o perfil" />
+
+        <div
+          style={{
+            marginTop: 22,
+            background: '#FFFFFF',
+            borderRadius: 22,
+            overflow: 'hidden',
+            border: `1px solid ${C.line}`,
+            boxShadow: '0 10px 26px rgba(19,35,30,.08)',
+          }}
+        >
+          <div
+            style={{
+              padding: '14px 16px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+            }}
+          >
+            <strong
+              style={{
+                fontSize: 17,
+                color: C.ink,
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {displayName}
+            </strong>
+
+            <span
+              style={{
+                padding: '5px 11px',
+                borderRadius: 999,
+                background: C.goldSoft,
+                color: '#7A5600',
+                fontSize: 12,
+                fontWeight: 800,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Pendente
+            </span>
+          </div>
+
+          <div
+            style={{
+              height: 160,
+              background: coverPreview
+                ? `center / cover no-repeat url(${coverPreview})`
+                : 'linear-gradient(135deg,#9CC9BD,#5FA897)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#FFFFFF',
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            {!coverPreview && 'Imagem de vitrine'}
+          </div>
+
+          <div
+            style={{
+              width: 78,
+              height: 78,
+              margin: '-39px 0 0 18px',
+              position: 'relative',
+              borderRadius: '50%',
+              border: '4px solid #FFFFFF',
+              background: logoPreview
+                ? `center / cover no-repeat url(${logoPreview})`
+                : C.goldSoft,
+              color: C.gold,
+              fontSize: 28,
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {!logoPreview && initial}
+          </div>
+
+          <div style={{ padding: '10px 18px 20px' }}>
+            <p
+              style={{
+                margin: '6px 0 16px',
+                color: C.muted,
+                fontSize: 14,
+                lineHeight: 1.6,
+              }}
+            >
+              {description.trim() ||
+                'A descrição do seu negócio aparece aqui.'}
+            </p>
+
+            <Link
+              href={{
+                pathname: `/businesses/${businessId}`,
+                query: { country: countryId, province: provinceId },
+              }}
+              style={{
+                display: 'block',
+                textAlign: 'center',
+                padding: 14,
+                borderRadius: 12,
+                border: `1.5px solid ${C.green}`,
+                color: C.green,
+                fontWeight: 800,
+                textDecoration: 'none',
+              }}
+            >
+              Ver perfil
+            </Link>
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: 18,
+            padding: 16,
+            borderRadius: 16,
+            background: C.goldSoft,
+            border: '1px solid #F0D98A',
+            color: C.ink,
+            fontSize: 14.5,
+            lineHeight: 1.55,
+          }}
+        >
+          <strong style={{ display: 'block', marginBottom: 4 }}>
+            O seu perfil já foi criado
+          </strong>
+          Para ativar, precisa de pagar o plano de hospedagem.
+        </div>
+
+        <Link
+          href={{
+            pathname: '/impulsionar',
+            query: { business: businessId, tab: 'hospedagem' },
+          }}
+          style={{
+            display: 'block',
+            marginTop: 20,
+            textAlign: 'center',
+            padding: 16,
+            borderRadius: 14,
+            background: C.gold,
+            color: C.ink,
+            fontSize: 16,
+            fontWeight: 800,
+            textDecoration: 'none',
+          }}
+        >
+          Ver hospedagem
+        </Link>
+      </AuthShell>
+    );
+  }
+
+  /* Passo 2: configurar o negócio */
+  if (step === 2) {
+    return (
+      <AuthShell
+        onBack={() => {
+          setError('');
+          setStep(1);
+        }}
+      >
+        <Head>
+          <title>Configure o seu negócio | Talaza</title>
+        </Head>
+
+        <Progress current={2} total={5} label="o seu negócio" />
+
+        <Card>
+          <h1 style={{ margin: '0 0 6px', color: C.ink, fontSize: 26 }}>
+            Configure o seu negócio
+          </h1>
+
+          <p
+            style={{
+              margin: 0,
+              color: C.muted,
+              fontSize: 14,
+              lineHeight: 1.6,
+            }}
+          >
+            Estas informações aparecem no perfil da sua loja.
           </p>
 
-          {error && <div className="message error">{error}</div>}
-          {success && <div className="message success">{success}</div>}
-
-          <form onSubmit={handleSubmit}>
-            <label>
-              Nome do negócio *
+          <form onSubmit={handleStep2} noValidate>
+            <Field id="storeName" label="Nome da loja" required>
               <input
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                maxLength={120}
-                required
-                placeholder="Ex.: Loja Talaza"
+                id="storeName"
+                value={storeName}
+                onChange={(e) => setStoreName(e.target.value)}
+                placeholder="Ex.: Boutique Flor"
+                style={inputStyle}
               />
-            </label>
+            </Field>
 
-            <label>
-              Descrição
-              <textarea
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                rows={4}
-                maxLength={2000}
-                placeholder="Descreva o seu negócio e o que oferece."
+            <div style={{ marginTop: 20 }}>
+              <ImagePicker
+                id="logo"
+                preview={logoPreview}
+                onFile={pickLogo}
+                icon="🖼️"
+                caption="Logo da loja"
               />
-            </label>
-
-            <div className="two">
-              <label>
-                Categoria *
-                <select
-                  value={categoryId}
-                  onChange={(event) => setCategoryId(event.target.value)}
-                  required
-                >
-                  <option value="">Escolher categoria</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Subcategoria *
-                <select
-                  value={subcategoryId}
-                  onChange={(event) => setSubcategoryId(event.target.value)}
-                  required
-                  disabled={!categoryId}
-                >
-                  <option value="">Escolher subcategoria</option>
-                  {subcategories.map((subcategory) => (
-                    <option key={subcategory.id} value={subcategory.id}>
-                      {subcategory.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
             </div>
 
-            <div className="two">
-              <label>
-                País *
-                <select
-                  value={countryId}
-                  onChange={(event) => setCountryId(event.target.value)}
-                  required
-                >
-                  <option value="">Escolher país</option>
-                  {countries.map((country) => (
-                    <option key={country.id} value={country.id}>
-                      {country.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <Field id="category" label="Categoria" required>
+              <select
+                id="category"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">Escolher categoria</option>
 
-              <label>
-                Província *
-                <select
-                  value={provinceId}
-                  onChange={(event) => setProvinceId(event.target.value)}
-                  required
-                  disabled={!countryId}
-                >
-                  <option value="">Escolher província</option>
-                  {provinces.map((province) => (
-                    <option key={province.id} value={province.id}>
-                      {province.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {String(category.name).trim()}
+                  </option>
+                ))}
+              </select>
+            </Field>
 
-            <div className="two">
-              <label>
-                Município
+            <Field id="subcategory" label="Subcategoria" required>
+              <select
+                id="subcategory"
+                value={subcategoryId}
+                onChange={(e) => setSubcategoryId(e.target.value)}
+                disabled={!categoryId}
+                style={inputStyle}
+              >
+                <option value="">
+                  {categoryId
+                    ? 'Escolher subcategoria'
+                    : 'Escolha primeiro a categoria'}
+                </option>
+
+                {subcategories.map((subcategory) => (
+                  <option key={subcategory.id} value={subcategory.id}>
+                    {String(subcategory.name).trim()}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field id="province" label="Província" required>
+              <select
+                id="province"
+                value={provinceId}
+                onChange={(e) => setProvinceId(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">Escolher província</option>
+
+                {provinces.map((province) => (
+                  <option key={province.id} value={province.id}>
+                    {String(province.name).trim()}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
+                gap: 14,
+              }}
+            >
+              <Field id="municipality" label="Município">
                 <input
+                  id="municipality"
                   value={municipality}
-                  onChange={(event) => setMunicipality(event.target.value)}
-                  maxLength={100}
-                  placeholder="Município"
+                  onChange={(e) => setMunicipality(e.target.value)}
+                  placeholder="Ex.: Talatona"
+                  style={inputStyle}
                 />
-              </label>
+              </Field>
 
-              <label>
-                Bairro
+              <Field id="neighborhood" label="Bairro">
                 <input
+                  id="neighborhood"
                   value={neighborhood}
-                  onChange={(event) => setNeighborhood(event.target.value)}
-                  maxLength={100}
-                  placeholder="Bairro"
+                  onChange={(e) => setNeighborhood(e.target.value)}
+                  placeholder="Ex.: Benfica"
+                  style={inputStyle}
                 />
-              </label>
+              </Field>
             </div>
 
-            <label>
-              WhatsApp
-              <input
-                value={whatsapp}
-                onChange={(event) => setWhatsapp(event.target.value)}
-                maxLength={30}
-                placeholder="Número de contacto"
+            <Field id="description" label="Descrição">
+              <textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                placeholder="Conte em poucas linhas o que o seu negócio oferece."
+                style={{ ...inputStyle, resize: 'vertical' }}
               />
-            </label>
+            </Field>
 
-            <div className="upload">
-              <label>
-                Logótipo do negócio *
+            <Field id="whatsapp" label="WhatsApp">
+              <PhoneField
+                id="whatsapp"
+                countryName={country?.name}
+                value={whatsapp}
+                onChange={setWhatsapp}
+              />
+            </Field>
+
+            <Field id="days" label="Horário de atendimento">
+              <select
+                id="days"
+                value={days}
+                onChange={(e) => setDays(e.target.value)}
+                style={{ ...inputStyle, marginBottom: 10 }}
+              >
+                {DAYS_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 10,
+                }}
+              >
                 <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  required
-                  onChange={(event) =>
-                    setLogoFile(event.target.files?.[0] || null)
-                  }
+                  type="time"
+                  value={opensAt}
+                  onChange={(e) => setOpensAt(e.target.value)}
+                  aria-label="Abre às"
+                  style={inputStyle}
                 />
-              </label>
-              {logoFile && <small>Seleccionado: {logoFile.name}</small>}
+
+                <input
+                  type="time"
+                  value={closesAt}
+                  onChange={(e) => setClosesAt(e.target.value)}
+                  aria-label="Fecha às"
+                  style={inputStyle}
+                />
+              </div>
+            </Field>
+
+            <div style={{ marginTop: 18 }}>
+              <span
+                style={{
+                  display: 'block',
+                  marginBottom: 8,
+                  fontWeight: 700,
+                  color: C.ink,
+                  fontSize: 14,
+                }}
+              >
+                Imagem de vitrine
+              </span>
+
+              <ImagePicker
+                id="cover"
+                shape="rect"
+                preview={coverPreview}
+                onFile={pickCover}
+                icon="🖼️"
+                caption="É a imagem principal que os clientes vão ver"
+              />
             </div>
 
-            <div className="upload">
-              <label>
-                Imagens da loja
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  onChange={(event) =>
-                    setGalleryFiles(Array.from(event.target.files || []))
-                  }
-                />
-              </label>
-              <small>
-                Cada imagem pode ter até 5 MB. Pode seleccionar várias imagens.
-              </small>
-              {galleryFiles.length > 0 && (
-                <small>{galleryFiles.length} imagem(ns) seleccionada(s).</small>
-              )}
-            </div>
+            <ErrorBox>{error}</ErrorBox>
 
-            <button className="submit" type="submit" disabled={saving}>
-              {saving ? 'A publicar…' : 'Enviar para aprovação'}
-            </button>
+            <PrimaryButton type="submit" loading={loading}>
+              {loading ? 'A criar o seu perfil…' : 'Seguinte'}
+            </PrimaryButton>
           </form>
-        </section>
-      </main>
+        </Card>
+      </AuthShell>
+    );
+  }
 
-      <style jsx>{`
-        .page {
-          min-height: 100vh;
-          padding: 24px 20px 60px;
-          background: ${C.canvas};
-          color: ${C.ink};
-          font-family: Arial, Helvetica, sans-serif;
-        }
+  /* Passo 1: dados do vendedor */
+  return (
+    <AuthShell backHref="/start">
+      <Head>
+        <title>Perfil de vendedor | Talaza</title>
+      </Head>
 
-        .back {
-          border: 0;
-          padding: 0;
-          background: transparent;
-          color: ${C.green};
-          font-weight: 700;
-          cursor: pointer;
-        }
+      <Progress current={1} total={5} label="os seus dados" />
 
-        .content {
-          max-width: 760px;
-          margin: 40px auto;
-          padding: 30px;
-          border: 1px solid ${C.line};
-          border-radius: 20px;
-          background: ${C.white};
-        }
+      <Card>
+        <div
+          style={{
+            display: 'inline-block',
+            padding: '7px 12px',
+            borderRadius: 999,
+            background: C.soft,
+            color: C.green,
+            fontSize: 12,
+            fontWeight: 800,
+          }}
+        >
+          Perfil de vendedor
+        </div>
 
-        .eyebrow {
-          color: ${C.green};
-          font-size: 12px;
-          font-weight: 800;
-          letter-spacing: 1.4px;
-        }
+        <h1 style={{ margin: '14px 0 6px', color: C.ink, fontSize: 26 }}>
+          Crie a sua conta de vendedor
+        </h1>
 
-        h1 {
-          margin: 12px 0;
-          color: ${C.dark};
-          font-size: clamp(29px, 5vw, 40px);
-          letter-spacing: -1px;
-        }
+        <p
+          style={{
+            margin: 0,
+            color: C.muted,
+            fontSize: 14,
+            lineHeight: 1.6,
+          }}
+        >
+          Uma conta para criar o perfil do seu negócio e mostrar os seus
+          produtos e serviços a quem procura.
+        </p>
 
-        .intro {
-          margin: 0 0 25px;
-          color: ${C.muted};
-          line-height: 1.7;
-        }
+        <form onSubmit={handleStep1} noValidate>
+          <Field id="email" label="E-mail" required>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="seu@email.com"
+              autoComplete="email"
+              disabled={!!user}
+              style={{
+                ...inputStyle,
+                background: user ? '#F1F4F3' : '#FFFFFF',
+              }}
+            />
+          </Field>
 
-        form {
-          display: grid;
-          gap: 17px;
-        }
+          <Field id="phone" label="Número de telefone" required>
+            <PhoneField
+              id="phone"
+              countryName={country?.name}
+              value={phone}
+              onChange={setPhone}
+            />
+          </Field>
 
-        label {
-          display: grid;
-          gap: 8px;
-          color: ${C.dark};
-          font-size: 14px;
-          font-weight: 700;
-        }
+          <Field id="country" label="País" required>
+            <CountrySelect
+              id="country"
+              countries={countries}
+              value={countryId}
+              onChange={setCountryId}
+            />
+          </Field>
 
-        input,
-        select,
-        textarea {
-          box-sizing: border-box;
-          width: 100%;
-          min-height: 47px;
-          padding: 12px;
-          border: 1px solid ${C.line};
-          border-radius: 10px;
-          background: white;
-          color: ${C.ink};
-          font: inherit;
-          font-weight: 400;
-        }
+          {!user && (
+            <Field id="password" label="Senha" required>
+              <PasswordField
+                id="password"
+                value={password}
+                onChange={setPassword}
+                placeholder="Mínimo de 6 caracteres"
+              />
+            </Field>
+          )}
 
-        textarea {
-          resize: vertical;
-          line-height: 1.5;
-        }
+          <ErrorBox>{error}</ErrorBox>
 
-        input:focus,
-        select:focus,
-        textarea:focus {
-          outline: 2px solid #B8D9D1;
-          border-color: ${C.green};
-        }
-
-        .two {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 14px;
-        }
-
-        .upload {
-          padding: 16px;
-          border: 1px dashed #C7D6D1;
-          border-radius: 12px;
-          background: #FBFDFC;
-        }
-
-        .upload small {
-          display: block;
-          margin-top: 9px;
-          color: ${C.muted};
-          font-size: 12px;
-          line-height: 1.5;
-        }
-
-        .submit {
-          min-height: 50px;
-          border: 0;
-          border-radius: 11px;
-          background: ${C.green};
-          color: white;
-          font-weight: 800;
-          cursor: pointer;
-        }
-
-        .submit:disabled {
-          opacity: 0.65;
-          cursor: wait;
-        }
-
-        .message {
-          margin-bottom: 18px;
-          padding: 13px 15px;
-          border-radius: 10px;
-          line-height: 1.5;
-          font-size: 14px;
-        }
-
-        .error {
-          background: #FFF1F2;
-          color: #9C2936;
-          border: 1px solid #E8B9BE;
-        }
-
-        .success {
-          background: #E8F3F0;
-          color: ${C.dark};
-          border: 1px solid #B8D9D1;
-        }
-
-        .loading {
-          min-height: 100vh;
-          display: grid;
-          place-items: center;
-          background: ${C.canvas};
-          color: ${C.dark};
-          font-family: Arial, Helvetica, sans-serif;
-        }
-
-        @media (max-width: 620px) {
-          .content {
-            margin: 28px auto;
-            padding: 20px;
-          }
-
-          .two {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
-    </>
+          <PrimaryButton type="submit" loading={loading}>
+            {loading ? 'A criar a conta…' : 'Seguinte'}
+          </PrimaryButton>
+        </form>
+      </Card>
+    </AuthShell>
   );
 }
