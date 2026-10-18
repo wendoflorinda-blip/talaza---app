@@ -199,41 +199,33 @@ export default function Oportunidades() {
         .eq('plan_id', OPPORTUNITY_PLAN_ID)
         .eq('status', 'active')
         .gt('expires_at', new Date().toISOString())
-        .order('expires_at', { ascending: false })
-        .limit(1);
+        .order('expires_at', { ascending: false });
 
       if (subscriptionError) {
         console.error(
           'Erro ao verificar acesso:',
           subscriptionError
         );
-
         return false;
       }
 
-      if (!data || data.length === 0) {
-        return false;
-      }
+      // A subscrição desbloqueia apenas a província a que está associada.
+      // Uma subscrição válida de outra província não deve esconder uma subscrição válida desta.
+      return (data || []).some((subscription) => {
+        if (
+          subscription.country_id &&
+          country &&
+          String(subscription.country_id) !== String(country)
+        ) return false;
 
-      const subscription = data[0];
+        if (
+          subscription.province_id &&
+          province &&
+          String(subscription.province_id) !== String(province)
+        ) return false;
 
-      if (
-        subscription.country_id &&
-        country &&
-        String(subscription.country_id) !== String(country)
-      ) {
-        return false;
-      }
-
-      if (
-        subscription.province_id &&
-        province &&
-        String(subscription.province_id) !== String(province)
-      ) {
-        return false;
-      }
-
-      return true;
+        return true;
+      });
     } catch (err) {
       console.error(err);
       return false;
