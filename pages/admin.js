@@ -619,8 +619,7 @@ export default function Admin() {
                   <div style={styles.details}>
                     <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
                     <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
-                    {request.proof_image_path && <p><strong>Comprovativo imagem:</strong> <button type="button" style={styles.proofLink} onClick={() => openProof(request.proof_image_path)}>Ver imagem enviada ↗</button></p>}
-                    {request.proof_pdf_path && <p><strong>Comprovativo PDF:</strong> <button type="button" style={styles.proofLink} onClick={() => openProof(request.proof_pdf_path)}>Abrir PDF enviado ↗</button></p>}
+                    {request.proof_url && <p><strong>Comprovativo ({request.proof_type || 'ficheiro'}):</strong> <button type="button" style={styles.proofLink} onClick={() => openProof(request.proof_url)}>Abrir comprovativo ↗</button></p>}
                   </div>
                   {pending && <div style={styles.actions}>
                     <button style={styles.reject} onClick={() => reviewPayment(request, false)}>Rejeitar pagamento</button>
