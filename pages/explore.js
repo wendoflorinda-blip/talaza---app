@@ -316,13 +316,36 @@ export default function Explore() {
     };
   }, [router.isReady, country, province]);
 
-  function handleAreaClick(area) {
+  async function handleAreaClick(area) {
     if (area.route) {
+      let targetCountry = country;
+      let targetProvince = province;
+
+      // A Comunidade Talaza permanece na província principal do perfil,
+      // mesmo quando a pessoa está a explorar outra província.
+      if (area.route === '/comunidade') {
+        targetCountry = safeValue(router.query.homeCountry) || country;
+        targetProvince = safeValue(router.query.homeProvince) || '';
+
+        if (!targetProvince) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('country_id, province_id')
+              .eq('id', user.id)
+              .maybeSingle();
+            targetCountry = profile?.country_id || country;
+            targetProvince = profile?.province_id || province;
+          }
+        }
+      }
+
       router.push({
         pathname: area.route,
         query: {
-          ...(country ? { country } : {}),
-          ...(province ? { province } : {}),
+          ...(targetCountry ? { country: targetCountry } : {}),
+          ...(targetProvince ? { province: targetProvince } : {}),
         },
       });
       return;
