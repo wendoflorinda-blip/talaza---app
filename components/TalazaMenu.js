@@ -298,6 +298,8 @@ export default function TalazaMenu({
   const [screen, setScreen] = useState('menu');
   const [provinces, setProvinces] = useState([]);
   const [userName, setUserName] = useState('');
+  const [primaryCountry, setPrimaryCountry] = useState(country || '');
+  const [primaryProvince, setPrimaryProvince] = useState(province || '');
   const [loadingProvinces, setLoadingProvinces] = useState(false);
   const [message, setMessage] = useState('');
   const [supportSent, setSupportSent] = useState(false);
@@ -322,15 +324,13 @@ export default function TalazaMenu({
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('name')
+        .select('name, country_id, province_id')
         .eq('id', user.id)
         .maybeSingle();
 
-      setUserName(
-        profile?.name ||
-          user.email ||
-          'Utilizador'
-      );
+      setUserName(profile?.name || user.email || 'Utilizador');
+      setPrimaryCountry(profile?.country_id || country || '');
+      setPrimaryProvince(profile?.province_id || province || '');
     } catch (error) {
       console.error(
         'Erro ao carregar utilizador:',
@@ -401,8 +401,10 @@ export default function TalazaMenu({
     router.push({
       pathname: '/explore',
       query: {
-        country,
-        province,
+        country: primaryCountry || country,
+        province: primaryProvince || province,
+        homeCountry: primaryCountry || country,
+        homeProvince: primaryProvince || province,
       },
     });
   }
@@ -413,8 +415,10 @@ export default function TalazaMenu({
     router.push({
       pathname: '/explore',
       query: {
-        country: country,
+        country: item.country_id || country,
         province: item.id,
+        homeCountry: primaryCountry || country,
+        homeProvince: primaryProvince || province,
       },
     });
   }
