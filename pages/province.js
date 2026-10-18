@@ -67,7 +67,16 @@ export default function Province() {
         return;
       }
 
-      setCountryName(countryResult.data.name || 'País seleccionado');
+      const selectedName = String(countryResult.data.name || '').trim().toLocaleLowerCase('pt-AO');
+      if (selectedName !== 'angola') {
+        setCountryName(countryResult.data.name || 'País seleccionado');
+        setProvinces([]);
+        setError('País indisponível para a sua localização. A Talaza está disponível apenas em Angola neste momento.');
+        setLoading(false);
+        return;
+      }
+
+      setCountryName(countryResult.data.name || 'Angola');
       setProvinces(provinceResult.data || []);
       setLoading(false);
     }
