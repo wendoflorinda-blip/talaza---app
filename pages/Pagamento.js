@@ -444,7 +444,7 @@ export default function Pagamento() {
               <p style={{ margin: '14px 0 0', color: C.muted, fontSize: 13, lineHeight: 1.6 }}>Não envie outro comprovativo nem faça um novo pagamento por causa desta mensagem. Aguarde a verificação da equipa Talaza.</p>
               <Link href={panelHref} style={{ display: 'block', marginTop: 20, padding: 15, borderRadius: 12, background: C.green, color: '#fff', textAlign: 'center', textDecoration: 'none', fontWeight: 800 }}>Ir para o meu painel de negócio</Link>
             </Card>
-          ) : <>
+          ) : <div>
           <h1 style={{ margin: '0 0 6px', color: C.ink, fontSize: 28 }}>
             Pagamento
           </h1>
@@ -604,7 +604,7 @@ export default function Pagamento() {
           >
             {sending ? 'A enviar…' : 'Enviar'}
           </button>
-          </>}
+          </div>}
         </div>
       )}
     </AuthShell>
