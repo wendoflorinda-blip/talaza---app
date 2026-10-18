@@ -157,6 +157,16 @@ export default function Admin() {
     await loadBusinesses();
   }
 
+  async function openProof(path) {
+    if (!path) return;
+    const { data, error } = await supabase.storage.from('payment-proofs').createSignedUrl(path, 60);
+    if (error || !data?.signedUrl) {
+      alert('Não foi possível abrir o comprovativo. Confirme as permissões do armazenamento payment-proofs.');
+      return;
+    }
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+  }
+
   async function reviewPayment(request, approved) {
     const nextStatus = approved ? 'approved' : 'rejected';
     const { error } = await supabase
@@ -365,7 +375,7 @@ export default function Admin() {
 
                   {business.whatsapp && (
                     <p>
-                      <strong>WhatsApp:</strong>{' '}
+                      <strong>Contacto:</strong>{' '}
                       {business.whatsapp}
                     </p>
                   )}
@@ -444,8 +454,8 @@ export default function Admin() {
                   <div style={styles.details}>
                     <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
                     <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
-                    {request.proof_image_path && <p><strong>Comprovativo imagem:</strong> {request.proof_image_path}</p>}
-                    {request.proof_pdf_path && <p><strong>Comprovativo PDF:</strong> {request.proof_pdf_path}</p>}
+                    {request.proof_image_path && <p><strong>Comprovativo imagem:</strong> <button type="button" style={styles.proofLink} onClick={() => openProof(request.proof_image_path)}>Ver imagem enviada ↗</button></p>}
+                    {request.proof_pdf_path && <p><strong>Comprovativo PDF:</strong> <button type="button" style={styles.proofLink} onClick={() => openProof(request.proof_pdf_path)}>Abrir PDF enviado ↗</button></p>}
                   </div>
                   {pending && <div style={styles.actions}>
                     <button style={styles.reject} onClick={() => reviewPayment(request, false)}>Rejeitar pagamento</button>
@@ -609,6 +619,7 @@ const styles = {
   },
 
   paymentStatus: { background: '#EDE6F6', color: '#64358B', padding: '7px 10px', borderRadius: 999, fontSize: 11, fontWeight: 800, textTransform: 'capitalize' },
+  proofLink: { border: 0, background: 'transparent', color: '#64358B', textDecoration: 'underline', fontWeight: 800, cursor: 'pointer', padding: 0 },
 
   pending: {
     background: '#FFF3C7',
