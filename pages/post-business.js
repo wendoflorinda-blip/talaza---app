@@ -315,7 +315,7 @@ export default function PostBusiness() {
     }
 
     if (whatsapp.trim() && !validAngolanPhone(whatsapp, dial)) {
-      setError('O WhatsApp deve ter 9 dígitos (ex.: 923 456 789).');
+      setError('O contacto deve ter 9 dígitos (ex.: 923 456 789).');
       return;
     }
 
@@ -792,7 +792,7 @@ export default function PostBusiness() {
               />
             </Field>
 
-            <Field id="whatsapp" label="WhatsApp">
+            <Field id="whatsapp" label="Contacto">
               <PhoneField
                 id="whatsapp"
                 countryName={country?.name}
