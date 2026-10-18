@@ -455,7 +455,7 @@ export default function TalazaMenu({
       const { error } = await supabase.auth.signOut({ scope: 'global' });
       if (error) throw error;
       closeMenu();
-      await router.replace('/login');
+      await router.replace('/');
     } catch (error) {
       console.error('Erro ao terminar sessão:', error);
       setMessage('Não foi possível terminar a sessão. Tente novamente.');
