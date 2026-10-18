@@ -1,299 +1,131 @@
-import { useRouter } from 'next/router';
+import Head from 'next/head';
 import Link from 'next/link';
 
+const C = {
+  green: '#0F6E5C',
+  dark: '#083F35',
+  gold: '#DDA10A',
+  ink: '#17211F',
+  muted: '#596560',
+  bg: '#F8F6F3',
+  white: '#FFFFFF',
+  line: '#E5E9E7',
+};
+
 export default function Start() {
-  const router = useRouter();
-  const { country, province } = router.query;
-
-  if (!country || !province) {
-    return (
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#F5F7F6',
-          padding: 24,
-        }}
-      >
-        <p style={{ color: '#075B4E', fontWeight: 600 }}>
-          A preparar a Talaza…
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#F5F7F6',
-        paddingBottom: 50,
-      }}
-    >
-      <div
-        className="container"
-        style={{
-          maxWidth: 820,
-          paddingTop: 20,
-        }}
-      >
-        <nav
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '10px 0',
-          }}
-        >
-          <Link
-            href="/"
-            style={{
-              textDecoration: 'none',
-              color: '#075B4E',
-              fontWeight: 900,
-              fontSize: 24,
-              letterSpacing: 1,
-            }}
-          >
-            TALAZA
-          </Link>
+    <>
+      <Head>
+        <title>Talaza — Tudo o que procura, num só lugar</title>
+        <meta
+          name="description"
+          content="Encontre negócios, produtos, serviços e oportunidades no Talaza."
+        />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
 
-          <Link
-            href="/country"
-            style={{
-              textDecoration: 'none',
-              color: '#075B4E',
-              fontSize: 13,
-              fontWeight: 700,
-            }}
-          >
-            Alterar localização
-          </Link>
-        </nav>
+      <main style={styles.page}>
+        <div style={styles.card}>
+          <div style={styles.logo}>T</div>
+          <div style={styles.wordmark}>TALAZA</div>
 
-        <div
-          style={{
-            textAlign: 'center',
-            marginTop: 48,
-            marginBottom: 30,
-          }}
-        >
-          <div
-            style={{
-              display: 'inline-block',
-              padding: '7px 13px',
-              borderRadius: 999,
-              background: '#EAF4F1',
-              color: '#075B4E',
-              fontSize: 12,
-              fontWeight: 800,
-            }}
-          >
-            Localização definida
-          </div>
-
-          <h1
-            style={{
-              margin: '16px 0 8px',
-              color: '#17342F',
-              fontSize: 'clamp(29px, 6vw, 42px)',
-              lineHeight: 1.15,
-            }}
-          >
-            Como deseja utilizar a Talaza?
+          <h1>
+            Tudo o que procura,
+            <br />
+            num só lugar.
           </h1>
 
-          <p
-            style={{
-              maxWidth: 540,
-              margin: '0 auto',
-              color: '#66736F',
-              fontSize: 15,
-              lineHeight: 1.6,
-            }}
-          >
-            Escolha se quer simplesmente explorar a Talaza ou criar um perfil
-            para o seu negócio.
+          <p style={styles.description}>
+            Encontre negócios, produtos, serviços, profissionais e
+            oportunidades de forma simples e organizada.
+          </p>
+
+          <Link href="/signup" style={styles.primary}>
+            Criar conta
+          </Link>
+
+          <Link href="/login" style={styles.secondary}>
+            Já tenho conta
+          </Link>
+
+          <p style={styles.footer}>
+            Descubra. Conecte-se. Encontre.
           </p>
         </div>
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))',
-            gap: 18,
-          }}
-        >
-          {/* EXPLORAR */}
-          <Link
-            href={{
-              pathname: '/explore',
-              query: {
-                country,
-                province,
-              },
-            }}
-            style={{
-              textDecoration: 'none',
-              background: '#FFFFFF',
-              border: '1px solid #D9E5E1',
-              borderRadius: 20,
-              padding: 25,
-              color: '#17342F',
-              boxShadow: '0 10px 26px rgba(0,70,60,.06)',
-            }}
-          >
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 14,
-                background: '#075B4E',
-                color: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 22,
-                marginBottom: 16,
-              }}
-            >
-              🔎
-            </div>
-
-            <h2
-              style={{
-                margin: '0 0 8px',
-                color: '#075B4E',
-                fontSize: 20,
-              }}
-            >
-              Explorar a Talaza
-            </h2>
-
-            <p
-              style={{
-                margin: 0,
-                color: '#66736F',
-                lineHeight: 1.55,
-                fontSize: 13,
-              }}
-            >
-              Entre na Vitrine e descubra negócios, produtos, serviços,
-              oportunidades e outras soluções disponíveis na sua região.
-            </p>
-
-            <div
-              style={{
-                marginTop: 18,
-                color: '#B88300',
-                fontWeight: 800,
-                fontSize: 13,
-              }}
-            >
-              Explorar agora →
-            </div>
-          </Link>
-
-          {/* NEGÓCIO */}
-          <Link
-            href={{
-              pathname: '/post-business',
-              query: {
-                country,
-                province,
-              },
-            }}
-            style={{
-              textDecoration: 'none',
-              background: 'linear-gradient(145deg,#075B4E,#0B7563)',
-              borderRadius: 20,
-              padding: 25,
-              color: '#FFFFFF',
-              boxShadow: '0 12px 30px rgba(0,70,60,.13)',
-            }}
-          >
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 14,
-                background: '#E6A900',
-                color: '#17342F',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 22,
-                marginBottom: 16,
-              }}
-            >
-              ✦
-            </div>
-
-            <h2
-              style={{
-                margin: '0 0 8px',
-                fontSize: 20,
-              }}
-            >
-              Criar um perfil de negócio
-            </h2>
-
-            <p
-              style={{
-                margin: 0,
-                color: 'rgba(255,255,255,.82)',
-                lineHeight: 1.55,
-                fontSize: 13,
-              }}
-            >
-              Para quem quer divulgar uma empresa, loja, serviço, produtos
-              ou outras atividades na Talaza.
-            </p>
-
-            <div
-              style={{
-                marginTop: 18,
-                color: '#E6A900',
-                fontWeight: 800,
-                fontSize: 13,
-              }}
-            >
-              Criar perfil →
-            </div>
-          </Link>
-        </div>
-
-        <div
-          style={{
-            textAlign: 'center',
-            marginTop: 28,
-          }}
-        >
-          <Link
-            href="/country"
-            style={{
-              color: '#075B4E',
-              textDecoration: 'none',
-              fontSize: 13,
-              fontWeight: 700,
-            }}
-          >
-            ← Escolher outra localização
-          </Link>
-        </div>
-      </div>
-    </div>
+      </main>
+    </>
   );
 }
-                                   
-          
 
-          
-              
-            
-
-          
-              
-          
+const styles = {
+  page: {
+    minHeight: '100vh',
+    padding: 20,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    background: C.bg,
+    color: C.ink,
+    fontFamily:
+      "'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+  },
+  card: {
+    width: '100%',
+    maxWidth: 430,
+    background: C.dark,
+    borderRadius: 26,
+    padding: '38px 24px 30px',
+    textAlign: 'center',
+    color: C.white,
+    boxShadow: '0 18px 45px rgba(8,63,53,0.16)',
+  },
+  logo: {
+    width: 64,
+    height: 64,
+    margin: '0 auto 9px',
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: 18,
+    background: 'rgba(255,255,255,0.10)',
+    border: '1px solid rgba(255,255,255,0.18)',
+    color: C.gold,
+    fontSize: 35,
+    fontWeight: 900,
+  },
+  wordmark: {
+    letterSpacing: '0.22em',
+    fontSize: 13,
+    fontWeight: 800,
+    marginBottom: 30,
+  },
+  description: {
+    color: '#D3E7E0',
+    fontSize: 15,
+    lineHeight: 1.65,
+    margin: '14px 0 28px',
+  },
+  primary: {
+    display: 'block',
+    padding: 15,
+    borderRadius: 12,
+    background: C.gold,
+    color: '#2B2000',
+    fontWeight: 800,
+    textDecoration: 'none',
+    marginBottom: 11,
+  },
+  secondary: {
+    display: 'block',
+    padding: 14,
+    borderRadius: 12,
+    border: '1px solid rgba(255,255,255,0.45)',
+    color: C.white,
+    fontWeight: 700,
+    textDecoration: 'none',
+  },
+  footer: {
+    marginTop: 25,
+    fontSize: 12,
+    color: '#BBD7CE',
+  },
+};
