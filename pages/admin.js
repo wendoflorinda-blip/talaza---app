@@ -188,9 +188,18 @@ export default function Admin() {
       const { data: paidRequest } = await supabase.from('subscription_requests').select('plan_id').eq('business_id', id).eq('status', 'approved').order('created_at', { ascending: false }).limit(1).maybeSingle();
       if (paidRequest?.plan_id) updates.plan_id = paidRequest.plan_id;
     }
-    const { error } = await supabase.from('businesses').update(updates).eq('id', id);
+    const { data: updatedBusiness, error } = await supabase
+      .from('businesses')
+      .update(updates)
+      .eq('id', id)
+      .select('id')
+      .maybeSingle();
     if (error) {
-      alert('Erro: ' + error.message);
+      alert('Não foi possível aprovar/recusar o negócio. Verifique as permissões RLS de businesses: ' + error.message);
+      return;
+    }
+    if (!updatedBusiness) {
+      alert('O Supabase não confirmou a alteração do negócio. A política RLS pode estar a bloquear a aprovação.');
       return;
     }
     await loadBusinesses();
@@ -213,7 +222,7 @@ export default function Admin() {
   async function loadPendingCommunityPosts() {
     const { data, error } = await supabase
       .from('community_posts')
-      .select('id, user_id, country_id, province_id, post_type, title, content, image_url, created_at, scope, duration_days, expires_at, status, moderation_status')
+      .select('*')
       .eq('moderation_status', 'pending')
       .order('created_at', { ascending: false });
 
@@ -231,17 +240,23 @@ export default function Admin() {
     const nextModerationStatus = approved ? 'approved' : 'rejected';
     const nextStatus = approved ? 'published' : 'rejected';
 
-    const { error } = await supabase
+    const { data: updatedRows, error } = await supabase
       .from('community_posts')
       .update({
         moderation_status: nextModerationStatus,
         status: nextStatus,
       })
       .eq('id', post.id)
-      .eq('moderation_status', 'pending');
+      .eq('moderation_status', 'pending')
+      .select('id');
 
     if (error) {
-      alert('Não foi possível atualizar a publicação: ' + error.message);
+      alert('A publicação não foi atualizada no Supabase. Verifique as permissões RLS de community_posts: ' + error.message);
+      return;
+    }
+
+    if (!updatedRows || updatedRows.length === 0) {
+      alert('O Supabase não confirmou nenhuma alteração. A política RLS pode estar a bloquear a aprovação ou a publicação já não está pendente.');
       return;
     }
 
