@@ -145,6 +145,7 @@ export default function Pagamento() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -199,6 +200,16 @@ export default function Pagamento() {
 
     setPlan(planResult.data);
     setBusiness(businessResult.data);
+
+    const { data: pendingPayment, error: pendingPaymentError } = await supabase
+      .from('subscription_requests')
+      .select('id, plan_id')
+      .eq('business_id', businessResult.data.id)
+      .eq('status', 'pending')
+      .limit(1)
+      .maybeSingle();
+    if (pendingPaymentError) console.error('Erro ao verificar comprovativo já enviado:', pendingPaymentError);
+    if (pendingPayment) setAlreadySubmitted(true);
     setLoading(false);
   }
 
@@ -339,8 +350,7 @@ export default function Pagamento() {
                 lineHeight: 1.6,
               }}
             >
-              A sua conta será validada em menos de 48h assim que o
-              pagamento for aprovado.
+              O seu perfil foi criado, mas ainda não está visível para os clientes. A visibilidade só será ativada depois de a equipa Talaza verificar o comprovativo, confirmar o pagamento e aprovar o negócio.
             </p>
 
             <Link
@@ -385,6 +395,13 @@ export default function Pagamento() {
 
       {!loading && plan && (
         <div style={{ marginTop: 22 }}>
+          {alreadySubmitted ? (
+            <Card>
+              <h1 style={{ margin: '0 0 10px', color: C.ink, fontSize: 25 }}>Em verificação para ativação do negócio</h1>
+              <p style={{ color: C.muted, lineHeight: 1.65 }}>Já existe um comprovativo enviado para este negócio. Não é possível mudar de plano nem enviar outro comprovativo enquanto o pedido estiver em análise. Volte ao painel para acompanhar o estado.</p>
+              <Link href={panelHref} style={{ display: 'block', marginTop: 20, padding: 15, borderRadius: 12, background: C.green, color: '#fff', textAlign: 'center', textDecoration: 'none', fontWeight: 800 }}>Voltar ao painel</Link>
+            </Card>
+          ) : <>
           <h1 style={{ margin: '0 0 6px', color: C.ink, fontSize: 28 }}>
             Pagamento
           </h1>
@@ -544,6 +561,7 @@ export default function Pagamento() {
           >
             {sending ? 'A enviar…' : 'Enviar'}
           </button>
+          </>
         </div>
       )}
     </AuthShell>
