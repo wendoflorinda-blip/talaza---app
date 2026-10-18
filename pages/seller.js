@@ -84,8 +84,15 @@ export default function Seller() {
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut();
-    router.push('/');
+    setError('');
+    const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' });
+    if (signOutError) {
+      setError('Não foi possível terminar a sessão. Tente novamente.');
+      return;
+    }
+    setUser(null);
+    setBusiness(null);
+    await router.replace('/login');
   }
 
   if (loading) {
@@ -373,8 +380,8 @@ export default function Seller() {
             }}
           >
             <div>
-              <strong>WhatsApp:</strong>{' '}
-              {business.whatsapp || 'Não definido'}
+              <strong>Contacto:</strong>{' '}
+              {business.phone || business.whatsapp || 'Não definido'}
             </div>
 
             <div>
