@@ -303,10 +303,11 @@ export default function Seller() {
             ['◫', 'Produtos'],
             ['◉', 'Mensagens'],
             ['●', 'Notificações'],
-            ['◆', 'Plano e destaque']
+            ['◆', 'Impulsionar']
           ].map(([icon, title]) => (
             <button
               key={title}
+              onClick={() => { if (title === 'Impulsionar') router.push('/impulsionar'); }}
               style={{
                 border: '1px solid #DDE7E3',
                 background: '#FFFFFF',
