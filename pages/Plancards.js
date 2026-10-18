@@ -51,7 +51,7 @@ export default function PlanCards({
 }) {
   return (
     <div style={{ display: 'grid', gap: 22 }}>
-      {plans.map((plan, index) => {
+      {(Array.isArray(plans) ? plans : []).map((plan, index) => {
         const theme = THEMES[order[index % order.length]];
         const { intro, benefits } = parsePlanDescription(plan.description);
         const featured = plans.length >= 3 && index === 1;
@@ -189,6 +189,7 @@ export default function PlanCards({
           </article>
         );
       })}
+      {(!Array.isArray(plans) || plans.length === 0) && <p style={{ margin: 0, color: C.muted }}>Não existem planos disponíveis nesta categoria neste momento.</p>}
     </div>
   );
 }
