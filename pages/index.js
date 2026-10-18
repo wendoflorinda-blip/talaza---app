@@ -1,145 +1,384 @@
-import Link from 'next/link';
 import Head from 'next/head';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import { supabase } from '../lib/supabaseClient';
 
-export default function Home() {
+const C = {
+  green: '#0F6E5C',
+  dark: '#083F35',
+  ink: '#17211F',
+  muted: '#596560',
+  canvas: '#F8F6F3',
+  white: '#FFFFFF',
+  line: '#E5E9E7',
+  gold: '#DDA10A',
+  purple: '#7252B8',
+};
+
+export default function Index() {
+  const router = useRouter();
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function checkSession() {
+      const { data } = await supabase.auth.getSession();
+
+      if (!active) return;
+
+      // A sessão é preservada pelo Supabase.
+      // Não obrigamos o visitante a iniciar sessão para explorar.
+      setChecking(false);
+    }
+
+    checkSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      if (active) setChecking(false);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   return (
     <>
       <Head>
-        <title>Talaza - Tudo num só lugar</title>
+        <title>Talaza — Tudo num só lugar</title>
+        <meta
+          name="description"
+          content="Encontre negócios, serviços e oportunidades na Talaza."
+        />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <main style={mainStyle}>
-        <div style={cardStyle}>
-          <div style={logoStyle}>T</div>
-          <p style={brandStyle}>TALAZA</p>
+      <main className="page">
+        <header className="header">
+          <Link href="/" className="brand">
+            <span className="brand-mark">T</span>
+            <span>talaza</span>
+          </Link>
 
-          <h1 style={titleStyle}>Tudo o que você procura, num só lugar.</h1>
-          
-          <p style={subtitleStyle}>
-            Encontre negócios, produtos, serviços, profissionais e oportunidades de forma simples, organizada e perto de você.
+          <Link href="/login" className="login">
+            Já tenho conta
+          </Link>
+        </header>
+
+        <section className="hero">
+          <div className="eyebrow">
+            <span className="dot" />
+            Descubra o que existe à sua volta
+          </div>
+
+          <h1>
+            Tudo o que procura,
+            <br />
+            <span>num só lugar.</span>
+          </h1>
+
+          <p className="intro">
+            Explore negócios, encontre serviços e descubra oportunidades.
+            Comece pela sua localização e encontre o que precisa na Talaza.
           </p>
 
-          <Link href="/signup?type=cliente" style={{ textDecoration: 'none', display: 'block' }}>
-            <button style={primaryBtn}>Criar conta →</button>
-          </Link>
+          <div className="actions">
+            <button
+              className="primary"
+              onClick={() => router.push('/country')}
+            >
+              Começar <span aria-hidden="true">→</span>
+            </button>
 
-          <Link href="/signup?type=vendedor" style={{ textDecoration: 'none', display: 'block' }}>
-            <button style={secondaryBtn}>Quero ser vendedor</button>
-          </Link>
+            <Link href="/login" className="secondary">
+              Já tenho conta
+            </Link>
+          </div>
 
-          <Link href="/login" style={{ textDecoration: 'none', display: 'block' }}>
-            <button style={ghostBtn}>Já tenho conta</button>
-          </Link>
+          <div className="trust">
+            <span className="trust-icon">✓</span>
+            Explore primeiro. Escolha com atenção.
+          </div>
+        </section>
 
-          <p style={footerStyle}>Ao continuar, você concorda com os termos da Talaza.</p>
-        </div>
+        <section className="features">
+          <article className="feature">
+            <div className="feature-icon green">⌕</div>
+            <h2>Encontre negócios</h2>
+            <p>Descubra lojas, produtos e serviços por categoria.</p>
+          </article>
+
+          <article className="feature">
+            <div className="feature-icon gold">◇</div>
+            <h2>Conheça as lojas</h2>
+            <p>Veja o perfil, as imagens e os produtos de cada negócio.</p>
+          </article>
+
+          <article className="feature">
+            <div className="feature-icon purple">✦</div>
+            <h2>Descubra oportunidades</h2>
+            <p>Explore outras áreas disponíveis na Talaza.</p>
+          </article>
+        </section>
+
+        <footer>
+          <span>Talaza</span>
+          <span>Descobrir. Conectar. Escolher.</span>
+        </footer>
       </main>
+
+      <style jsx>{`
+        .page {
+          min-height: 100vh;
+          padding: 0 7%;
+          background: ${C.canvas};
+          color: ${C.ink};
+          font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .header {
+          height: 88px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid ${C.line};
+        }
+
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          color: ${C.dark};
+          text-decoration: none;
+          font-size: 26px;
+          font-weight: 800;
+          letter-spacing: -1px;
+        }
+
+        .brand-mark {
+          width: 38px;
+          height: 38px;
+          border-radius: 12px;
+          display: grid;
+          place-items: center;
+          background: ${C.green};
+          color: white;
+          font-size: 22px;
+        }
+
+        .login {
+          color: ${C.green};
+          text-decoration: none;
+          font-weight: 700;
+          font-size: 14px;
+        }
+
+        .hero {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 85px 0 75px;
+          text-align: center;
+        }
+
+        .eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          padding: 10px 14px;
+          border: 1px solid ${C.line};
+          border-radius: 999px;
+          background: ${C.white};
+          color: ${C.muted};
+          font-size: 13px;
+        }
+
+        .dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: ${C.gold};
+        }
+
+        h1 {
+          margin: 26px 0 20px;
+          color: ${C.dark};
+          font-size: clamp(38px, 6vw, 66px);
+          line-height: 1.08;
+          letter-spacing: -2.5px;
+        }
+
+        h1 span {
+          color: ${C.green};
+        }
+
+        .intro {
+          max-width: 600px;
+          margin: 0 auto;
+          color: ${C.muted};
+          font-size: 17px;
+          line-height: 1.8;
+        }
+
+        .actions {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 13px;
+          margin-top: 30px;
+        }
+
+        .primary,
+        .secondary {
+          min-height: 49px;
+          padding: 0 23px;
+          border-radius: 12px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          font-size: 15px;
+          font-weight: 700;
+          text-decoration: none;
+          cursor: pointer;
+        }
+
+        .primary {
+          border: 1px solid ${C.green};
+          background: ${C.green};
+          color: white;
+        }
+
+        .secondary {
+          border: 1px solid ${C.line};
+          background: white;
+          color: ${C.dark};
+        }
+
+        .trust {
+          margin-top: 22px;
+          color: ${C.muted};
+          font-size: 13px;
+        }
+
+        .trust-icon {
+          color: ${C.green};
+          font-weight: 800;
+          margin-right: 6px;
+        }
+
+        .features {
+          max-width: 1050px;
+          margin: 0 auto;
+          padding: 0 0 75px;
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 18px;
+        }
+
+        .feature {
+          padding: 25px;
+          border: 1px solid ${C.line};
+          border-radius: 18px;
+          background: ${C.white};
+        }
+
+        .feature-icon {
+          width: 45px;
+          height: 45px;
+          display: grid;
+          place-items: center;
+          border-radius: 14px;
+          font-size: 23px;
+          font-weight: 700;
+        }
+
+        .green {
+          background: #E8F3F0;
+          color: ${C.green};
+        }
+
+        .gold {
+          background: #FBF1D7;
+          color: #9A7000;
+        }
+
+        .purple {
+          background: #F1ECFA;
+          color: ${C.purple};
+        }
+
+        h2 {
+          margin: 18px 0 9px;
+          font-size: 18px;
+          color: ${C.dark};
+        }
+
+        .feature p {
+          margin: 0;
+          color: ${C.muted};
+          line-height: 1.65;
+          font-size: 14px;
+        }
+
+        footer {
+          min-height: 65px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          border-top: 1px solid ${C.line};
+          color: ${C.muted};
+          font-size: 12px;
+        }
+
+        footer span:first-child {
+          font-weight: 800;
+          color: ${C.dark};
+        }
+
+        @media (max-width: 700px) {
+          .page {
+            padding: 0 20px;
+          }
+
+          .header {
+            height: 72px;
+          }
+
+          .hero {
+            padding: 65px 0 55px;
+          }
+
+          h1 {
+            letter-spacing: -1.5px;
+          }
+
+          .intro {
+            font-size: 15px;
+          }
+
+          .features {
+            grid-template-columns: 1fr;
+            padding-bottom: 45px;
+          }
+
+          .feature {
+            padding: 22px;
+          }
+
+          footer {
+            flex-direction: column;
+            justify-content: center;
+            padding: 17px 0;
+          }
+        }
+      `}</style>
     </>
   );
 }
-
-// STYLES
-const mainStyle = {
-  minHeight: '100vh',
-  display: 'grid',
-  placeItems: 'center',
-  background: '#EEF2EF',
-  padding: 16,
-  fontFamily: 'system-ui, -apple-system, sans-serif'
-};
-
-const cardStyle = {
-  width: '100%',
-  maxWidth: 360,
-  background: '#115E4E',
-  borderRadius: 32,
-  padding: '32px 26px',
-  color: 'white',
-  textAlign: 'center',
-  boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
-};
-
-const logoStyle = {
-  width: 78,
-  height: 78,
-  margin: '0 auto',
-  background: 'rgba(255,255,255,0.08)',
-  border: '1px solid rgba(255,255,255,0.18)',
-  borderRadius: 20,
-  display: 'grid',
-  placeItems: 'center',
-  fontSize: 44,
-  fontWeight: 900,
-  color: '#FBBF24'
-};
-
-const brandStyle = {
-  letterSpacing: 5,
-  marginTop: 14,
-  fontSize: 12,
-  fontWeight: 800,
-  opacity: 0.9
-};
-
-const titleStyle = {
-  fontSize: 30,
-  lineHeight: 1.15,
-  marginTop: 22,
-  fontWeight: 800,
-  letterSpacing: -0.5
-};
-
-const subtitleStyle = {
-  opacity: 0.88,
-  marginTop: 14,
-  lineHeight: 1.6,
-  fontSize: 14,
-  padding: '0 4px'
-};
-
-const primaryBtn = {
-  width: '100%',
-  marginTop: 28,
-  padding: 16,
-  borderRadius: 12,
-  border: 0,
-  background: '#FBBF24',
-  color: '#12211E',
-  fontWeight: 800,
-  fontSize: 16,
-  cursor: 'pointer'
-};
-
-const secondaryBtn = {
-  width: '100%',
-  marginTop: 12,
-  padding: 14,
-  borderRadius: 12,
-  border: '2px solid rgba(255,255,255,0.22)',
-  background: 'rgba(255,255,255,0.07)',
-  color: 'white',
-  fontWeight: 700,
-  fontSize: 14,
-  cursor: 'pointer'
-};
-
-const ghostBtn = {
-  width: '100%',
-  marginTop: 12,
-  padding: 12,
-  borderRadius: 12,
-  border: 0,
-  background: 'transparent',
-  color: 'rgba(255,255,255,0.75)',
-  fontWeight: 600,
-  cursor: 'pointer',
-  fontSize: 13
-};
-
-const footerStyle = {
-  marginTop: 20,
-  fontSize: 11,
-  opacity: 0.55,
-  lineHeight: 1.4
-};
