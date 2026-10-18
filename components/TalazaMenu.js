@@ -714,15 +714,15 @@ export default function TalazaMenu({
                     }
                   />
 
-                  <MenuItem
-                    icon="pin"
-                    color={COLORS.gold}
-                    bg={COLORS.goldSoft}
-                    label="Províncias"
-                    onClick={() =>
-                      setScreen('provinces')
-                    }
-                  />
+                  {!isSellerAccount && (
+                    <MenuItem
+                      icon="pin"
+                      color={COLORS.gold}
+                      bg={COLORS.goldSoft}
+                      label="Províncias"
+                      onClick={() => setScreen('provinces')}
+                    />
+                  )}
 
                   <Divider />
 
