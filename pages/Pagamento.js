@@ -146,6 +146,7 @@ export default function Pagamento() {
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const [pendingPaymentReference, setPendingPaymentReference] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -216,7 +217,16 @@ export default function Pagamento() {
         (latestPaymentStatus === 'approved' &&
           (!businessResult.data.is_active ||
             String(businessResult.data.approval_status || '').toLowerCase() !== 'approved')))
-    ) setAlreadySubmitted(true);
+    ) {
+      setAlreadySubmitted(true);
+      if (pendingPayment.plan_id && String(pendingPayment.plan_id) !== String(planResult.data.id)) {
+        const { data: requestedPlan, error: requestedPlanError } = await supabase
+          .from('plans').select('*').eq('id', pendingPayment.plan_id).maybeSingle();
+        if (requestedPlanError) console.error('Erro ao carregar o plano do pedido enviado:', requestedPlanError);
+        if (requestedPlan) setPlan(requestedPlan);
+      }
+      setPendingPaymentReference(pendingPayment);
+    }
     setLoading(false);
   }
 
@@ -404,9 +414,35 @@ export default function Pagamento() {
         <div style={{ marginTop: 22 }}>
           {alreadySubmitted ? (
             <Card>
-              <h1 style={{ margin: '0 0 10px', color: C.ink, fontSize: 25 }}>Em verificação para ativação do negócio</h1>
-              <p style={{ color: C.muted, lineHeight: 1.65 }}>Já existe um comprovativo enviado para este negócio. Não é possível mudar de plano nem enviar outro comprovativo enquanto o pedido estiver em análise. Volte ao painel para acompanhar o estado.</p>
-              <Link href={panelHref} style={{ display: 'block', marginTop: 20, padding: 15, borderRadius: 12, background: C.green, color: '#fff', textAlign: 'center', textDecoration: 'none', fontWeight: 800 }}>Voltar ao painel</Link>
+              <div style={{ padding: '5px 0 8px' }}>
+                <div style={{ display: 'inline-block', padding: '7px 11px', borderRadius: 999, background: '#FFF1C2', color: '#5B4300', fontSize: 11, fontWeight: 900, marginBottom: 12 }}>PAGAMENTO EM VERIFICAÇÃO</div>
+                <h1 style={{ margin: '0 0 10px', color: C.ink, fontSize: 25 }}>O seu negócio está em verificação</h1>
+                <p style={{ color: C.muted, lineHeight: 1.65 }}>O comprovativo já foi enviado. Esta página mostra os dados do plano escolhido para sua consulta. Não precisa enviar novamente e não pode mudar de plano nem editar o perfil enquanto a equipa Talaza verifica o pagamento e a ativação.</p>
+              </div>
+              <div style={{ marginTop: 12, padding: 16, borderRadius: 14, background: C.soft, border: `1px solid ${C.line}` }}>
+                <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>NEGÓCIO</p>
+                <strong style={{ display: 'block', color: C.ink, marginBottom: 14 }}>{cleanText(business?.name)}</strong>
+                <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>PLANO ESCOLHIDO</p>
+                <strong style={{ display: 'block', color: C.ink, marginBottom: 14 }}>Plano {termName(plan.duration_days)} · {durationLabel(plan.duration_days)}</strong>
+                <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>VALOR DO PLANO</p>
+                <strong style={{ display: 'block', color: C.ink, fontSize: 23, marginBottom: 14 }}>{formatKz(plan.price)}</strong>
+                <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>REFERÊNCIA DO PEDIDO</p>
+                <strong style={{ display: 'block', color: C.ink, overflowWrap: 'anywhere' }}>{pendingPaymentReference?.id || 'Pedido registado'}</strong>
+              </div>
+              <div style={{ marginTop: 14, padding: 18, borderRadius: 16, background: 'linear-gradient(145deg,#075B4E,#0B7563)', color: '#FFFFFF' }}>
+                <p style={{ margin: '0 0 6px', color: '#CDE8DF', fontSize: 12 }}>REFERÊNCIA MULTICAIXA EXPRESS</p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <strong style={{ fontSize: 24, letterSpacing: 1 }}>{EXPRESS_NUMBER}</strong>
+                  <CopyButton text={EXPRESS_NUMBER} />
+                </div>
+                <p style={{ margin: '14px 0 5px', color: '#CDE8DF', fontSize: 12 }}>MENSAGEM DO PAGAMENTO</p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <strong>{PAYMENT_MESSAGE}</strong>
+                  <CopyButton text={PAYMENT_MESSAGE} />
+                </div>
+              </div>
+              <p style={{ margin: '14px 0 0', color: C.muted, fontSize: 13, lineHeight: 1.6 }}>Não envie outro comprovativo nem faça um novo pagamento por causa desta mensagem. Aguarde a verificação da equipa Talaza.</p>
+              <Link href={panelHref} style={{ display: 'block', marginTop: 20, padding: 15, borderRadius: 12, background: C.green, color: '#fff', textAlign: 'center', textDecoration: 'none', fontWeight: 800 }}>Ir para o meu painel de negócio</Link>
             </Card>
           ) : <>
           <h1 style={{ margin: '0 0 6px', color: C.ink, fontSize: 28 }}>
