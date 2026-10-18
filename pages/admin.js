@@ -127,7 +127,18 @@ export default function Admin() {
       const { data: planRows, error: planNamesError } = await supabase
         .from('plans').select('id, name, title, plan_name, nome, duration_days').in('id', planIds);
       if (planNamesError) console.error('Erro ao carregar nomes dos planos:', planNamesError);
-      else setPlanNames(Object.fromEntries((planRows || []).map(item => [item.id, item.name || item.title || item.plan_name || item.nome || (item.duration_days ? item.duration_days + ' dias' : 'Plano')])));
+      else {
+        const namesById = {};
+        (planRows || []).forEach((item) => {
+          namesById[item.id] =
+            item.name ||
+            item.title ||
+            item.plan_name ||
+            item.nome ||
+            (item.duration_days ? String(item.duration_days) + ' dias' : 'Plano');
+        });
+        setPlanNames(namesById);
+      }
     } else setPlanNames({});
   }
 
