@@ -1,39 +1,19 @@
-
 import { useState } from 'react';
-import { useRouter } from 'next/router';
+import Head from 'next/head';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
-const COLORS = {
+const C = {
   green: '#0F6E5C',
   dark: '#083F35',
   gold: '#DDA10A',
   ink: '#17211F',
   muted: '#596560',
-  line: '#E5E9E7',
-  canvas: '#F8F6F3',
+  bg: '#F8F6F3',
   white: '#FFFFFF',
+  line: '#E5E9E7',
   red: '#B93845',
-};
-
-const inputStyle = {
-  width: '100%',
-  boxSizing: 'border-box',
-  padding: '14px 15px',
-  borderRadius: 12,
-  border: `1px solid ${COLORS.line}`,
-  background: COLORS.white,
-  color: COLORS.ink,
-  fontSize: 15,
-  outline: 'none',
-};
-
-const labelStyle = {
-  display: 'block',
-  marginBottom: 8,
-  color: COLORS.ink,
-  fontWeight: 700,
-  fontSize: 14,
 };
 
 export default function Login() {
@@ -41,162 +21,113 @@ export default function Login() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  async function handleLogin(e) {
-    e.preventDefault();
-
+  async function handleSubmit(event) {
+    event.preventDefault();
     setError('');
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail || !password) {
+      setError('Preencha o e-mail e a palavra-passe.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const cleanEmail = email.trim().toLowerCase();
-
-      const { data: authData, error: loginError } =
+      const { data, error: loginError } =
         await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password,
         });
 
-      if (loginError) {
-        console.error(loginError);
-        setError(
-          'Não foi possível entrar. Verifique o e-mail e a palavra-passe.'
-        );
-        return;
-      }
+      if (loginError) throw loginError;
 
-      const user = authData?.user;
+      const user = data?.user;
 
       if (!user) {
-        setError('Não foi possível identificar a sua conta.');
-        return;
+        throw new Error('Não foi possível confirmar a sua conta.');
       }
 
-      const {
-        data: profile,
-        error: profileError,
-      } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('id, name, country_id, province_id, account_type')
+        .select('account_type')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (profileError) {
-        console.error(profileError);
-        setError(
-          'Não foi possível carregar o seu perfil. Tente novamente.'
-        );
-        return;
-      }
+      if (profileError) throw profileError;
 
-      /*
-       * Conta autenticada sem perfil:
-       * encaminhamos para o início do fluxo existente,
-       * sem depender da página /country.
-       */
-      if (!profile) {
-        await router.push('/start');
-        return;
-      }
-
-      const accountType = String(
-        profile.account_type || 'cliente'
-      )
+      const accountType = String(profile?.account_type || '')
         .trim()
         .toLowerCase();
 
-      const isSeller = [
-        'vendedor',
-        'seller',
-        'business',
-        'negocio',
-        'negócio',
-      ].includes(accountType);
+      if (accountType.includes('vendedor') || accountType.includes('seller')) {
+        await router.replace('/dashboard');
+      } else {
+        await router.replace('/country');
+      }
+    } catch (err) {
+      console.error('Erro ao entrar:', err);
 
-      /*
-       * Vendedores: procuramos os negócios da conta.
-       * Se não houver nenhum, iniciam o cadastro do negócio.
-       */
-      if (isSeller) {
-        const { data: businesses, error: businessError } =
-          await supabase
-            .from('businesses')
-            .select('id, name, country_id, province_id, owner_id')
-            .eq('owner_id', user.id)
-            .order('created_at', { ascending: false });
+      const message = String(err?.message || '').toLowerCase();
 
-        if (businessError) {
-          console.error(businessError);
-          setError(
-            'A conta foi autenticada, mas não foi possível carregar os seus negócios.'
-          );
-          return;
-        }
+      if (
+        message.includes('invalid login credentials') ||
+        message.includes('invalid credentials')
+      ) {
+        setError('E-mail ou palavra-passe incorretos.');
+      } else if (message.includes('email not confirmed')) {
+        setError(
+          'Confirme o seu e-mail através do link enviado antes de entrar.'
+        );
+      } else {
+        setError(
+          err?.message ||
+            'Não foi possível entrar. Verifique a ligação e tente novamente.'
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
 
-        if (businesses && businesses.length > 0) {
-          const activeBusiness =
-            businesses.find((business) => {
-              return (
-                (!profile.country_id ||
-                  business.country_id === profile.country_id) &&
-                (!profile.province_id ||
-                  business.province_id === profile.province_id)
-              );
-            }) || businesses[0];
+  async function handleForgotPassword() {
+    setError('');
 
-          await router.push({
-            pathname: '/seller',
-            query: {
-              country:
-                activeBusiness.country_id ||
-                profile.country_id ||
-                '',
-              province:
-                activeBusiness.province_id ||
-                profile.province_id ||
-                '',
-            },
-          });
+    const cleanEmail = email.trim().toLowerCase();
 
-          return;
-        }
+    if (!cleanEmail) {
+      setError('Escreva primeiro o e-mail da sua conta.');
+      return;
+    }
 
-        await router.push({
-          pathname: '/post-business',
-          query: {
-            ...(profile.country_id
-              ? { country: profile.country_id }
-              : {}),
-            ...(profile.province_id
-              ? { province: profile.province_id }
-              : {}),
-          },
+    setLoading(true);
+
+    try {
+      const redirectTo =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/reset-password`
+          : undefined;
+
+      const { error: resetError } =
+        await supabase.auth.resetPasswordForEmail(cleanEmail, {
+          redirectTo,
         });
 
-        return;
-      }
+      if (resetError) throw resetError;
 
-      /*
-       * Clientes: podem consultar a Vitrine mesmo que
-       * ainda não tenham uma província guardada no perfil.
-       */
-      await router.push({
-        pathname: '/explore',
-        query: {
-          ...(profile.country_id
-            ? { country: profile.country_id }
-            : {}),
-          ...(profile.province_id
-            ? { province: profile.province_id }
-            : {}),
-        },
-      });
-    } catch (err) {
-      console.error(err);
       setError(
-        'Ocorreu um erro inesperado durante o acesso. Tente novamente.'
+        'Se existir uma conta com esse e-mail, receberá uma mensagem com o link para recuperar o acesso. Verifique também o spam.'
+      );
+    } catch (err) {
+      console.error('Erro ao recuperar palavra-passe:', err);
+      setError(
+        err?.message ||
+          'Não foi possível enviar o link de recuperação. Tente novamente.'
       );
     } finally {
       setLoading(false);
@@ -204,215 +135,239 @@ export default function Login() {
   }
 
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        boxSizing: 'border-box',
-        padding: '28px 16px',
-        background: COLORS.canvas,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: 'Arial, sans-serif',
-      }}
-    >
-      <section
-        style={{
-          width: '100%',
-          maxWidth: 480,
-          boxSizing: 'border-box',
-          padding: 'clamp(24px, 5vw, 36px)',
-          borderRadius: 24,
-          border: `1px solid ${COLORS.line}`,
-          background: COLORS.white,
-          boxShadow: '0 12px 38px rgba(8,63,53,0.06)',
-        }}
-      >
-        <Link
-          href="/"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 10,
-            color: COLORS.dark,
-            textDecoration: 'none',
-          }}
-        >
-          <span
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 14,
-              background: COLORS.green,
-              color: COLORS.gold,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 26,
-              fontWeight: 900,
-            }}
-          >
-            T
-          </span>
+    <>
+      <Head>
+        <title>Entrar — Talaza</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
 
-          <span style={{ fontSize: 22, fontWeight: 900 }}>
-            Talaza
-          </span>
-        </Link>
+      <main style={styles.page}>
+        <div style={styles.container}>
+          <Link href="/start" style={styles.back}>
+            ← Voltar
+          </Link>
 
-        <h1
-          style={{
-            margin: '28px 0 10px',
-            color: COLORS.dark,
-            fontSize: 31,
-            lineHeight: 1.2,
-          }}
-        >
-          Bem-vindo de volta
-        </h1>
-
-        <p
-          style={{
-            color: COLORS.muted,
-            fontSize: 14,
-            lineHeight: 1.7,
-            marginBottom: 27,
-          }}
-        >
-          Entre na sua conta para continuar a descobrir
-          negócios ou gerir a sua loja na Talaza.
-        </p>
-
-        {router.query.created === '1' && (
-          <div
-            role="status"
-            style={{
-              marginBottom: 18,
-              padding: 13,
-              borderRadius: 12,
-              background: '#E8F3F0',
-              color: COLORS.dark,
-              fontSize: 13,
-              lineHeight: 1.6,
-            }}
-          >
-            A conta foi criada. Se recebeu um e-mail de
-            confirmação, confirme o endereço antes de entrar.
+          <div style={styles.brand}>
+            <span style={styles.brandIcon}>T</span>
+            <span>TALAZA</span>
           </div>
-        )}
 
-        <form onSubmit={handleLogin}>
-          <div style={{ marginBottom: 18 }}>
-            <label htmlFor="email" style={labelStyle}>
+          <h1 style={styles.title}>Bem-vindo de volta</h1>
+          <p style={styles.subtitle}>
+            Entre na sua conta para continuar.
+          </p>
+
+          <form onSubmit={handleSubmit} style={styles.form}>
+            <label htmlFor="email" style={styles.label}>
               E-mail
             </label>
-
             <input
               id="email"
               type="email"
               autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="seu@email.com"
               required
-              style={inputStyle}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="exemplo@email.com"
+              style={styles.input}
             />
-          </div>
 
-          <div style={{ marginBottom: 18 }}>
-            <label htmlFor="password" style={labelStyle}>
+            <label htmlFor="password" style={styles.label}>
               Palavra-passe
             </label>
 
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="A sua palavra-passe"
-              required
-              style={inputStyle}
-            />
-          </div>
+            <div style={styles.passwordWrap}>
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="A sua palavra-passe"
+                style={{ ...styles.input, paddingRight: 88 }}
+              />
 
-          {error && (
-            <div
-              role="alert"
-              style={{
-                marginTop: 14,
-                padding: 13,
-                borderRadius: 12,
-                background: '#FFF0F0',
-                color: COLORS.red,
-                fontSize: 13,
-                lineHeight: 1.6,
-              }}
-            >
-              {error}
+              <button
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+                style={styles.showButton}
+                aria-label={
+                  showPassword
+                    ? 'Ocultar palavra-passe'
+                    : 'Mostrar palavra-passe'
+                }
+              >
+                {showPassword ? 'Ocultar' : 'Mostrar'}
+              </button>
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              marginTop: 10,
-              padding: 16,
-              border: 'none',
-              borderRadius: 13,
-              background: loading ? '#91B5AC' : COLORS.green,
-              color: COLORS.white,
-              fontSize: 15,
-              fontWeight: 800,
-              cursor: loading ? 'wait' : 'pointer',
-            }}
-          >
-            {loading ? 'A entrar…' : 'Entrar →'}
-          </button>
-        </form>
-
-        <div
-          style={{
-            marginTop: 24,
-            paddingTop: 21,
-            borderTop: `1px solid ${COLORS.line}`,
-            textAlign: 'center',
-            color: COLORS.muted,
-            fontSize: 14,
-            lineHeight: 1.9,
-          }}
-        >
-          Ainda não tem conta?{' '}
-          <Link
-            href="/signup"
-            style={{
-              color: COLORS.green,
-              fontWeight: 800,
-              textDecoration: 'none',
-            }}
-          >
-            Criar conta
-          </Link>
-
-          <div style={{ marginTop: 10 }}>
             <button
               type="button"
-              onClick={() => router.push('/')}
-              style={{
-                border: 'none',
-                background: 'transparent',
-                color: COLORS.muted,
-                fontSize: 14,
-                cursor: 'pointer',
-              }}
+              onClick={handleForgotPassword}
+              disabled={loading}
+              style={styles.forgot}
             >
-              ← Voltar ao início
+              Esqueceu a palavra-passe?
             </button>
-          </div>
+
+            {error && (
+              <div role="alert" style={styles.error}>
+                {error}
+              </div>
+            )}
+
+            <button type="submit" disabled={loading} style={styles.submit}>
+              {loading ? 'Aguarde…' : 'Entrar'}
+            </button>
+          </form>
+
+          <p style={styles.bottomText}>
+            Ainda não tem conta?{' '}
+            <Link href="/signup" style={styles.link}>
+              Criar conta
+            </Link>
+          </p>
         </div>
-      </section>
-    </main>
+      </main>
+    </>
   );
 }
+
+const styles = {
+  page: {
+    minHeight: '100vh',
+    background: C.bg,
+    color: C.ink,
+    padding: '24px 16px',
+    fontFamily:
+      "'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+  },
+  container: {
+    width: '100%',
+    maxWidth: 440,
+    margin: '0 auto',
+    paddingTop: 12,
+  },
+  back: {
+    color: C.green,
+    textDecoration: 'none',
+    fontWeight: 700,
+    fontSize: 14,
+  },
+  brand: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    margin: '38px 0 30px',
+    color: C.green,
+    fontWeight: 900,
+    letterSpacing: '0.16em',
+  },
+  brandIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    background: C.dark,
+    color: C.gold,
+    display: 'grid',
+    placeItems: 'center',
+    fontSize: 24,
+    letterSpacing: 0,
+  },
+  title: {
+    fontSize: 27,
+    lineHeight: 1.2,
+    margin: '0 0 8px',
+    fontWeight: 900,
+  },
+  subtitle: {
+    color: C.muted,
+    fontSize: 15,
+    margin: '0 0 26px',
+  },
+  form: {
+    background: C.white,
+    border: `1px solid ${C.line}`,
+    borderRadius: 20,
+    padding: 20,
+  },
+  label: {
+    display: 'block',
+    fontSize: 13,
+    fontWeight: 800,
+    marginBottom: 7,
+    marginTop: 14,
+  },
+  input: {
+    display: 'block',
+    width: '100%',
+    boxSizing: 'border-box',
+    border: `1px solid ${C.line}`,
+    borderRadius: 12,
+    background: C.white,
+    padding: '14px 13px',
+    fontSize: 15,
+    outlineColor: C.green,
+  },
+  passwordWrap: {
+    position: 'relative',
+  },
+  showButton: {
+    position: 'absolute',
+    right: 8,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    border: 0,
+    background: 'transparent',
+    color: C.green,
+    fontWeight: 800,
+    cursor: 'pointer',
+    padding: 8,
+  },
+  forgot: {
+    display: 'block',
+    margin: '12px 0 18px auto',
+    padding: 0,
+    border: 0,
+    background: 'transparent',
+    color: C.green,
+    fontSize: 13,
+    fontWeight: 800,
+    cursor: 'pointer',
+    textAlign: 'right',
+  },
+  error: {
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+    background: '#FCEBED',
+    color: C.red,
+    fontSize: 13,
+    lineHeight: 1.5,
+    overflowWrap: 'anywhere',
+  },
+  submit: {
+    width: '100%',
+    padding: 15,
+    border: 0,
+    borderRadius: 12,
+    background: C.green,
+    color: C.white,
+    fontWeight: 900,
+    fontSize: 15,
+    cursor: 'pointer',
+  },
+  bottomText: {
+    textAlign: 'center',
+    marginTop: 22,
+    color: C.muted,
+    fontSize: 14,
+  },
+  link: {
+    color: C.green,
+    fontWeight: 900,
+    textDecoration: 'none',
+  },
+};
