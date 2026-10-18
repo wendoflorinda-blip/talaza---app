@@ -90,7 +90,7 @@ export default function Impulsionar() {
             <div style={{ ...S.price, color: theme.dark }}>{priceOf(plan)}</div>
             <div style={S.duration}><span>◷</span> {plan.duration_days ? plan.duration_days + ' dias de hospedagem' : 'Duração conforme o plano'}</div>
             <div style={S.benefitTitle}>O que está incluído</div>
-            {benefits.length ? <ul style={S.benefits}>{benefits.map((benefit,i)=><li key={i}><span style={{ ...S.check, background: theme.color }}>✓</span><span>{benefit}</span></li>)}</ul> : <p style={S.noBenefits}>Consulte as condições deste plano antes de efetuar o pagamento.</p>}
+            {benefits.length ? <ul style={S.benefits}>{benefits.map((benefit,i)=><li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, lineHeight: 1.55, color: COLORS.ink }}><span style={{ ...S.check, background: theme.color }}>✓</span><span>{benefit}</span></li>)}</ul> : <p style={S.noBenefits}>Consulte as condições deste plano antes de efetuar o pagamento.</p>}
             <button type="button" onClick={() => router.push({ pathname: '/Pagamento', query: { plan: plan.id, business: business.id } })} style={{ ...S.cta, background: theme.color }}>Escolher este plano <span>→</span></button>
             <p style={S.footnote}>O perfil será ativado após a validação do pagamento e os requisitos de aprovação aplicáveis.</p>
           </article>;
