@@ -332,7 +332,9 @@ export default function PostBusiness() {
           whatsapp: whatsapp.trim() || null,
           email: businessEmail.trim() || null,
           opening_hours: openingHours.trim() || null,
-          is_active: true,
+          // O perfil começa inativo. A hospedagem só será ativada
+          // após confirmação do pagamento e validação necessária.
+          is_active: false,
           approval_status: 'pending',
         });
 
@@ -417,9 +419,7 @@ export default function PostBusiness() {
               margin: 0,
             }}
           >
-            Agora vá à página inicial, clique em
-            <strong> “Já tenho uma conta” </strong>
-            e entre na sua conta de negócio para vender.
+            O perfil foi registado e aguarda validação. Para o negócio aparecer na Vitrine, será necessário contratar uma hospedagem válida e cumprir os requisitos de ativação.
           </p>
 
           <div
