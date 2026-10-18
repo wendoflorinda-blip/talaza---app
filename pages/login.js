@@ -80,6 +80,7 @@ export default function Login() {
       }
 
       if (isSeller) {
+        // O vendedor regressa sempre ao painel do seu próprio negócio.
         await router.replace('/seller');
         return;
       }
@@ -89,9 +90,21 @@ export default function Login() {
         return;
       }
 
+      // A localização principal fica definida pelo cadastro; não pedir novamente país/província.
+      try {
+        localStorage.setItem('talaza_country_id', String(profile.country_id));
+        localStorage.setItem('talaza_province_id', String(profile.province_id));
+        localStorage.setItem('talaza_home_country_id', String(profile.country_id));
+        localStorage.setItem('talaza_home_province_id', String(profile.province_id));
+      } catch {}
       await router.replace({
         pathname: '/explore',
-        query: { country: profile.country_id, province: profile.province_id },
+        query: {
+          country: profile.country_id,
+          province: profile.province_id,
+          homeCountry: profile.country_id,
+          homeProvince: profile.province_id,
+        },
       });
     } catch (err) {
       console.error('Erro ao entrar:', err);
