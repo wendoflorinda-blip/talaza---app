@@ -203,7 +203,7 @@ export default function Pagamento() {
     setBusiness(businessResult.data);
 
     const { data: pendingPayment, error: pendingPaymentError } = await supabase
-      .from('subscription_requests')
+      .from('payment_submissions')
       .select('id, plan_id, status, created_at')
       .eq('business_id', businessResult.data.id)
       .order('created_at', { ascending: false })
@@ -287,7 +287,7 @@ export default function Pagamento() {
         );
       }
 
-      if (pdfFile) {
+      if (pdfFile && !imageFile) {
         submissionStage = 'carregar o PDF no armazenamento payment-proofs';
         pdfPath = await uploadPrivateFile(
           supabase,
@@ -298,16 +298,18 @@ export default function Pagamento() {
         );
       }
 
-      submissionStage = 'guardar o pedido na tabela subscription_requests';
+      submissionStage = 'guardar o pedido na tabela payment_submissions';
       const { error: insertError } = await supabase
-        .from('subscription_requests')
+        .from('payment_submissions')
         .insert({
           business_id: business.id,
           plan_id: plan.id,
-          plan_type: planKind(plan),
+          user_id: user.id,
           amount: Number(plan.price),
-          proof_image_path: imagePath,
-          proof_pdf_path: pdfPath,
+          currency: 'Kz',
+          payment_method: 'Express',
+          proof_url: imagePath || pdfPath,
+          proof_type: imagePath ? 'jpg' : 'pdf',
           status: 'pending',
         });
 
