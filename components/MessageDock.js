@@ -8,16 +8,11 @@ export default function MessageDock() {
   const [msgCount, setMsgCount] = useState(0);
   const [notifCount, setNotifCount] = useState(0);
 
-  const isActive = (href) => router.pathname === href;
+  const isActive = (href) => router.pathname === href || (href === '/perfil' && router.pathname.startsWith('/perfil'));
 
-  // AQUI VAI BUSCAR O NÚMERO REAL - por enquanto 0, quando tiver mensagem muda sozinho
+  // As contagens serão ligadas às tabelas de mensagens e notificações quando o esquema estiver confirmado.
   useEffect(() => {
     async function loadCounts() {
-      // Exemplo: quando você tiver tabela de mensagens, descomente:
-      // const { count } = await supabase.from('messages').select('*', {count:'exact'}).eq('read', false);
-      // setMsgCount(count || 0);
-      
-      // Por enquanto deixa 0 para não mostrar número falso
       setMsgCount(0);
       setNotifCount(0);
     }
@@ -38,8 +33,8 @@ export default function MessageDock() {
       background:'#fff', borderTop:'1px solid #E9E6DE',
       display:'flex', justifyContent:'space-around', alignItems:'center', zIndex:9999
     }}>
-      <Link href="/" style={{textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', color: isActive('/') ? '#0B3B2D' : '#8A9A94', fontSize:13, fontWeight: isActive('/') ? 700 : 500}}>
-        <span style={{fontSize:22}}>✦</span>Novidades
+      <Link href="/perfil" style={{textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', color: isActive('/perfil') ? '#64358B' : '#8A9A94', fontSize:13, fontWeight: isActive('/perfil') ? 700 : 500}}>
+        <span style={{fontSize:22}}>♙</span>Perfil
       </Link>
 
       <Link href="/mensagens" style={{textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', color: isActive('/mensagens') ? '#0B3B2D' : '#8A9A94', fontSize:13, fontWeight: isActive('/mensagens') ? 700 : 500, position:'relative'}}>
