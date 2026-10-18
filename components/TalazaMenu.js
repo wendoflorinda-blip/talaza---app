@@ -352,7 +352,7 @@ export default function TalazaMenu({
 
   async function loadProvinces() {
     // O vendedor fica vinculado à província do negócio; o explorador pode navegar.
-    if (isSellerAccount || !country) {
+    if (!country) {
       setProvinces([]);
       return;
     }
@@ -441,15 +441,12 @@ export default function TalazaMenu({
       return;
     }
 
-    if (
-      typeof window !== 'undefined' &&
-      window.history.length > 1
-    ) {
-      router.back();
+    if (isSellerAccount) {
+      router.push('/seller');
       return;
     }
 
-    router.push('/login');
+    router.push('/post-business');
   }
 
   async function logout() {
@@ -716,27 +713,23 @@ export default function TalazaMenu({
                     }
                   />
 
-                  {isSellerAccount === false && (
-                    <MenuItem
-                      icon="pin"
-                      color={COLORS.gold}
-                      bg={COLORS.goldSoft}
-                      label="Províncias"
-                      onClick={() => setScreen('provinces')}
-                    />
-                  )}
+                  <MenuItem
+                    icon="pin"
+                    color={COLORS.gold}
+                    bg={COLORS.goldSoft}
+                    label="Explorar outras províncias"
+                    onClick={() => setScreen('provinces')}
+                  />
 
                   <Divider />
 
-                  {!isSellerAccount && (
-                    <MenuItem
-                      icon="seller"
-                      color={COLORS.purple}
-                      bg={COLORS.purpleSoft}
-                      label="Painel de vendedor"
-                      onClick={openSellerPanel}
-                    />
-                  )}
+                  <MenuItem
+                    icon="seller"
+                    color={COLORS.purple}
+                    bg={COLORS.purpleSoft}
+                    label={isSellerAccount ? 'A minha loja' : 'Criar perfil de vendedor'}
+                    onClick={openSellerPanel}
+                  />
 
                   <Divider />
 
