@@ -9,6 +9,7 @@ export default function Admin() {
   const [authorized, setAuthorized] = useState(false);
   const [businesses, setBusinesses] = useState([]);
   const [subscriptionRequests, setSubscriptionRequests] = useState([]);
+  const [communityReports, setCommunityReports] = useState([]);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -50,6 +51,7 @@ export default function Admin() {
     setAuthorized(true);
     await loadBusinesses();
     await loadSubscriptionRequests();
+    await loadCommunityReports();
 
     setLoading(false);
   }
@@ -159,6 +161,32 @@ export default function Admin() {
       return;
     }
     await loadBusinesses();
+  }
+
+  async function loadCommunityReports() {
+    const { data, error } = await supabase
+      .from('community_reports')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('Erro ao carregar denúncias:', error);
+      setCommunityReports([]);
+      setMessage('Não foi possível carregar as denúncias da Comunidade Talaza: ' + error.message);
+      return;
+    }
+    setCommunityReports(data || []);
+  }
+
+  async function reviewReport(report, status) {
+    const { error } = await supabase
+      .from('community_reports')
+      .update({ status })
+      .eq('id', report.id);
+    if (error) {
+      alert('Não foi possível atualizar a denúncia: ' + error.message);
+      return;
+    }
+    await loadCommunityReports();
   }
 
   async function openProof(path) {
@@ -469,6 +497,38 @@ export default function Admin() {
               })}
             </div>
           )}
+        </section>
+
+        <section style={{ marginTop: 42 }}>
+          <div style={styles.titleRow}>
+            <div>
+              <h2 style={styles.title}>Denúncias da Comunidade Talaza</h2>
+              <p style={styles.description}>Analise os motivos e marque as denúncias como revistas ou rejeitadas.</p>
+            </div>
+            <div style={styles.counter}>{communityReports.filter(report => String(report.status || 'pending').toLowerCase() === 'pending').length} por analisar</div>
+          </div>
+          {communityReports.length === 0 ? <div style={styles.empty}><div style={styles.emptyIcon}>✓</div><h2>Sem denúncias pendentes</h2><p>Quando os utilizadores denunciarem publicações da comunidade, os registos aparecerão aqui.</p></div> :
+            <div style={styles.list}>{communityReports.map(report => {
+              const pending = String(report.status || 'pending').toLowerCase() === 'pending';
+              return <article key={report.id} style={styles.card}>
+                <div style={styles.cardTop}>
+                  <div style={styles.logoPlaceholder}>⚑</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={styles.businessName}>Denúncia #{String(report.id).slice(0,8)}</h3>
+                    <div style={styles.meta}>Publicação: {report.post_id || '—'} · Utilizador: {report.reporter_id || '—'}</div>
+                  </div>
+                  <span style={pending ? styles.pending : styles.paymentStatus}>{report.status || 'pending'}</span>
+                </div>
+                <div style={styles.details}>
+                  <p><strong>Motivo:</strong> {report.reason || 'Não informado'}</p>
+                  <p><strong>Data:</strong> {report.created_at ? new Date(report.created_at).toLocaleString('pt-AO') : '—'}</p>
+                </div>
+                {pending && <div style={styles.actions}>
+                  <button style={styles.reject} onClick={() => reviewReport(report, 'rejected')}>Rejeitar denúncia</button>
+                  <button style={styles.approve} onClick={() => reviewReport(report, 'reviewed')}>Marcar como revista</button>
+                </div>}
+              </article>;
+            })}</div>}
         </section>
       </section>
     </main>
