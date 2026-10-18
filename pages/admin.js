@@ -98,7 +98,7 @@ export default function Admin() {
       .from('businesses')
       .update({
         approval_status: status,
-        is_active: status === 'approved',
+        is_active: false,
       })
       .eq('id', id);
 
