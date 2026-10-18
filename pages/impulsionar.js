@@ -51,14 +51,20 @@ export default function Impulsionar() {
     setBusiness(businessData);
     const { data: pendingData, error: pendingError } = await supabase
       .from('subscription_requests')
-      .select('id, plan_id, amount, created_at')
+      .select('id, plan_id, amount, created_at, status')
       .eq('business_id', businessData.id)
-      .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     if (pendingError) console.error('Erro ao verificar pedido pendente:', pendingError);
-    setPendingRequest(pendingData || null);
+    const latestStatus = String(pendingData?.status || '').toLowerCase();
+    const lockedForVerification = Boolean(
+      pendingData &&
+      (latestStatus === 'pending' ||
+        (latestStatus === 'approved' &&
+          (!businessData.is_active || String(businessData.approval_status || '').toLowerCase() !== 'approved')))
+    );
+    setPendingRequest(lockedForVerification ? pendingData : null);
     const { data, error: plansError } = await supabase.from('plans').select('*');
     if (plansError) {
       console.error(plansError); setError('Não foi possível carregar os planos. Verifique as permissões da tabela plans.'); setLoading(false); return;
