@@ -439,24 +439,17 @@ export default function TalazaMenu({
   }
 
   async function logout() {
+    setMessage('');
     try {
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
+      if (error) throw error;
+      closeMenu();
+      await router.replace('/login');
     } catch (error) {
-      console.error(
-        'Erro ao terminar sessão:',
-        error
-      );
+      console.error('Erro ao terminar sessão:', error);
+      setMessage('Não foi possível terminar a sessão. Tente novamente.');
+      setScreen('menu');
     }
-
-    closeMenu();
-
-    router.push({
-      pathname: '/explore',
-      query: {
-        country,
-        province,
-      },
-    });
   }
 
   function submitSupport() {
