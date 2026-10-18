@@ -415,7 +415,7 @@ export default function PostBusiness() {
           email: (user.email || email).trim().toLowerCase(),
           opening_hours: `${days}, ${opensAt} às ${closesAt}`,
           logo_url: logoUrl,
-          is_active: true,
+          is_active: false,
           approval_status: 'pending',
         });
 
