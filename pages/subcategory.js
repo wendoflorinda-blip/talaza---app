@@ -248,9 +248,6 @@ export default function Subcategory() {
 
     return businesses.filter((business) => {
       const name = cleanText(business.name).toLocaleLowerCase('pt-AO');
-      const description = cleanText(business.description).toLocaleLowerCase(
-        'pt-AO'
-      );
       const businessMunicipality = cleanText(
         business.municipality
       ).toLocaleLowerCase('pt-AO');
@@ -259,7 +256,7 @@ export default function Subcategory() {
       ).toLocaleLowerCase('pt-AO');
 
       const matchesSearch =
-        !term || name.includes(term) || description.includes(term);
+        !term || name.includes(term) || businessMunicipality.includes(term) || businessNeighborhood.includes(term);
 
       const matchesMunicipality =
         !selectedMunicipality ||
