@@ -302,11 +302,12 @@ export default function Seller() {
             ['▣', 'Fotos e logo'],
             ['◫', 'Produtos'],
             ['◉', 'Mensagens'],
-            ['●', 'Notificações'],
-            ['◆', 'Plano e destaque']
+            ['●', 'Notificações']
           ].map(([icon, title]) => (
             <button
               key={title}
+              type="button"
+              onClick={() => alert('Esta área será ligada numa etapa seguinte.')}
               style={{
                 border: '1px solid #DDE7E3',
                 background: '#FFFFFF',
@@ -338,6 +339,42 @@ export default function Seller() {
               </strong>
             </button>
           ))}
+
+          <Link
+            href={{ pathname: '/impulsionar', query: { country, province } }}
+            style={{
+              border: '1px solid #E6D59A',
+              background: 'linear-gradient(145deg,#FFFFFF,#FFFBEB)',
+              borderRadius: 18,
+              padding: 20,
+              textAlign: 'left',
+              cursor: 'pointer',
+              textDecoration: 'none',
+              color: '#17342F',
+              display: 'block'
+            }}
+          >
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                background: '#FFF4D2',
+                color: '#8A6500',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 900,
+                marginBottom: 12
+              }}
+            >
+              ◆
+            </div>
+            <strong>Impulsionar</strong>
+            <div style={{ marginTop: 7, color: '#66736F', fontSize: 12, lineHeight: 1.5 }}>
+              Hospedagem, Destaque Premium e Promoção
+            </div>
+          </Link>
         </section>
 
         <div
