@@ -298,7 +298,7 @@ export default function TalazaMenu({
   const [screen, setScreen] = useState('menu');
   const [provinces, setProvinces] = useState([]);
   const [userName, setUserName] = useState('');
-  const [isSellerAccount, setIsSellerAccount] = useState(false);
+  const [isSellerAccount, setIsSellerAccount] = useState(null);
   const [primaryCountry, setPrimaryCountry] = useState(country || '');
   const [primaryProvince, setPrimaryProvince] = useState(province || '');
   const [loadingProvinces, setLoadingProvinces] = useState(false);
@@ -320,6 +320,7 @@ export default function TalazaMenu({
 
       if (!user) {
         setUserName('');
+        setIsSellerAccount(false);
         return;
       }
 
@@ -345,6 +346,7 @@ export default function TalazaMenu({
       );
 
       setUserName('');
+      setIsSellerAccount(false);
     }
   }
 
@@ -714,7 +716,7 @@ export default function TalazaMenu({
                     }
                   />
 
-                  {!isSellerAccount && (
+                  {isSellerAccount === false && (
                     <MenuItem
                       icon="pin"
                       color={COLORS.gold}
