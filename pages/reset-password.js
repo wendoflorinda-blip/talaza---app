@@ -1,136 +1,190 @@
-
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
+import Head from 'next/head';
 import { supabase } from '../lib/supabaseClient';
+import AuthShell from '../components/AuthShell';
+import {
+  Card,
+  Field,
+  ErrorBox,
+  PrimaryButton,
+  PasswordField,
+} from '../components/Fields';
+import { C } from '../lib/talaza';
 
 export default function ResetPassword() {
-  const router = useRouter();
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [checked, setChecked] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [done, setDone] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!router.isReady) return;
-
-    async function checkSession() {
-      const { data, error } = await supabase.auth.getSession();
-
-      if (error) {
-        setError('O link de recuperação não pôde ser validado. Peça um novo link.');
-      } else if (data?.session) {
+    /* O link do e-mail inicia uma sessão de recuperação */
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
         setReady(true);
-      } else {
-        setError('O link expirou ou já não é válido. Peça um novo link de recuperação.');
+        setChecked(true);
       }
-    }
+    });
 
-    checkSession();
-  }, [router.isReady]);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setReady(true);
+      setChecked(true);
+    });
 
-  async function handleSubmit(event) {
-    event.preventDefault();
+    return () => listener?.subscription?.unsubscribe();
+  }, []);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
     setError('');
 
-    if (password.length < 8) {
-      setError('A nova palavra-passe deve ter pelo menos 8 caracteres.');
+    if (password.length < 6) {
+      setError('A palavra-passe deve ter pelo menos 6 caracteres.');
       return;
     }
 
-    if (password !== confirmPassword) {
-      setError('As palavras-passe não coincidem.');
+    if (password !== confirm) {
+      setError('As palavras-passe não são iguais.');
       return;
     }
 
     setLoading(true);
 
-    try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password,
-      });
+    const { error: updateError } = await supabase.auth.updateUser({
+      password,
+    });
 
-      if (updateError) throw updateError;
+    setLoading(false);
 
-      setSuccess(true);
-      setPassword('');
-      setConfirmPassword('');
-    } catch (err) {
-      setError(err?.message || 'Não foi possível alterar a palavra-passe.');
-    } finally {
-      setLoading(false);
+    if (updateError) {
+      console.error(updateError);
+      setError('Não foi possível guardar a nova palavra-passe. Tente novamente.');
+      return;
     }
+
+    setDone(true);
   }
 
   return (
-    <main className="page">
-      <section className="panel">
-        {success ? (
-          <>
-            <h1>Palavra-passe alterada</h1>
-            <p>Já pode entrar no Talaza com a sua nova palavra-passe.</p>
-            <Link className="button" href="/login">Entrar</Link>
-          </>
+    <AuthShell backHref="/login">
+      <Head>
+        <title>Nova palavra-passe | Talaza</title>
+      </Head>
+
+      <Card>
+        {done ? (
+          <div style={{ textAlign: 'center', padding: '12px 0' }}>
+            <div
+              aria-hidden="true"
+              style={{
+                width: 84,
+                height: 84,
+                borderRadius: '50%',
+                background: C.green,
+                boxShadow: `0 0 0 10px ${C.soft}`,
+                color: '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 40,
+                margin: '0 auto 24px',
+              }}
+            >
+              ✓
+            </div>
+
+            <h1 style={{ margin: '0 0 10px', color: C.ink, fontSize: 26 }}>
+              Palavra-passe atualizada
+            </h1>
+
+            <p style={{ margin: 0, color: C.muted, fontSize: 15 }}>
+              Já pode entrar com a nova palavra-passe.
+            </p>
+
+            <Link
+              href="/login"
+              style={{
+                display: 'block',
+                marginTop: 26,
+                padding: 16,
+                borderRadius: 14,
+                background: C.green,
+                color: '#FFFFFF',
+                fontWeight: 800,
+                textDecoration: 'none',
+              }}
+            >
+              Entrar
+            </Link>
+          </div>
+        ) : checked && !ready ? (
+          <div style={{ textAlign: 'center', padding: '12px 0' }}>
+            <h1 style={{ margin: '0 0 10px', color: C.ink, fontSize: 24 }}>
+              Link inválido ou expirado
+            </h1>
+
+            <p style={{ margin: 0, color: C.muted, fontSize: 15 }}>
+              Peça um novo link para criar a sua palavra-passe.
+            </p>
+
+            <Link
+              href="/forgot-password"
+              style={{
+                display: 'block',
+                marginTop: 26,
+                padding: 16,
+                borderRadius: 14,
+                background: C.green,
+                color: '#FFFFFF',
+                fontWeight: 800,
+                textDecoration: 'none',
+              }}
+            >
+              Pedir novo link
+            </Link>
+          </div>
         ) : (
           <>
-            <h1>Definir nova palavra-passe</h1>
-            <p>Escolha uma palavra-passe nova com pelo menos 8 caracteres.</p>
+            <h1 style={{ margin: '0 0 6px', color: C.ink, fontSize: 27 }}>
+              Nova palavra-passe
+            </h1>
 
-            {ready && (
-              <form onSubmit={handleSubmit}>
-                <label htmlFor="new-password">Nova palavra-passe</label>
-                <input
-                  id="new-password"
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={8}
+            <p style={{ margin: 0, color: C.muted, fontSize: 14 }}>
+              Escolha uma palavra-passe nova para a sua conta.
+            </p>
+
+            <form onSubmit={handleSubmit} noValidate>
+              <Field id="password" label="Nova palavra-passe" required>
+                <PasswordField
+                  id="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
+                  onChange={setPassword}
+                  placeholder="Mínimo de 6 caracteres"
                 />
+              </Field>
 
-                <label htmlFor="confirm-password">Confirmar palavra-passe</label>
-                <input
-                  id="confirm-password"
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={8}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
+              <Field id="confirm" label="Repita a palavra-passe" required>
+                <PasswordField
+                  id="confirm"
+                  value={confirm}
+                  onChange={setConfirm}
+                  placeholder="Repita a palavra-passe"
                 />
+              </Field>
 
-                <button className="button" disabled={loading}>
-                  {loading ? 'A guardar…' : 'Guardar nova palavra-passe'}
-                </button>
-              </form>
-            )}
+              <ErrorBox>{error}</ErrorBox>
 
-            {error && <div className="error">{error}</div>}
-
-            {!ready && error && (
-              <Link href="/forgot-password" className="back">
-                Pedir novo link
-              </Link>
-            )}
+              <PrimaryButton type="submit" loading={loading || !ready}>
+                {loading ? 'A guardar…' : 'Guardar palavra-passe'}
+              </PrimaryButton>
+            </form>
           </>
         )}
-      </section>
-
-      <style jsx>{`
-        .page { min-height: 100vh; display: flex; justify-content: center; padding: 24px 14px; background: #F6F7F5; color: #13231E; font-family: system-ui, sans-serif; }
-        .panel { width: 100%; max-width: 440px; align-self: flex-start; padding: 24px; background: white; border: 1px solid #DCE3E0; border-radius: 22px; }
-        h1 { font-size: 25px; line-height: 1.2; margin-bottom: 10px; }
-        p { color: #6B7873; font-size: 14px; line-height: 1.6; margin-bottom: 22px; }
-        label { display: block; margin: 15px 0 7px; font-size: 13px; font-weight: 700; }
-        input { box-sizing: border-box; width: 100%; padding: 13px 14px; border: 1px solid #DCE3E0; border-radius: 12px; font-size: 15px; }
-        .button { display: block; width: 100%; margin-top: 18px; padding: 14px; border: 0; border-radius: 12px; background: #0B6B57; color: white; font-weight: 750; text-align: center; text-decoration: none; cursor: pointer; }
-        .button:disabled { opacity: .65; }
-        .back { display: inline-block; margin-top: 15px; color: #0B6B57; font-weight: 700; font-size: 13px; }
-        .error { margin-top: 14px; padding: 10px; border-radius: 10px; background: #FFF0EF; color: #B3261E; font-size: 13px; overflow-wrap: anywhere; }
-      `}</style>
-    </main>
+      </Card>
+    </AuthShell>
   );
 }
