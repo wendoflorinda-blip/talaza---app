@@ -751,6 +751,11 @@ export default function PostBusiness() {
                   </option>
                 ))}
               </select>
+              <p style={{ margin: '8px 0 0', color: '#64358B', fontSize: 12, lineHeight: 1.6 }}>
+                Atenção: a província escolhida ficará associada permanentemente ao seu negócio.
+                O seu negócio só será apresentado aos exploradores que estiverem a visitar esta província.
+                Não poderá mudar a província do negócio depois do cadastro.
+              </p>
             </Field>
 
             <div
