@@ -312,8 +312,9 @@ export default function Pagamento() {
       setDone(true);
       window.scrollTo(0, 0);
     } catch (err) {
-      console.error(err);
-      setError('Não foi possível enviar o comprovativo. Tente novamente.');
+      console.error('Erro ao enviar comprovativo de pagamento:', err);
+      const detail = err?.message || err?.error_description || err?.details || 'Erro desconhecido';
+      setError('Não foi possível enviar o comprovativo: ' + detail);
     }
 
     setSending(false);
