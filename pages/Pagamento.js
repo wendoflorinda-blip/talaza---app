@@ -266,6 +266,7 @@ export default function Pagamento() {
 
     setSending(true);
 
+    let submissionStage = 'preparar envio';
     try {
       const folder = user.id;
       const stamp = Date.now();
@@ -274,6 +275,7 @@ export default function Pagamento() {
       let pdfPath = null;
 
       if (imageFile) {
+        submissionStage = 'carregar a fotografia no armazenamento payment-proofs';
         const blob = await resizeImage(imageFile, { max: 1600 });
 
         imagePath = await uploadPrivateFile(
@@ -286,6 +288,7 @@ export default function Pagamento() {
       }
 
       if (pdfFile) {
+        submissionStage = 'carregar o PDF no armazenamento payment-proofs';
         pdfPath = await uploadPrivateFile(
           supabase,
           'payment-proofs',
@@ -295,6 +298,7 @@ export default function Pagamento() {
         );
       }
 
+      submissionStage = 'guardar o pedido na tabela subscription_requests';
       const { error: insertError } = await supabase
         .from('subscription_requests')
         .insert({
@@ -314,7 +318,7 @@ export default function Pagamento() {
     } catch (err) {
       console.error('Erro ao enviar comprovativo de pagamento:', err);
       const detail = err?.message || err?.error_description || err?.details || 'Erro desconhecido';
-      setError('Não foi possível enviar o comprovativo: ' + detail);
+      setError('Falha ao ' + submissionStage + ': ' + detail);
     }
 
     setSending(false);
