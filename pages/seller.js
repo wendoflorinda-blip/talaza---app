@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import TalazaMenu from '../components/TalazaMenu';
 import { supabase } from '../lib/supabaseClient';
 
 export default function Seller() {
@@ -58,8 +59,6 @@ export default function Seller() {
           approval_status
         `)
         .eq('owner_id', session.user.id)
-        .eq('country_id', country)
-        .eq('province_id', province)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -210,20 +209,15 @@ export default function Seller() {
             </div>
           </div>
 
-          <button
-            onClick={handleLogout}
-            style={{
-              border: '1px solid rgba(255,255,255,.3)',
-              background: 'transparent',
-              color: '#FFFFFF',
-              padding: '9px 12px',
-              borderRadius: 10,
-              cursor: 'pointer',
-              fontWeight: 700
-            }}
-          >
-            Sair
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <TalazaMenu
+              country={business?.country_id || country}
+              province={business?.province_id || province}
+              countryName=""
+              provinceName=""
+              sellerPanelRoute="/seller"
+            />
+          </div>
         </div>
       </header>
 
