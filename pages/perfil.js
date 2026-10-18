@@ -91,9 +91,9 @@ export default function Perfil() {
 
       const changingProvince = Boolean(profile?.province_id && provinceId && String(provinceId) !== String(profile.province_id));
       const changedAt = user.user_metadata?.talaza_province_changed_at;
-      if (changingProvince && changedAt && Date.now() - new Date(changedAt).getTime() < 180 * 24 * 60 * 60 * 1000) {
+      if (changingProvince && changedAt && Date.now() - new Date(changedAt).getTime() < 90 * 24 * 60 * 60 * 1000) {
         const availableDate = new Date(new Date(changedAt).getTime() + 180 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-PT');
-        throw new Error('A província principal só pode ser alterada novamente depois de seis meses. Poderá alterar a partir de ' + availableDate + '.');
+        throw new Error('A província principal só pode ser alterada novamente depois de 90 dias. Poderá alterar a partir de ' + availableDate + '.');
       }
 
       const updates = {};
@@ -125,6 +125,14 @@ export default function Perfil() {
       const { data: updated, error: authUpdateError } = await supabase.auth.updateUser(authUpdates);
       if (authUpdateError) throw authUpdateError;
       if (updated?.user) setUser(updated.user);
+      if (changingProvince) {
+        try {
+          localStorage.setItem('talaza_home_country_id', String(profile.country_id || ''));
+          localStorage.setItem('talaza_home_province_id', String(provinceId));
+          localStorage.setItem('talaza_country_id', String(profile.country_id || ''));
+          localStorage.setItem('talaza_province_id', String(provinceId));
+        } catch {}
+      }
       if (profile) setProfile({ ...profile, ...updates });
       setPhoto(photoUrl);
       setFile(null);
@@ -132,7 +140,7 @@ export default function Perfil() {
       setNotice(emailChanged
         ? 'Perfil atualizado. A alteração do e-mail pode exigir confirmação na sua caixa de entrada.'
         : changingProvince
-          ? 'Perfil atualizado. A Comunidade Talaza passa a usar a província principal escolhida. A mudança fica limitada durante seis meses.'
+          ? 'Perfil atualizado. A Comunidade Talaza passa a usar a província principal escolhida. Só poderá voltar a mudar a província principal depois de 90 dias.'
           : 'Perfil atualizado com sucesso.');
     } catch (err) {
       console.error(err);
@@ -192,7 +200,7 @@ export default function Perfil() {
               <option value="">Escolher província</option>
               {provinces.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
-            <p style={S.help}>A alteração muda a província da sua Comunidade Talaza. A província principal só pode ser alterada uma vez a cada seis meses. Explorar outras províncias no menu não muda esta definição.</p>
+            <p style={S.help}>A alteração muda a província da sua Comunidade Talaza. A província principal só pode ser alterada uma vez a cada 90 dias. Explorar outras províncias no menu não muda esta definição.</p>
             <p style={S.help}>Para mudar a fotografia, toque na imagem acima. O envio depende do bucket “avatars” no Supabase.</p>
             {error && <div role="alert" style={S.error}>{error}</div>}
             {notice && <div role="status" style={S.notice}>{notice}</div>}
