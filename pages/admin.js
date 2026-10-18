@@ -98,7 +98,9 @@ export default function Admin() {
       .from('businesses')
       .update({
         approval_status: status,
-        is_active: status === 'approved',
+        // Aprovação administrativa não substitui o pagamento da hospedagem.
+        // A ativação será feita pelo fluxo de pagamento/validação.
+        is_active: false,
       })
       .eq('id', id);
 
