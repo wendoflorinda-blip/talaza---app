@@ -211,19 +211,10 @@ export default function Oportunidades() {
 
       // A subscrição desbloqueia apenas a província a que está associada.
       // Uma subscrição válida de outra província não deve esconder uma subscrição válida desta.
-      return (data || []).some((subscription) => {
-        if (
-          subscription.country_id &&
-          country &&
-          String(subscription.country_id) !== String(country)
-        ) return false;
-
-        if (
-          subscription.province_id &&
-          province &&
-          String(subscription.province_id) !== String(province)
-        ) return false;
-
+      return Boolean(province) && (data || []).some((subscription) => {
+        // Sem uma província guardada, a subscrição não pode desbloquear uma região.
+        if (!subscription.province_id || String(subscription.province_id) !== String(province)) return false;
+        if (country && subscription.country_id && String(subscription.country_id) !== String(country)) return false;
         return true;
       });
     } catch (err) {
