@@ -9,6 +9,7 @@ const DOCK_ROUTES = [
   '/subcategory',
   '/businesses',
   '/mensagens',
+  '/perfil',
 ];
 
 export default function App({ Component, pageProps }) {
