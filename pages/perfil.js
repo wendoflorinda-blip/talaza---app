@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import TalazaMenu from '../components/TalazaMenu';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
@@ -13,6 +14,12 @@ export default function Perfil() {
   const [profile,setProfile] = useState(null);
   const [email,setEmail] = useState('');
   const [phone,setPhone] = useState('');
+  const [fullName,setFullName] = useState('');
+  const [countryId,setCountryId] = useState('');
+  const [provinceId,setProvinceId] = useState('');
+  const [provinces,setProvinces] = useState([]);
+  const [menuOpen,setMenuOpen] = useState(false);
+  const [editing,setEditing] = useState(false);
   const [photo,setPhoto] = useState('');
   const [file,setFile] = useState(null);
   const [loading,setLoading] = useState(true);
@@ -26,6 +33,7 @@ export default function Perfil() {
     if (authError || !current) { router.replace('/login'); return; }
     setUser(current);
     setEmail(current.email || '');
+    setFullName(current.user_metadata?.full_name || current.user_metadata?.name || '');
     setPhoto(current.user_metadata?.avatar_url || current.user_metadata?.picture || '');
     const { data, error: profileError } = await supabase.from('profiles').select('*').eq('id',current.id).maybeSingle();
     if (profileError) {
@@ -59,7 +67,7 @@ export default function Perfil() {
         const { data } = supabase.storage.from('avatars').getPublicUrl(path);
         photoUrl = data?.publicUrl || '';
       }
-      const updates = {};
+      const updates = {};\n      if (profile && Object.prototype.hasOwnProperty.call(profile, 'name')) updates.name = fullName.trim();\n      if (profile && Object.prototype.hasOwnProperty.call(profile, 'province_id') && provinceId && String(provinceId) !== String(profile.province_id)) {\n        const changedAt = user.user_metadata?.talaza_province_changed_at;\n        if (changedAt && Date.now() - new Date(changedAt).getTime() < 180 * 24 * 60 * 60 * 1000) {\n          throw new Error('A província principal só pode ser alterada novamente depois de seis meses.');\n        }\n        updates.province_id = provinceId;\n      }
       if (profile) {
         if (Object.prototype.hasOwnProperty.call(profile,'phone')) updates.phone = phone.trim();
         else if (Object.prototype.hasOwnProperty.call(profile,'contact')) updates.contact = phone.trim();
@@ -76,11 +84,11 @@ export default function Perfil() {
       } else if (phone.trim()) {
         throw new Error('A tabela profiles não apresenta um campo de contacto reconhecido. É necessário confirmar o nome da coluna no Supabase.');
       }
-      const authUpdates = { data: photoUrl ? { avatar_url: photoUrl } : {} };
+      const metadata = { ...(user.user_metadata || {}) };\n      if (fullName.trim()) metadata.full_name = fullName.trim();\n      if (profile?.province_id && String(provinceId) !== String(profile.province_id)) metadata.talaza_province_changed_at = new Date().toISOString();\n      const authUpdates = { data: { ...metadata, ...(photoUrl ? { avatar_url: photoUrl } : {}) } };
       if (email.trim().toLowerCase() !== String(user.email || '').toLowerCase()) authUpdates.email = email.trim().toLowerCase();
       const { data: updated, error: authUpdateError } = await supabase.auth.updateUser(authUpdates);
       if (authUpdateError) throw authUpdateError;
-      if (updated?.user) setUser(updated.user);
+      if (updated?.user) setUser(updated.user);\n      if (profile) setProfile({ ...profile, ...updates });\n      setEditing(false);
       if (photoUrl) setPhoto(photoUrl);
       setFile(null);
       setNotice(email.trim().toLowerCase() !== String(user.email || '').toLowerCase() ? 'Perfil atualizado. A alteração do e-mail pode exigir confirmação na sua caixa de entrada.' : 'Perfil atualizado com sucesso.');
@@ -92,7 +100,7 @@ export default function Perfil() {
   if (loading) return <main style={S.center}>A carregar o perfil…</main>;
   return <main style={S.page}>
     <Head><title>O meu perfil | Talaza</title></Head>
-    <header style={S.header}><Link href="/" style={S.logo}><span style={S.mark}>T</span>TALAZA</Link><span style={S.headerText}>O meu perfil</span></header>
+    <header style={S.header}><Link href="/" style={S.logo}><span style={S.mark}>T</span>TALAZA</Link><div style={{display:'flex',alignItems:'center',gap:12}}><span style={S.headerText}>O meu perfil</span><button type="button" onClick={()=>setMenuOpen(v=>!v)} aria-label="Opções do perfil" style={S.more}>•••</button><TalazaMenu country={profile?.country_id || countryId} province={profile?.province_id || provinceId} countryName="" provinceName="" /></div></header>
     <section style={S.card}>
       <div style={S.avatarWrap}>
         <button type="button" onClick={() => fileRef.current?.click()} style={S.avatar} aria-label="Alterar fotografia">
@@ -123,7 +131,7 @@ const S={
  header:{height:66,padding:'0 22px',display:'flex',alignItems:'center',justifyContent:'space-between',background:C.dark,color:C.white},
  logo:{display:'flex',alignItems:'center',gap:9,color:C.white,textDecoration:'none',fontSize:13,fontWeight:900,letterSpacing:2},
  mark:{display:'grid',placeItems:'center',width:33,height:33,borderRadius:11,background:C.gold,color:C.dark,fontSize:18,letterSpacing:0},
- headerText:{fontSize:13,fontWeight:700},
+ headerText:{fontSize:13,fontWeight:700},\n more:{border:0,background:'transparent',color:'#fff',fontSize:22,fontWeight:900,cursor:'pointer',padding:'5px 8px'},\n menuPopup:{maxWidth:500,margin:'-20px auto 20px',display:'flex',justifyContent:'flex-end'},\n menuAction:{padding:'10px 16px',border:'1px solid '+C.line,borderRadius:10,background:'#fff',color:C.purple,fontWeight:800,cursor:'pointer'},\n profileDetails:{display:'grid',gap:13,marginBottom:22,padding:16,borderRadius:14,background:'#F8F6FB',color:C.ink,fontSize:13},\n detailLabel:{display:'block',color:C.muted,fontSize:11,marginBottom:4},
  card:{maxWidth:500,margin:'34px auto',padding:25,border:'1px solid '+C.line,borderRadius:23,background:C.white,boxShadow:'0 14px 40px rgba(20,50,43,.06)'},
  avatarWrap:{display:'flex',alignItems:'center',flexDirection:'column',marginBottom:28},
  avatar:{position:'relative',width:104,height:104,border:0,borderRadius:'50%',background:C.purpleSoft,overflow:'visible',padding:0,cursor:'pointer'},
