@@ -52,26 +52,7 @@ export default function Seller() {
     const { data, error: businessError } =
       await supabase
         .from('businesses')
-        .select(`
-          id,
-          name,
-          description,
-          municipality,
-          neighborhood,
-          address,
-          phone,
-          whatsapp,
-          email,
-          opening_hours,
-          country_id,
-          province_id,
-          category_id,
-          subcategory_id,
-          logo_url,
-          cover_url,
-          is_active,
-          approval_status
-        `)
+        .select('*')
         .eq('owner_id', session.user.id)
         .order('created_at', { ascending: false })
         .limit(1)
