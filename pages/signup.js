@@ -246,9 +246,20 @@ export default function Signup() {
         );
       }
 
+      try {
+        localStorage.setItem('talaza_country_id', String(countryId));
+        localStorage.setItem('talaza_province_id', String(provinceId));
+        localStorage.setItem('talaza_home_country_id', String(countryId));
+        localStorage.setItem('talaza_home_province_id', String(provinceId));
+      } catch {}
       router.push({
         pathname: '/explore',
-        query: { country: countryId, province: provinceId },
+        query: {
+          country: countryId,
+          province: provinceId,
+          homeCountry: countryId,
+          homeProvince: provinceId,
+        },
       });
     } catch (err) {
       console.error(err);
