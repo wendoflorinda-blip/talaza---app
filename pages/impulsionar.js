@@ -34,6 +34,7 @@ export default function Impulsionar() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [pendingRequest, setPendingRequest] = useState(null);
   useEffect(() => { if (router.isReady) loadData(); }, [router.isReady]);
   async function loadData() {
     setLoading(true); setError('');
@@ -48,6 +49,16 @@ export default function Impulsionar() {
       setLoading(false); return;
     }
     setBusiness(businessData);
+    const { data: pendingData, error: pendingError } = await supabase
+      .from('subscription_requests')
+      .select('id, plan_id, amount, created_at')
+      .eq('business_id', businessData.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (pendingError) console.error('Erro ao verificar pedido pendente:', pendingError);
+    setPendingRequest(pendingData || null);
     const { data, error: plansError } = await supabase.from('plans').select('*');
     if (plansError) {
       console.error(plansError); setError('Não foi possível carregar os planos. Verifique as permissões da tabela plans.'); setLoading(false); return;
@@ -79,7 +90,7 @@ export default function Impulsionar() {
           <p style={S.heroText}>Os planos apresentados correspondem à categoria do negócio <strong>{business.name}</strong>. Escolha um período para avançar para o pagamento por Multicaixa Express e enviar o comprovativo.</p>
           <span style={S.status}>Estado do perfil: {business.is_active ? 'Ativo' : 'A aguardar ativação'}{business.approval_status ? ' · ' + business.approval_status : ''}</span>
         </section>
-        {hostingPlans.length === 0 ? <section style={S.empty}><div style={S.emptyIcon}>♧</div><h2>Planos em preparação</h2><p>Não encontramos planos de hospedagem registados para esta categoria. Não vamos mostrar preços de outras categorias nem inventar valores.</p></section> :
+        {pendingRequest ? <section style={S.empty}><div style={S.emptyIcon}>✓</div><h2>Pagamento em verificação</h2><p>Já recebemos o comprovativo deste negócio. O plano escolhido está em verificação para ativação. Não é possível escolher outro plano até a equipa Talaza concluir a análise.</p><Link href={{ pathname: '/seller', query: { country: business.country_id, province: business.province_id } }} style={S.back}>Voltar ao painel</Link></section> : hostingPlans.length === 0 ? <section style={S.empty}><div style={S.emptyIcon}>♧</div><h2>Planos em preparação</h2><p>Não encontramos planos de hospedagem registados para esta categoria. Não vamos mostrar preços de outras categorias nem inventar valores.</p></section> :
         <section style={S.grid}>{hostingPlans.map((plan, index) => {
           const theme = THEMES[index % THEMES.length];
           const benefits = benefitsOf(plan);
@@ -91,11 +102,15 @@ export default function Impulsionar() {
             <div style={S.duration}><span>◷</span> {plan.duration_days ? plan.duration_days + ' dias de hospedagem' : 'Duração conforme o plano'}</div>
             <div style={S.benefitTitle}>O que está incluído</div>
             {benefits.length ? <ul style={S.benefits}>{benefits.map((benefit,i)=><li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, lineHeight: 1.55, color: COLORS.ink }}><span style={{ ...S.check, background: theme.color }}>✓</span><span>{benefit}</span></li>)}</ul> : <p style={S.noBenefits}>Consulte as condições deste plano antes de efetuar o pagamento.</p>}
-            <button type="button" onClick={() => router.push({ pathname: '/Pagamento', query: { plan: plan.id, business: business.id } })} style={{ ...S.cta, background: theme.color }}>Escolher este plano <span>→</span></button>
+            <button type="button" onClick={() => {
+              const planName = titleOf(plan, index);
+              const confirmed = window.confirm('Pretende escolher o plano "' + planName + '" para o seu negócio? Se continuar, irá para a página de pagamento por Multicaixa Express.');
+              if (confirmed) router.push({ pathname: '/Pagamento', query: { plan: plan.id, business: business.id } });
+            }} style={{ ...S.cta, background: theme.color }}>Escolher este plano <span>→</span></button>
             <p style={S.footnote}>O perfil será ativado após a validação do pagamento e os requisitos de aprovação aplicáveis.</p>
           </article>;
         })}</section>}
-        <div style={S.info}><span style={S.infoIcon}>ⓘ</span><p>O Destaque Premium e a promoção de publicações serão configurados separadamente numa próxima etapa. Esta página mostra apenas os planos de hospedagem já registados.</p></div>
+ 
       </>}
     </div>
   </main>;
