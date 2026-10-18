@@ -178,7 +178,7 @@ export default function Pagamento() {
       supabase.from('plans').select('*').eq('id', planId).maybeSingle(),
       supabase
         .from('businesses')
-        .select('id, name, country_id, province_id')
+        .select('id, name, country_id, province_id, is_active, approval_status')
         .eq('id', businessId)
         .eq('owner_id', session.user.id)
         .maybeSingle(),
@@ -203,13 +203,20 @@ export default function Pagamento() {
 
     const { data: pendingPayment, error: pendingPaymentError } = await supabase
       .from('subscription_requests')
-      .select('id, plan_id')
+      .select('id, plan_id, status, created_at')
       .eq('business_id', businessResult.data.id)
-      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     if (pendingPaymentError) console.error('Erro ao verificar comprovativo já enviado:', pendingPaymentError);
-    if (pendingPayment) setAlreadySubmitted(true);
+    const latestPaymentStatus = String(pendingPayment?.status || '').toLowerCase();
+    if (
+      pendingPayment &&
+      (latestPaymentStatus === 'pending' ||
+        (latestPaymentStatus === 'approved' &&
+          (!businessResult.data.is_active ||
+            String(businessResult.data.approval_status || '').toLowerCase() !== 'approved')))
+    ) setAlreadySubmitted(true);
     setLoading(false);
   }
 
