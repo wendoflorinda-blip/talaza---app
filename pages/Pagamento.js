@@ -445,7 +445,7 @@ export default function Pagamento() {
               <Link href={panelHref} style={{ display: 'block', marginTop: 20, padding: 15, borderRadius: 12, background: C.green, color: '#fff', textAlign: 'center', textDecoration: 'none', fontWeight: 800 }}>Ir para o meu painel de negócio</Link>
             </Card>
           ) : (
-          <div>
+          <div style={{ minWidth: 0 }}>
           <h1 style={{ margin: '0 0 6px', color: C.ink, fontSize: 28 }}>
             Pagamento
           </h1>
