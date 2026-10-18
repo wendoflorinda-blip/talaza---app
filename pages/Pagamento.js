@@ -604,7 +604,7 @@ export default function Pagamento() {
           >
             {sending ? 'A enviar…' : 'Enviar'}
           </button>
-          </>
+          </>}
         </div>
       )}
     </AuthShell>
