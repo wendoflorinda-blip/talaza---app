@@ -11,6 +11,19 @@ export default function Seller() {
 
   const [user, setUser] = useState(null);
   const [business, setBusiness] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editWhatsapp, setEditWhatsapp] = useState('');
+  const [editHours, setEditHours] = useState('');
+  const [editMunicipality, setEditMunicipality] = useState('');
+  const [editNeighborhood, setEditNeighborhood] = useState('');
+  const [logoFile, setLogoFile] = useState(null);
+  const [coverFile, setCoverFile] = useState(null);
+  const [subscriptionPending, setSubscriptionPending] = useState(false);
+  const [notice, setNotice] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -80,7 +93,78 @@ export default function Seller() {
     }
 
     setBusiness(data);
+    setEditName(data.name || '');
+    setEditDescription(data.description || '');
+    setEditPhone(data.phone || '');
+    setEditWhatsapp(data.whatsapp || '');
+    setEditHours(data.opening_hours || '');
+    setEditMunicipality(data.municipality || '');
+    setEditNeighborhood(data.neighborhood || '');
+
+    const { data: pendingRequest } = await supabase
+      .from('subscription_requests')
+      .select('id')
+      .eq('business_id', data.id)
+      .eq('status', 'pending')
+      .limit(1)
+      .maybeSingle();
+    setSubscriptionPending(Boolean(pendingRequest));
     setLoading(false);
+  }
+
+  async function saveBusiness(event) {
+    event.preventDefault();
+    setError('');
+    setNotice('');
+    if (!editName.trim()) {
+      setError('O nome do negócio é obrigatório.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const updates = {
+        name: editName.trim(),
+        description: editDescription.trim() || null,
+        phone: editPhone.trim() || null,
+        whatsapp: editWhatsapp.trim() || null,
+        opening_hours: editHours.trim() || null,
+        municipality: editMunicipality.trim() || null,
+        neighborhood: editNeighborhood.trim() || null,
+      };
+      const stamp = Date.now();
+      if (logoFile) {
+        const ext = (logoFile.name.split('.').pop() || 'jpg').toLowerCase();
+        const path = user.id + '/logo-edit-' + stamp + '.' + ext;
+        const { error: uploadError } = await supabase.storage.from('business-media').upload(path, logoFile, { upsert: true, contentType: logoFile.type });
+        if (uploadError) throw uploadError;
+        updates.logo_url = supabase.storage.from('business-media').getPublicUrl(path).data?.publicUrl || null;
+      }
+      if (coverFile) {
+        const ext = (coverFile.name.split('.').pop() || 'jpg').toLowerCase();
+        const path = user.id + '/cover-edit-' + stamp + '.' + ext;
+        const { error: uploadError } = await supabase.storage.from('business-media').upload(path, coverFile, { upsert: true, contentType: coverFile.type });
+        if (uploadError) throw uploadError;
+        updates.cover_url = supabase.storage.from('business-media').getPublicUrl(path).data?.publicUrl || null;
+      }
+      const { data: saved, error: saveError } = await supabase
+        .from('businesses')
+        .update(updates)
+        .eq('id', business.id)
+        .eq('owner_id', user.id)
+        .select('*')
+        .single();
+      if (saveError) throw saveError;
+      setBusiness({ ...business, ...saved });
+      setLogoFile(null);
+      setCoverFile(null);
+      setEditing(false);
+      setNotice('As alterações do negócio foram guardadas.');
+    } catch (saveError) {
+      console.error(saveError);
+      setError(saveError.message || 'Não foi possível guardar as alterações. Confirme as permissões de edição no Supabase.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleLogout() {
@@ -300,13 +384,52 @@ export default function Seller() {
         )}
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 18 }}>
-          <Link href={{ pathname: '/impulsionar', query: { business: business.id } }} style={{ padding: '13px 18px', background: '#E6A900', color: '#17342F', borderRadius: 12, textDecoration: 'none', fontWeight: 800 }}>
-            Mudar plano / Ver planos
-          </Link>
-          <Link href={{ pathname: '/seller', query: { edit: '1' } }} style={{ padding: '13px 18px', background: '#FFFFFF', color: '#075B4E', border: '1px solid #BFD8D0', borderRadius: 12, textDecoration: 'none', fontWeight: 800 }}>
-            Editar negócio
-          </Link>
+          {subscriptionPending ? (
+            <button type="button" disabled title="Aguarde a validação do comprovativo" style={{ padding: '13px 18px', background: '#E6E9E7', color: '#596560', border: 0, borderRadius: 12, fontWeight: 800, cursor: 'not-allowed' }}>
+              Plano em validação
+            </button>
+          ) : (
+            <Link href={{ pathname: '/impulsionar', query: { business: business.id } }} style={{ padding: '13px 18px', background: '#E6A900', color: '#17342F', borderRadius: 12, textDecoration: 'none', fontWeight: 800 }}>
+              Mudar plano / Ver planos
+            </Link>
+          )}
+          <button type="button" onClick={() => { setEditing((v) => !v); setError(''); setNotice(''); }} style={{ padding: '13px 18px', background: '#FFFFFF', color: '#075B4E', border: '1px solid #BFD8D0', borderRadius: 12, fontWeight: 800, cursor: 'pointer' }}>
+            {editing ? 'Cancelar edição' : 'Editar negócio'}
+          </button>
         </div>
+
+        {notice && <div role="status" style={{ marginTop: 16, padding: 13, background: '#E8F6F1', color: '#075B4E', borderRadius: 12, fontWeight: 700 }}>{notice}</div>}
+        {error && <div role="alert" style={{ marginTop: 16, padding: 13, background: '#FCEBED', color: '#A52F3B', borderRadius: 12 }}>{error}</div>}
+
+        {editing && (
+          <form onSubmit={saveBusiness} style={{ marginTop: 20, background: '#FFFFFF', border: '1px solid #DDE7E3', borderRadius: 20, padding: 22, display: 'grid', gap: 13 }}>
+            <h2 style={{ margin: 0, color: '#075B4E' }}>Editar negócio</h2>
+            <p style={{ margin: 0, color: '#66736F', fontSize: 13, lineHeight: 1.5 }}>Pode alterar os dados do negócio, contactos, horário, descrição, logo e imagem principal. A província não pode ser alterada nesta área.</p>
+            {[
+              ['Nome do negócio', editName, setEditName],
+              ['Contacto principal', editPhone, setEditPhone],
+              ['Outro contacto / WhatsApp', editWhatsapp, setEditWhatsapp],
+              ['Município', editMunicipality, setEditMunicipality],
+              ['Bairro', editNeighborhood, setEditNeighborhood],
+              ['Horário de funcionamento', editHours, setEditHours],
+            ].map(([label, value, setter]) => (
+              <label key={label} style={{ display: 'grid', gap: 6, fontSize: 13, fontWeight: 800, color: '#17342F' }}>
+                {label}
+                <input value={value} onChange={(e) => setter(e.target.value)} style={{ padding: 12, border: '1px solid #DDE7E3', borderRadius: 10, font: 'inherit', fontWeight: 500 }} />
+              </label>
+            ))}
+            <label style={{ display: 'grid', gap: 6, fontSize: 13, fontWeight: 800, color: '#17342F' }}>Descrição
+              <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={4} style={{ padding: 12, border: '1px solid #DDE7E3', borderRadius: 10, font: 'inherit', fontWeight: 500 }} />
+            </label>
+            <label style={{ display: 'grid', gap: 6, fontSize: 13, fontWeight: 800, color: '#17342F' }}>Mudar logo
+              <input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] || null)} />
+            </label>
+            <label style={{ display: 'grid', gap: 6, fontSize: 13, fontWeight: 800, color: '#17342F' }}>Mudar imagem principal
+              <input type="file" accept="image/*" onChange={(e) => setCoverFile(e.target.files?.[0] || null)} />
+            </label>
+            <button type="submit" disabled={saving} style={{ padding: 14, border: 0, borderRadius: 12, background: '#075B4E', color: '#FFFFFF', fontWeight: 900, cursor: saving ? 'wait' : 'pointer' }}>{saving ? 'A guardar…' : 'Guardar alterações'}</button>
+          </form>
+        )}
 
         <section
           style={{
@@ -327,7 +450,7 @@ export default function Seller() {
           ].map(([icon, title]) => (
             <button
               key={title}
-              onClick={() => { if (title === 'Impulsionar') router.push('/impulsionar'); }}
+              onClick={() => { if (title === 'Impulsionar' && !subscriptionPending) router.push({ pathname: '/impulsionar', query: { business: business.id } }); else if (title === 'Editar negócio' || title === 'Fotos e logo') setEditing(true); else if (title === 'Mensagens') router.push('/mensagens'); }}
               style={{
                 border: '1px solid #DDE7E3',
                 background: '#FFFFFF',
