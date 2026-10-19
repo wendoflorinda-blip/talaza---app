@@ -77,6 +77,8 @@ ON public.payment_submissions FOR UPDATE TO authenticated
 USING (EXISTS (SELECT 1 FROM public.admin_users a WHERE a.id = auth.uid()))
 WITH CHECK (EXISTS (SELECT 1 FROM public.admin_users a WHERE a.id = auth.uid()));
 
+GRANT SELECT ON storage.objects TO authenticated;
+
 -- O administrador pode abrir comprovativos privados no bucket payment-proofs.
 DROP POLICY IF EXISTS "Talaza admins view payment proofs" ON storage.objects;
 CREATE POLICY "Talaza admins view payment proofs"
