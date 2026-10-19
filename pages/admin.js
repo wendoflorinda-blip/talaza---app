@@ -740,7 +740,17 @@ export default function Admin() {
                   <div style={styles.details}>
                     <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
                     <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
-                    {request.proof_url && <p><strong>Comprovativo ({request.proof_type || 'ficheiro'}):</strong> <button type="button" style={styles.proofLink} onClick={() => openProof(request.proof_url)}>Abrir comprovativo ↗</button></p>}
+                    {(request.proof_image_url || request.proof_file_url || request.proof_url) && (
+                      <div>
+                        <p><strong>Comprovativos enviados:</strong></p>
+                        {(request.proof_image_url || (!request.proof_file_url && request.proof_type !== 'pdf' && request.proof_url)) && (
+                          <p><button type="button" style={styles.proofLink} onClick={() => openProof(request.proof_image_url || request.proof_url)}>Abrir imagem ↗</button></p>
+                        )}
+                        {(request.proof_file_url || (request.proof_type === 'pdf' && request.proof_url)) && (
+                          <p><button type="button" style={styles.proofLink} onClick={() => openProof(request.proof_file_url || request.proof_url)}>Abrir PDF ↗</button></p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {pending && <div style={styles.actions}>
                     <button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>
