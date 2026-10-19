@@ -6,6 +6,7 @@ export default function Admin() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [authorized, setAuthorized] = useState(false);
   const [businesses, setBusinesses] = useState([]);
   const [subscriptionRequests, setSubscriptionRequests] = useState([]);
@@ -420,6 +421,20 @@ export default function Admin() {
     setReviewingPaymentId('');
   }
 
+  async function refreshAdminData() {
+    if (refreshing) return;
+    setRefreshing(true);
+    await Promise.all([
+      loadBusinesses(),
+      loadSubscriptionRequests(),
+      loadCommunityReports(),
+      loadPendingCommunityPosts(),
+      loadSupportMessages(),
+      loadProfiles(),
+    ]);
+    setRefreshing(false);
+  }
+
   async function logout() {
     await supabase.auth.signOut();
     router.replace('/login');
@@ -473,12 +488,17 @@ export default function Admin() {
           </div>
         </div>
 
-        <button
-          onClick={logout}
-          style={styles.logout}
-        >
-          Terminar sessão
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" onClick={refreshAdminData} disabled={refreshing} style={{ ...styles.logout, opacity: refreshing ? .65 : 1 }}>
+            {refreshing ? 'A atualizar…' : 'Atualizar painel'}
+          </button>
+          <button
+            onClick={logout}
+            style={styles.logout}
+          >
+            Terminar sessão
+          </button>
+        </div>
       </header>
 
       <section style={styles.content}>
@@ -674,7 +694,8 @@ export default function Admin() {
                   </div>
                   <div style={styles.details}>
                     <p style={{ whiteSpace: 'pre-wrap' }}>{post.content || 'Sem descrição.'}</p>
-                    <p><strong>Autor (ID):</strong> {post.user_id || '—'}</p>
+                    <p><strong>Enviado por:</strong> {profiles.find(profile => profile.id === post.user_id)?.name || 'Utilizador Talaza'}</p>
+                    <p><strong>ID do autor:</strong> {post.user_id || '—'}</p>
                     <p><strong>Província (ID):</strong> {post.province_id || 'Nacional / não indicada'}</p>
                     <p><strong>Expira em:</strong> {post.expires_at ? new Date(post.expires_at).toLocaleString('pt-AO') : 'Não definido'}</p>
                     {post.image_url && <p><a href={post.image_url} target="_blank" rel="noreferrer" style={{ color: '#075B4E', fontWeight: 700 }}>Ver imagem da publicação ↗</a></p>}
