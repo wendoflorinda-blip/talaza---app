@@ -369,12 +369,18 @@ export default function Admin() {
 
   async function reviewPayment(request, approved) {
     const nextStatus = approved ? 'approved' : 'rejected';
-    const { error } = await supabase
+    const { data: updatedPayment, error } = await supabase
       .from('payment_submissions')
       .update({ status: nextStatus, reviewed_at: new Date().toISOString() })
-      .eq('id', request.id);
+      .eq('id', request.id)
+      .select('id')
+      .maybeSingle();
     if (error) {
-      alert('Não foi possível atualizar o pagamento: ' + error.message);
+      alert('Não foi possível atualizar o pagamento. Confirme as políticas RLS de payment_submissions: ' + error.message);
+      return;
+    }
+    if (!updatedPayment) {
+      alert('O Supabase não confirmou a alteração do pagamento. A política RLS pode estar a bloquear a aprovação.');
       return;
     }
 
