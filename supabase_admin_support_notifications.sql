@@ -63,7 +63,8 @@ BEGIN
     EXECUTE 'UPDATE public.notifications SET body = content WHERE body IS NULL';
     EXECUTE 'ALTER TABLE public.notifications ALTER COLUMN content DROP NOT NULL';
   END IF;
-END $notification_migration$;
+END;
+$notification_migration$;
 
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 GRANT SELECT, INSERT ON public.notifications TO authenticated;
