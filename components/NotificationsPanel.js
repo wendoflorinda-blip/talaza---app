@@ -131,7 +131,7 @@ export default function NotificationsPanel({ userId: suppliedUserId }) {
     }
 
     setNotifications((current) =>
-      current.map((item) => ({ ...item, is_read: true }))
+      current.map((item) => item.user_id === userId ? { ...item, is_read: true } : item)
     );
   }
 
@@ -168,7 +168,7 @@ export default function NotificationsPanel({ userId: suppliedUserId }) {
             <article
               key={notification.id}
               className={
-                notification.user_id === userId && notification.is_read
+                notification.user_id !== userId || notification.is_read
                   ? 'talaza-notification'
                   : 'talaza-notification talaza-notification-unread'
               }
