@@ -11,7 +11,8 @@ Reforçar o envio e a revisão dos comprovativos de pagamento, além de manter o
 - O envio de comprovativos confirma que a sessão ainda corresponde ao utilizador autenticado e usa nomes de ficheiro únicos dentro da pasta do utilizador no bucket privado `payment-proofs`.
 - Se a base de dados ainda não tiver `proof_image_url` e `proof_file_url`, o formulário tenta um formato compatível com a estrutura antiga e conserva os caminhos de ambos os ficheiros.
 - Se o registo do pagamento falhar após o upload, o formulário tenta remover os ficheiros enviados para evitar resíduos no Storage.
-- O painel administrativo reconhece comprovativos guardados nas colunas separadas, em caminhos antigos ou no formato JSON de compatibilidade.
+- O painel administrativo reconhece comprovativos guardados nas colunas separadas, em caminhos antigos ou no formato JSON de compatibilidade; também tenta gerar links temporários e mostrar a pré-visualização da imagem no cartão do pagamento.
+- As páginas `pages/seller.js` e `pages/impulsionar.js` consultam `payment_submissions` para detetar pedidos pendentes, em vez da tabela antiga `subscription_requests`.
 - No painel `pages/admin.js`, os botões de aprovação/rejeição de pagamentos e publicações indicam quando estão a guardar, para evitar cliques repetidos.
 - O painel permite atualizar manualmente os dados; as submissões da Comunidade mostram também o nome do autor quando disponível.
 - O formulário administrativo envia notificações para todos os utilizadores ( `user_id = NULL` ) ou para um utilizador escolhido.
@@ -29,7 +30,7 @@ Reforçar o envio e a revisão dos comprovativos de pagamento, além de manter o
 
 ## o_que_falta_fazer
 - Executar no Supabase SQL Editor a versão atualizada de `supabase_admin_support_notifications.sql`, caso a migração ainda não tenha sido executada.
-- Testar com contas reais: enviar um comprovativo (imagem, PDF e ambos), confirmar que aparece no painel e que os ficheiros abrem; aprovar/rejeitar o pagamento e verificar a ativação do negócio. Depois testar a moderação da Comunidade.
+- Testar com contas reais: enviar um comprovativo (imagem, PDF e ambos), confirmar que aparece no painel e que os ficheiros abrem; confirmar que mudar de plano fica bloqueado enquanto o pedido está pendente; aprovar/rejeitar o pagamento e verificar a ativação do negócio. Se a pré-visualização falhar, confirmar no Supabase que a política `Talaza admins view payment proofs` foi aplicada ao bucket privado `payment-proofs`. Depois testar a moderação da Comunidade.
 - Testar uma mensagem no Suporte Talaza e enviar uma notificação geral e outra privada, confirmando que cada uma aparece no destinatário correto.
 - Revalidar a implantação no Vercel quando o limite de builds permitir.
 
