@@ -763,6 +763,17 @@ export default function TalazaMenu({
                   />
 
                   <MenuItem
+                    icon="info"
+                    color={COLORS.purple}
+                    bg={COLORS.purpleSoft}
+                    label="Notificações"
+                    onClick={() => {
+                      closeMenu();
+                      router.push('/notificacoes');
+                    }}
+                  />
+
+                  <MenuItem
                     icon="logout"
                     color="#B14D4D"
                     bg="#FBEAEA"
