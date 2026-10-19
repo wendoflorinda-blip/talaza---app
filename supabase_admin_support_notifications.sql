@@ -52,7 +52,7 @@ ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS is_read boolean NOT NU
 ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
 ALTER TABLE public.notifications ALTER COLUMN user_id DROP NOT NULL;
 
-DO $
+DO $notification_migration$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM information_schema.columns
@@ -63,7 +63,7 @@ BEGIN
     EXECUTE 'UPDATE public.notifications SET body = content WHERE body IS NULL';
     EXECUTE 'ALTER TABLE public.notifications ALTER COLUMN content DROP NOT NULL';
   END IF;
-END $;
+END $notification_migration$;
 
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 GRANT SELECT, INSERT ON public.notifications TO authenticated;
