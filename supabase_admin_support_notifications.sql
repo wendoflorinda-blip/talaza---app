@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS public.support_messages (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE public.support_messages ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE ON public.support_messages TO authenticated;
 
 DROP POLICY IF EXISTS "Talaza users submit own support messages" ON public.support_messages;
 CREATE POLICY "Talaza users submit own support messages"
@@ -40,6 +41,7 @@ CREATE TABLE IF NOT EXISTS public.notifications (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT ON public.notifications TO authenticated;
 CREATE INDEX IF NOT EXISTS notifications_user_created_idx
 ON public.notifications (user_id, created_at DESC);
 
@@ -55,6 +57,13 @@ WITH CHECK (
   EXISTS (SELECT 1 FROM public.admin_users a WHERE a.id = auth.uid())
   AND (user_id IS NULL OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = user_id))
 );
+
+-- Permissões de tabela necessárias às operações feitas pelo painel.
+GRANT SELECT, UPDATE ON public.payment_submissions TO authenticated;
+GRANT UPDATE ON public.businesses TO authenticated;
+GRANT SELECT, UPDATE ON public.community_posts TO authenticated;
+GRANT SELECT, UPDATE ON public.community_reports TO authenticated;
+GRANT SELECT ON public.profiles TO authenticated;
 
 -- 3. O administrador pode consultar e rever pagamentos.
 DROP POLICY IF EXISTS "Talaza admins view all payment submissions" ON public.payment_submissions;
