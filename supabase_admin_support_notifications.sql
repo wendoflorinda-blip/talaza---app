@@ -38,10 +38,35 @@ CREATE TABLE IF NOT EXISTS public.notifications (
   title text NOT NULL CHECK (char_length(trim(title)) > 0),
   body text NOT NULL CHECK (char_length(trim(body)) > 0),
   type text NOT NULL DEFAULT 'general' CHECK (type IN ('general', 'individual')),
+  is_read boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Migração segura caso notifications já exista com a versão antiga
+-- (que usava content em vez de body ou tinha user_id NOT NULL).
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS user_id uuid NULL;
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS title text;
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS body text;
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS type text NOT NULL DEFAULT 'general';
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS is_read boolean NOT NULL DEFAULT false;
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE public.notifications ALTER COLUMN user_id DROP NOT NULL;
+
+DO $
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'notifications'
+      AND column_name = 'content'
+  ) THEN
+    EXECUTE 'UPDATE public.notifications SET body = content WHERE body IS NULL';
+    EXECUTE 'ALTER TABLE public.notifications ALTER COLUMN content DROP NOT NULL';
+  END IF;
+END $;
+
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
-GRANT SELECT, INSERT ON public.notifications TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.notifications TO authenticated;
 CREATE INDEX IF NOT EXISTS notifications_user_created_idx
 ON public.notifications (user_id, created_at DESC);
 
@@ -49,6 +74,12 @@ DROP POLICY IF EXISTS "Talaza users view general and own notifications" ON publi
 CREATE POLICY "Talaza users view general and own notifications"
 ON public.notifications FOR SELECT TO authenticated
 USING (user_id IS NULL OR user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Talaza users mark own notifications read" ON public.notifications;
+CREATE POLICY "Talaza users mark own notifications read"
+ON public.notifications FOR UPDATE TO authenticated
+USING (user_id = auth.uid())
+WITH CHECK (user_id = auth.uid());
 
 DROP POLICY IF EXISTS "Talaza admins send notifications" ON public.notifications;
 CREATE POLICY "Talaza admins send notifications"
