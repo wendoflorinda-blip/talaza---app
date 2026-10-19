@@ -264,11 +264,6 @@ export default function Pagamento() {
       return;
     }
 
-    if (imageFile && pdfFile) {
-      setError('Envie apenas um comprovativo: escolha a imagem ou o PDF.');
-      return;
-    }
-
     setSending(true);
 
     let submissionStage = 'preparar envio';
@@ -292,7 +287,7 @@ export default function Pagamento() {
         );
       }
 
-      if (pdfFile && !imageFile) {
+      if (pdfFile) {
         submissionStage = 'carregar o PDF no armazenamento payment-proofs';
         pdfPath = await uploadPrivateFile(
           supabase,
@@ -314,7 +309,9 @@ export default function Pagamento() {
           currency: 'Kz',
           payment_method: 'Express',
           proof_url: imagePath || pdfPath,
-          proof_type: imagePath ? 'jpg' : 'pdf',
+          proof_image_url: imagePath,
+          proof_file_url: pdfPath,
+          proof_type: imagePath && pdfPath ? 'image+pdf' : imagePath ? 'jpg' : 'pdf',
           status: 'pending',
         });
 
