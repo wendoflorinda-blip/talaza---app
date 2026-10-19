@@ -93,6 +93,12 @@ WITH CHECK (
 
 -- Permissões de tabela necessárias às operações feitas pelo painel.
 GRANT SELECT, UPDATE ON public.payment_submissions TO authenticated;
+-- Permitir guardar os dois comprovativos no mesmo pedido, mantendo compatibilidade
+-- com os registos antigos que usam proof_url e proof_type.
+ALTER TABLE public.payment_submissions
+  ADD COLUMN IF NOT EXISTS proof_image_url text NULL;
+ALTER TABLE public.payment_submissions
+  ADD COLUMN IF NOT EXISTS proof_file_url text NULL;
 GRANT UPDATE ON public.businesses TO authenticated;
 GRANT SELECT, UPDATE ON public.community_posts TO authenticated;
 GRANT SELECT, UPDATE ON public.community_reports TO authenticated;
