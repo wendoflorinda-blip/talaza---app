@@ -46,9 +46,9 @@ export default function NotificationsPanel({ userId: suppliedUserId }) {
     const { data, error: queryError } = await supabase
       .from('notifications')
       .select(
-        'id, created_at, user_id, type, title, content, reference_id, is_read'
+        'id, created_at, user_id, type, title, body, is_read'
       )
-      .eq('user_id', userId)
+      .or(`user_id.is.null,user_id.eq.${userId}`)
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -79,8 +79,7 @@ export default function NotificationsPanel({ userId: suppliedUserId }) {
           event: '*',
           schema: 'public',
           table: 'notifications',
-          filter: `user_id=eq.${userId}`,
-        },
+          },
         () => loadNotifications()
       )
       .subscribe();
@@ -91,7 +90,7 @@ export default function NotificationsPanel({ userId: suppliedUserId }) {
   }, [userId, loadNotifications]);
 
   async function markAsRead(notification) {
-    if (notification.is_read) return;
+    if (notification.is_read || !notification.user_id) return;
 
     const { error: updateError } = await supabase
       .from('notifications')
@@ -115,7 +114,7 @@ export default function NotificationsPanel({ userId: suppliedUserId }) {
 
   async function markAllAsRead() {
     const unreadIds = notifications
-      .filter((item) => !item.is_read)
+      .filter((item) => !item.is_read && item.user_id === userId)
       .map((item) => item.id);
 
     if (unreadIds.length === 0) return;
@@ -136,7 +135,7 @@ export default function NotificationsPanel({ userId: suppliedUserId }) {
     );
   }
 
-  const unreadCount = notifications.filter((item) => !item.is_read).length;
+  const unreadCount = notifications.filter((item) => !item.is_read && item.user_id === userId).length;
 
   return (
     <div className="talaza-notifications">
@@ -169,7 +168,7 @@ export default function NotificationsPanel({ userId: suppliedUserId }) {
             <article
               key={notification.id}
               className={
-                notification.is_read
+                notification.user_id === userId && notification.is_read
                   ? 'talaza-notification'
                   : 'talaza-notification talaza-notification-unread'
               }
@@ -183,12 +182,12 @@ export default function NotificationsPanel({ userId: suppliedUserId }) {
                   {notification.title || 'Notificação Talaza'}
                 </span>
 
-                {notification.content && (
-                  <span>{notification.content}</span>
+                {notification.body && (
+                  <span>{notification.body}</span>
                 )}
 
                 <span className="talaza-notification-meta">
-                  {notification.type || 'Atualização'}
+                  {notification.type === 'general' || !notification.user_id ? 'Aviso geral' : (notification.type || 'Mensagem privada')}
                   {notification.created_at
                     ? ` · ${new Date(
                         notification.created_at
@@ -197,7 +196,7 @@ export default function NotificationsPanel({ userId: suppliedUserId }) {
                 </span>
               </button>
 
-              {!notification.is_read && (
+              {notification.user_id === userId && !notification.is_read && (
                 <span
                   className="talaza-notification-dot"
                   aria-label="Não lida"
