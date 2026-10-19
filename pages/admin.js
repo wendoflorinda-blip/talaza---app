@@ -19,6 +19,8 @@ export default function Admin() {
   const [notificationUserId, setNotificationUserId] = useState('');
   const [notificationTitle, setNotificationTitle] = useState('');
   const [notificationBody, setNotificationBody] = useState('');
+  const [reviewingPaymentId, setReviewingPaymentId] = useState('');
+  const [reviewingPostId, setReviewingPostId] = useState('');
   const [sendingNotification, setSendingNotification] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -319,6 +321,8 @@ export default function Admin() {
   }
 
   async function reviewCommunityPost(post, approved) {
+    if (reviewingPostId) return;
+    setReviewingPostId(post.id);
     const nextModerationStatus = approved ? 'approved' : 'rejected';
     const nextStatus = approved ? 'published' : 'rejected';
 
@@ -333,16 +337,19 @@ export default function Admin() {
       .select('id');
 
     if (error) {
+      setReviewingPostId('');
       alert('A publicação não foi atualizada no Supabase. Verifique as permissões RLS de community_posts: ' + error.message);
       return;
     }
 
     if (!updatedRows || updatedRows.length === 0) {
+      setReviewingPostId('');
       alert('O Supabase não confirmou nenhuma alteração. A política RLS pode estar a bloquear a aprovação ou a publicação já não está pendente.');
       return;
     }
 
     await loadPendingCommunityPosts();
+    setReviewingPostId('');
   }
 
   async function reviewReport(report, status) {
@@ -368,6 +375,8 @@ export default function Admin() {
   }
 
   async function reviewPayment(request, approved) {
+    if (reviewingPaymentId) return;
+    setReviewingPaymentId(request.id);
     const nextStatus = approved ? 'approved' : 'rejected';
     const { data: updatedPayment, error } = await supabase
       .from('payment_submissions')
@@ -376,10 +385,12 @@ export default function Admin() {
       .select('id')
       .maybeSingle();
     if (error) {
+      setReviewingPaymentId('');
       alert('Não foi possível atualizar o pagamento. Confirme as políticas RLS de payment_submissions: ' + error.message);
       return;
     }
     if (!updatedPayment) {
+      setReviewingPaymentId('');
       alert('O Supabase não confirmou a alteração do pagamento. A política RLS pode estar a bloquear a aprovação.');
       return;
     }
@@ -406,6 +417,7 @@ export default function Admin() {
 
     await loadSubscriptionRequests();
     await loadBusinesses();
+    setReviewingPaymentId('');
   }
 
   async function logout() {
@@ -668,8 +680,8 @@ export default function Admin() {
                     {post.image_url && <p><a href={post.image_url} target="_blank" rel="noreferrer" style={{ color: '#075B4E', fontWeight: 700 }}>Ver imagem da publicação ↗</a></p>}
                   </div>
                   {String(post.moderation_status || 'pending').toLowerCase() === 'pending' && <div style={styles.actions}>
-                    <button type="button" style={styles.reject} onClick={() => reviewCommunityPost(post, false)}>Rejeitar publicação</button>
-                    <button type="button" style={styles.approve} onClick={() => reviewCommunityPost(post, true)}>Aprovar e publicar</button>
+                    <button type="button" disabled={reviewingPostId === post.id} style={{ ...styles.reject, opacity: reviewingPostId === post.id ? .6 : 1 }} onClick={() => reviewCommunityPost(post, false)}>{reviewingPostId === post.id ? 'A guardar…' : 'Rejeitar publicação'}</button>
+                    <button type="button" disabled={reviewingPostId === post.id} style={{ ...styles.approve, opacity: reviewingPostId === post.id ? .6 : 1 }} onClick={() => reviewCommunityPost(post, true)}>{reviewingPostId === post.id ? 'A guardar…' : 'Aprovar e publicar'}</button>
                   </div>}
                 </article>
               ))}
@@ -710,8 +722,8 @@ export default function Admin() {
                     {request.proof_url && <p><strong>Comprovativo ({request.proof_type || 'ficheiro'}):</strong> <button type="button" style={styles.proofLink} onClick={() => openProof(request.proof_url)}>Abrir comprovativo ↗</button></p>}
                   </div>
                   {pending && <div style={styles.actions}>
-                    <button style={styles.reject} onClick={() => reviewPayment(request, false)}>Rejeitar pagamento</button>
-                    <button style={styles.approve} onClick={() => reviewPayment(request, true)}>Confirmar pagamento</button>
+                    <button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>
+                    <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Confirmar pagamento'}</button>
                   </div>}
                 </article>;
               })}
