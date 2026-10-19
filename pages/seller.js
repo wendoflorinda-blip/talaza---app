@@ -84,7 +84,7 @@ export default function Seller() {
     setEditNeighborhood(data.neighborhood || '');
 
     const { data: pendingRequest, error: pendingRequestError } = await supabase
-      .from('subscription_requests')
+      .from('payment_submissions')
       .select('id, plan_id, amount, created_at, status')
       .eq('business_id', data.id)
       .order('created_at', { ascending: false })
