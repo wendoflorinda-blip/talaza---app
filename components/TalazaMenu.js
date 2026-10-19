@@ -304,6 +304,9 @@ export default function TalazaMenu({
   const [loadingProvinces, setLoadingProvinces] = useState(false);
   const [message, setMessage] = useState('');
   const [supportSent, setSupportSent] = useState(false);
+  const [supportDraft, setSupportDraft] = useState('');
+  const [supportError, setSupportError] = useState('');
+  const [sendingSupport, setSendingSupport] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -403,6 +406,8 @@ export default function TalazaMenu({
     setScreen('menu');
     setMessage('');
     setSupportSent(false);
+    setSupportDraft('');
+    setSupportError('');
   }
 
   function goHome() {
@@ -463,20 +468,34 @@ export default function TalazaMenu({
     }
   }
 
-  function submitSupport() {
-    const text = message.trim();
-
-    if (!text) return;
-
-    /*
-     * O suporte ainda não é ligado à tabela messages
-     * porque a estrutura de suporte/admin ainda não
-     * foi definida.
-     *
-     * Por enquanto apenas confirmamos a ação na interface.
-     */
-    setSupportSent(true);
-    setMessage('');
+  async function submitSupport() {
+    const text = supportDraft.trim();
+    if (!text || sendingSupport) return;
+    setSupportError('');
+    setSupportSent(false);
+    setSendingSupport(true);
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      const user = authData?.user;
+      if (!user) {
+        setSupportError('Entre na sua conta para enviar uma mensagem ao Suporte Talaza.');
+        return;
+      }
+      const { error } = await supabase.from('support_messages').insert({
+        user_id: user.id,
+        message: text,
+        status: 'pending',
+      });
+      if (error) throw error;
+      setSupportDraft('');
+      setSupportSent(true);
+    } catch (error) {
+      console.error('Erro ao enviar mensagem para o Suporte Talaza:', error);
+      setSupportError('Não foi possível enviar a mensagem. Confirme a ligação e tente novamente.');
+    } finally {
+      setSendingSupport(false);
+    }
   }
 
   return (
@@ -894,12 +913,11 @@ export default function TalazaMenu({
                   </InfoBlock>
 
                   <textarea
-                    value={message}
+                    value={supportDraft}
                     onChange={(event) => {
-                      setMessage(
-                        event.target.value
-                      );
+                      setSupportDraft(event.target.value);
                       setSupportSent(false);
+                      setSupportError('');
                     }}
                     placeholder="Escreva a sua mensagem…"
                     rows={6}
@@ -923,9 +941,7 @@ export default function TalazaMenu({
                   <button
                     type="button"
                     onClick={submitSupport}
-                    disabled={
-                      !message.trim()
-                    }
+                    disabled={!supportDraft.trim() || sendingSupport}
                     style={{
                       width: '100%',
                       border: 'none',
@@ -933,20 +949,22 @@ export default function TalazaMenu({
                       marginTop: 10,
                       padding: '13px 14px',
                       background:
-                        message.trim()
+                        supportDraft.trim() && !sendingSupport
                           ? COLORS.brand
                           : '#BFC9C5',
                       color: '#FFFFFF',
                       fontWeight: 800,
                       fontSize: 12.5,
                       cursor:
-                        message.trim()
+                        supportDraft.trim() && !sendingSupport
                           ? 'pointer'
                           : 'not-allowed',
                     }}
                   >
-                    Enviar mensagem
+                    {sendingSupport ? 'A enviar…' : 'Enviar mensagem'}
                   </button>
+
+                  {supportError && <div role="alert" style={{ marginTop: 10, padding: 12, borderRadius: 12, background: '#FCEBED', color: '#B93845', fontSize: 12 }}>{supportError}</div>}
 
                   {supportSent && (
                     <div
@@ -962,11 +980,7 @@ export default function TalazaMenu({
                         lineHeight: 1.5,
                       }}
                     >
-                      A sua mensagem foi
-                      preparada. A ligação
-                      definitiva ao suporte/admin
-                      será feita quando a estrutura
-                      de suporte estiver definida.
+                      A sua mensagem foi enviada para a equipa Talaza. Poderá ser analisada no painel de administração.
                     </div>
                   )}
                 </SubScreen>
