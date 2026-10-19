@@ -257,6 +257,7 @@ export default function Pagamento() {
   }
 
   async function handleSend() {
+    if (sending) return;
     setError('');
 
     if (!imageFile && !pdfFile) {
@@ -264,12 +265,27 @@ export default function Pagamento() {
       return;
     }
 
+    if (!user?.id || !business?.id || !plan?.id) {
+      setError('A sessão ou os dados do pagamento expiraram. Atualize a página e tente novamente.');
+      return;
+    }
+
     setSending(true);
 
-    let submissionStage = 'preparar envio';
+    let submissionStage = 'confirmar a sessão';
+    const uploadedPaths = [];
     try {
-      const folder = user.id;
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!session?.user?.id || session.user.id !== user.id) {
+        throw new Error('A sessão de utilizador mudou. Entre novamente e tente enviar o comprovativo.');
+      }
+
+      const folder = session.user.id;
       const stamp = Date.now();
+      const uniqueSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2);
 
       let imagePath = null;
       let pdfPath = null;
@@ -277,14 +293,14 @@ export default function Pagamento() {
       if (imageFile) {
         submissionStage = 'carregar a fotografia no armazenamento payment-proofs';
         const blob = await resizeImage(imageFile, { max: 1600 });
-
         imagePath = await uploadPrivateFile(
           supabase,
           'payment-proofs',
-          `${folder}/${stamp}-comprovativo.jpg`,
+          `${folder}/${stamp}-${uniqueSuffix}-comprovativo.jpg`,
           blob,
           'image/jpeg'
         );
+        uploadedPaths.push(imagePath);
       }
 
       if (pdfFile) {
@@ -292,28 +308,54 @@ export default function Pagamento() {
         pdfPath = await uploadPrivateFile(
           supabase,
           'payment-proofs',
-          `${folder}/${stamp}-comprovativo.pdf`,
+          `${folder}/${stamp}-${uniqueSuffix}-comprovativo.pdf`,
           pdfFile,
           'application/pdf'
         );
+        uploadedPaths.push(pdfPath);
       }
 
       submissionStage = 'guardar o pedido na tabela payment_submissions';
-      const { error: insertError } = await supabase
+      const submission = {
+        business_id: business.id,
+        plan_id: plan.id,
+        user_id: session.user.id,
+        amount: Number(plan.price),
+        currency: 'Kz',
+        payment_method: 'Express',
+        proof_url: imagePath || pdfPath,
+        proof_type: imagePath && pdfPath ? 'image+pdf' : imagePath ? 'jpg' : 'pdf',
+        status: 'pending',
+      };
+
+      // As colunas separadas permitem abrir imagem e PDF no painel. Se a base de
+      // dados ainda não recebeu a migração, tentamos o formato legado sem perder
+      // os dois caminhos: ficam guardados juntos em proof_url como JSON.
+      let { error: insertError } = await supabase
         .from('payment_submissions')
         .insert({
-          business_id: business.id,
-          plan_id: plan.id,
-          user_id: user.id,
-          amount: Number(plan.price),
-          currency: 'Kz',
-          payment_method: 'Express',
-          proof_url: imagePath || pdfPath,
+          ...submission,
           proof_image_url: imagePath,
           proof_file_url: pdfPath,
-          proof_type: imagePath && pdfPath ? 'image+pdf' : imagePath ? 'jpg' : 'pdf',
-          status: 'pending',
         });
+
+      const missingProofColumns = insertError && (
+        /proof_image_url|proof_file_url/i.test(insertError.message || '') &&
+        /column|schema cache|does not exist|could not find/i.test(insertError.message || '')
+      );
+
+      if (missingProofColumns) {
+        const legacySubmission = {
+          ...submission,
+          proof_url: imagePath && pdfPath
+            ? JSON.stringify({ imagePath, filePath: pdfPath })
+            : imagePath || pdfPath,
+        };
+        const retry = await supabase
+          .from('payment_submissions')
+          .insert(legacySubmission);
+        insertError = retry.error;
+      }
 
       if (insertError) throw insertError;
 
@@ -321,11 +363,18 @@ export default function Pagamento() {
       window.scrollTo(0, 0);
     } catch (err) {
       console.error('Erro ao enviar comprovativo de pagamento:', err);
+      // Evita deixar ficheiros órfãos no Storage quando o registo na tabela falha.
+      if (uploadedPaths.length) {
+        const { error: cleanupError } = await supabase.storage
+          .from('payment-proofs')
+          .remove(uploadedPaths);
+        if (cleanupError) console.warn('Não foi possível limpar ficheiros de um envio incompleto:', cleanupError);
+      }
       const detail = err?.message || err?.error_description || err?.details || 'Erro desconhecido';
       setError('Falha ao ' + submissionStage + ': ' + detail);
+    } finally {
+      setSending(false);
     }
-
-    setSending(false);
   }
 
   const panelHref = business
