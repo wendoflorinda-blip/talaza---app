@@ -37,6 +37,7 @@ export default function Admin() {
   const [authorized, setAuthorized] = useState(false);
   const [businesses, setBusinesses] = useState([]);
   const [subscriptionRequests, setSubscriptionRequests] = useState([]);
+  const [paymentProofUrls, setPaymentProofUrls] = useState({});
   const [businessNames, setBusinessNames] = useState({});
   const [planNames, setPlanNames] = useState({});
   const [communityReports, setCommunityReports] = useState([]);
@@ -51,6 +52,37 @@ export default function Admin() {
   const [reviewingPostId, setReviewingPostId] = useState('');
   const [sendingNotification, setSendingNotification] = useState(false);
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPaymentProofUrls() {
+      const entries = [];
+      for (const request of subscriptionRequests) {
+        const paths = getPaymentProofPaths(request);
+        for (const [kind, path] of [['image', paths.image], ['file', paths.file]]) {
+          if (path) entries.push([request.id + ':' + kind, path]);
+        }
+      }
+
+      const uniquePaths = [...new Map(entries.map(([key, path]) => [key, path])).entries()];
+      const nextUrls = {};
+      await Promise.all(uniquePaths.map(async ([key, path]) => {
+        const { data, error } = await supabase.storage
+          .from('payment-proofs')
+          .createSignedUrl(path, 300);
+        if (!error && data?.signedUrl) nextUrls[key] = data.signedUrl;
+        else if (error) console.warn('Não foi possível gerar o endereço temporário do comprovativo:', key, error.message);
+      }));
+
+      if (!cancelled) setPaymentProofUrls(nextUrls);
+    }
+
+    if (subscriptionRequests.length) loadPaymentProofUrls();
+    else setPaymentProofUrls({});
+
+    return () => { cancelled = true; };
+  }, [subscriptionRequests]);
 
   useEffect(() => {
     checkAdmin();
@@ -769,13 +801,36 @@ export default function Admin() {
                     <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
                     {(() => {
                       const paths = getPaymentProofPaths(request);
-                      return (paths.image || paths.file) ? (
-                        <div>
-                          <p><strong>Comprovativos enviados:</strong></p>
-                          {paths.image && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem ↗</button></p>}
-                          {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir PDF ↗</button></p>}
+                      const imageUrl = paymentProofUrls[request.id + ':image'];
+                      const fileUrl = paymentProofUrls[request.id + ':file'];
+                      return (
+                        <div style={{ marginTop: 12, padding: 12, border: '1px solid #DCE6E1', borderRadius: 12, background: '#FAFCFB' }}>
+                          <p style={{ marginTop: 0 }}><strong>Comprovativo enviado pela cliente:</strong></p>
+                          {paths.image ? (
+                            <div style={{ marginBottom: 12 }}>
+                              {imageUrl ? (
+                                <a href={imageUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block' }}>
+                                  <img src={imageUrl} alt="Comprovativo de pagamento enviado" style={{ display: 'block', maxWidth: '100%', width: 280, maxHeight: 360, objectFit: 'contain', border: '1px solid #DCE6E1', borderRadius: 8, background: '#fff' }} />
+                                </a>
+                              ) : <p>A preparar a imagem do comprovativo…</p>}
+                              <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem em tamanho completo ↗</button></p>
+                            </div>
+                          ) : null}
+                          {paths.file ? (
+                            <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir/baixar comprovativo PDF ↗</button></p>
+                          ) : null}
+                          {!paths.image && !paths.file && (
+                            <p style={{ color: '#9B3A28', marginBottom: 0 }}>
+                              O registo deste pagamento não contém um caminho de comprovativo legível. Atualize o painel e confirme se a publicação do formulário de pagamento já foi concluída.
+                            </p>
+                          )}
+                          {paths.image && !imageUrl && (
+                            <p style={{ color: '#9B3A28', marginBottom: 0 }}>
+                              O caminho da imagem foi encontrado, mas o Supabase não forneceu acesso temporário. Confirme a política de leitura do bucket privado payment-proofs para administradores.
+                            </p>
+                          )}
                         </div>
-                      ) : null;
+                      );
                     })()}
                   </div>
                   {pending && <div style={styles.actions}>
