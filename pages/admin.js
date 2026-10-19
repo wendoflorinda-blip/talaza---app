@@ -13,6 +13,13 @@ export default function Admin() {
   const [planNames, setPlanNames] = useState({});
   const [communityReports, setCommunityReports] = useState([]);
   const [communityPosts, setCommunityPosts] = useState([]);
+  const [supportMessages, setSupportMessages] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [notificationAudience, setNotificationAudience] = useState('all');
+  const [notificationUserId, setNotificationUserId] = useState('');
+  const [notificationTitle, setNotificationTitle] = useState('');
+  const [notificationBody, setNotificationBody] = useState('');
+  const [sendingNotification, setSendingNotification] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -56,6 +63,8 @@ export default function Admin() {
     await loadSubscriptionRequests();
     await loadCommunityReports();
     await loadPendingCommunityPosts();
+    await loadSupportMessages();
+    await loadProfiles();
 
     setLoading(false);
   }
@@ -223,7 +232,6 @@ export default function Admin() {
     const { data, error } = await supabase
       .from('community_posts')
       .select('*')
-      .eq('moderation_status', 'pending')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -234,6 +242,80 @@ export default function Admin() {
     }
 
     setCommunityPosts(data || []);
+  }
+
+  async function loadSupportMessages() {
+    const { data, error } = await supabase
+      .from('support_messages')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao carregar mensagens do suporte:', error);
+      setMessage('Não foi possível carregar as mensagens do Suporte Talaza: ' + error.message);
+      setSupportMessages([]);
+      return;
+    }
+    setSupportMessages(data || []);
+  }
+
+  async function loadProfiles() {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, name')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Erro ao carregar utilizadores:', error);
+      setMessage('Não foi possível carregar a lista de utilizadores: ' + error.message);
+      setProfiles([]);
+      return;
+    }
+    setProfiles(data || []);
+  }
+
+  async function sendAdminNotification(event) {
+    event.preventDefault();
+    if (!notificationTitle.trim() || !notificationBody.trim()) {
+      alert('Preencha o título e a mensagem da notificação.');
+      return;
+    }
+    if (notificationAudience === 'user' && !notificationUserId) {
+      alert('Escolha o utilizador que vai receber a notificação.');
+      return;
+    }
+
+    setSendingNotification(true);
+    const { error } = await supabase.from('notifications').insert({
+      user_id: notificationAudience === 'all' ? null : notificationUserId,
+      title: notificationTitle.trim(),
+      body: notificationBody.trim(),
+      type: notificationAudience === 'all' ? 'general' : 'individual',
+    });
+    setSendingNotification(false);
+
+    if (error) {
+      alert('Não foi possível enviar a notificação. Confirme se criou a tabela notifications e as políticas RLS indicadas: ' + error.message);
+      return;
+    }
+
+    setNotificationTitle('');
+    setNotificationBody('');
+    alert(notificationAudience === 'all'
+      ? 'Notificação geral enviada. Ficará visível nas notificações dos utilizadores autenticados.'
+      : 'Notificação enviada ao utilizador selecionado.');
+  }
+
+  async function markSupportReviewed(item) {
+    const { error } = await supabase
+      .from('support_messages')
+      .update({ status: 'reviewed' })
+      .eq('id', item.id);
+    if (error) {
+      alert('Não foi possível atualizar a mensagem de suporte: ' + error.message);
+      return;
+    }
+    await loadSupportMessages();
   }
 
   async function reviewCommunityPost(post, approved) {
@@ -548,7 +630,7 @@ export default function Admin() {
               <h2 style={styles.title}>Aprovação da Comunidade Talaza</h2>
               <p style={styles.description}>As publicações só aparecem na comunidade depois da aprovação administrativa.</p>
             </div>
-            <div style={styles.counter}>{communityPosts.length} publicação{communityPosts.length === 1 ? '' : 'ões'} pendente{communityPosts.length === 1 ? '' : 's'}</div>
+            <div style={styles.counter}>{communityPosts.filter(post => String(post.moderation_status || 'pending').toLowerCase() === 'pending').length} por analisar · {communityPosts.length} enviadas</div>
           </div>
           {communityPosts.length === 0 ? (
             <div style={styles.empty}>
@@ -570,7 +652,7 @@ export default function Admin() {
                         Tipo: {post.post_type || '—'} · Alcance: {post.scope === 'country' ? 'Nacional' : 'Provincial'} · {post.created_at ? new Date(post.created_at).toLocaleString('pt-AO') : 'Data não disponível'}
                       </div>
                     </div>
-                    <span style={styles.pending}>Aguardando aprovação</span>
+                    <span style={String(post.moderation_status || 'pending').toLowerCase() === 'pending' ? styles.pending : styles.paymentStatus}>{post.moderation_status || 'pending'}</span>
                   </div>
                   <div style={styles.details}>
                     <p style={{ whiteSpace: 'pre-wrap' }}>{post.content || 'Sem descrição.'}</p>
@@ -579,10 +661,10 @@ export default function Admin() {
                     <p><strong>Expira em:</strong> {post.expires_at ? new Date(post.expires_at).toLocaleString('pt-AO') : 'Não definido'}</p>
                     {post.image_url && <p><a href={post.image_url} target="_blank" rel="noreferrer" style={{ color: '#075B4E', fontWeight: 700 }}>Ver imagem da publicação ↗</a></p>}
                   </div>
-                  <div style={styles.actions}>
+                  {String(post.moderation_status || 'pending').toLowerCase() === 'pending' && <div style={styles.actions}>
                     <button type="button" style={styles.reject} onClick={() => reviewCommunityPost(post, false)}>Rejeitar publicação</button>
                     <button type="button" style={styles.approve} onClick={() => reviewCommunityPost(post, true)}>Aprovar e publicar</button>
-                  </div>
+                  </div>}
                 </article>
               ))}
             </div>
@@ -629,6 +711,62 @@ export default function Admin() {
               })}
             </div>
           )}
+        </section>
+
+        <section style={{ marginTop: 42 }}>
+          <div style={styles.titleRow}>
+            <div>
+              <h2 style={styles.title}>Suporte Talaza — mensagens recebidas</h2>
+              <p style={styles.description}>As mensagens enviadas pelos utilizadores através do menu Suporte Talaza aparecem aqui.</p>
+            </div>
+            <div style={styles.counter}>{supportMessages.filter(item => String(item.status || 'pending') === 'pending').length} por analisar</div>
+          </div>
+          {supportMessages.length === 0 ? (
+            <div style={styles.empty}><div style={styles.emptyIcon}>✉</div><h2>Sem mensagens recebidas</h2><p>As mensagens enviadas pelos utilizadores aparecerão aqui.</p></div>
+          ) : (
+            <div style={styles.list}>{supportMessages.map(item => (
+              <article key={item.id} style={styles.card}>
+                <div style={styles.cardTop}>
+                  <div style={styles.logoPlaceholder}>✉</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={styles.businessName}>{profiles.find(profile => profile.id === item.user_id)?.name || 'Utilizador Talaza'}</h3>
+                    <div style={styles.meta}>{item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : 'Data não disponível'} · {item.status || 'pending'}</div>
+                  </div>
+                  <span style={String(item.status || 'pending') === 'pending' ? styles.pending : styles.paymentStatus}>{item.status || 'pending'}</span>
+                </div>
+                <div style={styles.details}><p style={{ whiteSpace: 'pre-wrap' }}>{item.message}</p><p><strong>ID do utilizador:</strong> {item.user_id}</p></div>
+                {String(item.status || 'pending') === 'pending' && <div style={styles.actions}><button type="button" style={styles.approve} onClick={() => markSupportReviewed(item)}>Marcar como analisada</button></div>}
+              </article>
+            ))}</div>
+          )}
+        </section>
+
+        <section style={{ marginTop: 42 }}>
+          <div style={styles.titleRow}>
+            <div>
+              <h2 style={styles.title}>Notificações do Suporte Talaza</h2>
+              <p style={styles.description}>Envie um aviso a todos os utilizadores ou uma mensagem privada para uma pessoa específica. As notificações ficam na área “Notificações” da conta.</p>
+            </div>
+          </div>
+          <form onSubmit={sendAdminNotification} style={styles.card}>
+            <label style={styles.formLabel} htmlFor="notification-audience">Destinatários</label>
+            <select id="notification-audience" value={notificationAudience} onChange={event => setNotificationAudience(event.target.value)} style={styles.formInput}>
+              <option value="all">Todos os utilizadores (geral)</option>
+              <option value="user">Uma pessoa específica</option>
+            </select>
+            {notificationAudience === 'user' && <>
+              <label style={styles.formLabel} htmlFor="notification-user">Escolher utilizador</label>
+              <select id="notification-user" value={notificationUserId} onChange={event => setNotificationUserId(event.target.value)} style={styles.formInput} required>
+                <option value="">Selecione um utilizador</option>
+                {profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.name || 'Utilizador'} · {profile.id.slice(0, 8)}</option>)}
+              </select>
+            </>}
+            <label style={styles.formLabel} htmlFor="notification-title">Título</label>
+            <input id="notification-title" value={notificationTitle} onChange={event => setNotificationTitle(event.target.value)} maxLength={120} required style={styles.formInput} placeholder="Ex.: Informação importante da Talaza" />
+            <label style={styles.formLabel} htmlFor="notification-body">Mensagem</label>
+            <textarea id="notification-body" value={notificationBody} onChange={event => setNotificationBody(event.target.value)} rows={5} maxLength={5000} required style={{ ...styles.formInput, resize: 'vertical' }} placeholder="Escreva a mensagem que será mostrada na área de notificações." />
+            <div style={styles.actions}><button type="submit" disabled={sendingNotification} style={{ ...styles.approve, opacity: sendingNotification ? .7 : 1 }}>{sendingNotification ? 'A enviar…' : 'Enviar notificação'}</button></div>
+          </form>
         </section>
 
         <section style={{ marginTop: 42 }}>
@@ -816,6 +954,8 @@ const styles = {
 
   paymentStatus: { background: '#EDE6F6', color: '#64358B', padding: '7px 10px', borderRadius: 999, fontSize: 11, fontWeight: 800, textTransform: 'capitalize' },
   proofLink: { border: 0, background: 'transparent', color: '#64358B', textDecoration: 'underline', fontWeight: 800, cursor: 'pointer', padding: 0 },
+  formLabel: { display: 'block', marginTop: 12, marginBottom: 6, color: '#12332D', fontSize: 13, fontWeight: 800 },
+  formInput: { display: 'block', width: '100%', boxSizing: 'border-box', border: '1px solid #DDE5E0', borderRadius: 10, padding: '12px 13px', background: '#FFFFFF', color: '#12332D', fontSize: 14, fontFamily: 'inherit' },
 
   pending: {
     background: '#FFF3C7',
