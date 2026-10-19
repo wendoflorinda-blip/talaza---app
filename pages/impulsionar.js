@@ -50,7 +50,7 @@ export default function Impulsionar() {
     }
     setBusiness(businessData);
     const { data: pendingData, error: pendingError } = await supabase
-      .from('subscription_requests')
+      .from('payment_submissions')
       .select('id, plan_id, amount, created_at, status')
       .eq('business_id', businessData.id)
       .order('created_at', { ascending: false })
