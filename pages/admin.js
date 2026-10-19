@@ -2,6 +2,33 @@
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
+function getPaymentProofPaths(request) {
+  const image = request?.proof_image_url || null;
+  const file = request?.proof_file_url || null;
+  if (image || file) return { image, file };
+
+  const legacyValue = request?.proof_url;
+  if (!legacyValue) return { image: null, file: null };
+
+  // Compatibilidade com pedidos antigos e com a alternativa JSON se a migração
+  // das colunas separadas ainda não estiver aplicada.
+  try {
+    const parsed = JSON.parse(legacyValue);
+    if (parsed && typeof parsed === 'object') {
+      return {
+        image: parsed.imagePath || parsed.image || null,
+        file: parsed.filePath || parsed.file || null,
+      };
+    }
+  } catch (_) {
+    // proof_url antigo contém diretamente o caminho do ficheiro.
+  }
+
+  return String(request?.proof_type || '').toLowerCase() === 'pdf'
+    ? { image: null, file: legacyValue }
+    : { image: legacyValue, file: null };
+}
+
 export default function Admin() {
   const router = useRouter();
 
@@ -740,17 +767,16 @@ export default function Admin() {
                   <div style={styles.details}>
                     <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
                     <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
-                    {(request.proof_image_url || request.proof_file_url || request.proof_url) && (
-                      <div>
-                        <p><strong>Comprovativos enviados:</strong></p>
-                        {(request.proof_image_url || (!request.proof_file_url && request.proof_type !== 'pdf' && request.proof_url)) && (
-                          <p><button type="button" style={styles.proofLink} onClick={() => openProof(request.proof_image_url || request.proof_url)}>Abrir imagem ↗</button></p>
-                        )}
-                        {(request.proof_file_url || (request.proof_type === 'pdf' && request.proof_url)) && (
-                          <p><button type="button" style={styles.proofLink} onClick={() => openProof(request.proof_file_url || request.proof_url)}>Abrir PDF ↗</button></p>
-                        )}
-                      </div>
-                    )}
+                    {(() => {
+                      const paths = getPaymentProofPaths(request);
+                      return (paths.image || paths.file) ? (
+                        <div>
+                          <p><strong>Comprovativos enviados:</strong></p>
+                          {paths.image && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem ↗</button></p>}
+                          {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir PDF ↗</button></p>}
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                   {pending && <div style={styles.actions}>
                     <button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>
