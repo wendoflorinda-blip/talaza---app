@@ -22,6 +22,7 @@ export default function Seller() {
   const [editNeighborhood, setEditNeighborhood] = useState('');
   const [logoFile, setLogoFile] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
+  const [assetUploading, setAssetUploading] = useState(false);
   const [subscriptionPending, setSubscriptionPending] = useState(false);
   const [pendingPlan, setPendingPlan] = useState(null);
   const [notice, setNotice] = useState('');
@@ -179,6 +180,41 @@ export default function Seller() {
     }
   }
 
+  async function uploadBrandAsset(file, field) {
+    if (!file || !user || !business) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Escolha um ficheiro de imagem válido.');
+      return;
+    }
+    const limit = field === 'logo_url' ? 8 : 10;
+    if (file.size > limit * 1024 * 1024) {
+      setError('A imagem deve ter no máximo ' + limit + ' MB.');
+      return;
+    }
+    setAssetUploading(true);
+    setError('');
+    setNotice('');
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = user.id + '/' + field.replace('_url', '') + '-' + Date.now() + '.' + ext;
+      const { error: uploadError } = await supabase.storage.from('business-media').upload(path, file, {
+        upsert: false, contentType: file.type, cacheControl: '3600'
+      });
+      if (uploadError) throw uploadError;
+      const url = supabase.storage.from('business-media').getPublicUrl(path).data?.publicUrl;
+      if (!url) throw new Error('Não foi possível obter o endereço público da imagem.');
+      const { error: updateError } = await supabase.from('businesses').update({ [field]: url }).eq('id', business.id).eq('owner_id', user.id);
+      if (updateError) throw updateError;
+      setBusiness((previous) => ({ ...previous, [field]: url }));
+      setNotice(field === 'logo_url' ? 'Logo atualizada.' : 'Imagem principal atualizada.');
+    } catch (uploadError) {
+      console.error(uploadError);
+      setError('Não foi possível guardar a imagem. ' + (uploadError.message || 'Confirma as permissões do armazenamento.'));
+    } finally {
+      setAssetUploading(false);
+    }
+  }
+
   async function handleLogout() {
     setError('');
     const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' });
@@ -318,6 +354,8 @@ export default function Seller() {
         </div>
       </header>
 
+      <input id="talaza-logo-upload" type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) uploadBrandAsset(file, 'logo_url'); }} />
+      <input id="talaza-cover-upload" type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) uploadBrandAsset(file, 'cover_url'); }} />
       <main
         style={{
           maxWidth: 1000,
@@ -331,7 +369,12 @@ export default function Seller() {
             color: '#FFFFFF',
             borderRadius: 24,
             padding: 25,
-            boxShadow: '0 15px 40px rgba(0,70,60,.13)'
+            boxShadow: '0 15px 40px rgba(0,70,60,.13)',
+            position: 'relative',
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0,1fr) minmax(130px,220px)',
+            gap: 20,
+            alignItems: 'center'
           }}
         >
           <div
@@ -354,9 +397,12 @@ export default function Seller() {
             {business.name}
           </h1>
 
-          {business.logo_url ? (
-            <img src={business.logo_url} alt={"Logo de " + business.name} onError={(event) => { event.currentTarget.style.display = 'none'; }} style={{ width: 86, height: 86, objectFit: 'cover', borderRadius: 20, border: '3px solid rgba(255,255,255,.65)', marginBottom: 12 }} />
-          ) : <div aria-label="Logo ainda não adicionado" style={{ width: 86, height: 86, display: 'grid', placeItems: 'center', background: '#E6A900', color: '#075B4E', borderRadius: 20, fontSize: 30, fontWeight: 900, marginBottom: 12 }}>{(business.name || 'T').charAt(0).toUpperCase()}</div>}
+          <div style={{ position: 'relative', width: 88, height: 88, margin: '14px 0 12px' }}>
+            {business.logo_url ? (
+              <img src={business.logo_url} alt={"Logo de " + business.name} onError={(event) => { event.currentTarget.style.display = 'none'; }} style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 20, border: '3px solid rgba(255,255,255,.65)' }} />
+            ) : <div aria-label="Logo ainda não adicionado" style={{ width: 88, height: 88, display: 'grid', placeItems: 'center', background: '#E6A900', color: '#075B4E', borderRadius: 20, fontSize: 30, fontWeight: 900 }}>{(business.name || 'T').charAt(0).toUpperCase()}</div>}
+            <button type="button" aria-label="Adicionar ou alterar logo" disabled={assetUploading || subscriptionPending} onClick={() => document.getElementById('talaza-logo-upload')?.click()} style={{ position: 'absolute', right: -8, bottom: -8, width: 30, height: 30, borderRadius: '50%', border: '2px solid #075B4E', background: '#FFFFFF', color: '#075B4E', fontSize: 22, fontWeight: 900, lineHeight: 1, cursor: assetUploading || subscriptionPending ? 'not-allowed' : 'pointer' }}>+</button>
+          </div>
           <p
             style={{
               margin: 0,
@@ -386,11 +432,14 @@ export default function Seller() {
           )}
         </div>
 
-        {business.cover_url && (
-          <div style={{ marginTop: 18, borderRadius: 20, overflow: 'hidden', background: '#EAF4F1' }}>
-            <img src={business.cover_url} alt={"Imagem principal de " + business.name} onError={(event) => { event.currentTarget.style.display = 'none'; }} style={{ display: 'block', width: '100%', maxHeight: 320, objectFit: 'cover' }} />
-          </div>
-        )}
+        <div style={{ marginTop: 18, borderRadius: 20, overflow: 'hidden', background: '#EAF4F1', position: 'relative', minHeight: 150 }}>
+          {business.cover_url ? (
+            <img src={business.cover_url} alt={"Imagem principal de " + business.name} onError={(event) => { event.currentTarget.style.display = 'none'; }} style={{ display: 'block', width: '100%', maxHeight: 320, minHeight: 150, objectFit: 'cover' }} />
+          ) : (
+            <div style={{ minHeight: 150, display: 'grid', placeItems: 'center', color: '#075B4E', fontWeight: 800 }}>Imagem principal do negócio</div>
+          )}
+          <button type="button" aria-label="Adicionar ou alterar imagem principal" disabled={assetUploading || subscriptionPending} onClick={() => document.getElementById('talaza-cover-upload')?.click()} style={{ position: 'absolute', right: 14, bottom: 14, width: 36, height: 36, borderRadius: '50%', border: '2px solid #075B4E', background: '#FFFFFF', color: '#075B4E', fontSize: 25, fontWeight: 900, cursor: assetUploading || subscriptionPending ? 'not-allowed' : 'pointer' }}>+</button>
+        </div>
 
         {subscriptionPending && (
           <div style={{ marginTop: 18, padding: 16, background: '#FFF5D6', border: '1px solid #EBD58C', borderRadius: 14, color: '#5B4300' }}>
@@ -400,182 +449,27 @@ export default function Seller() {
           </div>
         )}
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 18 }}>
-          {subscriptionPending ? (
-            <button type="button" disabled title="O comprovativo está em verificação" style={{ padding: '13px 18px', background: '#E6E9E7', color: '#596560', border: 0, borderRadius: 12, fontWeight: 800, cursor: 'not-allowed' }}>
-              Em verificação
-            </button>
-          ) : (
-            <Link href={{ pathname: '/impulsionar', query: { business: business.id } }} onClick={(event) => { if (!window.confirm('Pretende consultar ou mudar o plano de hospedagem deste negócio?')) event.preventDefault(); }} style={{ padding: '13px 18px', background: '#E6A900', color: '#17342F', borderRadius: 12, textDecoration: 'none', fontWeight: 800 }}>
-              Mudar plano / Ver planos
-            </Link>
-          )}
-          <button type="button" disabled={subscriptionPending} onClick={() => { setEditing((v) => !v); setError(''); setNotice(''); }} style={{ padding: '13px 18px', background: subscriptionPending ? '#E6E9E7' : '#FFFFFF', color: subscriptionPending ? '#596560' : '#075B4E', border: '1px solid #BFD8D0', borderRadius: 12, fontWeight: 800, cursor: subscriptionPending ? 'not-allowed' : 'pointer' }}>
-            {subscriptionPending ? 'Edição bloqueada durante a verificação' : editing ? 'Cancelar edição' : 'Editar negócio'}
-          </button>
-        </div>
 
         {notice && <div role="status" style={{ marginTop: 16, padding: 13, background: '#E8F6F1', color: '#075B4E', borderRadius: 12, fontWeight: 700 }}>{notice}</div>}
         {error && <div role="alert" style={{ marginTop: 16, padding: 13, background: '#FCEBED', color: '#A52F3B', borderRadius: 12 }}>{error}</div>}
 
-        {editing && (
-          <form onSubmit={saveBusiness} style={{ marginTop: 20, background: '#FFFFFF', border: '1px solid #DDE7E3', borderRadius: 20, padding: 22, display: 'grid', gap: 13 }}>
-            <h2 style={{ margin: 0, color: '#075B4E' }}>Editar negócio</h2>
-            <p style={{ margin: 0, color: '#66736F', fontSize: 13, lineHeight: 1.5 }}>Pode alterar os dados do negócio, contactos, horário, descrição, logo e imagem principal. A província não pode ser alterada nesta área.</p>
-            {[
-              ['Nome do negócio', editName, setEditName],
-              ['Contacto principal', editPhone, setEditPhone],
-              ['Outro contacto / WhatsApp', editWhatsapp, setEditWhatsapp],
-              ['Município', editMunicipality, setEditMunicipality],
-              ['Bairro', editNeighborhood, setEditNeighborhood],
-              ['Horário de funcionamento', editHours, setEditHours],
-            ].map(([label, value, setter]) => (
-              <label key={label} style={{ display: 'grid', gap: 6, fontSize: 13, fontWeight: 800, color: '#17342F' }}>
-                {label}
-                <input value={value} onChange={(e) => setter(e.target.value)} style={{ padding: 12, border: '1px solid #DDE7E3', borderRadius: 10, font: 'inherit', fontWeight: 500 }} />
-              </label>
-            ))}
-            <label style={{ display: 'grid', gap: 6, fontSize: 13, fontWeight: 800, color: '#17342F' }}>Descrição
-              <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={4} style={{ padding: 12, border: '1px solid #DDE7E3', borderRadius: 10, font: 'inherit', fontWeight: 500 }} />
-            </label>
-            <label style={{ display: 'grid', gap: 6, fontSize: 13, fontWeight: 800, color: '#17342F' }}>Mudar logo
-              <input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] || null)} />
-            </label>
-            <label style={{ display: 'grid', gap: 6, fontSize: 13, fontWeight: 800, color: '#17342F' }}>Mudar imagem principal
-              <input type="file" accept="image/*" onChange={(e) => setCoverFile(e.target.files?.[0] || null)} />
-            </label>
-            <button type="submit" disabled={saving} style={{ padding: 14, border: 0, borderRadius: 12, background: '#075B4E', color: '#FFFFFF', fontWeight: 900, cursor: saving ? 'wait' : 'pointer' }}>{saving ? 'A guardar…' : 'Guardar alterações'}</button>
-          </form>
-        )}
 
-        <section
-          style={{
-            marginTop: 22,
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit,minmax(210px,1fr))',
-            gap: 14
-          }}
-        >
-          {[
-            ['✎', 'Editar negócio'],
-            ['▣', 'Fotos e logo'],
-            ['◫', 'Produtos'],
-            ['◉', 'Mensagens'],
-            ['●', 'Notificações'],
-            ['◆', 'Impulsionar']
-          ].map(([icon, title]) => (
-            <button
-              key={title}
-              onClick={() => { if (title === 'Impulsionar' && !subscriptionPending) router.push({ pathname: '/impulsionar', query: { business: business.id } }); else if (title === 'Editar negócio' || title === 'Fotos e logo') setEditing(true); else if (title === 'Mensagens') router.push('/mensagens'); }}
-              style={{
-                border: '1px solid #DDE7E3',
-                background: '#FFFFFF',
-                borderRadius: 18,
-                padding: 20,
-                textAlign: 'left',
-                cursor: 'pointer'
-              }}
-            >
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 12,
-                  background: '#EAF4F1',
-                  color: '#075B4E',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 900,
-                  marginBottom: 12
-                }}
-              >
-                {icon}
-              </div>
 
-              <strong style={{ color: '#17342F' }}>
-                {title}
-              </strong>
-            </button>
-          ))}
-        </section>
-
-        <div
-          style={{
-            marginTop: 25,
-            background: '#FFFFFF',
-            borderRadius: 20,
-            padding: 22
-          }}
-        >
-          <h3
-            style={{
-              marginTop: 0,
-              color: '#075B4E'
-            }}
-          >
-            Informações do negócio
-          </h3>
-
-          <p style={{ color: '#66736F', lineHeight: 1.6 }}>
-            {business.description || 'Ainda não adicionou uma descrição.'}
-          </p>
-
-          <div
-            style={{
-              marginTop: 15,
-              display: 'grid',
-              gap: 9,
-              color: '#52615D',
-              fontSize: 14
-            }}
-          >
-            <div>
-              <strong>Contacto:</strong>{' '}
-              {business.phone || business.whatsapp || 'Não definido'}
-            </div>
-
-            <div>
-              <strong>Telefone:</strong>{' '}
-              {business.phone || 'Não definido'}
-            </div>
-
-            <div>
-              <strong>Endereço:</strong>{' '}
-              {business.address || 'Não definido'}
-            </div>
-
-            <div>
-              <strong>Horário:</strong>{' '}
-              {business.opening_hours || 'Não definido'}
-            </div>
+        <section style={{ marginTop: 22, padding: 22, borderRadius: 20, color: '#FFFFFF', background: 'linear-gradient(135deg,#4A1F73,#5B2A86 55%,#74399F)', boxShadow: '0 12px 28px rgba(91,42,134,.18)' }}>
+          <div style={{ color: '#F3D77A', fontSize: 11, fontWeight: 900, letterSpacing: 1.5, marginBottom: 8 }}>DESCRIÇÃO DO NEGÓCIO</div>
+          <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.75, fontSize: 14 }}>{business.description || 'A descrição do teu negócio aparecerá aqui. Conta aos clientes o que ofereces, o que torna os teus produtos especiais e como podem entrar em contacto contigo.'}</p>
+          <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,.2)', fontSize: 12, lineHeight: 1.8, color: '#F4EDFB' }}>
+            <div><strong>Contacto:</strong> {business.phone || 'Não definido'}</div>
+            <div><strong>WhatsApp:</strong> {business.whatsapp || 'Não definido'}</div>
+            <div><strong>Horário:</strong> {business.opening_hours || 'Não definido'}</div>
+            <div><strong>Endereço:</strong> {[business.municipality, business.neighborhood].filter(Boolean).join(' · ') || 'Não definido'}</div>
           </div>
+        </section>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 22 }}>
+          <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id } })} style={{ padding: '14px 22px', borderRadius: 12, background: '#E6A900', color: '#17342F', fontWeight: 900, border: 0, cursor: 'pointer' }}>Produtos</button>
         </div>
+        <button type="button" onClick={() => { if (!subscriptionPending) router.push({ pathname: '/impulsionar', query: { business: business.id } }); }} disabled={subscriptionPending} style={{ position: 'fixed', right: 0, top: '44%', zIndex: 15, writingMode: 'vertical-rl', transform: 'rotate(180deg)', padding: '18px 12px', borderRadius: '18px 0 0 18px', background: 'linear-gradient(160deg,#F7CF45,#E6A900 55%,#C98F00)', color: '#17342F', boxShadow: '-6px 8px 22px rgba(201,143,0,.35)', fontWeight: 900, letterSpacing: 1, border: 0, cursor: subscriptionPending ? 'not-allowed' : 'pointer' }} aria-label="Impulsionar negócio">⚡ Impulsionar</button>
 
-        <Link
-          href={{
-            pathname: '/explore',
-            query: {
-              country,
-              province
-            }
-          }}
-          style={{
-            display: 'block',
-            marginTop: 22,
-            textAlign: 'center',
-            padding: 15,
-            borderRadius: 14,
-            border: '2px solid #075B4E',
-            color: '#075B4E',
-            textDecoration: 'none',
-            fontWeight: 800,
-            background: '#FFFFFF'
-          }}
-        >
-          ← Explorar a Talaza como cliente
-        </Link>
       </main>
     </div>
   );
