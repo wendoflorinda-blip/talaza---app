@@ -8,8 +8,8 @@ const COLORS = {
   green: '#0F6E5C',
   darkGreen: '#083F35',
   gold: '#DDA10A',
-  purple: '#075B4E',
-  purpleSoft: '#EAF4F1',
+  purple: '#7656A6',
+  purpleSoft: '#F2EDF8',
   ink: '#17211F',
   muted: '#596560',
   faint: '#89948F',
@@ -37,14 +37,18 @@ function cleanText(value) {
   return String(value || '').trim();
 }
 
-function makeBusinessHref(id, country, province) {
+function makeBusinessHref(id, country, province, subcategoryId) {
   const params = new URLSearchParams();
-
   if (country) params.set('country', country);
   if (province) params.set('province', province);
-
+  if (subcategoryId) {
+    const returnParams = new URLSearchParams();
+    returnParams.set('id', subcategoryId);
+    if (country) returnParams.set('country', country);
+    if (province) returnParams.set('province', province);
+    params.set('returnTo', `/subcategory?${returnParams.toString()}`);
+  }
   const query = params.toString();
-
   return `/businesses/${id}${query ? `?${query}` : ''}`;
 }
 
@@ -616,7 +620,7 @@ export default function Subcategory() {
                               ) : (
                                 <span className="messageButton disabledButton" aria-disabled="true">Enviar mensagem</span>
                               )}
-                              <Link className="profileButton" href={makeBusinessHref(business.id, country, province)}>Ver perfil</Link>
+                              <Link className="profileButton" href={makeBusinessHref(business.id, country, province, id)}>Ver perfil</Link>
                             </div>
                           </div>
                         </article>
@@ -968,7 +972,7 @@ export default function Subcategory() {
           position: relative;
           display: grid;
           place-items: center;
-          height: 150px;
+          height: 128px;
           overflow: hidden;
           background: #F6F0E0;
           color: #8B6505;
@@ -1053,7 +1057,7 @@ export default function Subcategory() {
         .businessGrid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 18px;
+          gap: 14px;
         }
 
         .businessCard {
@@ -1100,12 +1104,12 @@ export default function Subcategory() {
 
         .cardLogo {
           position: absolute;
-          left: 17px;
-          bottom: -28px;
+          left: 14px;
+          bottom: -24px;
           display: grid;
           place-items: center;
-          width: 68px;
-          height: 68px;
+          width: 60px;
+          height: 60px;
           overflow: hidden;
           border: 4px solid #fff;
           border-radius: 50%;
@@ -1118,14 +1122,14 @@ export default function Subcategory() {
 
         .cardLogo img { width: 100%; height: 100%; object-fit: cover; }
 
-        .businessInfo { min-width: 0; padding: 37px 16px 16px; }
+        .businessInfo { min-width: 0; padding: 32px 14px 14px; }
 
         .businessTitleRow { display: flex; align-items: center; gap: 7px; }
 
         .businessTitleRow h3 {
           overflow-wrap: anywhere;
           margin: 0 0 7px;
-          font-size: 17px;
+          font-size: 16px;
           line-height: 1.35;
         }
 
@@ -1147,7 +1151,7 @@ export default function Subcategory() {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 6px;
-          margin: 0 0 15px;
+          margin: 0 0 11px;
         }
 
         .mainPreview { aspect-ratio: 1 / 1; overflow: hidden; border-radius: 9px; background: #EDF3F0; }
@@ -1171,7 +1175,7 @@ export default function Subcategory() {
           display: flex;
           align-items: center;
           justify-content: center;
-          min-height: 42px;
+          min-height: 38px;
           padding: 9px 8px;
           box-sizing: border-box;
           border-radius: 11px;
@@ -1398,7 +1402,7 @@ export default function Subcategory() {
           .businessGrid {
             grid-template-columns: 1fr;
           }
-          .cardCover { height: 170px; }
+          .cardCover { height: 145px; }
           .businessInfo { padding-left: 14px; padding-right: 14px; }
 
           .filters {
