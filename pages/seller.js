@@ -339,24 +339,6 @@ export default function Seller() {
     if (!data?.length) throw new Error('Sem permissão para alterar esta imagem.');
   }
 
-  // A primeira imagem principal também fica em businesses.cover_url,
-  // para o resto do site continuar a mostrar a capa do negócio.
-  async function syncCover(list) {
-    const mains = (list || []).filter((i) => i.kind === 'main').sort((a, b) => a.slot - b.slot);
-    const coverUrl = mains[0]?.image_url || null;
-    if ((business?.cover_url || null) === coverUrl) return;
-    const { error: coverError } = await supabase
-      .from('businesses')
-      .update({ cover_url: coverUrl })
-      .eq('id', business.id)
-      .eq('owner_id', user.id);
-    if (coverError) {
-      console.error('Não foi possível atualizar a capa:', coverError);
-      return;
-    }
-    setBusiness((previous) => ({ ...previous, cover_url: coverUrl }));
-  }
-
   async function saveMainImage(slot, file) {
     await runGallery(async () => {
       const { url, path } = await uploadGalleryFile(file, true);
@@ -367,8 +349,7 @@ export default function Seller() {
         await removeStored(path);
         throw insertError;
       }
-      const list = await loadImages(business.id);
-      await syncCover(list);
+      await loadImages(business.id);
       setNotice('Imagem principal adicionada.');
     });
   }
@@ -409,8 +390,7 @@ export default function Seller() {
         throw replaceError;
       }
       await removeStored(item.storage_path);
-      const list = await loadImages(business.id);
-      if (item.kind === 'main') await syncCover(list);
+      await loadImages(business.id);
       setNotice('Imagem atualizada.');
     });
   }
@@ -426,8 +406,7 @@ export default function Seller() {
       if (deleteError) throw deleteError;
       if (!deleted?.length) throw new Error('Sem permissão para remover esta imagem.');
       await removeStored(item.storage_path);
-      const list = await loadImages(business.id);
-      if (item.kind === 'main') await syncCover(list);
+      await loadImages(business.id);
       setNotice('Imagem removida.');
     });
   }
@@ -491,17 +470,6 @@ export default function Seller() {
     setSheetName(item.name || '');
     setSheetDesc(item.description || '');
     setSheet({ type: 'text', id: item.id });
-  }
-
-  function addFromHero() {
-    if (subscriptionPending || galleryBusy) return;
-    const free = [0, 1, 2].find((slot) => !images.some((i) => i.kind === 'main' && i.slot === slot));
-    if (free === undefined) {
-      setNotice('Já tem 3 imagens principais. Para mudar uma, use a secção Imagens principais.');
-      scrollToId('galeria-principais');
-      return;
-    }
-    pickImages(false, (files) => saveMainImage(free, files[0]));
   }
 
   function scrollToId(id) {
@@ -577,7 +545,7 @@ export default function Seller() {
   const mainImages = [0, 1, 2].map((slot) => images.find((i) => i.kind === 'main' && i.slot === slot) || null);
   const mainCount = mainImages.filter(Boolean).length;
   const panelImages = images.filter((i) => i.kind === 'panel');
-  const heroImage = mainImages.find(Boolean)?.image_url || business.cover_url;
+  const heroImage = business.cover_url || null;
   const locked = subscriptionPending || galleryBusy || assetUploading;
   const sheetItem = sheet ? images.find((i) => i.id === sheet.id) : null;
   const addressLine = [business.municipality, business.neighborhood].filter(Boolean).join(' · ');
@@ -688,7 +656,6 @@ export default function Seller() {
               </div>
               <button type="button" aria-label="Adicionar ou alterar logo" disabled={assetUploading || subscriptionPending} onClick={() => document.getElementById('talaza-logo-upload')?.click()} style={{ position: 'absolute', right: -5, bottom: -5, width: 32, height: 32, borderRadius: '50%', border: '2px solid #FFFFFF', background: '#E6A900', color: '#075B4E', fontSize: 23, fontWeight: 900, lineHeight: 1, cursor: assetUploading || subscriptionPending ? 'not-allowed' : 'pointer' }}>+</button>
             </div>
-            <button type="button" aria-label="Adicionar imagem principal" disabled={locked} onClick={addFromHero} style={{ position: 'absolute', right: 16, top: 16, width: 38, height: 38, borderRadius: '50%', border: '2px solid #FFFFFF', background: '#FFFFFF', color: '#075B4E', fontSize: 26, fontWeight: 900, lineHeight: 1, cursor: locked ? 'not-allowed' : 'pointer', boxShadow: '0 3px 12px rgba(0,0,0,.2)' }}>+</button>
             <div style={{ position: 'absolute', left: 20, right: 20, bottom: 18, color: '#FFFFFF' }}>
               <div style={{ color: '#FFD04A', fontSize: 11, fontWeight: 900, letterSpacing: 1.5, marginBottom: 5 }}>O SEU NEGÓCIO</div>
               <h1 style={{ margin: 0, fontSize: 'clamp(25px,5vw,36px)', lineHeight: 1.15 }}>{business.name}</h1>
@@ -720,16 +687,9 @@ export default function Seller() {
           </div>
         )}
 
-        <section style={{ marginTop: 16, padding: 20, borderRadius: 18, color: '#FFFFFF', background: 'linear-gradient(135deg,#4A1F73,#5B2A86 55%,#74399F)', boxShadow: '0 12px 28px rgba(91,42,134,.15)' }}>
-          <div style={{ color: '#F3D77A', fontSize: 11, fontWeight: 900, letterSpacing: 1.5, marginBottom: 8 }}>DESCRIÇÃO DO NEGÓCIO</div>
-          <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.7, fontSize: 14 }}>{business.description || 'Apresente os seus produtos e serviços, explique o que os torna especiais e convide os clientes a falar consigo.'}</p>
-        </section>
-
-        {/* Botões: Produtos abre a vista do cliente; os outros descem até à secção */}
+        {/* Pré-visualização da loja */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 20 }}>
-          <button type="button" onClick={() => setCustomerOpen(true)} style={{ padding: '13px 22px', borderRadius: 13, background: '#E6A900', color: '#17342F', fontWeight: 900, border: 0, cursor: 'pointer', minWidth: 150 }}>▦ Produtos</button>
-          <button type="button" onClick={() => scrollToId('galeria-principais')} style={{ padding: '13px 16px', borderRadius: 13, background: '#7252B8', color: '#FFFFFF', fontWeight: 900, border: 0, cursor: 'pointer', flex: '1 1 180px' }}>▧ Imagens principais</button>
-          <button type="button" onClick={() => scrollToId('galeria-painel')} style={{ padding: '13px 16px', borderRadius: 13, background: '#7252B8', color: '#FFFFFF', fontWeight: 900, border: 0, cursor: 'pointer', flex: '1 1 180px' }}>▧ Imagens de painel</button>
+          <button type="button" onClick={() => setCustomerOpen(true)} style={{ padding: '13px 22px', borderRadius: 13, background: '#E6A900', color: '#17342F', fontWeight: 900, border: 0, cursor: 'pointer', minWidth: 150 }}>▦ Pré-visualizar loja</button>
         </div>
 
         {/* IMAGENS PRINCIPAIS · 3 lugares · 600x600 */}
@@ -882,10 +842,10 @@ export default function Seller() {
         .gal-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
         .gal-head h2{margin:0;font-size:19px;color:#075B4E;flex:1}
         .gal-count{font-weight:700;color:#5A6A64;font-size:14px}
-        .gal-add{background:#7252B8;color:#fff;font-weight:700;font-size:13px;padding:8px 12px;border-radius:10px;border:0;cursor:pointer}
+        .gal-add{background:#075B4E;color:#fff;font-weight:700;font-size:13px;padding:8px 12px;border-radius:10px;border:0;cursor:pointer}
         .gal-add:disabled{opacity:.5;cursor:not-allowed}
         .gal-sub{margin:0 0 12px;font-size:12.5px;color:#5A6A64}
-        .gal-rot{font-size:14px;font-weight:700;margin:2px 0 8px;color:#7252B8}
+        .gal-rot{font-size:14px;font-weight:700;margin:2px 0 8px;color:#075B4E}
         .gal-alert{margin:0 0 10px;padding:11px 13px;background:#FCEBED;color:#A52F3B;border-radius:12px;font-size:13px}
 
         .mains{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:2px}
