@@ -225,16 +225,23 @@ export default function Admin() {
   }
 
   async function updateBusiness(id, status) {
-    const businessForReview = businesses.find(item => item.id === id);
-    const rejectionReason = status === 'rejected' ? window.prompt('Indique o motivo da recusa do cadastro do vendedor:') : '';
+    const businessForReview = businesses.find((item) => item.id === id);
+    const rejectionReason = status === 'rejected'
+      ? window.prompt('Indique o motivo da recusa do cadastro do vendedor:')
+      : '';
+
     if (status === 'rejected' && (!rejectionReason || !rejectionReason.trim())) return;
-    let isPaid = false;
+
+    let approvedPayment = null;
+    let planDuration = 0;
     let endDate = null;
 
+    // A aprovação comercial e a hospedagem são coisas diferentes:
+    // o perfil só fica ativo se existir um pagamento aprovado com plano válido.
     if (status === 'approved') {
       const { data: payment, error: paymentError } = await supabase
         .from('payment_submissions')
-        .select('plan_id, status')
+        .select('id, plan_id, status')
         .eq('business_id', id)
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
@@ -258,35 +265,98 @@ export default function Admin() {
           return;
         }
 
-        if (plan?.duration_days) {
-          isPaid = true;
-          endDate = new Date(Date.now() + Number(plan.duration_days) * 86400000).toISOString();
+        planDuration = Number(plan?.duration_days) || 0;
+        if (planDuration > 0) {
+          approvedPayment = payment;
+          endDate = new Date(Date.now() + planDuration * 86400000).toISOString();
         }
       }
     }
 
-    const updates = { approval_status: status, is_active: isPaid };
-    if (isPaid && endDate) {
-      // businesses não tem coluna plan_id neste esquema.
-      // O plano escolhido permanece registado em payment_submissions.plan_id.
-      updates.trial_ends_at = endDate;
+    // Não escrever trial_ends_at em businesses: essa coluna não existe.
+    // O período de hospedagem fica registado em business_subscriptions.
+    if (status === 'approved' && approvedPayment && endDate) {
+      const { data: existingSubscription, error: subscriptionReadError } = await supabase
+        .from('business_subscriptions')
+        .select('id')
+        .eq('business_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (subscriptionReadError) {
+        alert('Não foi possível consultar a hospedagem atual: ' + subscriptionReadError.message);
+        return;
+      }
+
+      const subscription = {
+        business_id: id,
+        plan_id: approvedPayment.plan_id,
+        starts_at: new Date().toISOString(),
+        status: 'active',
+        expires_at: endDate,
+      };
+
+      const subscriptionResult = existingSubscription?.id
+        ? await supabase
+            .from('business_subscriptions')
+            .update(subscription)
+            .eq('id', existingSubscription.id)
+            .select('id')
+            .maybeSingle()
+        : await supabase
+            .from('business_subscriptions')
+            .insert(subscription)
+            .select('id')
+            .maybeSingle();
+
+      if (subscriptionResult.error || !subscriptionResult.data) {
+        alert('O pagamento está aprovado, mas não foi possível registar a hospedagem em business_subscriptions: ' + (subscriptionResult.error?.message || 'Nenhuma linha foi alterada.'));
+        return;
+      }
     }
+
+    const isPaid = status === 'approved' && Boolean(approvedPayment && endDate);
+    const updates = {
+      approval_status: status,
+      is_active: isPaid,
+    };
+
     const { data: updatedBusiness, error } = await supabase
       .from('businesses')
       .update(updates)
       .eq('id', id)
       .select('id')
       .maybeSingle();
+
     if (error) {
       alert('Não foi possível aprovar/recusar o negócio. Verifique as permissões RLS de businesses: ' + error.message);
       return;
     }
+
     if (!updatedBusiness) {
-      alert('O Supabase não confirmou a alteração do negócio. A política RLS pode estar a bloquear a aprovação.');
+      alert('O Supabase não confirmou a alteração do negócio. Confirme a política RLS administrativa de businesses.');
       return;
     }
-    if (businessForReview?.owner_id) await notifyUser(businessForReview.owner_id, status === 'approved' ? 'Perfil Talaza aprovado' : 'Cadastro de vendedor recusado', status === 'approved' ? 'O seu perfil foi validado pela equipa Talaza. A visibilidade depende da hospedagem/plano ativo.' : 'O seu cadastro de vendedor foi recusado. Motivo: ' + rejectionReason.trim(), 'seller_review');
+
+    if (businessForReview?.owner_id) {
+      const approvedWithHosting = status === 'approved' && isPaid;
+      await notifyUser(
+        businessForReview.owner_id,
+        status === 'approved' ? 'Perfil Talaza analisado' : 'Cadastro de vendedor recusado',
+        status === 'approved'
+          ? (approvedWithHosting
+              ? 'O seu perfil foi aprovado e a hospedagem está ativa até ' + new Date(endDate).toLocaleDateString('pt-PT') + '.'
+              : 'O seu perfil foi aprovado na análise, mas ainda não tem um pagamento aprovado com plano válido. Por isso, não ficará visível na Vitrine até a hospedagem ser confirmada.')
+          : 'O seu cadastro de vendedor foi recusado. Motivo: ' + rejectionReason.trim(),
+        'seller_review'
+      );
+    }
+
     await loadBusinesses();
+    alert(status === 'approved'
+      ? (isPaid ? 'Perfil aprovado e hospedagem ativada.' : 'Perfil aprovado na análise, mas permanece inativo até existir uma hospedagem paga válida.')
+      : 'Cadastro recusado.');
   }
 
   async function loadCommunityReports() {
