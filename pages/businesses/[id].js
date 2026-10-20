@@ -47,7 +47,7 @@ export default function BusinessPublicProfile() {
       try {
         const { data: businessData, error: businessError } = await supabase
           .from('businesses')
-          .select('id, name, description, country_id, province_id, municipality, neighborhood, address, phone, whatsapp, email, opening_hours, logo_url, cover_url, is_active, approval_status, panel_view_mode')
+          .select('id, name, description, country_id, province_id, municipality, neighborhood, address, phone, whatsapp, email, show_email, opening_hours, logo_url, cover_url, is_active, approval_status, panel_view_mode')
           .eq('id', id)
           .eq('is_active', true)
           .eq('approval_status', 'approved')
@@ -83,15 +83,17 @@ export default function BusinessPublicProfile() {
   }, [router.isReady, id]);
 
   const backHref = useMemo(() => {
+    const requestedReturn = Array.isArray(router.query.returnTo) ? router.query.returnTo[0] : router.query.returnTo;
+    if (typeof requestedReturn === 'string' && requestedReturn.startsWith('/subcategory?')) return requestedReturn;
     const params = new URLSearchParams();
     if (country || business?.country_id) params.set('country', country || business.country_id);
     if (province || business?.province_id) params.set('province', province || business.province_id);
     return '/explore' + (params.toString() ? '?' + params.toString() : '');
-  }, [country, province, business]);
+  }, [router.query.returnTo, country, province, business]);
 
-  const contactNumber = business?.whatsapp || business?.phone;
+  const contactNumber = business?.phone;
   const messageHref = business ? whatsappHref(contactNumber, business.name) : null;
-  const addressParts = [business?.address, business?.neighborhood, business?.municipality].map(clean).filter(Boolean);
+  const addressParts = [business?.address, business?.neighborhood].map(clean).filter(Boolean);
   const addressLine = addressParts.join(', ');
 
   return (
@@ -141,9 +143,9 @@ export default function BusinessPublicProfile() {
             <section className="detailsCard">
               <h2>Contactos e localização</h2>
               <div className="detailsGrid">
-                {business.whatsapp && <div className="detail"><span>WhatsApp</span><strong>{business.whatsapp}</strong></div>}
+                
                 {business.phone && <div className="detail"><span>Telefone</span><strong>{business.phone}</strong></div>}
-                {business.email && <div className="detail"><span>Email</span><strong>{business.email}</strong></div>}
+                {business.show_email === true && business.email && <div className="detail"><span>E-mail</span><strong>{business.email}</strong></div>}
                 {addressLine && <div className="detail"><span>Localização</span><strong>{addressLine}</strong></div>}
                 {business.municipality && <div className="detail"><span>Município</span><strong>{business.municipality}</strong></div>}
                 {business.neighborhood && <div className="detail"><span>Bairro</span><strong>{business.neighborhood}</strong></div>}
@@ -159,7 +161,7 @@ export default function BusinessPublicProfile() {
               <div className="modeChoices" role="group" aria-label="Modo de visualização dos produtos">
                 {VIEW_MODES.map((mode) => <button key={mode} type="button" className={viewMode === mode ? 'modeButton active' : 'modeButton'} onClick={() => setViewMode(mode)} aria-pressed={viewMode === mode}>{MODE_LABELS[mode]}</button>)}
               </div>
-              <ProductsView items={panelImages} mode={viewMode} editable={false} whatsapp={business.whatsapp || business.phone || ''} businessName={business.name} />
+              <ProductsView items={panelImages} mode={viewMode} editable={false} whatsapp={business.phone || ''} businessName={business.name} />
             </section>
             <p className="publicNotice">Este é o perfil público do negócio. As alterações só podem ser feitas pelo vendedor no seu painel.</p>
           </div>
@@ -171,17 +173,17 @@ export default function BusinessPublicProfile() {
         .brand{display:flex;align-items:center;gap:8px;text-decoration:none;color:#075B4E;font-size:17px;font-weight:900}
         .brandMark{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:#075B4E;color:#F0C84B}
         .backLink{color:#075B4E;text-decoration:none;font-size:12px;font-weight:800}
-        .profileWrap{width:min(980px,calc(100% - 28px));margin:22px auto 0;display:grid;gap:18px}
+        .profileWrap{width:min(980px,calc(100% - 28px));margin:16px auto 0;display:grid;gap:13px}
         .identityCard,.detailsCard,.productsCard,.stateCard{overflow:hidden;border:1px solid #E1E8E4;border-radius:19px;background:#fff;box-shadow:0 8px 25px rgba(20,54,44,.045)}
-        .cover{height:clamp(170px,28vw,300px);background:linear-gradient(135deg,#DCECE6,#F0F5F2)}
+        .cover{height:clamp(145px,22vw,240px);background:linear-gradient(135deg,#DCECE6,#F0F5F2)}
         .cover img{width:100%;height:100%;display:block;object-fit:cover}
         .coverFallback{height:100%;display:grid;place-items:center;padding:20px;text-align:center;color:#075B4E;font-size:clamp(20px,4vw,30px);font-weight:900}
-        .identityBody{padding:0 22px 22px}
-        .logo{width:92px;height:92px;margin-top:-46px;position:relative;display:grid;place-items:center;overflow:hidden;border:5px solid white;border-radius:50%;background:#E6F1EC;color:#075B4E;font-size:30px;font-weight:900;box-shadow:0 3px 12px rgba(0,0,0,.1)}
+        .identityBody{padding:0 18px 17px}
+        .logo{width:78px;height:78px;margin-top:-39px;position:relative;display:grid;place-items:center;overflow:hidden;border:5px solid white;border-radius:50%;background:#E6F1EC;color:#075B4E;font-size:30px;font-weight:900;box-shadow:0 3px 12px rgba(0,0,0,.1)}
         .logo img{width:100%;height:100%;object-fit:cover}
-        h1{font-size:clamp(22px,4vw,31px);line-height:1.2;margin:12px 0 8px;overflow-wrap:anywhere}
-        .description{white-space:pre-wrap;color:#53635D;font-size:14px;line-height:1.7;margin:0 0 18px}
-        .mainImages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:16px 0}
+        h1{font-size:clamp(22px,4vw,31px);line-height:1.2;margin:9px 0 7px;overflow-wrap:anywhere}
+        .description{white-space:pre-wrap;color:#53635D;font-size:13px;line-height:1.55;margin:0 0 12px}
+        .mainImages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:12px 0}
         .mainImage{aspect-ratio:1/1;overflow:hidden;border-radius:12px;background:#EDF3F0}
         .mainImage img{display:block;width:100%;height:100%;object-fit:cover}
         .mainImage span{height:100%;display:grid;place-items:center;color:#8A9992;font-size:12px}
@@ -189,10 +191,10 @@ export default function BusinessPublicProfile() {
         .messageButton,.disabledMessage,.primaryButton{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:11px 17px;border-radius:11px;text-decoration:none;font-size:13px;font-weight:800}
         .messageButton,.primaryButton{background:#075B4E;color:#fff}
         .disabledMessage{background:#EDF1EF;color:#7A8983}
-        .detailsCard,.productsCard{padding:22px}
+        .detailsCard,.productsCard{padding:18px}
         h2{font-size:20px;margin:0 0 15px}
         .detailsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-        .detail{display:grid;gap:5px;min-width:0;padding:13px;border:1px solid #E6ECE9;border-radius:12px;background:#FAFCFB}
+        .detail{display:grid;gap:5px;min-width:0;padding:10px;border:1px solid #E6ECE9;border-radius:12px;background:#FAFCFB}
         .detail span{font-size:11px;color:#75847D;font-weight:700}
         .detail strong{font-size:13px;line-height:1.5;overflow-wrap:anywhere;font-weight:700}
         .muted{color:#73827B;font-size:13px}
@@ -202,12 +204,12 @@ export default function BusinessPublicProfile() {
         .productsHeading p{margin:0 0 15px;color:#687770;font-size:12px;line-height:1.5}
         .modeChoices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:16px}
         .modeButton{padding:10px 8px;border:1px solid #DCE6E1;border-radius:10px;background:#F7FAF8;color:#3E5149;font-size:11px;font-weight:800;cursor:pointer}
-        .modeButton.active{background:#E5F2ED;border-color:#075B4E;color:#075B4E;box-shadow:inset 0 0 0 1px #075B4E}
+        .modeButton.active{background:#F2EDF8;border-color:#7656A6;color:#7656A6;box-shadow:inset 0 0 0 1px #075B4E}
         .publicNotice{text-align:center;color:#7A8983;font-size:11px;line-height:1.6;margin:0}
         .stateCard{width:min(640px,calc(100% - 32px));box-sizing:border-box;margin:55px auto;padding:24px;line-height:1.6;color:#52635B}
         .stateCard h1{color:#17211F}
         .errorState{border-color:#F0D5D5}
-        @media(max-width:600px){.topbar{padding:13px 15px}.profileWrap{width:calc(100% - 20px);margin-top:12px;gap:12px}.identityBody{padding:0 14px 16px}.logo{width:78px;height:78px;margin-top:-39px}.detailsCard,.productsCard{padding:16px}.detailsGrid{grid-template-columns:1fr}.mainImages{gap:5px}.modeChoices{gap:5px}.modeButton{font-size:10px;padding:10px 4px}.cover{height:190px}.stateCard{margin-top:25px}}
+        @media(max-width:600px){.topbar{padding:13px 15px}.profileWrap{width:calc(100% - 20px);margin-top:12px;gap:12px}.identityBody{padding:0 14px 16px}.logo{width:78px;height:78px;margin-top:-39px}.detailsCard,.productsCard{padding:16px}.detailsGrid{grid-template-columns:1fr}.mainImages{gap:5px}.modeChoices{gap:5px}.modeButton{font-size:10px;padding:10px 4px}.cover{height:165px}.stateCard{margin-top:25px}}
       `}</style>
     </>
   );
