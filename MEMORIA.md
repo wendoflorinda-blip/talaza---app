@@ -58,3 +58,6 @@ Reforçar o envio e a revisão dos comprovativos de pagamento, além de manter o
 - O ficheiro `supabase_admin_support_notifications.sql` foi atualizado com políticas administrativas para listar/atualizar eventos e oportunidades, restrição de leitura de `admin_users` ao próprio administrador e valores de tipo de notificação. Estas alterações SQL ainda precisam de ser executadas no Supabase; a alteração no GitHub não muda a base de dados automaticamente.
 - Commits mais recentes na branch `Dev`: `9a6c440`, `79ce009`, `4c18ef2`, `e7a6bad`.
 - Ainda não está confirmado que o Vercel construiu/publicou estes commits. Testar após executar a migração SQL e verificar políticas RLS de `payment_submissions`, `businesses`, `events`, `job_posts`, `notifications` e Storage `payment-proofs`.
+
+- As novas oportunidades em `pages/contratar.js` passam a ser criadas como `pending_review` e `is_active: false`, para só aparecerem publicamente após aprovação no painel. O administrador pode aprovar (publicar/ativar) ou recusar (desativar e notificar).
+- A aprovação administrativa de eventos usa a coluna `events.admin_approved` (adicionada pela migração) para não confundir aprovação com pagamento; eventos sem pagamento confirmado não são publicados.
