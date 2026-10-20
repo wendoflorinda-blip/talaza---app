@@ -46,6 +46,10 @@ export default function Admin() {
   const [profiles, setProfiles] = useState([]);
   const [events, setEvents] = useState([]);
   const [jobPosts, setJobPosts] = useState([]);
+  const [officialKind, setOfficialKind] = useState('motivation');
+  const [officialTitle, setOfficialTitle] = useState('');
+  const [officialBody, setOfficialBody] = useState('');
+  const [officialSaving, setOfficialSaving] = useState(false);
   const [notificationAudience, setNotificationAudience] = useState('all');
   const [notificationUserId, setNotificationUserId] = useState('');
   const [notificationTitle, setNotificationTitle] = useState('');
@@ -373,6 +377,39 @@ export default function Admin() {
     alert(approved ? 'Oportunidade aprovada.' : 'Oportunidade recusada e motivo enviado nas notificações.');
   }
 
+  async function publishOfficialCommunityContent() {
+    if (officialSaving) return;
+    if (!officialBody.trim()) { alert('Escreve o conteúdo antes de publicar.'); return; }
+    if (officialKind !== 'motivation' && !officialTitle.trim()) { alert('Preenche o título/tema antes de publicar.'); return; }
+    setOfficialSaving(true);
+    try {
+      const { data: adminUser } = await supabase.auth.getUser();
+      const userId = adminUser?.user?.id;
+      if (!userId) { alert('A sessão administrativa expirou. Entra novamente.'); return; }
+      const { data: country, error: countryError } = await supabase.from('countries').select('id').eq('name', 'Angola').maybeSingle();
+      if (countryError || !country?.id) { alert('Não foi possível identificar Angola na tabela countries.'); return; }
+      const { error } = await supabase.from('community_posts').insert({
+        user_id: userId,
+        country_id: country.id,
+        province_id: null,
+        post_type: officialKind,
+        title: officialTitle.trim() || 'Motivação Talaza',
+        content: officialBody.trim(),
+        image_url: null,
+        scope: 'country',
+        duration_days: 365,
+        expires_at: new Date(Date.now() + 365 * 86400000).toISOString(),
+        status: 'published',
+        moderation_status: 'approved'
+      });
+      if (error) { alert('Não foi possível publicar: ' + error.message + '. Confirma a migração e as políticas de community_posts.'); return; }
+      setOfficialTitle('');
+      setOfficialBody('');
+      alert('Conteúdo oficial da Comunidade Talaza publicado.');
+      await loadPendingCommunityPosts();
+    } finally { setOfficialSaving(false); }
+  }
+
   async function loadProfiles() {
     const { data, error } = await supabase
       .from('profiles')
@@ -635,7 +672,7 @@ export default function Admin() {
 
           <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '0 0 28px' }}>
             {[
-              ['#vendedores', 'Vendedores'], ['#pagamentos', 'Pagamentos e hospedagens'], ['#eventos', 'Eventos'], ['#oportunidades', 'Oportunidades'], ['#comunidade', 'Comunidade Talaza'], ['#suporte', 'Suporte Talaza']
+              ['#vendedores', 'Vendedores'], ['#pagamentos', 'Pagamentos e hospedagens'], ['#eventos', 'Eventos'], ['#oportunidades', 'Oportunidades'], ['#conteudo-oficial', 'Conteúdo editorial'], ['#comunidade', 'Comunidade Talaza'], ['#suporte', 'Suporte Talaza']
             ].map(([href, label]) => <a key={href} href={href} style={{ padding: '10px 13px', borderRadius: 9, background: '#E4F0ED', color: '#075B4E', fontWeight: 800, textDecoration: 'none', fontSize: 13 }}>{label}</a>)}
           </nav>
           <div style={styles.counter}>
@@ -794,6 +831,22 @@ export default function Admin() {
         <section id="oportunidades" style={{ marginTop: 42 }}>
           <div style={styles.titleRow}><div><h2 style={styles.title}>Oportunidades</h2><p style={styles.description}>Revise as oportunidades/vagas publicadas e envie o motivo ao responsável se houver recusa.</p></div><div style={styles.counter}>{jobPosts.filter(item => !['rejected','closed','expired'].includes(String(item.status || '').toLowerCase())).length} por analisar · {jobPosts.length} total</div></div>
           {jobPosts.length === 0 ? <div style={styles.empty}><h3>Sem oportunidades registadas</h3><p>As oportunidades enviadas aparecerão aqui.</p></div> : <div style={styles.list}>{jobPosts.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>OP</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || item.position || 'Oportunidade sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || item.details || 'Sem descrição.'}</p><p><strong>Província:</strong> {item.province_id || '—'} · <strong>Responsável:</strong> {item.user_id || item.employer_id || '—'}</p></div>{!['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateJob(item, false)}>Recusar oportunidade</button><button type="button" style={styles.approve} onClick={() => moderateJob(item, true)}>Aprovar oportunidade</button></div>}</article>)}</div>}
+        </section>
+
+        <section id="conteudo-oficial" style={{ marginTop: 42 }}>
+          <div style={styles.titleRow}><div><h2 style={styles.title}>Conteúdo editorial da Comunidade Talaza</h2><p style={styles.description}>Publica a Motivação, define o Tema do mês ou apresenta o título/pergunta da semana. Estes conteúdos são publicados pela equipa administrativa.</p></div></div>
+          <div style={styles.card}>
+            <label style={styles.label}>Tipo de conteúdo</label>
+            <select value={officialKind} onChange={event => setOfficialKind(event.target.value)} style={styles.input}>
+              <option value="motivation">Motivação</option><option value="theme">Tema do mês</option><option value="weekly_question">Título da semana</option>
+            </select>
+            <label style={styles.label}>Título / tema</label>
+            <input value={officialTitle} onChange={event => setOfficialTitle(event.target.value)} placeholder={officialKind === 'motivation' ? 'Título da mensagem (opcional)' : officialKind === 'theme' ? 'Ex.: O valor de recomeçar' : 'Ex.: O que aprendeste esta semana?'} style={styles.input} />
+            <label style={styles.label}>Texto</label>
+            <textarea value={officialBody} onChange={event => setOfficialBody(event.target.value)} placeholder="Escreve aqui o conteúdo que será publicado na Comunidade Talaza." rows={5} style={styles.input} />
+            <div style={styles.actions}><button type="button" disabled={officialSaving} style={styles.approve} onClick={publishOfficialCommunityContent}>{officialSaving ? 'A publicar…' : 'Publicar conteúdo oficial'}</button></div>
+            <p style={styles.meta}>O conteúdo é guardado em community_posts com estado aprovado. A migração SQL precisa de estar aplicada para permitir a publicação administrativa.</p>
+          </div>
         </section>
 
         <section id="comunidade" style={{ marginTop: 42 }}>
