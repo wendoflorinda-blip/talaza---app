@@ -204,3 +204,6 @@ ON public.job_posts FOR UPDATE TO authenticated
 USING (EXISTS (SELECT 1 FROM public.admin_users a WHERE a.id = auth.uid()))
 WITH CHECK (EXISTS (SELECT 1 FROM public.admin_users a WHERE a.id = auth.uid()));
 
+
+-- Regista a aprovação administrativa de um evento sem confundir com o pagamento.
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS admin_approved boolean NOT NULL DEFAULT false;
