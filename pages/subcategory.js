@@ -54,6 +54,7 @@ export default function Subcategory() {
 
   const [subcategory, setSubcategory] = useState(null);
   const [businesses, setBusinesses] = useState([]);
+  const [businessImagesById, setBusinessImagesById] = useState({});
   const [premiumBusinesses, setPremiumBusinesses] = useState([]);
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
@@ -126,7 +127,7 @@ export default function Subcategory() {
         let businessQuery = supabase
           .from('businesses')
           .select(
-            'id, name, description, municipality, neighborhood, logo_url, country_id, province_id, subcategory_id, is_active, approval_status'
+            'id, name, description, municipality, neighborhood, address, phone, whatsapp, opening_hours, logo_url, cover_url, country_id, province_id, subcategory_id, is_active, approval_status'
           )
           .eq('subcategory_id', id)
           .eq('is_active', true)
@@ -144,6 +145,32 @@ export default function Subcategory() {
         if (cancelled) return;
 
         setBusinesses(businessData || []);
+
+        // Carrega separadamente as três imagens principais de cada negócio.
+        // A falha da galeria não impede a apresentação dos cartões.
+        const businessIds = (businessData || []).map((business) => business.id);
+        if (businessIds.length) {
+          const { data: imageData, error: imageError } = await supabase
+            .from('business_images')
+            .select('id, business_id, kind, slot, image_url, name, description, price')
+            .in('business_id', businessIds)
+            .eq('kind', 'main')
+            .order('slot', { ascending: true });
+
+          if (imageError) {
+            console.error('Não foi possível carregar imagens principais:', imageError);
+          } else if (!cancelled) {
+            const grouped = {};
+            (imageData || []).forEach((image) => {
+              if (!grouped[image.business_id]) grouped[image.business_id] = [];
+              grouped[image.business_id].push(image);
+            });
+            setBusinessImagesById(grouped);
+          }
+        } else if (!cancelled) {
+          setBusinessImagesById({});
+        }
+
         setLoading(false);
 
         // O campo/plano Premium será configurado mais tarde.
@@ -528,52 +555,73 @@ export default function Subcategory() {
 
                 {!loading && !error && filteredBusinesses.length > 0 && (
                   <div className="businessGrid">
-                    {filteredBusinesses.map((business) => (
-                      <Link
-                        href={makeBusinessHref(
-                          business.id,
-                          country,
-                          province
-                        )}
-                        key={business.id}
-                        className="businessCard"
-                      >
-                        <div className="businessAvatar">
-                          {business.logo_url ? (
-                            <img
-                              src={business.logo_url}
-                              alt=""
-                              loading="lazy"
-                            />
-                          ) : (
-                            <span>{getInitials(business.name)}</span>
-                          )}
-                        </div>
+                    {filteredBusinesses.map((business) => {
+                      const mainImages = (businessImagesById[business.id] || [])
+                        .filter((image) => image.kind === 'main')
+                        .sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0))
+                        .slice(0, 3);
+                      const messageText = encodeURIComponent(
+                        'Olá! Vi o negócio ' + business.name + ' na Talaza e gostaria de saber mais.'
+                      );
+                      const phoneDigits = String(business.whatsapp || business.phone || '').replace(/\D/g, '');
+                      const whatsappNumber = phoneDigits.length === 9 ? '244' + phoneDigits : phoneDigits;
+                      const messageHref = whatsappNumber
+                        ? 'https://wa.me/' + whatsappNumber + '?text=' + messageText
+                        : null;
 
-                        <div className="businessInfo">
-                          <div className="businessTitleRow">
-                            <h3>{business.name}</h3>
-
-                            {premiumIds.has(business.id) && (
-                              <span className="smallPremium">✦</span>
+                      return (
+                        <article className="businessCard" key={business.id}>
+                          <div className="cardCover">
+                            {business.cover_url ? (
+                              <img src={business.cover_url} alt={'Capa de ' + business.name} loading="lazy" />
+                            ) : (
+                              <div className="coverFallback"><span>{business.name}</span></div>
                             )}
+                            <div className="cardLogo">
+                              {business.logo_url ? (
+                                <img src={business.logo_url} alt={'Logo de ' + business.name} loading="lazy" />
+                              ) : (
+                                <span>{getInitials(business.name)}</span>
+                              )}
+                            </div>
                           </div>
 
-                          <p className="businessDescription">
-                            {cleanText(business.description) ||
-                              'Conhece os serviços deste negócio.'}
-                          </p>
+                          <div className="businessInfo">
+                            <div className="businessTitleRow">
+                              <h3>{business.name}</h3>
+                              {premiumIds.has(business.id) && <span className="smallPremium">✦</span>}
+                            </div>
+                            <p className="businessDescription">
+                              {cleanText(business.description) || 'Conhece os serviços deste negócio.'}
+                            </p>
 
-                          <div className="businessLocation">
-                            <span>Veja contactos e localização no perfil</span>
+                            <div className="mainImagesPreview">
+                              {[0, 1, 2].map((slot) => {
+                                const image = mainImages.find((item) => item.slot === slot) || mainImages[slot];
+                                return (
+                                  <div className="mainPreview" key={slot}>
+                                    {image?.image_url ? (
+                                      <img src={image.image_url} alt={image.name || ('Imagem principal ' + (slot + 1))} loading="lazy" />
+                                    ) : (
+                                      <span className="mainPlaceholder">Imagem {slot + 1}</span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            <div className="businessActions">
+                              {messageHref ? (
+                                <a className="messageButton" href={messageHref} target="_blank" rel="noopener noreferrer">Enviar mensagem</a>
+                              ) : (
+                                <Link className="messageButton" href={makeBusinessHref(business.id, country, province)}>Enviar mensagem</Link>
+                              )}
+                              <Link className="profileButton" href={makeBusinessHref(business.id, country, province)}>Ver perfil</Link>
+                            </div>
                           </div>
-
-                          <span className="profileLink">
-                            Ver perfil →
-                          </span>
-                        </div>
-                      </Link>
-                    ))}
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </section>
