@@ -453,7 +453,7 @@ export default function Admin() {
             admin_id: adminId,
             month_title: officialTitle.trim(),
             month_description: officialBody.trim(),
-            week_title: activeTheme?.week_title || 'Título da semana por definir',
+            week_title: 'Título da semana por definir',
             week_number: weekNumber,
             starts_at: monthStart.toISOString(),
             ends_at: monthEnd.toISOString(),
