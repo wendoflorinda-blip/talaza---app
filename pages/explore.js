@@ -293,6 +293,9 @@ export default function Explore() {
           .eq('province_id', province)
           .eq('is_active', true)
           .eq('approval_status', 'approved')
+          // A Vitrine principal mostra apenas negócios marcados como Premium.
+          // A hospedagem normal dá visibilidade apenas na respetiva subcategoria.
+          .eq('is_premium', true)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -519,7 +522,7 @@ export default function Explore() {
           <div className="section-heading">
             <div>
               <span className="section-kicker">VITRINE LOCAL</span>
-              <h2>Negócios da região</h2>
+              <h2>Destaques Premium da região</h2>
             </div>
             {provinceName && <span className="section-location">{provinceName}</span>}
           </div>
@@ -544,7 +547,7 @@ export default function Explore() {
 
               {!loadingBusinesses && !businessError && businesses.length === 0 && (
                 <div className="empty-card">
-                  Ainda não há negócios aprovados nesta região.
+                  Ainda não há negócios com Destaque Premium nesta região.
                 </div>
               )}
 
