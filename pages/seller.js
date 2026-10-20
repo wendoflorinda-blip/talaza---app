@@ -265,7 +265,8 @@ export default function Seller() {
 
     if (imagesError) {
       console.error('Erro ao carregar a galeria:', imagesError);
-      setGalleryError('Não foi possível carregar as imagens. Confirme que o SQL da galeria foi executado no Supabase.');
+      setImages([]);
+      setGalleryError('Erro ao carregar a galeria: ' + (imagesError.message || 'erro desconhecido') + (imagesError.code ? ' [' + imagesError.code + ']' : ''));
       return null;
     }
     setGalleryError('');
@@ -477,7 +478,7 @@ export default function Seller() {
       .eq('owner_id', user.id);
     if (modeError) {
       console.error(modeError);
-      setError('Não foi possível guardar o modo de visualização. Confirme que o SQL da galeria foi executado.');
+      setError('Não foi possível guardar o modo de visualização: ' + (modeError.message || 'erro desconhecido') + (modeError.code ? ' [' + modeError.code + ']' : ''));
     }
   }
 
@@ -728,7 +729,7 @@ export default function Seller() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 20 }}>
           <button type="button" onClick={() => setCustomerOpen(true)} style={{ padding: '13px 22px', borderRadius: 13, background: '#E6A900', color: '#17342F', fontWeight: 900, border: 0, cursor: 'pointer', minWidth: 150 }}>▦ Produtos</button>
           <button type="button" onClick={() => scrollToId('galeria-principais')} style={{ padding: '13px 16px', borderRadius: 13, background: '#7252B8', color: '#FFFFFF', fontWeight: 900, border: 0, cursor: 'pointer', flex: '1 1 180px' }}>▧ Imagens principais</button>
-          <button type="button" onClick={() => scrollToId('galeria-painel')} style={{ padding: '13px 16px', borderRadius: 13, background: '#FFFFFF', color: '#075B4E', fontWeight: 900, border: '1.5px solid #075B4E', cursor: 'pointer', flex: '1 1 180px' }}>▧ Imagens de painel</button>
+          <button type="button" onClick={() => scrollToId('galeria-painel')} style={{ padding: '13px 16px', borderRadius: 13, background: '#7252B8', color: '#FFFFFF', fontWeight: 900, border: 0, cursor: 'pointer', flex: '1 1 180px' }}>▧ Imagens de painel</button>
         </div>
 
         {/* IMAGENS PRINCIPAIS · 3 lugares · 600x600 */}
@@ -783,7 +784,6 @@ export default function Seller() {
             <span className="gal-count">{panelImages.length}</span>
             <button type="button" className="gal-add" disabled={locked} onClick={() => pickImages(true, addPanelImages)}>+ Adicionar</button>
           </div>
-          <p className="gal-sub">Toque numa imagem para ampliar e no ⋮ para editar</p>
           <div className="gal-rot">Escolha como quer ver seus produtos do painel:</div>
           <ProductsView
             items={panelImages}
@@ -882,10 +882,10 @@ export default function Seller() {
         .gal-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
         .gal-head h2{margin:0;font-size:19px;color:#075B4E;flex:1}
         .gal-count{font-weight:700;color:#5A6A64;font-size:14px}
-        .gal-add{background:#075B4E;color:#fff;font-weight:700;font-size:13px;padding:8px 12px;border-radius:10px;border:0;cursor:pointer}
+        .gal-add{background:#7252B8;color:#fff;font-weight:700;font-size:13px;padding:8px 12px;border-radius:10px;border:0;cursor:pointer}
         .gal-add:disabled{opacity:.5;cursor:not-allowed}
         .gal-sub{margin:0 0 12px;font-size:12.5px;color:#5A6A64}
-        .gal-rot{font-size:14px;font-weight:700;margin:2px 0 8px;color:#14201C}
+        .gal-rot{font-size:14px;font-weight:700;margin:2px 0 8px;color:#7252B8}
         .gal-alert{margin:0 0 10px;padding:11px 13px;background:#FCEBED;color:#A52F3B;border-radius:12px;font-size:13px}
 
         .mains{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:2px}
