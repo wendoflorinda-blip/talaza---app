@@ -126,7 +126,7 @@ export default function Subcategory() {
         let businessQuery = supabase
           .from('businesses')
           .select(
-            'id, name, description, municipality, neighborhood, logo_url, country_id, province_id, subcategory_id, is_active, approval_status'
+            'id, name, description, municipality, neighborhood, logo_url, country_id, province_id, subcategory_id, is_active, approval_status, is_premium'
           )
           .eq('subcategory_id', id)
           .eq('is_active', true)
@@ -146,35 +146,11 @@ export default function Subcategory() {
         setBusinesses(businessData || []);
         setLoading(false);
 
-        // Procura subscrições ativas e dentro do período contratado.
-        const now = new Date().toISOString();
-
-        const { data: subscriptions, error: subscriptionError } =
-          await supabase
-            .from('business_subscriptions')
-            .select('business_id, starts_at, expires_at, status')
-            .eq('status', 'active')
-            .lte('starts_at', now)
-            .gte('expires_at', now);
-
-        if (subscriptionError) {
-          console.error(
-            'Não foi possível carregar subscrições Premium:',
-            subscriptionError
-          );
-
-          if (!cancelled) setPremiumBusinesses([]);
-          return;
-        }
-
-        const eligibleIds = new Set(
-          (subscriptions || [])
-            .map((subscription) => subscription.business_id)
-            .filter(Boolean)
-        );
-
-        const premium = (businessData || []).filter((business) =>
-          eligibleIds.has(business.id)
+        // A hospedagem normal não equivale a Destaque Premium.
+        // Até existir um plano Premium próprio, apenas negócios marcados
+        // explicitamente como is_premium podem aparecer nesta secção.
+        const premium = (businessData || []).filter(
+          (business) => business.is_premium === true
         );
 
         if (!cancelled) {
