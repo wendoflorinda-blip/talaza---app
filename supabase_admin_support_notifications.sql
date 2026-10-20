@@ -162,3 +162,45 @@ DROP POLICY IF EXISTS "Talaza admins view profiles for support" ON public.profil
 CREATE POLICY "Talaza admins view profiles for support"
 ON public.profiles FOR SELECT TO authenticated
 USING (EXISTS (SELECT 1 FROM public.admin_users a WHERE a.id = auth.uid()));
+
+
+-- 6. Segurança e moderação das áreas Eventos e Oportunidades.
+-- O painel usa as tabelas já existentes; não cria tabelas duplicadas.
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.admin_users;
+DROP POLICY IF EXISTS "Admins can view own admin record" ON public.admin_users;
+CREATE POLICY "Admins can view own admin record"
+ON public.admin_users FOR SELECT TO authenticated
+USING (id = auth.uid());
+
+-- A coluna type guarda a categoria da notificação, sem restringir o envio
+-- de avisos de análise a um conjunto antigo de dois valores.
+ALTER TABLE public.notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+ALTER TABLE public.notifications
+  ADD CONSTRAINT notifications_type_check
+  CHECK (type IN ('general', 'individual', 'admin_review', 'seller_review', 'payment_review', 'community_review', 'event_review', 'opportunity_review'));
+
+GRANT SELECT, UPDATE ON public.events TO authenticated;
+ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Talaza admins view events" ON public.events;
+CREATE POLICY "Talaza admins view events"
+ON public.events FOR SELECT TO authenticated
+USING (EXISTS (SELECT 1 FROM public.admin_users a WHERE a.id = auth.uid()));
+DROP POLICY IF EXISTS "Talaza admins update events" ON public.events;
+CREATE POLICY "Talaza admins update events"
+ON public.events FOR UPDATE TO authenticated
+USING (EXISTS (SELECT 1 FROM public.admin_users a WHERE a.id = auth.uid()))
+WITH CHECK (EXISTS (SELECT 1 FROM public.admin_users a WHERE a.id = auth.uid()));
+
+GRANT SELECT, UPDATE ON public.job_posts TO authenticated;
+ALTER TABLE public.job_posts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Talaza admins view job posts" ON public.job_posts;
+CREATE POLICY "Talaza admins view job posts"
+ON public.job_posts FOR SELECT TO authenticated
+USING (EXISTS (SELECT 1 FROM public.admin_users a WHERE a.id = auth.uid()));
+DROP POLICY IF EXISTS "Talaza admins update job posts" ON public.job_posts;
+CREATE POLICY "Talaza admins update job posts"
+ON public.job_posts FOR UPDATE TO authenticated
+USING (EXISTS (SELECT 1 FROM public.admin_users a WHERE a.id = auth.uid()))
+WITH CHECK (EXISTS (SELECT 1 FROM public.admin_users a WHERE a.id = auth.uid()));
+
