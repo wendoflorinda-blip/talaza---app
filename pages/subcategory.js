@@ -126,7 +126,7 @@ export default function Subcategory() {
         let businessQuery = supabase
           .from('businesses')
           .select(
-            'id, name, description, municipality, neighborhood, logo_url, country_id, province_id, subcategory_id, is_active, approval_status, is_premium'
+            'id, name, description, municipality, neighborhood, logo_url, country_id, province_id, subcategory_id, is_active, approval_status'
           )
           .eq('subcategory_id', id)
           .eq('is_active', true)
@@ -146,15 +146,12 @@ export default function Subcategory() {
         setBusinesses(businessData || []);
         setLoading(false);
 
-        // A hospedagem normal não equivale a Destaque Premium.
-        // Até existir um plano Premium próprio, apenas negócios marcados
-        // explicitamente como is_premium podem aparecer nesta secção.
-        const premium = (businessData || []).filter(
-          (business) => business.is_premium === true
-        );
-
+        // O campo/plano Premium será configurado mais tarde.
+        // Por enquanto, a secção Premium fica vazia e a hospedagem normal
+        // continua visível apenas na lista da respetiva subcategoria.
         if (!cancelled) {
-          setPremiumBusinesses(premium);
+          setPremiumBusinesses([]);
+          setPremiumLoading(false);
         }
       } catch (err) {
         console.error('Erro ao carregar subcategoria:', err);
