@@ -61,3 +61,11 @@ Reforçar o envio e a revisão dos comprovativos de pagamento, além de manter o
 
 - As novas oportunidades em `pages/contratar.js` passam a ser criadas como `pending_review` e `is_active: false`, para só aparecerem publicamente após aprovação no painel. O administrador pode aprovar (publicar/ativar) ou recusar (desativar e notificar).
 - A aprovação administrativa de eventos usa a coluna `events.admin_approved` (adicionada pela migração) para não confundir aprovação com pagamento; eventos sem pagamento confirmado não são publicados.
+
+
+## Atualização — imagens do painel do vendedor (2026-10-20)
+- Em `pages/seller.js`, o carregamento de logo, imagem principal e alterações do perfil passa a guardar ficheiros no Storage `business-media` dentro da pasta cujo nome é o ID do negócio, alinhado com a regra de propriedade pretendida.
+- Commit: `e8f122d559b43e4c35d0cf75568e471b64354165`.
+- **Atenção:** a política RLS atualmente partilhada pelo utilizador parece consultar `storage.foldername(b.name)` em vez do caminho do ficheiro (`storage.objects.name`). A política SQL de upload precisa de ser corrigida no Supabase; a alteração de código, sozinha, não corrige a política da base de dados.
+- Ainda falta implementar a galeria de 3 imagens principais, a galeria de imagens de painel com preços/descrições e os modos de visualização vertical, deslize e normal. Não afirmar que estas funcionalidades já estão concluídas.
+- Regra de produto: negócios comuns aparecem apenas na vitrine da respetiva subcategoria. Só planos específicos de destaque podem dar visibilidade na vitrine principal, na área Destaques Premium e/ou nas notificações da província. Município e bairro não devem aparecer diretamente no cartão/cabeçalho da loja; devem servir como filtros de pesquisa.
