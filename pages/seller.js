@@ -422,7 +422,6 @@ export default function Seller() {
               </div>
             ) : null
           )}
-        </div>
 
         {subscriptionPending && (
           <div style={{ marginTop: 18, padding: 16, background: '#FFF5D6', border: '1px solid #EBD58C', borderRadius: 14, color: '#5B4300' }}>
