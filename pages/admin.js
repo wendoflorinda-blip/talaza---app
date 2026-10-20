@@ -44,6 +44,8 @@ export default function Admin() {
   const [communityPosts, setCommunityPosts] = useState([]);
   const [supportMessages, setSupportMessages] = useState([]);
   const [profiles, setProfiles] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [jobPosts, setJobPosts] = useState([]);
   const [notificationAudience, setNotificationAudience] = useState('all');
   const [notificationUserId, setNotificationUserId] = useState('');
   const [notificationTitle, setNotificationTitle] = useState('');
@@ -127,6 +129,8 @@ export default function Admin() {
     await loadPendingCommunityPosts();
     await loadSupportMessages();
     await loadProfiles();
+    await loadEvents();
+    await loadJobPosts();
 
     setLoading(false);
   }
@@ -216,6 +220,9 @@ export default function Admin() {
   }
 
   async function updateBusiness(id, status) {
+    const businessForReview = businesses.find(item => item.id === id);
+    const rejectionReason = status === 'rejected' ? window.prompt('Indique o motivo da recusa do cadastro do vendedor:') : '';
+    if (status === 'rejected' && (!rejectionReason || !rejectionReason.trim())) return;
     let isPaid = false;
     let endDate = null;
 
@@ -273,6 +280,7 @@ export default function Admin() {
       alert('O Supabase não confirmou a alteração do negócio. A política RLS pode estar a bloquear a aprovação.');
       return;
     }
+    if (businessForReview?.owner_id) await notifyUser(businessForReview.owner_id, status === 'approved' ? 'Perfil Talaza aprovado' : 'Cadastro de vendedor recusado', status === 'approved' ? 'O seu perfil foi validado pela equipa Talaza. A visibilidade depende da hospedagem/plano ativo.' : 'O seu cadastro de vendedor foi recusado. Motivo: ' + rejectionReason.trim(), 'seller_review');
     await loadBusinesses();
   }
 
@@ -319,6 +327,46 @@ export default function Admin() {
       return;
     }
     setSupportMessages(data || []);
+  }
+
+  async function loadEvents() {
+    const { data, error } = await supabase.from('events').select('*').order('created_at', { ascending: false });
+    if (error) { console.error('Erro ao carregar eventos:', error); setMessage('Não foi possível carregar eventos: ' + error.message); setEvents([]); return; }
+    setEvents(data || []);
+  }
+
+  async function loadJobPosts() {
+    const { data, error } = await supabase.from('job_posts').select('*').order('created_at', { ascending: false });
+    if (error) { console.error('Erro ao carregar oportunidades:', error); setMessage('Não foi possível carregar oportunidades: ' + error.message); setJobPosts([]); return; }
+    setJobPosts(data || []);
+  }
+
+  async function notifyUser(userId, title, body, type = 'admin_review') {
+    if (!userId) return;
+    const { error } = await supabase.from('notifications').insert({ user_id: userId, title, body, type });
+    if (error) console.error('A alteração foi feita, mas a notificação falhou:', error.message);
+  }
+
+  async function moderateEvent(event, approved) {
+    const reason = approved ? '' : window.prompt('Indique o motivo da recusa do evento:');
+    if (!approved && (!reason || !reason.trim())) return;
+    const patch = approved ? { status: 'published', payment_status: event.payment_status || 'pending' } : { status: 'rejected' };
+    const { data, error } = await supabase.from('events').update(patch).eq('id', event.id).select('id, user_id').maybeSingle();
+    if (error || !data) { alert('Não foi possível atualizar o evento: ' + (error?.message || 'Nenhuma linha foi alterada.')); return; }
+    await notifyUser(data.user_id || event.user_id, approved ? 'Evento aprovado pela Talaza' : 'Evento recusado pela Talaza', approved ? 'O seu evento foi aprovado na análise administrativa. A publicação ainda depende da confirmação do pagamento, quando aplicável.' : 'O seu evento não foi aprovado. Motivo: ' + reason.trim(), 'event_review');
+    await loadEvents();
+    alert(approved ? 'Evento aprovado.' : 'Evento recusado e motivo enviado nas notificações do responsável.');
+  }
+
+  async function moderateJob(post, approved) {
+    const reason = approved ? '' : window.prompt('Indique o motivo da recusa da oportunidade:');
+    if (!approved && (!reason || !reason.trim())) return;
+    const patch = approved ? { status: 'published', is_active: true } : { status: 'rejected', is_active: false };
+    const { data, error } = await supabase.from('job_posts').update(patch).eq('id', post.id).select('id, user_id').maybeSingle();
+    if (error || !data) { alert('Não foi possível atualizar a oportunidade: ' + (error?.message || 'Nenhuma linha foi alterada.')); return; }
+    await notifyUser(data.user_id || post.user_id, approved ? 'Oportunidade aprovada' : 'Oportunidade recusada', approved ? 'A sua oportunidade foi aprovada pela Talaza.' : 'A sua oportunidade foi recusada. Motivo: ' + reason.trim(), 'opportunity_review');
+    await loadJobPosts();
+    alert(approved ? 'Oportunidade aprovada.' : 'Oportunidade recusada e motivo enviado nas notificações.');
   }
 
   async function loadProfiles() {
@@ -381,6 +429,8 @@ export default function Admin() {
   }
 
   async function reviewCommunityPost(post, approved) {
+    const rejectionReason = approved ? '' : window.prompt('Indique o motivo da recusa desta publicação da Comunidade Talaza:');
+    if (!approved && (!rejectionReason || !rejectionReason.trim())) return;
     if (reviewingPostId) return;
     setReviewingPostId(post.id);
     const nextModerationStatus = approved ? 'approved' : 'rejected';
@@ -408,6 +458,7 @@ export default function Admin() {
       return;
     }
 
+    await notifyUser(post.user_id, approved ? 'Publicação aprovada na Comunidade Talaza' : 'Publicação recusada na Comunidade Talaza', approved ? 'A sua publicação foi aprovada e já pode aparecer na Comunidade Talaza.' : 'A sua publicação foi recusada. Motivo: ' + rejectionReason.trim(), 'community_review');
     await loadPendingCommunityPosts();
     setReviewingPostId('');
   }
@@ -435,12 +486,14 @@ export default function Admin() {
   }
 
   async function reviewPayment(request, approved) {
+    const rejectionReason = approved ? '' : window.prompt('Indique o motivo da recusa do comprovativo/pagamento:');
+    if (!approved && (!rejectionReason || !rejectionReason.trim())) return;
     if (reviewingPaymentId) return;
     setReviewingPaymentId(request.id);
     const nextStatus = approved ? 'approved' : 'rejected';
     const { data: updatedPayment, error } = await supabase
       .from('payment_submissions')
-      .update({ status: nextStatus, reviewed_at: new Date().toISOString() })
+      .update({ status: nextStatus, reviewed_at: new Date().toISOString(), notes: approved ? (request.notes || null) : rejectionReason.trim() })
       .eq('id', request.id)
       .select('id')
       .maybeSingle();
@@ -475,6 +528,7 @@ export default function Admin() {
       await supabase.from('businesses').update({ is_active: false }).eq('id', request.business_id);
     }
 
+    await notifyUser(request.user_id, approved ? 'Pagamento aprovado — Talaza' : 'Comprovativo recusado — Talaza', approved ? 'O seu pagamento foi aprovado. A equipa Talaza está a atualizar a hospedagem do seu perfil.' : 'O comprovativo do seu pagamento foi recusado. Motivo: ' + rejectionReason.trim() + ' Pode corrigir e enviar novamente.', 'payment_review');
     await loadSubscriptionRequests();
     await loadBusinesses();
     setReviewingPaymentId('');
@@ -490,6 +544,8 @@ export default function Admin() {
       loadPendingCommunityPosts(),
       loadSupportMessages(),
       loadProfiles(),
+      loadEvents(),
+      loadJobPosts(),
     ]);
     setRefreshing(false);
   }
@@ -562,7 +618,7 @@ export default function Admin() {
 
       <section style={styles.content}>
 
-        <div style={styles.titleRow}>
+        <div id="vendedores" style={styles.titleRow}>
           <div>
             <h1 style={styles.title}>
               Administração
@@ -573,6 +629,11 @@ export default function Admin() {
             </p>
           </div>
 
+          <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '0 0 28px' }}>
+            {[
+              ['#vendedores', 'Vendedores'], ['#pagamentos', 'Pagamentos e hospedagens'], ['#eventos', 'Eventos'], ['#oportunidades', 'Oportunidades'], ['#comunidade', 'Comunidade Talaza'], ['#suporte', 'Suporte Talaza']
+            ].map(([href, label]) => <a key={href} href={href} style={{ padding: '10px 13px', borderRadius: 9, background: '#E4F0ED', color: '#075B4E', fontWeight: 800, textDecoration: 'none', fontSize: 13 }}>{label}</a>)}
+          </nav>
           <div style={styles.counter}>
             {businesses.length} pendente
             {businesses.length !== 1 ? 's' : ''}
@@ -721,7 +782,17 @@ export default function Admin() {
           </div>
         )}
 
-        <section style={{ marginTop: 42 }}>
+        <section id="eventos" style={{ marginTop: 42 }}>
+          <div style={styles.titleRow}><div><h2 style={styles.title}>Eventos</h2><p style={styles.description}>Analise os eventos submetidos, consulte os detalhes e aprove ou recuse com um motivo.</p></div><div style={styles.counter}>{events.filter(item => ['pending_payment', 'pending', 'pending_review'].includes(String(item.status || '').toLowerCase())).length} por analisar · {events.length} total</div></div>
+          {events.length === 0 ? <div style={styles.empty}><h3>Sem eventos registados</h3><p>Os eventos enviados aparecerão aqui.</p></div> : <div style={styles.list}>{events.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>EV</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || 'Evento sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · Pagamento: {item.payment_status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || 'Sem descrição.'}</p>{item.image_url && <p><a href={item.image_url} target="_blank" rel="noreferrer">Ver imagem do evento ↗</a></p>}<p><strong>Local:</strong> {item.location || '—'}</p><p><strong>Responsável:</strong> {item.user_id || '—'}</p></div>{!['published','approved','rejected','cancelled','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateEvent(item, false)}>Recusar evento</button><button type="button" style={styles.approve} onClick={() => moderateEvent(item, true)}>Aprovar evento</button></div>}</article>)}</div>}
+        </section>
+
+        <section id="oportunidades" style={{ marginTop: 42 }}>
+          <div style={styles.titleRow}><div><h2 style={styles.title}>Oportunidades</h2><p style={styles.description}>Revise as oportunidades/vagas publicadas e envie o motivo ao responsável se houver recusa.</p></div><div style={styles.counter}>{jobPosts.filter(item => !['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase())).length} por analisar · {jobPosts.length} total</div></div>
+          {jobPosts.length === 0 ? <div style={styles.empty}><h3>Sem oportunidades registadas</h3><p>As oportunidades enviadas aparecerão aqui.</p></div> : <div style={styles.list}>{jobPosts.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>OP</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || item.position || 'Oportunidade sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || item.details || 'Sem descrição.'}</p><p><strong>Província:</strong> {item.province_id || '—'} · <strong>Responsável:</strong> {item.user_id || item.employer_id || '—'}</p></div>{!['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateJob(item, false)}>Recusar oportunidade</button><button type="button" style={styles.approve} onClick={() => moderateJob(item, true)}>Aprovar oportunidade</button></div>}</article>)}</div>}
+        </section>
+
+        <section id="comunidade" style={{ marginTop: 42 }}>
           <div style={styles.titleRow}>
             <div>
               <h2 style={styles.title}>Aprovação da Comunidade Talaza</h2>
@@ -769,7 +840,7 @@ export default function Admin() {
           )}
         </section>
 
-        <section style={{ marginTop: 42 }}>
+        <section id="pagamentos" style={{ marginTop: 42 }}>
           <div style={styles.titleRow}>
             <div>
               <h2 style={styles.title}>Pagamentos e hospedagens</h2>
@@ -843,7 +914,7 @@ export default function Admin() {
           )}
         </section>
 
-        <section style={{ marginTop: 42 }}>
+        <section id="suporte" style={{ marginTop: 42 }}>
           <div style={styles.titleRow}>
             <div>
               <h2 style={styles.title}>Suporte Talaza — mensagens recebidas</h2>
