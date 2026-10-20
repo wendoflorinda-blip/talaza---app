@@ -145,10 +145,13 @@ export default function Seller() {
     if (subscriptionPending || emailVisibilitySaving) return;
     setEmailVisibilitySaving(true); setError(''); setNotice('');
     try {
-      const { error: visibilityError } = await supabase.from('businesses').update({ show_email: nextValue }).eq('id', business.id);
+      const visibilityUpdates = { show_email: nextValue };
+      // Só copia o e-mail de login para o contacto público quando o vendedor ativa explicitamente a opção.
+      if (nextValue && !business.email && user?.email) visibilityUpdates.email = user.email;
+      const { error: visibilityError } = await supabase.from('businesses').update(visibilityUpdates).eq('id', business.id);
       if (visibilityError) throw visibilityError;
       setShowEmail(nextValue);
-      setBusiness((current) => current ? { ...current, show_email: nextValue } : current);
+      setBusiness((current) => current ? { ...current, ...visibilityUpdates } : current);
       setNotice(nextValue ? 'O e-mail de contacto ficará visível aos clientes.' : 'O e-mail de contacto ficará oculto aos clientes.');
     } catch (err) {
       console.error('Erro ao guardar preferência de e-mail:', err);
