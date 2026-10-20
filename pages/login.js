@@ -42,6 +42,21 @@ export default function Login() {
       return;
     }
 
+    // Se a conta autenticada estiver registada como administradora,
+    // abrir o painel antes do fluxo normal de cliente/vendedor.
+    const { data: adminRecord, error: adminCheckError } = await supabase
+      .from('admin_users')
+      .select('id')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
+    if (adminCheckError) console.warn('Não foi possível verificar o acesso administrativo:', adminCheckError.message);
+    if (adminRecord) {
+      setLoading(false);
+      router.replace('/admin');
+      return;
+    }
+
     /*
       Procuramos o perfil pessoal.
     */
