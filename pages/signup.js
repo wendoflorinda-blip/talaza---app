@@ -385,6 +385,7 @@ export default function Signup() {
               style={inputStyle}
             />
           </Field>
+          <p style={{ margin: '-8px 0 12px', color: '#66756F', fontSize: 12, lineHeight: 1.55 }}>Este e-mail é usado para criar e proteger a sua conta Talaza. Não será mostrado publicamente no seu negócio sem a sua escolha nas definições de privacidade.</p>
 
           <Field id="password" label="Senha" required>
             <PasswordField
