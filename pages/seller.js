@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import TalazaMenu from '../components/TalazaMenu';
+import ProductsView, { VIEW_MODES } from '../components/ProductsView';
 import { supabase } from '../lib/supabaseClient';
+import { prepareImage, formatKz } from '../lib/imageTools';
 
 export default function Seller() {
   const router = useRouter();
@@ -30,11 +32,32 @@ export default function Seller() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // ---- galeria (imagens principais + imagens de painel) ----
+  const [images, setImages] = useState([]);
+  const [galleryError, setGalleryError] = useState('');
+  const [galleryBusy, setGalleryBusy] = useState(false);
+  const [viewMode, setViewMode] = useState('normal');
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const [sheet, setSheet] = useState(null); // { type: 'menu' | 'price' | 'text', id }
+  const [sheetPrice, setSheetPrice] = useState('');
+  const [sheetName, setSheetName] = useState('');
+  const [sheetDesc, setSheetDesc] = useState('');
+
   useEffect(() => {
     if (!router.isReady) return;
 
     loadBusiness();
   }, [router.isReady, country, province]);
+
+  // mensagens (guardado / erro) desaparecem sozinhas
+  useEffect(() => {
+    if (!business || (!notice && !error)) return undefined;
+    const timer = setTimeout(() => {
+      setNotice('');
+      setError('');
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [notice, error, business]);
 
   async function loadBusiness() {
     setLoading(true);
@@ -83,6 +106,8 @@ export default function Seller() {
     setEditHours(data.opening_hours || '');
     setEditMunicipality(data.municipality || '');
     setEditNeighborhood(data.neighborhood || '');
+    setViewMode(VIEW_MODES.includes(data.panel_view_mode) ? data.panel_view_mode : 'normal');
+    await loadImages(data.id);
 
     const { data: pendingRequest, error: pendingRequestError } = await supabase
       .from('payment_submissions')
@@ -227,6 +252,261 @@ export default function Seller() {
     await router.replace('/');
   }
 
+  /* =====================================================================
+     GALERIA · imagens principais (3 lugares) e imagens de painel
+     ===================================================================== */
+
+  async function loadImages(businessId) {
+    const { data, error: imagesError } = await supabase
+      .from('business_images')
+      .select('*')
+      .eq('business_id', businessId)
+      .order('created_at', { ascending: false });
+
+    if (imagesError) {
+      console.error('Erro ao carregar a galeria:', imagesError);
+      setGalleryError('Não foi possível carregar as imagens. Confirme que o SQL da galeria foi executado no Supabase.');
+      return null;
+    }
+    setGalleryError('');
+    setImages(data || []);
+    return data || [];
+  }
+
+  // Abre a galeria do telemóvel
+  function pickImages(multiple, onFiles) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = multiple;
+    input.onchange = () => {
+      const files = Array.from(input.files || []);
+      if (files.length) onFiles(files);
+    };
+    input.click();
+  }
+
+  // Executa uma tarefa da galeria com bloqueio, aviso de erro e respeito pela verificação do plano
+  async function runGallery(task) {
+    if (subscriptionPending) {
+      setError('O perfil está em verificação para aprovação. Edite mais tarde, depois da validação.');
+      return false;
+    }
+    setGalleryBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      await task();
+      return true;
+    } catch (galleryTaskError) {
+      console.error(galleryTaskError);
+      setError('Não foi possível guardar as alterações. ' + (galleryTaskError?.message || 'Confirme as permissões no Supabase.'));
+      return false;
+    } finally {
+      setGalleryBusy(false);
+    }
+  }
+
+  async function uploadGalleryFile(file, square) {
+    if (!file.type.startsWith('image/')) throw new Error('Escolha um ficheiro de imagem válido.');
+    if (file.size > 15 * 1024 * 1024) throw new Error('A imagem deve ter no máximo 15 MB.');
+    const blob = await prepareImage(file, square ? { square: true, size: 600 } : { max: 1200 });
+    const path =
+      business.id + '/gallery-' + (square ? 'main' : 'panel') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.jpg';
+    const { error: uploadError } = await supabase.storage
+      .from('business-media')
+      .upload(path, blob, { contentType: 'image/jpeg', cacheControl: '3600', upsert: false });
+    if (uploadError) throw uploadError;
+    const url = supabase.storage.from('business-media').getPublicUrl(path).data?.publicUrl;
+    if (!url) throw new Error('Não foi possível obter o endereço público da imagem.');
+    return { url, path };
+  }
+
+  async function removeStored(path) {
+    if (!path) return;
+    const { error: removeError } = await supabase.storage.from('business-media').remove([path]);
+    if (removeError) console.error('Não foi possível apagar o ficheiro antigo:', removeError);
+  }
+
+  async function updateRow(id, fields) {
+    const { data, error: updateError } = await supabase
+      .from('business_images')
+      .update(fields)
+      .eq('id', id)
+      .select('id');
+    if (updateError) throw updateError;
+    if (!data?.length) throw new Error('Sem permissão para alterar esta imagem.');
+  }
+
+  // A primeira imagem principal também fica em businesses.cover_url,
+  // para o resto do site continuar a mostrar a capa do negócio.
+  async function syncCover(list) {
+    const mains = (list || []).filter((i) => i.kind === 'main').sort((a, b) => a.slot - b.slot);
+    const coverUrl = mains[0]?.image_url || null;
+    if ((business?.cover_url || null) === coverUrl) return;
+    const { error: coverError } = await supabase
+      .from('businesses')
+      .update({ cover_url: coverUrl })
+      .eq('id', business.id)
+      .eq('owner_id', user.id);
+    if (coverError) {
+      console.error('Não foi possível atualizar a capa:', coverError);
+      return;
+    }
+    setBusiness((previous) => ({ ...previous, cover_url: coverUrl }));
+  }
+
+  async function saveMainImage(slot, file) {
+    await runGallery(async () => {
+      const { url, path } = await uploadGalleryFile(file, true);
+      const { error: insertError } = await supabase
+        .from('business_images')
+        .insert({ business_id: business.id, kind: 'main', slot, image_url: url, storage_path: path });
+      if (insertError) {
+        await removeStored(path);
+        throw insertError;
+      }
+      const list = await loadImages(business.id);
+      await syncCover(list);
+      setNotice('Imagem principal adicionada.');
+    });
+  }
+
+  async function addPanelImages(files) {
+    const batch = files.slice(0, 10);
+    await runGallery(async () => {
+      let done = 0;
+      try {
+        for (const file of batch) {
+          const { url, path } = await uploadGalleryFile(file, false);
+          const { error: insertError } = await supabase
+            .from('business_images')
+            .insert({ business_id: business.id, kind: 'panel', image_url: url, storage_path: path });
+          if (insertError) {
+            await removeStored(path);
+            throw insertError;
+          }
+          done += 1;
+        }
+      } finally {
+        if (done > 0) await loadImages(business.id);
+      }
+      setNotice(
+        done + (done === 1 ? ' imagem adicionada.' : ' imagens adicionadas.') +
+          (files.length > 10 ? ' Só as primeiras 10 foram adicionadas de uma vez.' : '')
+      );
+    });
+  }
+
+  async function replaceImage(item, file) {
+    await runGallery(async () => {
+      const { url, path } = await uploadGalleryFile(file, item.kind === 'main');
+      try {
+        await updateRow(item.id, { image_url: url, storage_path: path });
+      } catch (replaceError) {
+        await removeStored(path);
+        throw replaceError;
+      }
+      await removeStored(item.storage_path);
+      const list = await loadImages(business.id);
+      if (item.kind === 'main') await syncCover(list);
+      setNotice('Imagem atualizada.');
+    });
+  }
+
+  async function removeImage(item) {
+    if (typeof window !== 'undefined' && !window.confirm('Remover esta imagem?')) return;
+    await runGallery(async () => {
+      const { data: deleted, error: deleteError } = await supabase
+        .from('business_images')
+        .delete()
+        .eq('id', item.id)
+        .select('id');
+      if (deleteError) throw deleteError;
+      if (!deleted?.length) throw new Error('Sem permissão para remover esta imagem.');
+      await removeStored(item.storage_path);
+      const list = await loadImages(business.id);
+      if (item.kind === 'main') await syncCover(list);
+      setNotice('Imagem removida.');
+    });
+  }
+
+  async function submitPrice(event) {
+    event.preventDefault();
+    const item = images.find((i) => i.id === sheet?.id);
+    if (!item) return;
+    const raw = sheetPrice.replace(/\s/g, '').replace(',', '.');
+    let price = null;
+    if (raw !== '') {
+      price = Number(raw);
+      if (!Number.isFinite(price) || price < 0) {
+        setError('Indique um preço válido em Kz.');
+        return;
+      }
+    }
+    setSheet(null);
+    await runGallery(async () => {
+      await updateRow(item.id, { price });
+      await loadImages(business.id);
+      setNotice(price === null ? 'Preço removido.' : 'Preço guardado.');
+    });
+  }
+
+  async function submitText(event) {
+    event.preventDefault();
+    const item = images.find((i) => i.id === sheet?.id);
+    if (!item) return;
+    const name = sheetName.trim() || null;
+    const description = sheetDesc.trim() || null;
+    setSheet(null);
+    await runGallery(async () => {
+      await updateRow(item.id, { name, description });
+      await loadImages(business.id);
+      setNotice('Nome e descrição guardados.');
+    });
+  }
+
+  async function changeMode(mode) {
+    if (!VIEW_MODES.includes(mode)) return;
+    setViewMode(mode);
+    if (!business || !user || subscriptionPending) return;
+    const { error: modeError } = await supabase
+      .from('businesses')
+      .update({ panel_view_mode: mode })
+      .eq('id', business.id)
+      .eq('owner_id', user.id);
+    if (modeError) {
+      console.error(modeError);
+      setError('Não foi possível guardar o modo de visualização. Confirme que o SQL da galeria foi executado.');
+    }
+  }
+
+  function openPrice(item) {
+    setSheetPrice(item.price !== null && item.price !== undefined ? String(item.price) : '');
+    setSheet({ type: 'price', id: item.id });
+  }
+
+  function openText(item) {
+    setSheetName(item.name || '');
+    setSheetDesc(item.description || '');
+    setSheet({ type: 'text', id: item.id });
+  }
+
+  function addFromHero() {
+    if (subscriptionPending || galleryBusy) return;
+    const free = [0, 1, 2].find((slot) => !images.some((i) => i.kind === 'main' && i.slot === slot));
+    if (free === undefined) {
+      setNotice('Já tem 3 imagens principais. Para mudar uma, use a secção Imagens principais.');
+      scrollToId('galeria-principais');
+      return;
+    }
+    pickImages(false, (files) => saveMainImage(free, files[0]));
+  }
+
+  function scrollToId(id) {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   if (loading) {
     return (
       <div
@@ -292,6 +572,15 @@ export default function Seller() {
     );
   }
 
+  // ---- dados derivados da galeria ----
+  const mainImages = [0, 1, 2].map((slot) => images.find((i) => i.kind === 'main' && i.slot === slot) || null);
+  const mainCount = mainImages.filter(Boolean).length;
+  const panelImages = images.filter((i) => i.kind === 'panel');
+  const heroImage = mainImages.find(Boolean)?.image_url || business.cover_url;
+  const locked = subscriptionPending || galleryBusy || assetUploading;
+  const sheetItem = sheet ? images.find((i) => i.id === sheet.id) : null;
+  const addressLine = [business.municipality, business.neighborhood].filter(Boolean).join(' · ');
+
   return (
     <div
       style={{
@@ -355,7 +644,6 @@ export default function Seller() {
       </header>
 
       <input id="talaza-logo-upload" type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) uploadBrandAsset(file, 'logo_url'); }} />
-      <input id="talaza-cover-upload" type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) uploadBrandAsset(file, 'cover_url'); }} />
       <main
         style={{
           maxWidth: 1000,
@@ -365,9 +653,9 @@ export default function Seller() {
       >
         <section style={{ borderRadius: 24, overflow: 'hidden', background: '#075B4E', boxShadow: '0 16px 38px rgba(0,70,60,.14)' }}>
           <div style={{ position: 'relative', minHeight: 260, background: '#0B7563' }}>
-            {business.cover_url ? (
+            {heroImage ? (
               <img
-                src={business.cover_url}
+                src={heroImage}
                 alt={business.name ? 'Imagem principal de ' + business.name : 'Imagem principal'}
                 onError={(event) => {
                   event.currentTarget.style.display = 'none';
@@ -399,7 +687,7 @@ export default function Seller() {
               </div>
               <button type="button" aria-label="Adicionar ou alterar logo" disabled={assetUploading || subscriptionPending} onClick={() => document.getElementById('talaza-logo-upload')?.click()} style={{ position: 'absolute', right: -5, bottom: -5, width: 32, height: 32, borderRadius: '50%', border: '2px solid #FFFFFF', background: '#E6A900', color: '#075B4E', fontSize: 23, fontWeight: 900, lineHeight: 1, cursor: assetUploading || subscriptionPending ? 'not-allowed' : 'pointer' }}>+</button>
             </div>
-            <button type="button" aria-label="Adicionar ou alterar imagem principal" disabled={assetUploading || subscriptionPending} onClick={() => document.getElementById('talaza-cover-upload')?.click()} style={{ position: 'absolute', right: 16, top: 16, width: 38, height: 38, borderRadius: '50%', border: '2px solid #FFFFFF', background: '#FFFFFF', color: '#075B4E', fontSize: 26, fontWeight: 900, lineHeight: 1, cursor: assetUploading || subscriptionPending ? 'not-allowed' : 'pointer', boxShadow: '0 3px 12px rgba(0,0,0,.2)' }}>+</button>
+            <button type="button" aria-label="Adicionar imagem principal" disabled={locked} onClick={addFromHero} style={{ position: 'absolute', right: 16, top: 16, width: 38, height: 38, borderRadius: '50%', border: '2px solid #FFFFFF', background: '#FFFFFF', color: '#075B4E', fontSize: 26, fontWeight: 900, lineHeight: 1, cursor: locked ? 'not-allowed' : 'pointer', boxShadow: '0 3px 12px rgba(0,0,0,.2)' }}>+</button>
             <div style={{ position: 'absolute', left: 20, right: 20, bottom: 18, color: '#FFFFFF' }}>
               <div style={{ color: '#FFD04A', fontSize: 11, fontWeight: 900, letterSpacing: 1.5, marginBottom: 5 }}>O SEU NEGÓCIO</div>
               <h1 style={{ margin: 0, fontSize: 'clamp(25px,5vw,36px)', lineHeight: 1.15 }}>{business.name}</h1>
@@ -422,7 +710,6 @@ export default function Seller() {
               </div>
             ) : null
           )}
-        </div>
 
         {subscriptionPending && (
           <div style={{ marginTop: 18, padding: 16, background: '#FFF5D6', border: '1px solid #EBD58C', borderRadius: 14, color: '#5B4300' }}>
@@ -432,29 +719,213 @@ export default function Seller() {
           </div>
         )}
 
-
-        {notice && <div role="status" style={{ marginTop: 16, padding: 13, background: '#E8F6F1', color: '#075B4E', borderRadius: 12, fontWeight: 700 }}>{notice}</div>}
-        {error && <div role="alert" style={{ marginTop: 16, padding: 13, background: '#FCEBED', color: '#A52F3B', borderRadius: 12 }}>{error}</div>}
-
-
-
         <section style={{ marginTop: 16, padding: 20, borderRadius: 18, color: '#FFFFFF', background: 'linear-gradient(135deg,#4A1F73,#5B2A86 55%,#74399F)', boxShadow: '0 12px 28px rgba(91,42,134,.15)' }}>
           <div style={{ color: '#F3D77A', fontSize: 11, fontWeight: 900, letterSpacing: 1.5, marginBottom: 8 }}>DESCRIÇÃO DO NEGÓCIO</div>
           <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.7, fontSize: 14 }}>{business.description || 'Apresente os seus produtos e serviços, explique o que os torna especiais e convide os clientes a falar consigo.'}</p>
         </section>
+
+        {/* Botões: Produtos abre a vista do cliente; os outros descem até à secção */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 20 }}>
-          <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id } })} style={{ padding: '13px 22px', borderRadius: 13, background: '#E6A900', color: '#17342F', fontWeight: 900, border: 0, cursor: 'pointer', minWidth: 150 }}>▦ Produtos</button>
-          <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id, gallery: 'principais' } })} style={{ padding: '13px 16px', borderRadius: 13, background: '#7252B8', color: '#FFFFFF', fontWeight: 900, border: 0, cursor: 'pointer', flex: '1 1 180px' }}>▧ Imagens principais</button>
-          <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id, gallery: 'painel' } })} style={{ padding: '13px 16px', borderRadius: 13, background: '#FFFFFF', color: '#075B4E', fontWeight: 900, border: '1.5px solid #075B4E', cursor: 'pointer', flex: '1 1 180px' }}>▧ Imagens de painel</button>
+          <button type="button" onClick={() => setCustomerOpen(true)} style={{ padding: '13px 22px', borderRadius: 13, background: '#E6A900', color: '#17342F', fontWeight: 900, border: 0, cursor: 'pointer', minWidth: 150 }}>▦ Produtos</button>
+          <button type="button" onClick={() => scrollToId('galeria-principais')} style={{ padding: '13px 16px', borderRadius: 13, background: '#7252B8', color: '#FFFFFF', fontWeight: 900, border: 0, cursor: 'pointer', flex: '1 1 180px' }}>▧ Imagens principais</button>
+          <button type="button" onClick={() => scrollToId('galeria-painel')} style={{ padding: '13px 16px', borderRadius: 13, background: '#FFFFFF', color: '#075B4E', fontWeight: 900, border: '1.5px solid #075B4E', cursor: 'pointer', flex: '1 1 180px' }}>▧ Imagens de painel</button>
         </div>
+
+        {/* IMAGENS PRINCIPAIS · 3 lugares · 600x600 */}
+        <section id="galeria-principais" className="gal-sec">
+          <div className="gal-head">
+            <h2>Imagens principais</h2>
+            <span className="gal-count">{mainCount}/3</span>
+          </div>
+          <p className="gal-sub">3 lugares · formato 600×600 px</p>
+          {galleryError && <div role="alert" className="gal-alert">{galleryError}</div>}
+          <div className="mains">
+            {mainImages.map((item, slot) =>
+              item ? (
+                <article key={item.id} className="mc">
+                  <img src={item.image_url} alt={'Imagem principal ' + (slot + 1)} />
+                  <span className={'pill' + (item.price ? '' : ' sem')}>{item.price ? formatKz(item.price) : 'Sem preço'}</span>
+                  {!subscriptionPending && (
+                    <button type="button" className="kb" aria-label="Opções da imagem" disabled={galleryBusy} onClick={() => setSheet({ type: 'menu', id: item.id })}>⋮</button>
+                  )}
+                  {!subscriptionPending && (
+                    <button type="button" className="edit" disabled={galleryBusy} onClick={() => openPrice(item)}>✎ Alterar ou adicionar preço</button>
+                  )}
+                </article>
+              ) : (
+                <button
+                  key={'vazio-' + slot}
+                  type="button"
+                  className="mc vazio"
+                  disabled={locked}
+                  onClick={() => pickImages(false, (files) => saveMainImage(slot, files[0]))}
+                >
+                  <div>
+                    <div className="big">+</div>
+                    Adicionar imagem
+                  </div>
+                </button>
+              )
+            )}
+          </div>
+        </section>
+
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 10, marginTop: 18, padding: 16, background: '#EAF4F1', borderRadius: 16 }}>
           <div style={{ color: '#075B4E', fontSize: 13, lineHeight: 1.7 }}><strong>Contacto</strong><div>{business.phone || 'Não definido'}</div>{business.whatsapp && <div>WhatsApp: {business.whatsapp}</div>}</div>
           <div style={{ color: '#075B4E', fontSize: 13, lineHeight: 1.7 }}><strong>Horário</strong><div>{business.opening_hours || 'Não definido'}</div></div>
+          {addressLine && <div style={{ color: '#075B4E', fontSize: 13, lineHeight: 1.7 }}><strong>Endereço</strong><div>{addressLine}</div></div>}
         </section>
+
+        {/* IMAGENS DE PAINEL · 3 modos */}
+        <section id="galeria-painel" className="gal-sec">
+          <div className="gal-head">
+            <h2>Imagens de painel</h2>
+            <span className="gal-count">{panelImages.length}</span>
+            <button type="button" className="gal-add" disabled={locked} onClick={() => pickImages(true, addPanelImages)}>+ Adicionar</button>
+          </div>
+          <p className="gal-sub">Toque numa imagem para ampliar e no ⋮ para editar</p>
+          <div className="gal-rot">Escolha como quer ver seus produtos do painel:</div>
+          <ProductsView
+            items={panelImages}
+            mode={viewMode}
+            onModeChange={changeMode}
+            editable={!subscriptionPending}
+            onEdit={(item) => setSheet({ type: 'menu', id: item.id })}
+            whatsapp={business.whatsapp || business.phone}
+            businessName={business.name}
+          />
+        </section>
+
         <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id } })} style={{ display: 'block', width: '100%', marginTop: 14, padding: 13, borderRadius: 12, border: '1.5px solid #075B4E', background: '#FFFFFF', color: '#075B4E', fontWeight: 800, cursor: 'pointer' }}>← Explorar a Talaza como cliente</button>
         <button type="button" onClick={() => { if (!subscriptionPending) router.push({ pathname: '/impulsionar', query: { business: business.id } }); }} disabled={subscriptionPending} style={{ position: 'fixed', right: 0, top: '44%', zIndex: 15, writingMode: 'vertical-rl', transform: 'rotate(180deg)', padding: '18px 12px', borderRadius: '18px 0 0 18px', background: 'linear-gradient(160deg,#F7CF45,#E6A900 55%,#C98F00)', color: '#17342F', boxShadow: '-6px 8px 22px rgba(201,143,0,.35)', fontWeight: 900, letterSpacing: 1, border: 0, cursor: subscriptionPending ? 'not-allowed' : 'pointer' }} aria-label="Impulsionar negócio">⚡ Impulsionar</button>
 
       </main>
+
+      {/* Vista do cliente (botão Produtos) */}
+      {customerOpen && (
+        <div className="full" role="dialog" aria-modal="true" aria-label="Produtos como o cliente vê">
+          <div className="full-cab">
+            <button type="button" aria-label="Fechar" onClick={() => setCustomerOpen(false)}>←</button>
+            <div>
+              <b>{business.name}</b>
+              <small>Assim o cliente vê os seus produtos</small>
+            </div>
+          </div>
+          <div className="full-body">
+            <ProductsView
+              items={panelImages}
+              mode={viewMode}
+              onModeChange={changeMode}
+              editable={false}
+              whatsapp={business.whatsapp || business.phone}
+              businessName={business.name}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Folha de opções / preço / nome e descrição */}
+      {sheet && sheetItem && (
+        <div className="veu" onClick={(event) => { if (event.target === event.currentTarget) setSheet(null); }}>
+          <div className="folha" role="dialog" aria-modal="true">
+            {sheet.type === 'menu' && (
+              <>
+                <h3>{sheetItem.kind === 'main' ? 'Imagem principal ' + ((sheetItem.slot ?? 0) + 1) : (sheetItem.name || 'Imagem de painel')}</h3>
+                <button type="button" className="op" onClick={() => openPrice(sheetItem)}>Alterar ou adicionar preço</button>
+                {sheetItem.kind === 'panel' && (
+                  <button type="button" className="op" onClick={() => openText(sheetItem)}>Editar nome e descrição</button>
+                )}
+                <button type="button" className="op" onClick={() => { const item = sheetItem; setSheet(null); pickImages(false, (files) => replaceImage(item, files[0])); }}>Trocar imagem</button>
+                <button type="button" className="op perigo" onClick={() => { const item = sheetItem; setSheet(null); removeImage(item); }}>Remover</button>
+              </>
+            )}
+            {sheet.type === 'price' && (
+              <form onSubmit={submitPrice}>
+                <h3>{sheetItem.price ? 'Alterar preço' : 'Adicionar preço'}</h3>
+                <label htmlFor="talaza-preco">Preço em Kz</label>
+                <input id="talaza-preco" type="number" inputMode="decimal" min="0" step="any" placeholder="Ex.: 15000" value={sheetPrice} onChange={(event) => setSheetPrice(event.target.value)} autoFocus />
+                <div className="acoes">
+                  <button type="button" className="cancelar" onClick={() => setSheet(null)}>Cancelar</button>
+                  <button type="submit" className="guardar">Guardar</button>
+                </div>
+              </form>
+            )}
+            {sheet.type === 'text' && (
+              <form onSubmit={submitText}>
+                <h3>Nome e descrição</h3>
+                <label htmlFor="talaza-nome">Nome do produto</label>
+                <input id="talaza-nome" maxLength={40} placeholder="Ex.: Cesta romântica" value={sheetName} onChange={(event) => setSheetName(event.target.value)} autoFocus />
+                <label htmlFor="talaza-desc">Descrição</label>
+                <textarea id="talaza-desc" maxLength={140} placeholder="Ex.: Flores, vinho e chocolates" value={sheetDesc} onChange={(event) => setSheetDesc(event.target.value)} />
+                <div className="acoes">
+                  <button type="button" className="cancelar" onClick={() => setSheet(null)}>Cancelar</button>
+                  <button type="submit" className="guardar">Guardar</button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Aviso (guardado / erro) */}
+      {(notice || error) && (
+        <div className={'toast ' + (error ? 'err' : 'ok')} role={error ? 'alert' : 'status'} onClick={() => { setNotice(''); setError(''); }}>
+          {error || notice}
+        </div>
+      )}
+
+      {galleryBusy && <div className="busy" role="status">A guardar…</div>}
+
+      <style jsx>{`
+        button{font:inherit}
+        .gal-sec{margin-top:18px;background:#fff;border-radius:18px;padding:16px;scroll-margin-top:84px;box-shadow:0 1px 0 rgba(0,0,0,.03)}
+        .gal-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+        .gal-head h2{margin:0;font-size:19px;color:#075B4E;flex:1}
+        .gal-count{font-weight:700;color:#5A6A64;font-size:14px}
+        .gal-add{background:#075B4E;color:#fff;font-weight:700;font-size:13px;padding:8px 12px;border-radius:10px;border:0;cursor:pointer}
+        .gal-add:disabled{opacity:.5;cursor:not-allowed}
+        .gal-sub{margin:0 0 12px;font-size:12.5px;color:#5A6A64}
+        .gal-rot{font-size:14px;font-weight:700;margin:2px 0 8px;color:#14201C}
+        .gal-alert{margin:0 0 10px;padding:11px 13px;background:#FCEBED;color:#A52F3B;border-radius:12px;font-size:13px}
+
+        .mains{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:2px}
+        .mains::-webkit-scrollbar{display:none}
+        .mc{position:relative;flex:0 0 72%;aspect-ratio:1/1;border-radius:14px;overflow:hidden;scroll-snap-align:center;background:#E8F2EE}
+        .mc img{width:100%;height:100%;object-fit:cover;display:block}
+        .pill{position:absolute;left:8px;top:8px;background:rgba(15,22,20,.74);color:#fff;font-weight:800;font-size:13px;padding:5px 10px;border-radius:999px}
+        .pill.sem{background:rgba(255,255,255,.88);color:#5A6A64;font-weight:600}
+        .kb{position:absolute;right:8px;top:8px;width:30px;height:30px;border-radius:50%;border:0;background:rgba(15,22,20,.74);color:#fff;font-size:17px;font-weight:900;line-height:1;display:grid;place-items:center;cursor:pointer}
+        .edit{position:absolute;left:8px;right:8px;bottom:8px;background:#fff;border:0;border-radius:10px;padding:10px 8px;font-size:13px;color:#14201C;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+        .mc.vazio{border:2px dashed #8FBFB1;display:grid;place-items:center;color:#075B4E;font-weight:700;font-size:13px;text-align:center;cursor:pointer}
+        .mc.vazio:disabled{opacity:.55;cursor:not-allowed}
+        .big{width:46px;height:46px;border-radius:50%;background:#075B4E;color:#fff;display:grid;place-items:center;font-size:28px;margin:0 auto 8px}
+        @media (min-width:640px){.mc{flex:1 1 0}}
+
+        .full{position:fixed;inset:0;z-index:70;background:#EEF2F0;overflow-y:auto}
+        .full-cab{position:sticky;top:0;z-index:5;background:#075B4E;color:#fff;display:flex;align-items:center;gap:12px;padding:10px 14px}
+        .full-cab button{width:36px;height:36px;border-radius:10px;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer}
+        .full-cab b{display:block;font-size:16px}
+        .full-cab small{display:block;opacity:.85;font-size:12px}
+        .full-body{max-width:560px;margin:0 auto;padding:12px 14px 40px}
+
+        .veu{position:fixed;inset:0;background:rgba(10,20,17,.55);z-index:90;display:flex;align-items:flex-end;justify-content:center}
+        .folha{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}
+        .folha h3{margin:0 0 6px;font-size:17px;color:#14201C}
+        .op{display:flex;align-items:center;width:100%;text-align:left;padding:14px 4px;font-size:15px;border:0;border-top:1px solid #EDF1EF;background:none;color:#14201C;cursor:pointer}
+        .op.perigo{color:#B3261E}
+        label{display:block;font-size:12.5px;font-weight:700;color:#5A6A64;margin:12px 0 5px}
+        input,textarea{width:100%;box-sizing:border-box;padding:12px;border:2px solid #CFD9D5;border-radius:11px;font:inherit;font-size:15px}
+        textarea{min-height:84px;resize:vertical}
+        .acoes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+        .acoes button{padding:13px;border-radius:11px;font-weight:700;border:0;cursor:pointer}
+        .cancelar{background:#E9EEEC;color:#14201C}
+        .guardar{background:#075B4E;color:#fff}
+
+        .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:130;max-width:90%;padding:11px 15px;border-radius:12px;font-size:13.5px;font-weight:700;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.2);cursor:pointer}
+        .toast.ok{background:#E8F6F1;color:#075B4E}
+        .toast.err{background:#FCEBED;color:#A52F3B}
+        .busy{position:fixed;left:50%;top:76px;transform:translateX(-50%);z-index:130;background:#14201C;color:#fff;padding:8px 14px;border-radius:999px;font-size:13px}
+      `}</style>
     </div>
   );
 }
