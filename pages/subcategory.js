@@ -151,10 +151,10 @@ export default function Subcategory() {
         const { data: subscriptions, error: subscriptionError } =
           await supabase
             .from('business_subscriptions')
-            .select('business_id, starts_at, ends_at, status')
+            .select('business_id, starts_at, expires_at, status')
             .eq('status', 'active')
             .lte('starts_at', now)
-            .gte('ends_at', now);
+            .gte('expires_at', now);
 
         if (subscriptionError) {
           console.error(
