@@ -140,6 +140,7 @@ export default function Admin() {
       .from('businesses')
       .select(`
         id,
+        owner_id,
         name,
         description,
         municipality,
@@ -343,7 +344,7 @@ export default function Admin() {
 
   async function notifyUser(userId, title, body, type = 'admin_review') {
     if (!userId) return;
-    const { error } = await supabase.from('notifications').insert({ user_id: userId, title, body, type });
+    const { error } = await supabase.from('notifications').insert({ user_id: userId, title, body, type: 'individual' });
     if (error) console.error('A alteração foi feita, mas a notificação falhou:', error.message);
   }
 
@@ -788,7 +789,7 @@ export default function Admin() {
         </section>
 
         <section id="oportunidades" style={{ marginTop: 42 }}>
-          <div style={styles.titleRow}><div><h2 style={styles.title}>Oportunidades</h2><p style={styles.description}>Revise as oportunidades/vagas publicadas e envie o motivo ao responsável se houver recusa.</p></div><div style={styles.counter}>{jobPosts.filter(item => !['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase())).length} por analisar · {jobPosts.length} total</div></div>
+          <div style={styles.titleRow}><div><h2 style={styles.title}>Oportunidades</h2><p style={styles.description}>Revise as oportunidades/vagas publicadas e envie o motivo ao responsável se houver recusa.</p></div><div style={styles.counter}>{jobPosts.filter(item => !['rejected','closed','expired'].includes(String(item.status || '').toLowerCase())).length} por analisar · {jobPosts.length} total</div></div>
           {jobPosts.length === 0 ? <div style={styles.empty}><h3>Sem oportunidades registadas</h3><p>As oportunidades enviadas aparecerão aqui.</p></div> : <div style={styles.list}>{jobPosts.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>OP</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || item.position || 'Oportunidade sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || item.details || 'Sem descrição.'}</p><p><strong>Província:</strong> {item.province_id || '—'} · <strong>Responsável:</strong> {item.user_id || item.employer_id || '—'}</p></div>{!['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateJob(item, false)}>Recusar oportunidade</button><button type="button" style={styles.approve} onClick={() => moderateJob(item, true)}>Aprovar oportunidade</button></div>}</article>)}</div>}
         </section>
 
