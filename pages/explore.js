@@ -282,34 +282,11 @@ export default function Explore() {
     let cancelled = false;
 
     async function loadBusinesses() {
-      setLoadingBusinesses(true);
+      // A Vitrine principal fica vazia até configurarmos o plano Premium.
+      // A hospedagem normal só dá visibilidade na respetiva subcategoria.
+      setLoadingBusinesses(false);
       setBusinessError('');
-
-      try {
-        const { data, error } = await supabase
-          .from('businesses')
-          .select('id, name, description, municipality, neighborhood, logo_url')
-          .eq('country_id', country)
-          .eq('province_id', province)
-          .eq('is_active', true)
-          .eq('approval_status', 'approved')
-          // A Vitrine principal mostra apenas negócios marcados como Premium.
-          // A hospedagem normal dá visibilidade apenas na respetiva subcategoria.
-          .eq('is_premium', true)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        if (!cancelled) setBusinesses(data || []);
-      } catch (error) {
-        console.error('Erro ao carregar negócios:', error);
-        if (!cancelled) {
-          setBusinesses([]);
-          setBusinessError('Não foi possível carregar os negócios desta região.');
-        }
-      } finally {
-        if (!cancelled) setLoadingBusinesses(false);
-      }
+      setBusinesses([]);
     }
 
     loadBusinesses();
