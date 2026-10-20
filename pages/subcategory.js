@@ -1005,97 +1005,138 @@ export default function Subcategory() {
         .businessGrid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 13px;
+          gap: 18px;
         }
 
         .businessCard {
-          display: flex;
-          align-items: flex-start;
-          gap: 14px;
           min-width: 0;
-          padding: 17px;
+          overflow: hidden;
           border: 1px solid ${COLORS.line};
-          border-radius: 15px;
+          border-radius: 18px;
           background: white;
-          color: inherit;
-          text-decoration: none;
-          transition: border-color 0.18s, transform 0.18s;
+          box-shadow: 0 8px 24px rgba(17, 49, 41, .06);
+          transition: border-color .18s, transform .18s, box-shadow .18s;
         }
 
         .businessCard:hover {
-          border-color: ${COLORS.green};
+          border-color: #B7D5CC;
           transform: translateY(-2px);
+          box-shadow: 0 12px 28px rgba(17, 49, 41, .1);
         }
 
-        .businessAvatar {
-          display: grid;
-          place-items: center;
-          flex-shrink: 0;
-          width: 56px;
-          height: 56px;
-          overflow: hidden;
-          border-radius: 15px;
-          background: #E8F3F0;
-          color: ${COLORS.green};
-          font-size: 19px;
-          font-weight: 800;
+        .cardCover {
+          position: relative;
+          height: 150px;
+          background: linear-gradient(135deg, #DDECE6, #F1F5F2);
         }
 
-        .businessAvatar img {
+        .cardCover > img {
+          display: block;
           width: 100%;
           height: 100%;
           object-fit: cover;
         }
 
-        .businessInfo {
-          min-width: 0;
-          flex: 1;
+        .coverFallback {
+          display: grid;
+          place-items: center;
+          width: 100%;
+          height: 100%;
+          padding: 16px;
+          box-sizing: border-box;
+          color: #075B4E;
+          font-size: 18px;
+          font-weight: 800;
+          text-align: center;
         }
 
-        .businessTitleRow {
-          display: flex;
-          align-items: center;
-          gap: 7px;
+        .cardLogo {
+          position: absolute;
+          left: 17px;
+          bottom: -28px;
+          display: grid;
+          place-items: center;
+          width: 68px;
+          height: 68px;
+          overflow: hidden;
+          border: 4px solid #fff;
+          border-radius: 50%;
+          background: #E8F3F0;
+          color: ${COLORS.green};
+          font-size: 20px;
+          font-weight: 800;
+          box-shadow: 0 2px 9px rgba(0,0,0,.1);
         }
+
+        .cardLogo img { width: 100%; height: 100%; object-fit: cover; }
+
+        .businessInfo { min-width: 0; padding: 37px 16px 16px; }
+
+        .businessTitleRow { display: flex; align-items: center; gap: 7px; }
 
         .businessTitleRow h3 {
           overflow-wrap: anywhere;
-          margin: 1px 0 7px;
-          font-size: 14px;
-          line-height: 1.4;
+          margin: 0 0 7px;
+          font-size: 17px;
+          line-height: 1.35;
         }
 
-        .smallPremium {
-          color: ${COLORS.gold};
-          font-size: 15px;
-        }
+        .smallPremium { color: ${COLORS.gold}; font-size: 15px; }
 
         .businessDescription {
           display: -webkit-box;
           overflow: hidden;
-          margin: 0 0 9px;
+          min-height: 38px;
+          margin: 0 0 13px;
           color: ${COLORS.muted};
-          font-size: 12px;
+          font-size: 13px;
           line-height: 1.5;
-          -webkit-line-clamp: 2;
+          -webkit-line-clamp: 3;
           -webkit-box-orient: vertical;
         }
 
-        .businessLocation {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
-          color: ${COLORS.faint};
-          font-size: 11px;
+        .mainImagesPreview {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 6px;
+          margin: 0 0 15px;
         }
 
-        .profileLink {
-          display: inline-block;
-          margin-top: 11px;
-          color: ${COLORS.green};
+        .mainPreview { aspect-ratio: 1 / 1; overflow: hidden; border-radius: 9px; background: #EDF3F0; }
+        .mainPreview img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+        .mainPlaceholder {
+          display: grid;
+          place-items: center;
+          width: 100%;
+          height: 100%;
+          padding: 3px;
+          box-sizing: border-box;
+          color: #8A9992;
+          font-size: 10px;
+          text-align: center;
+        }
+
+        .businessActions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+        .messageButton, .profileButton {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 42px;
+          padding: 9px 8px;
+          box-sizing: border-box;
+          border-radius: 11px;
           font-size: 12px;
           font-weight: 800;
+          text-align: center;
+          text-decoration: none;
+          transition: filter .15s;
         }
+
+        .messageButton { border: 1px solid #B9D8CC; background: #EAF4F0; color: #075B4E; }
+        .profileButton { border: 1px solid #075B4E; background: #075B4E; color: white; }
+        .messageButton:hover, .profileButton:hover { filter: brightness(.96); }
 
         .message,
         .notice {
@@ -1308,6 +1349,8 @@ export default function Subcategory() {
           .businessGrid {
             grid-template-columns: 1fr;
           }
+          .cardCover { height: 170px; }
+          .businessInfo { padding-left: 14px; padding-right: 14px; }
 
           .filters {
             grid-template-columns: 1fr;
