@@ -391,7 +391,7 @@ export default function Comunidade() {
     return () => {
       cancelled = true;
     };
-  }, [router.isReady, area]);
+  }, [router.isReady, area, user?.id]);
 
   function openArea(nextArea) {
     setArea(nextArea);
