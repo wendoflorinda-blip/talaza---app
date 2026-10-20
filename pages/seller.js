@@ -19,6 +19,8 @@ export default function Seller() {
   const [editDescription, setEditDescription] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editWhatsapp, setEditWhatsapp] = useState('');
+  const [showEmail, setShowEmail] = useState(false);
+  const [emailVisibilitySaving, setEmailVisibilitySaving] = useState(false);
   const [editHours, setEditHours] = useState('');
   const [editMunicipality, setEditMunicipality] = useState('');
   const [editNeighborhood, setEditNeighborhood] = useState('');
@@ -99,6 +101,7 @@ export default function Seller() {
     }
 
     setBusiness(data);
+    setShowEmail(data.show_email === true);
     setEditName(data.name || '');
     setEditDescription(data.description || '');
     setEditPhone(data.phone || '');
@@ -138,6 +141,21 @@ export default function Seller() {
       setPendingPlan(null);
     }
     setLoading(false);
+  }
+
+  async function saveEmailVisibility(nextValue) {
+    if (subscriptionPending || emailVisibilitySaving) return;
+    setEmailVisibilitySaving(true); setError(''); setNotice('');
+    try {
+      const { error: visibilityError } = await supabase.from('businesses').update({ show_email: nextValue }).eq('id', business.id);
+      if (visibilityError) throw visibilityError;
+      setShowEmail(nextValue);
+      setBusiness((current) => current ? { ...current, show_email: nextValue } : current);
+      setNotice(nextValue ? 'O e-mail de contacto ficará visível aos clientes.' : 'O e-mail de contacto ficará oculto aos clientes.');
+    } catch (err) {
+      console.error('Erro ao guardar preferência de e-mail:', err);
+      setError('Não foi possível guardar a preferência de e-mail. Confirme se a coluna show_email já foi criada no Supabase.');
+    } finally { setEmailVisibilitySaving(false); }
   }
 
   async function saveBusiness(event) {
@@ -694,6 +712,16 @@ export default function Seller() {
           <button type="button" onClick={() => setCustomerOpen(true)} style={{ padding: '13px 22px', borderRadius: 13, background: '#E6A900', color: '#17342F', fontWeight: 900, border: 0, cursor: 'pointer', minWidth: 150 }}>▦ Pré-visualizar loja</button>
         </div>
 
+        <section style={{ marginTop: 14, padding: 16, border: '1px solid #DDE8E3', borderRadius: 15, background: '#FFFFFF', color: '#17342F' }}>
+          <strong style={{ display: 'block', marginBottom: 6 }}>Privacidade do e-mail</strong>
+          <p style={{ margin: '0 0 12px', color: '#65756E', fontSize: 13, lineHeight: 1.6 }}>Escolha se pretende que o e-mail de contacto do seu negócio apareça no perfil público. O e-mail usado para entrar na sua conta Talaza continua privado.</p>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: subscriptionPending || emailVisibilitySaving ? 'not-allowed' : 'pointer', fontSize: 13, lineHeight: 1.5 }}>
+            <input type="checkbox" checked={showEmail} disabled={subscriptionPending || emailVisibilitySaving} onChange={(event) => saveEmailVisibility(event.target.checked)} style={{ marginTop: 3, accentColor: '#075B4E' }} />
+            <span><strong>{showEmail ? 'Mostrar e-mail aos clientes' : 'Ocultar e-mail aos clientes'}</strong><br />{showEmail ? 'Os visitantes poderão ver o e-mail de contacto.' : 'Os visitantes não verão o e-mail de contacto.'}</span>
+          </label>
+          {emailVisibilitySaving && <p style={{ margin: '10px 0 0', fontSize: 12 }}>A guardar preferência…</p>}
+        </section>
+
         {/* IMAGENS PRINCIPAIS · 3 lugares · 600x600 */}
         <section id="galeria-principais" className="gal-sec">
           <div className="gal-head">
@@ -734,7 +762,7 @@ export default function Seller() {
         </section>
 
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 10, marginTop: 18, padding: 16, background: '#EAF4F1', borderRadius: 16 }}>
-          <div style={{ color: '#075B4E', fontSize: 13, lineHeight: 1.7 }}><strong>Contacto</strong><div>{business.phone || 'Não definido'}</div>{business.whatsapp && <div>WhatsApp: {business.whatsapp}</div>}</div>
+          <div style={{ color: '#075B4E', fontSize: 13, lineHeight: 1.7 }}><strong>Telefone</strong><div>{business.phone || 'Não definido'}</div></div>
           <div style={{ color: '#075B4E', fontSize: 13, lineHeight: 1.7 }}><strong>Horário</strong><div>{business.opening_hours || 'Não definido'}</div></div>
           {addressLine && <div style={{ color: '#075B4E', fontSize: 13, lineHeight: 1.7 }}><strong>Endereço</strong><div>{addressLine}</div></div>}
         </section>
