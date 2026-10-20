@@ -351,10 +351,13 @@ export default function Admin() {
   async function moderateEvent(event, approved) {
     const reason = approved ? '' : window.prompt('Indique o motivo da recusa do evento:');
     if (!approved && (!reason || !reason.trim())) return;
-    const patch = approved ? { status: 'published', payment_status: event.payment_status || 'pending' } : { status: 'rejected' };
+    const alreadyPaid = ['approved', 'paid', 'completed'].includes(String(event.payment_status || '').toLowerCase());
+    const patch = approved
+      ? { status: alreadyPaid ? 'published' : 'approved_pending_payment' }
+      : { status: 'rejected' };
     const { data, error } = await supabase.from('events').update(patch).eq('id', event.id).select('id, user_id').maybeSingle();
     if (error || !data) { alert('Não foi possível atualizar o evento: ' + (error?.message || 'Nenhuma linha foi alterada.')); return; }
-    await notifyUser(data.user_id || event.user_id, approved ? 'Evento aprovado pela Talaza' : 'Evento recusado pela Talaza', approved ? 'O seu evento foi aprovado na análise administrativa. A publicação ainda depende da confirmação do pagamento, quando aplicável.' : 'O seu evento não foi aprovado. Motivo: ' + reason.trim(), 'event_review');
+    await notifyUser(data.user_id || event.user_id, approved ? 'Evento aprovado pela Talaza' : 'Evento recusado pela Talaza', approved ? (alreadyPaid ? 'O seu evento foi aprovado e publicado.' : 'O seu evento foi aprovado na análise administrativa. Para ficar visível, ainda precisa de confirmação do pagamento.') : 'O seu evento não foi aprovado. Motivo: ' + reason.trim(), 'event_review');
     await loadEvents();
     alert(approved ? 'Evento aprovado.' : 'Evento recusado e motivo enviado nas notificações do responsável.');
   }
@@ -785,7 +788,7 @@ export default function Admin() {
 
         <section id="eventos" style={{ marginTop: 42 }}>
           <div style={styles.titleRow}><div><h2 style={styles.title}>Eventos</h2><p style={styles.description}>Analise os eventos submetidos, consulte os detalhes e aprove ou recuse com um motivo.</p></div><div style={styles.counter}>{events.filter(item => ['pending_payment', 'pending', 'pending_review'].includes(String(item.status || '').toLowerCase())).length} por analisar · {events.length} total</div></div>
-          {events.length === 0 ? <div style={styles.empty}><h3>Sem eventos registados</h3><p>Os eventos enviados aparecerão aqui.</p></div> : <div style={styles.list}>{events.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>EV</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || 'Evento sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · Pagamento: {item.payment_status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || 'Sem descrição.'}</p>{item.image_url && <p><a href={item.image_url} target="_blank" rel="noreferrer">Ver imagem do evento ↗</a></p>}<p><strong>Local:</strong> {item.location || '—'}</p><p><strong>Responsável:</strong> {item.user_id || '—'}</p></div>{!['published','approved','rejected','cancelled','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateEvent(item, false)}>Recusar evento</button><button type="button" style={styles.approve} onClick={() => moderateEvent(item, true)}>Aprovar evento</button></div>}</article>)}</div>}
+          {events.length === 0 ? <div style={styles.empty}><h3>Sem eventos registados</h3><p>Os eventos enviados aparecerão aqui.</p></div> : <div style={styles.list}>{events.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>EV</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || 'Evento sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · Pagamento: {item.payment_status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || 'Sem descrição.'}</p>{item.image_url && <p><a href={item.image_url} target="_blank" rel="noreferrer">Ver imagem do evento ↗</a></p>}<p><strong>Local:</strong> {item.location || '—'}</p><p><strong>Responsável:</strong> {item.user_id || '—'}</p></div>{!['published','approved','approved_pending_payment','rejected','cancelled','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateEvent(item, false)}>Recusar evento</button><button type="button" style={styles.approve} onClick={() => moderateEvent(item, true)}>Aprovar evento</button></div>}</article>)}</div>}
         </section>
 
         <section id="oportunidades" style={{ marginTop: 42 }}>
