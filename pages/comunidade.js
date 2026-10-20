@@ -129,6 +129,8 @@ export default function Comunidade() {
   const [openComments, setOpenComments] = useState({});
   const [officialContent, setOfficialContent] = useState([]);
   const [officialLoading, setOfficialLoading] = useState(false);
+  const [officialInteractions, setOfficialInteractions] = useState({});
+  const [officialCommentDrafts, setOfficialCommentDrafts] = useState({});
 
   const currentArea = AREAS.find((item) => item.id === area);
 
@@ -353,7 +355,9 @@ export default function Comunidade() {
           setOfficialContent([]);
           setMessage('Não foi possível carregar a motivação oficial: ' + error.message);
         } else {
-          setOfficialContent(data || []);
+          const items = data || [];
+          setOfficialContent(items);
+          await loadOfficialInteractions(items, 'motivation');
         }
       } else {
         const now = new Date().toISOString();
@@ -373,7 +377,9 @@ export default function Comunidade() {
           setOfficialContent([]);
           setMessage('Não foi possível carregar o tema oficial: ' + error.message);
         } else {
-          setOfficialContent(data ? [data] : []);
+          const items = data ? [data] : [];
+          setOfficialContent(items);
+          await loadOfficialInteractions(items, 'theme');
         }
       }
 
@@ -654,6 +660,45 @@ export default function Comunidade() {
     }));
   }
 
+  async function loadOfficialInteractions(items, kind) {
+    if (!items || !items.length) { setOfficialInteractions({}); return; }
+    const ids = items.map((item) => item.id);
+    const [likesResult, commentsResult] = await Promise.all([
+      supabase.from('community_official_likes').select('id, official_id, user_id').eq('official_type', kind).in('official_id', ids),
+      supabase.from('community_official_comments').select('id, official_id, user_id, content, created_at').eq('official_type', kind).in('official_id', ids).order('created_at', { ascending: true }),
+    ]);
+    if (likesResult.error || commentsResult.error) { setMessage('As publicações oficiais foram carregadas, mas falta configurar as tabelas de gostos e comentários oficiais no Supabase.'); setOfficialInteractions({}); return; }
+    const next = {};
+    items.forEach((item) => {
+      const likes = (likesResult.data || []).filter((like) => like.official_id === item.id);
+      next[item.id] = { likes: likes.length, liked: Boolean(user && likes.some((like) => like.user_id === user.id)), comments: (commentsResult.data || []).filter((comment) => comment.official_id === item.id) };
+    });
+    setOfficialInteractions(next);
+  }
+
+  async function toggleOfficialLike(item, kind) {
+    if (!user) { router.push('/login?redirect=' + encodeURIComponent(router.asPath)); return; }
+    const state = officialInteractions[item.id] || {};
+    if (state.liked) {
+      const { error } = await supabase.from('community_official_likes').delete().eq('official_type', kind).eq('official_id', item.id).eq('user_id', user.id);
+      if (error) { setMessage('Não foi possível retirar o gosto da publicação oficial: ' + error.message); return; }
+      setOfficialInteractions((previous) => ({ ...previous, [item.id]: { ...state, liked: false, likes: Math.max(0, (state.likes || 0) - 1) } }));
+    } else {
+      const { error } = await supabase.from('community_official_likes').insert({ official_type: kind, official_id: item.id, user_id: user.id });
+      if (error) { setMessage('Não foi possível gostar da publicação oficial: ' + error.message); return; }
+      setOfficialInteractions((previous) => ({ ...previous, [item.id]: { ...state, liked: true, likes: (state.likes || 0) + 1 } }));
+    }
+  }
+
+  async function submitOfficialComment(item, kind) {
+    if (!user) { router.push('/login?redirect=' + encodeURIComponent(router.asPath)); return; }
+    const draft = (officialCommentDrafts[item.id] || '').trim();
+    if (draft.length < 2) { setMessage('Escreva um comentário com pelo menos 2 caracteres.'); return; }
+    const { data, error } = await supabase.from('community_official_comments').insert({ official_type: kind, official_id: item.id, user_id: user.id, content: draft }).select('id, official_id, user_id, content, created_at').single();
+    if (error) { setMessage('Não foi possível publicar o comentário: ' + error.message); return; }
+    setOfficialInteractions((previous) => ({ ...previous, [item.id]: { ...(previous[item.id] || {}), comments: [...((previous[item.id] || {}).comments || []), data] } }));
+    setOfficialCommentDrafts((previous) => ({ ...previous, [item.id]: '' })); setMessage('');
+  }
   async function reportPost(post) {
     if (!user) {
       router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
@@ -1315,6 +1360,15 @@ export default function Comunidade() {
                   <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, margin: 0 }}>{item.content}</p>
                   {item.image_url ? <img src={item.image_url} alt="Imagem da motivação oficial" style={{ width: '100%', maxHeight: 360, objectFit: 'cover', borderRadius: 14, marginTop: 12 }} /> : null}
                   <small style={{ display: 'block', color: C.faint, marginTop: 12 }}>{new Date(item.created_at).toLocaleDateString('pt-PT')}</small>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid ' + C.line, marginTop: 12, paddingTop: 12 }}>
+                    <button type="button" onClick={() => toggleOfficialLike(item, 'motivation')} style={{ ...buttonStyle, background: officialInteractions[item.id]?.liked ? C.purpleSoft : C.bg, color: officialInteractions[item.id]?.liked ? C.purple : C.ink, border: '1px solid ' + C.line }}>{officialInteractions[item.id]?.liked ? '♥ Gostaste' : '♡ Gostar'} · {officialInteractions[item.id]?.likes || 0}</button>
+                    <button type="button" onClick={() => setOpenComments((prev) => ({ ...prev, [item.id]: !prev[item.id] }))} style={{ ...buttonStyle, background: C.bg, color: C.ink, border: '1px solid ' + C.line }}>💬 Comentar · {(officialInteractions[item.id]?.comments || []).length}</button>
+                  </div>
+                  {openComments[item.id] ? <div style={{ marginTop: 12 }}>
+                    {(officialInteractions[item.id]?.comments || []).map((comment) => <div key={comment.id} style={{ background: C.bg, borderRadius: 12, padding: 10, marginBottom: 8 }}><p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5, fontSize: 13 }}>{comment.content}</p><small style={{ color: C.faint }}>{new Date(comment.created_at).toLocaleDateString('pt-PT')}</small></div>)}
+                    <textarea value={officialCommentDrafts[item.id] || ''} onChange={(event) => setOfficialCommentDrafts((prev) => ({ ...prev, [item.id]: event.target.value }))} rows={2} maxLength={2000} placeholder="Escreva o seu comentário…" style={{ width: '100%', padding: 11, border: '1px solid ' + C.line, borderRadius: 12, resize: 'vertical' }} />
+                    <button type="button" onClick={() => submitOfficialComment(item, 'motivation')} style={{ ...buttonStyle, marginTop: 8, background: C.green, color: C.white }}>Enviar comentário</button>
+                  </div> : null}
                 </Panel>
               ))
             ) : (
@@ -1329,6 +1383,15 @@ export default function Comunidade() {
                     <div style={{ fontSize: 12, color: C.green, fontWeight: 800, marginBottom: 7 }}>TÍTULO DA SEMANA · SEMANA {item.week_number}</div>
                     <h3 style={{ color: C.dark, margin: 0, fontSize: 16 }}>{item.week_title}</h3>
                   </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid ' + C.line, marginTop: 12, paddingTop: 12 }}>
+                    <button type="button" onClick={() => toggleOfficialLike(item, 'theme')} style={{ ...buttonStyle, background: officialInteractions[item.id]?.liked ? C.purpleSoft : C.bg, color: officialInteractions[item.id]?.liked ? C.purple : C.ink, border: '1px solid ' + C.line }}>{officialInteractions[item.id]?.liked ? '♥ Gostaste' : '♡ Gostar'} · {officialInteractions[item.id]?.likes || 0}</button>
+                    <button type="button" onClick={() => setOpenComments((prev) => ({ ...prev, [item.id]: !prev[item.id] }))} style={{ ...buttonStyle, background: C.bg, color: C.ink, border: '1px solid ' + C.line }}>💬 Comentar · {(officialInteractions[item.id]?.comments || []).length}</button>
+                  </div>
+                  {openComments[item.id] ? <div style={{ marginTop: 12 }}>
+                    {(officialInteractions[item.id]?.comments || []).map((comment) => <div key={comment.id} style={{ background: C.bg, borderRadius: 12, padding: 10, marginBottom: 8 }}><p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5, fontSize: 13 }}>{comment.content}</p><small style={{ color: C.faint }}>{new Date(comment.created_at).toLocaleDateString('pt-PT')}</small></div>)}
+                    <textarea value={officialCommentDrafts[item.id] || ''} onChange={(event) => setOfficialCommentDrafts((prev) => ({ ...prev, [item.id]: event.target.value }))} rows={2} maxLength={2000} placeholder="Escreva o seu comentário…" style={{ width: '100%', padding: 11, border: '1px solid ' + C.line, borderRadius: 12, resize: 'vertical' }} />
+                    <button type="button" onClick={() => submitOfficialComment(item, 'theme')} style={{ ...buttonStyle, marginTop: 8, background: C.green, color: C.white }}>Enviar comentário</button>
+                  </div> : null}
                 </Panel>
               ))
             )}
