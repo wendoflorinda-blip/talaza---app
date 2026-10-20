@@ -207,3 +207,26 @@ WITH CHECK (EXISTS (SELECT 1 FROM public.admin_users a WHERE a.id = auth.uid()))
 
 -- Regista a aprovação administrativa de um evento sem confundir com o pagamento.
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS admin_approved boolean NOT NULL DEFAULT false;
+
+
+-- 7. Storage para imagens de Procura-se e Achei! na Comunidade Talaza.
+-- O bucket community-posts deve existir; não é criado automaticamente aqui.
+GRANT SELECT, INSERT ON storage.objects TO authenticated;
+DROP POLICY IF EXISTS "Talaza users upload community post images" ON storage.objects;
+CREATE POLICY "Talaza users upload community post images"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+  bucket_id = 'community-posts'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+DROP POLICY IF EXISTS "Talaza users view community post images" ON storage.objects;
+CREATE POLICY "Talaza users view community post images"
+ON storage.objects FOR SELECT TO authenticated
+USING (bucket_id = 'community-posts');
+DROP POLICY IF EXISTS "Talaza admins insert official community content" ON public.community_posts;
+CREATE POLICY "Talaza admins insert official community content"
+ON public.community_posts FOR INSERT TO authenticated
+WITH CHECK (
+  user_id = auth.uid()
+  AND EXISTS (SELECT 1 FROM public.admin_users a WHERE a.id = auth.uid())
+);
