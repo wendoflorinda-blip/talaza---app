@@ -8,8 +8,8 @@ const COLORS = {
   green: '#0F6E5C',
   darkGreen: '#083F35',
   gold: '#DDA10A',
-  purple: '#7252B8',
-  purpleSoft: '#F1ECFA',
+  purple: '#075B4E',
+  purpleSoft: '#EAF4F1',
   ink: '#17211F',
   muted: '#596560',
   faint: '#89948F',
@@ -591,10 +591,6 @@ export default function Subcategory() {
                               <h3>{business.name}</h3>
                               {premiumIds.has(business.id) && <span className="smallPremium">✦</span>}
                             </div>
-                            <p className="businessDescription">
-                              {cleanText(business.description) || 'Conhece os serviços deste negócio.'}
-                            </p>
-
                             <div className="mainImagesPreview">
                               {[0, 1, 2].map((slot) => {
                                 const image = mainImages.find((item) => item.slot === slot) || mainImages[slot];
@@ -610,11 +606,15 @@ export default function Subcategory() {
                               })}
                             </div>
 
+                            <p className="businessDescription">
+                              {cleanText(business.description) || 'Conhece os serviços deste negócio.'}
+                            </p>
+
                             <div className="businessActions">
                               {messageHref ? (
                                 <a className="messageButton" href={messageHref} target="_blank" rel="noopener noreferrer">Enviar mensagem</a>
                               ) : (
-                                <Link className="messageButton" href={makeBusinessHref(business.id, country, province)}>Enviar mensagem</Link>
+                                <span className="messageButton disabledButton" aria-disabled="true">Enviar mensagem</span>
                               )}
                               <Link className="profileButton" href={makeBusinessHref(business.id, country, province)}>Ver perfil</Link>
                             </div>
@@ -1184,6 +1184,7 @@ export default function Subcategory() {
 
         .messageButton { border: 1px solid #B9D8CC; background: #EAF4F0; color: #075B4E; }
         .profileButton { border: 1px solid #075B4E; background: #075B4E; color: white; }
+        .disabledButton { opacity: .55; cursor: not-allowed; }
         .messageButton:hover, .profileButton:hover { filter: brightness(.96); }
 
         .message,
