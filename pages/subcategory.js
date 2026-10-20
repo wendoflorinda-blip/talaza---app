@@ -126,20 +126,19 @@ export default function Subcategory() {
         setCountryName(foundCountryName);
         setProvinceName(foundProvinceName);
 
-        // Sem província selecionada, permite explorar esta subcategoria
-        // noutras províncias. O filtro de localização continua disponível.
+        // Os exploradores podem mudar de província, mas cada negócio
+        // só aparece na província em que o vendedor o registou.
         let businessQuery = supabase
           .from('businesses')
           .select(
-            'id, name, description, municipality, neighborhood, address, phone, whatsapp, opening_hours, logo_url, cover_url, country_id, province_id, subcategory_id, is_active, approval_status'
+            'id, name, description, municipality, neighborhood, address, phone, whatsapp, opening_hours, logo_url, cover_url, country_id, province_id, subcategory_id, is_active, approval_status, created_at'
           )
           .eq('subcategory_id', id)
           .eq('is_active', true)
           .eq('approval_status', 'approved');
 
-        // A província escolhida é uma preferência inicial, não uma barreira:
-        // mostramos negócios de todas as províncias do país para permitir descoberta.
         if (country) businessQuery = businessQuery.eq('country_id', country);
+        if (province) businessQuery = businessQuery.eq('province_id', province);
 
         const { data: businessData, error: businessError } =
           await businessQuery.order('created_at', { ascending: false });
