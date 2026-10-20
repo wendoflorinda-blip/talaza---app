@@ -50,6 +50,7 @@ const AREAS = [
   },
   {
     id: 'motivation',
+    db: 'motivation',
     name: 'Motivação',
     description:
       'Mensagens editoriais da Talaza, preparadas para promover reflexão, confiança e bem-estar. Apenas a equipa autorizada pode publicar nesta área.',
@@ -57,10 +58,19 @@ const AREAS = [
   },
   {
     id: 'theme',
+    db: 'theme',
     name: 'Tema do mês',
     description:
-      'Uma conversa orientada por um tema mensal e uma pergunta semanal, para partilhar perspetivas e aprender em conjunto.',
+      'Uma conversa orientada por um tema mensal, para partilhar perspetivas e aprender em conjunto.',
     icon: '🌿',
+  },
+  {
+    id: 'weekly',
+    db: 'weekly_question',
+    name: 'Título da semana',
+    description:
+      'A pergunta semanal escolhida pela equipa Talaza para orientar a conversa da comunidade.',
+    icon: '🗓️',
   },
 ];
 
