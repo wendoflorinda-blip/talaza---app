@@ -399,18 +399,19 @@ export default function Seller() {
             ) : <div aria-label="Logo ainda não adicionado" style={{ width: 88, height: 88, display: 'grid', placeItems: 'center', background: '#E6A900', color: '#075B4E', borderRadius: 20, fontSize: 30, fontWeight: 900 }}>{(business.name || 'T').charAt(0).toUpperCase()}</div>}
             <button type="button" aria-label="Adicionar ou alterar logo" disabled={assetUploading || subscriptionPending} onClick={() => document.getElementById('talaza-logo-upload')?.click()} style={{ position: 'absolute', right: -8, bottom: -8, width: 30, height: 30, borderRadius: '50%', border: '2px solid #075B4E', background: '#FFFFFF', color: '#075B4E', fontSize: 22, fontWeight: 900, lineHeight: 1, cursor: assetUploading || subscriptionPending ? 'not-allowed' : 'pointer' }}>+</button>
           </div>
-          <p
-            style={{
-              margin: 0,
-              color: 'rgba(255,255,255,.78)',
-              lineHeight: 1.5
-            }}
-          >
-            {business.municipality || 'Município não definido'}
-            {business.neighborhood
-              ? ` · ${business.neighborhood}`
-              : ''}
-          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 12 }}>
+            <div style={{ position: 'relative', width: 124, minHeight: 124, flex: '0 0 124px', borderRadius: 18, overflow: 'hidden', border: '2px dashed rgba(255,255,255,.55)', background: 'rgba(255,255,255,.10)' }}>
+              {business.cover_url ? (
+                <img src={business.cover_url} alt={"Imagem de " + business.name} style={{ width: '100%', height: '100%', minHeight: 124, objectFit: 'cover', display: 'block' }} />
+              ) : (
+                <div style={{ minHeight: 124, display: 'grid', placeItems: 'center', textAlign: 'center', padding: 8, color: '#FFFFFF', fontSize: 13 }}>＋<br />Adicionar imagem</div>
+              )}
+              <button type="button" aria-label="Adicionar ou alterar imagem" disabled={assetUploading || subscriptionPending} onClick={() => document.getElementById('talaza-cover-upload')?.click()} style={{ position: 'absolute', right: 6, bottom: 6, width: 30, height: 30, borderRadius: '50%', border: '2px solid #075B4E', background: '#FFFFFF', color: '#075B4E', fontSize: 22, fontWeight: 900, cursor: assetUploading || subscriptionPending ? 'not-allowed' : 'pointer' }}>+</button>
+            </div>
+            <p style={{ margin: 0, color: 'rgba(255,255,255,.78)', fontSize: 12, lineHeight: 1.5, flex: '1 1 100%' }}>
+              {business.municipality || ''}{business.neighborhood ? ' · ' + business.neighborhood : ''}
+            </p>
+          </div>
 
           {subscriptionPending && pendingPlan?.id ? (
             <Link
@@ -420,21 +421,12 @@ export default function Seller() {
               Em verificação · Ver plano e referência <span aria-hidden="true">→</span>
             </Link>
           ) : (
-            <div style={{ display: 'inline-flex', marginTop: 18, padding: '7px 11px', borderRadius: 999, background: 'rgba(255,255,255,.12)', fontSize: 12, fontWeight: 700 }}>
-              {String(business.approval_status || '').toLowerCase() === 'pending'
-                ? 'Perfil criado · aguarda plano e validação'
-                : business.is_active ? 'Ativo' : 'Inativo'}
-            </div>
+            String(business.approval_status || '').toLowerCase() === 'pending' ? (
+              <div style={{ display: 'inline-flex', marginTop: 18, padding: '7px 11px', borderRadius: 999, background: 'rgba(255,255,255,.12)', fontSize: 12, fontWeight: 700 }}>
+                Perfil criado · aguarda validação
+              </div>
+            ) : null
           )}
-        </div>
-
-        <div style={{ marginTop: 18, borderRadius: 20, overflow: 'hidden', background: '#EAF4F1', position: 'relative', minHeight: 150 }}>
-          {business.cover_url ? (
-            <img src={business.cover_url} alt={"Imagem principal de " + business.name} onError={(event) => { event.currentTarget.style.display = 'none'; }} style={{ display: 'block', width: '100%', maxHeight: 320, minHeight: 150, objectFit: 'cover' }} />
-          ) : (
-            <div style={{ minHeight: 150, display: 'grid', placeItems: 'center', color: '#075B4E', fontWeight: 800 }}>Imagem principal do negócio</div>
-          )}
-          <button type="button" aria-label="Adicionar ou alterar imagem principal" disabled={assetUploading || subscriptionPending} onClick={() => document.getElementById('talaza-cover-upload')?.click()} style={{ position: 'absolute', right: 14, bottom: 14, width: 36, height: 36, borderRadius: '50%', border: '2px solid #075B4E', background: '#FFFFFF', color: '#075B4E', fontSize: 25, fontWeight: 900, cursor: assetUploading || subscriptionPending ? 'not-allowed' : 'pointer' }}>+</button>
         </div>
 
         {subscriptionPending && (
@@ -451,7 +443,7 @@ export default function Seller() {
 
 
 
-        <section style={{ marginTop: 22, padding: 22, borderRadius: 20, color: '#FFFFFF', background: 'linear-gradient(135deg,#4A1F73,#5B2A86 55%,#74399F)', boxShadow: '0 12px 28px rgba(91,42,134,.18)' }}>
+        <section style={{ marginTop: 16, padding: 22, borderRadius: 20, color: '#FFFFFF', background: 'linear-gradient(135deg,#4A1F73,#5B2A86 55%,#74399F)', boxShadow: '0 12px 28px rgba(91,42,134,.18)' }}>
           <div style={{ color: '#F3D77A', fontSize: 11, fontWeight: 900, letterSpacing: 1.5, marginBottom: 8 }}>DESCRIÇÃO DO NEGÓCIO</div>
           <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.75, fontSize: 14 }}>{business.description || 'A descrição do teu negócio aparecerá aqui. Conta aos clientes o que ofereces, o que torna os teus produtos especiais e como podem entrar em contacto contigo.'}</p>
           <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,.2)', fontSize: 12, lineHeight: 1.8, color: '#F4EDFB' }}>
@@ -464,6 +456,11 @@ export default function Seller() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 22 }}>
           <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id } })} style={{ padding: '14px 22px', borderRadius: 12, background: '#E6A900', color: '#17342F', fontWeight: 900, border: 0, cursor: 'pointer' }}>Produtos</button>
         </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginTop: 22 }}>
+          <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id, gallery: 'principais' } })} style={{ padding: '14px 16px', borderRadius: 14, background: '#075B4E', color: '#FFFFFF', fontWeight: 900, border: 0, cursor: 'pointer' }}>Imagens principais</button>
+          <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id, gallery: 'painel' } })} style={{ padding: '14px 16px', borderRadius: 14, background: '#5B2A86', color: '#FFFFFF', fontWeight: 900, border: 0, cursor: 'pointer' }}>Imagens de painel</button>
+        </div>
+        <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id } })} style={{ display: 'block', width: '100%', marginTop: 14, padding: 13, borderRadius: 12, border: '1.5px solid #075B4E', background: '#FFFFFF', color: '#075B4E', fontWeight: 800, cursor: 'pointer' }}>← Explorar a Talaza como cliente</button>
         <button type="button" onClick={() => { if (!subscriptionPending) router.push({ pathname: '/impulsionar', query: { business: business.id } }); }} disabled={subscriptionPending} style={{ position: 'fixed', right: 0, top: '44%', zIndex: 15, writingMode: 'vertical-rl', transform: 'rotate(180deg)', padding: '18px 12px', borderRadius: '18px 0 0 18px', background: 'linear-gradient(160deg,#F7CF45,#E6A900 55%,#C98F00)', color: '#17342F', boxShadow: '-6px 8px 22px rgba(201,143,0,.35)', fontWeight: 900, letterSpacing: 1, border: 0, cursor: subscriptionPending ? 'not-allowed' : 'pointer' }} aria-label="Impulsionar negócio">⚡ Impulsionar</button>
 
       </main>
