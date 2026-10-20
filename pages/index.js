@@ -145,6 +145,12 @@ export default function Home() {
             Já tenho conta
           </Link>
         </div>
+
+        <div style={{ marginTop: 26, fontSize: 12, opacity: 0.8 }}>
+          <Link href="/admin" style={{ color: '#FFFFFF', textDecoration: 'underline', textUnderlineOffset: 4 }}>
+            Acesso administrativo Talaza
+          </Link>
+        </div>
       </main>
     </div>
   );
