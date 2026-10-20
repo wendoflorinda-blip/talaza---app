@@ -47,3 +47,14 @@ Reforçar o envio e a revisão dos comprovativos de pagamento, além de manter o
 - Os avisos gerais usam `user_id = NULL`; mensagens individuais usam o ID da conta destinatária.
 - A Comunidade Talaza é gratuita; as publicações enviadas por utilizadores aguardam moderação antes de aparecerem publicamente.
 - Não declarar uma compilação, implantação ou teste como concluído sem confirmação real.
+
+
+## Atualização — painel administrativo (2026-10-20)
+- O painel `pages/admin.js` foi reorganizado com navegação por secções: Vendedores, Pagamentos e hospedagens, Eventos, Oportunidades, Comunidade Talaza e Suporte Talaza.
+- Foi adicionada moderação de Eventos e Oportunidades usando as tabelas existentes `events` e `job_posts`; não foram criadas tabelas duplicadas.
+- As recusas de cadastro de vendedor, comprovativo/pagamento, publicações da Comunidade Talaza, eventos e oportunidades pedem motivo e tentam enviá-lo numa notificação individual ao utilizador. A recusa de pagamento também guarda o motivo em `payment_submissions.notes`.
+- O painel inclui o nome/ID do responsável, pré-visualização de comprovativos através de URL temporário e ações para abrir imagem/PDF.
+- Eventos aprovados sem pagamento confirmado ficam em `approved_pending_payment`, não publicados automaticamente.
+- O ficheiro `supabase_admin_support_notifications.sql` foi atualizado com políticas administrativas para listar/atualizar eventos e oportunidades, restrição de leitura de `admin_users` ao próprio administrador e valores de tipo de notificação. Estas alterações SQL ainda precisam de ser executadas no Supabase; a alteração no GitHub não muda a base de dados automaticamente.
+- Commits mais recentes na branch `Dev`: `9a6c440`, `79ce009`, `4c18ef2`, `e7a6bad`.
+- Ainda não está confirmado que o Vercel construiu/publicou estes commits. Testar após executar a migração SQL e verificar políticas RLS de `payment_submissions`, `businesses`, `events`, `job_posts`, `notifications` e Storage `payment-proofs`.
