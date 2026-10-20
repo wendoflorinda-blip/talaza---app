@@ -263,9 +263,9 @@ export default function Admin() {
 
     const updates = { approval_status: status, is_active: isPaid };
     if (isPaid && endDate) {
+      // businesses não tem coluna plan_id neste esquema.
+      // O plano escolhido permanece registado em payment_submissions.plan_id.
       updates.trial_ends_at = endDate;
-      const { data: paidRequest } = await supabase.from('payment_submissions').select('plan_id').eq('business_id', id).eq('status', 'approved').order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (paidRequest?.plan_id) updates.plan_id = paidRequest.plan_id;
     }
     const { data: updatedBusiness, error } = await supabase
       .from('businesses')
