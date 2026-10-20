@@ -1302,6 +1302,28 @@ const styles = {
     fontWeight: 800,
   },
 
+  label: {
+    display: 'block',
+    marginTop: 14,
+    marginBottom: 7,
+    color: '#244A42',
+    fontSize: 13,
+    fontWeight: 700,
+  },
+
+  input: {
+    display: 'block',
+    width: '100%',
+    boxSizing: 'border-box',
+    border: '1px solid #D5DFDB',
+    background: '#FFFFFF',
+    color: '#12332D',
+    borderRadius: 9,
+    padding: '11px 12px',
+    marginBottom: 10,
+    font: 'inherit',
+  },
+
   error: {
     color: '#A33A30',
     fontSize: 13,
