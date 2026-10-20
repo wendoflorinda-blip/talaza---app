@@ -522,12 +522,6 @@ export default function Explore() {
                 <div className="error-card">{businessError}</div>
               )}
 
-              {!loadingBusinesses && !businessError && businesses.length === 0 && (
-                <div className="empty-card">
-                  Ainda não há negócios com Destaque Premium nesta região.
-                </div>
-              )}
-
               {!loadingBusinesses && !businessError && businesses.length > 0 && (
                 <div className="business-grid">
                   {businesses.map((business) => (
