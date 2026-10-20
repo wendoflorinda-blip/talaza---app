@@ -18,7 +18,6 @@ export default function Seller() {
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editPhone, setEditPhone] = useState('');
-  const [editWhatsapp, setEditWhatsapp] = useState('');
   const [showEmail, setShowEmail] = useState(false);
   const [emailVisibilitySaving, setEmailVisibilitySaving] = useState(false);
   const [editHours, setEditHours] = useState('');
@@ -105,7 +104,6 @@ export default function Seller() {
     setEditName(data.name || '');
     setEditDescription(data.description || '');
     setEditPhone(data.phone || '');
-    setEditWhatsapp(data.whatsapp || '');
     setEditHours(data.opening_hours || '');
     setEditMunicipality(data.municipality || '');
     setEditNeighborhood(data.neighborhood || '');
@@ -177,7 +175,6 @@ export default function Seller() {
         name: editName.trim(),
         description: editDescription.trim() || null,
         phone: editPhone.trim() || null,
-        whatsapp: editWhatsapp.trim() || null,
         opening_hours: editHours.trim() || null,
         municipality: editMunicipality.trim() || null,
         neighborhood: editNeighborhood.trim() || null,
@@ -781,7 +778,7 @@ export default function Seller() {
             onModeChange={changeMode}
             editable={!subscriptionPending}
             onEdit={(item) => setSheet({ type: 'menu', id: item.id })}
-            whatsapp={business.whatsapp || business.phone}
+            whatsapp={business.phone}
             businessName={business.name}
           />
         </section>
