@@ -363,55 +363,50 @@ export default function Seller() {
           padding: '24px 18px'
         }}
       >
-        <div
-          style={{
-            background: 'linear-gradient(145deg,#075B4E,#0B7563)',
-            color: '#FFFFFF',
-            borderRadius: 24,
-            padding: 25,
-            boxShadow: '0 15px 40px rgba(0,70,60,.13)',
-            position: 'relative'
-          }}
-        >
-          <div
-            style={{
-              fontSize: 12,
-              color: '#E6A900',
-              fontWeight: 900,
-              letterSpacing: 1
-            }}
-          >
-            O SEU NEGÓCIO
-          </div>
-
-          <h1
-            style={{
-              margin: '8px 0',
-              fontSize: 'clamp(26px,5vw,38px)'
-            }}
-          >
-            {business.name}
-          </h1>
-
-          <div style={{ position: 'relative', width: 88, height: 88, margin: '14px 0 12px' }}>
-            {business.logo_url ? (
-              <img src={business.logo_url} alt={"Logo de " + business.name} onError={(event) => { event.currentTarget.style.display = 'none'; }} style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 20, border: '3px solid rgba(255,255,255,.65)' }} />
-            ) : <div aria-label="Logo ainda não adicionado" style={{ width: 88, height: 88, display: 'grid', placeItems: 'center', background: '#E6A900', color: '#075B4E', borderRadius: 20, fontSize: 30, fontWeight: 900 }}>{(business.name || 'T').charAt(0).toUpperCase()}</div>}
-            <button type="button" aria-label="Adicionar ou alterar logo" disabled={assetUploading || subscriptionPending} onClick={() => document.getElementById('talaza-logo-upload')?.click()} style={{ position: 'absolute', right: -8, bottom: -8, width: 30, height: 30, borderRadius: '50%', border: '2px solid #075B4E', background: '#FFFFFF', color: '#075B4E', fontSize: 22, fontWeight: 900, lineHeight: 1, cursor: assetUploading || subscriptionPending ? 'not-allowed' : 'pointer' }}>+</button>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 12 }}>
-            <div style={{ position: 'relative', width: 124, minHeight: 124, flex: '0 0 124px', borderRadius: 18, overflow: 'hidden', border: '2px dashed rgba(255,255,255,.55)', background: 'rgba(255,255,255,.10)' }}>
-              {business.cover_url ? (
-                <img src={business.cover_url} alt={"Imagem de " + business.name} style={{ width: '100%', height: '100%', minHeight: 124, objectFit: 'cover', display: 'block' }} />
-              ) : (
-                <div style={{ minHeight: 124, display: 'grid', placeItems: 'center', textAlign: 'center', padding: 8, color: '#FFFFFF', fontSize: 13 }}>＋<br />Adicionar imagem</div>
-              )}
-              <button type="button" aria-label="Adicionar ou alterar imagem" disabled={assetUploading || subscriptionPending} onClick={() => document.getElementById('talaza-cover-upload')?.click()} style={{ position: 'absolute', right: 6, bottom: 6, width: 30, height: 30, borderRadius: '50%', border: '2px solid #075B4E', background: '#FFFFFF', color: '#075B4E', fontSize: 22, fontWeight: 900, cursor: assetUploading || subscriptionPending ? 'not-allowed' : 'pointer' }}>+</button>
+        <section style={{ borderRadius: 24, overflow: 'hidden', background: '#075B4E', boxShadow: '0 16px 38px rgba(0,70,60,.14)' }}>
+          <div style={{ position: 'relative', minHeight: 260, background: '#0B7563' }}>
+            {business.cover_url ? (
+              <img
+                src={business.cover_url}
+                alt={business.name ? 'Imagem principal de ' + business.name : 'Imagem principal'}
+                onError={(event) => {
+                  event.currentTarget.style.display = 'none';
+                  event.currentTarget.parentElement?.classList.add('talaza-cover-missing');
+                }}
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              />
+            ) : (
+              <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: 'rgba(255,255,255,.82)', fontWeight: 800, background: 'linear-gradient(135deg,#0B7563,#075B4E)' }}>
+                Adicione a imagem principal do negócio
+              </div>
+            )}
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(0,0,0,.04) 15%,rgba(0,0,0,.70) 100%)' }} />
+            <div style={{ position: 'absolute', top: 18, left: 18, width: 92, height: 92 }}>
+              <div style={{ width: 92, height: 92, borderRadius: '50%', overflow: 'hidden', border: '3px solid #E6A900', background: '#FFFFFF', display: 'grid', placeItems: 'center', color: '#075B4E', fontSize: 30, fontWeight: 900 }}>
+                {business.logo_url ? (
+                  <img
+                    src={business.logo_url}
+                    alt={'Logo de ' + business.name}
+                    onError={(event) => {
+                      event.currentTarget.style.display = 'none';
+                      const fallback = event.currentTarget.parentElement?.querySelector('[data-logo-fallback]');
+                      if (fallback) fallback.style.display = 'grid';
+                    }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                ) : null}
+                <span data-logo-fallback style={{ display: business.logo_url ? 'none' : 'grid', placeItems: 'center', width: '100%', height: '100%' }}>{(business.name || 'T').charAt(0).toUpperCase()}</span>
+              </div>
+              <button type="button" aria-label="Adicionar ou alterar logo" disabled={assetUploading || subscriptionPending} onClick={() => document.getElementById('talaza-logo-upload')?.click()} style={{ position: 'absolute', right: -5, bottom: -5, width: 32, height: 32, borderRadius: '50%', border: '2px solid #FFFFFF', background: '#E6A900', color: '#075B4E', fontSize: 23, fontWeight: 900, lineHeight: 1, cursor: assetUploading || subscriptionPending ? 'not-allowed' : 'pointer' }}>+</button>
             </div>
-            <p style={{ margin: 0, color: 'rgba(255,255,255,.78)', fontSize: 12, lineHeight: 1.5, flex: '1 1 100%' }}>
-              {business.municipality || ''}{business.neighborhood ? ' · ' + business.neighborhood : ''}
-            </p>
+            <button type="button" aria-label="Adicionar ou alterar imagem principal" disabled={assetUploading || subscriptionPending} onClick={() => document.getElementById('talaza-cover-upload')?.click()} style={{ position: 'absolute', right: 16, top: 16, width: 38, height: 38, borderRadius: '50%', border: '2px solid #FFFFFF', background: '#FFFFFF', color: '#075B4E', fontSize: 26, fontWeight: 900, lineHeight: 1, cursor: assetUploading || subscriptionPending ? 'not-allowed' : 'pointer', boxShadow: '0 3px 12px rgba(0,0,0,.2)' }}>+</button>
+            <div style={{ position: 'absolute', left: 20, right: 20, bottom: 18, color: '#FFFFFF' }}>
+              <div style={{ color: '#FFD04A', fontSize: 11, fontWeight: 900, letterSpacing: 1.5, marginBottom: 5 }}>O SEU NEGÓCIO</div>
+              <h1 style={{ margin: 0, fontSize: 'clamp(25px,5vw,36px)', lineHeight: 1.15 }}>{business.name}</h1>
+              <p style={{ margin: '8px 0 0', fontSize: 14, lineHeight: 1.5, maxWidth: 680 }}>{business.description || 'Apresente aqui o seu negócio e explique aos clientes o que oferece.'}</p>
+            </div>
           </div>
+        </section>
 
           {subscriptionPending && pendingPlan?.id ? (
             <Link
@@ -443,23 +438,19 @@ export default function Seller() {
 
 
 
-        <section style={{ marginTop: 16, padding: 22, borderRadius: 20, color: '#FFFFFF', background: 'linear-gradient(135deg,#4A1F73,#5B2A86 55%,#74399F)', boxShadow: '0 12px 28px rgba(91,42,134,.18)' }}>
+        <section style={{ marginTop: 16, padding: 20, borderRadius: 18, color: '#FFFFFF', background: 'linear-gradient(135deg,#4A1F73,#5B2A86 55%,#74399F)', boxShadow: '0 12px 28px rgba(91,42,134,.15)' }}>
           <div style={{ color: '#F3D77A', fontSize: 11, fontWeight: 900, letterSpacing: 1.5, marginBottom: 8 }}>DESCRIÇÃO DO NEGÓCIO</div>
-          <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.75, fontSize: 14 }}>{business.description || 'A descrição do teu negócio aparecerá aqui. Conta aos clientes o que ofereces, o que torna os teus produtos especiais e como podem entrar em contacto contigo.'}</p>
-          <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,.2)', fontSize: 12, lineHeight: 1.8, color: '#F4EDFB' }}>
-            <div><strong>Contacto:</strong> {business.phone || 'Não definido'}</div>
-            <div><strong>WhatsApp:</strong> {business.whatsapp || 'Não definido'}</div>
-            <div><strong>Horário:</strong> {business.opening_hours || 'Não definido'}</div>
-            <div><strong>Endereço:</strong> {[business.municipality, business.neighborhood].filter(Boolean).join(' · ') || 'Não definido'}</div>
-          </div>
+          <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.7, fontSize: 14 }}>{business.description || 'Apresente os seus produtos e serviços, explique o que os torna especiais e convide os clientes a falar consigo.'}</p>
         </section>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 22 }}>
-          <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id } })} style={{ padding: '14px 22px', borderRadius: 12, background: '#E6A900', color: '#17342F', fontWeight: 900, border: 0, cursor: 'pointer' }}>Produtos</button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 20 }}>
+          <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id } })} style={{ padding: '13px 22px', borderRadius: 13, background: '#E6A900', color: '#17342F', fontWeight: 900, border: 0, cursor: 'pointer', minWidth: 150 }}>▦ Produtos</button>
+          <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id, gallery: 'principais' } })} style={{ padding: '13px 16px', borderRadius: 13, background: '#7252B8', color: '#FFFFFF', fontWeight: 900, border: 0, cursor: 'pointer', flex: '1 1 180px' }}>▧ Imagens principais</button>
+          <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id, gallery: 'painel' } })} style={{ padding: '13px 16px', borderRadius: 13, background: '#FFFFFF', color: '#075B4E', fontWeight: 900, border: '1.5px solid #075B4E', cursor: 'pointer', flex: '1 1 180px' }}>▧ Imagens de painel</button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginTop: 22 }}>
-          <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id, gallery: 'principais' } })} style={{ padding: '14px 16px', borderRadius: 14, background: '#075B4E', color: '#FFFFFF', fontWeight: 900, border: 0, cursor: 'pointer' }}>Imagens principais</button>
-          <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id, gallery: 'painel' } })} style={{ padding: '14px 16px', borderRadius: 14, background: '#5B2A86', color: '#FFFFFF', fontWeight: 900, border: 0, cursor: 'pointer' }}>Imagens de painel</button>
-        </div>
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 10, marginTop: 18, padding: 16, background: '#EAF4F1', borderRadius: 16 }}>
+          <div style={{ color: '#075B4E', fontSize: 13, lineHeight: 1.7 }}><strong>Contacto</strong><div>{business.phone || 'Não definido'}</div>{business.whatsapp && <div>WhatsApp: {business.whatsapp}</div>}</div>
+          <div style={{ color: '#075B4E', fontSize: 13, lineHeight: 1.7 }}><strong>Horário</strong><div>{business.opening_hours || 'Não definido'}</div></div>
+        </section>
         <button type="button" onClick={() => router.push({ pathname: '/businesses/' + business.id, query: { country: business.country_id, province: business.province_id } })} style={{ display: 'block', width: '100%', marginTop: 14, padding: 13, borderRadius: 12, border: '1.5px solid #075B4E', background: '#FFFFFF', color: '#075B4E', fontWeight: 800, cursor: 'pointer' }}>← Explorar a Talaza como cliente</button>
         <button type="button" onClick={() => { if (!subscriptionPending) router.push({ pathname: '/impulsionar', query: { business: business.id } }); }} disabled={subscriptionPending} style={{ position: 'fixed', right: 0, top: '44%', zIndex: 15, writingMode: 'vertical-rl', transform: 'rotate(180deg)', padding: '18px 12px', borderRadius: '18px 0 0 18px', background: 'linear-gradient(160deg,#F7CF45,#E6A900 55%,#C98F00)', color: '#17342F', boxShadow: '-6px 8px 22px rgba(201,143,0,.35)', fontWeight: 900, letterSpacing: 1, border: 0, cursor: subscriptionPending ? 'not-allowed' : 'pointer' }} aria-label="Impulsionar negócio">⚡ Impulsionar</button>
 
