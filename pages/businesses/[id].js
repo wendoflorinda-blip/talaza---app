@@ -125,13 +125,13 @@ export default function BusinessPublicProfile() {
                   {business.logo_url ? <img src={business.logo_url} alt={'Logo de ' + business.name} /> : <span>{clean(business.name).slice(0, 1).toUpperCase() || 'T'}</span>}
                 </div>
                 <h1>{business.name}</h1>
-                {business.description && <p className="description">{business.description}</p>}
                 <div className="mainImages">
                   {[0, 1, 2].map((slot) => {
                     const image = mainImages.find((item) => item.slot === slot) || mainImages[slot];
                     return <div className="mainImage" key={slot}>{image?.image_url ? <img src={image.image_url} alt={image.name || ('Imagem principal ' + (slot + 1))} /> : <span>Imagem {slot + 1}</span>}</div>;
                   })}
                 </div>
+                {business.description && <p className="description">{business.description}</p>}
                 <div className="topActions">
                   {messageHref ? <a className="messageButton" href={messageHref} target="_blank" rel="noopener noreferrer">Enviar mensagem</a> : <span className="disabledMessage">Contacto não disponível</span>}
                 </div>
