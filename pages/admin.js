@@ -841,7 +841,7 @@ export default function Admin() {
               <option value="motivation">Motivação</option><option value="theme">Tema do mês</option><option value="weekly_question">Título da semana</option>
             </select>
             <label style={styles.label}>Título / tema</label>
-            <input value={officialTitle} onChange={event => setOfficialTitle(event.target.value)} placeholder={officialKind === 'motivation' ? 'Título da mensagem (opcional)' : officialKind === 'theme' ? 'Ex.: O valor de recomeçar' : 'Ex.: O que aprendeste esta semana?'} style={styles.input} />
+            <input value={officialTitle} onChange={event => setOfficialTitle(event.target.value)} placeholder={officialKind === 'motivation' ? 'Ex.: A força de recomeçar' : officialKind === 'theme' ? 'Ex.: O valor de recomeçar' : 'Ex.: O que aprendeste esta semana?'} style={styles.input} />
             <label style={styles.label}>Texto</label>
             <textarea value={officialBody} onChange={event => setOfficialBody(event.target.value)} placeholder="Escreve aqui o conteúdo que será publicado na Comunidade Talaza." rows={5} style={styles.input} />
             <div style={styles.actions}><button type="button" disabled={officialSaving} style={styles.approve} onClick={publishOfficialCommunityContent}>{officialSaving ? 'A publicar…' : 'Publicar conteúdo oficial'}</button></div>
