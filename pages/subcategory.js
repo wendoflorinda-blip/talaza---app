@@ -132,8 +132,9 @@ export default function Subcategory() {
           .eq('is_active', true)
           .eq('approval_status', 'approved');
 
+        // A província escolhida é uma preferência inicial, não uma barreira:
+        // mostramos negócios de todas as províncias do país para permitir descoberta.
         if (country) businessQuery = businessQuery.eq('country_id', country);
-        if (province) businessQuery = businessQuery.eq('province_id', province);
 
         const { data: businessData, error: businessError } =
           await businessQuery.order('created_at', { ascending: false });
