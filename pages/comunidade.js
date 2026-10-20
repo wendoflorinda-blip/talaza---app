@@ -356,10 +356,13 @@ export default function Comunidade() {
           setOfficialContent(data || []);
         }
       } else {
+        const now = new Date().toISOString();
         const { data, error } = await supabase
           .from('community_monthly_themes')
           .select('id, created_at, month_title, month_description, week_title, week_number, starts_at, ends_at')
           .eq('is_active', true)
+          .lte('starts_at', now)
+          .gt('ends_at', now)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -371,8 +374,7 @@ export default function Comunidade() {
           setMessage('Não foi possível carregar o tema oficial: ' + error.message);
         } else {
           setOfficialContent(data ? [data] : []);
-        }
-      }
+        }      }
 
       if (!cancelled) setOfficialLoading(false);
     }
