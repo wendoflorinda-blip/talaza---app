@@ -392,7 +392,7 @@ export default function Comunidade() {
     } catch (uploadError) {
       setSending(false);
       setMessage(
-        'Não foi possível carregar a imagem. Confirma se o bucket community-posts existe e permite este envio.'
+        'Não foi possível carregar a imagem: ' + (uploadError?.message || 'erro desconhecido') + '. Confirma o bucket community-posts e as políticas de Storage.'
       );
       return;
     }
