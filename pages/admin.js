@@ -379,37 +379,105 @@ export default function Admin() {
 
   async function publishOfficialCommunityContent() {
     if (officialSaving) return;
-    if (!officialBody.trim()) { alert('Escreve o conteúdo antes de publicar.'); return; }
-    if (officialKind !== 'motivation' && !officialTitle.trim()) { alert('Preenche o título/tema antes de publicar.'); return; }
+    if (officialKind !== 'weekly_question' && !officialBody.trim()) {
+      alert(officialKind === 'theme'
+        ? 'Escreve a descrição do tema do mês.'
+        : 'Escreve o conteúdo da motivação.');
+      return;
+    }
+    if (!officialTitle.trim()) {
+      alert('Preenche o título antes de publicar.');
+      return;
+    }
+
     setOfficialSaving(true);
     try {
-      const { data: adminUser } = await supabase.auth.getUser();
-      const userId = adminUser?.user?.id;
-      if (!userId) { alert('A sessão administrativa expirou. Entra novamente.'); return; }
-      const { data: country, error: countryError } = await supabase.from('countries').select('id').eq('name', 'Angola').maybeSingle();
-      if (countryError || !country?.id) { alert('Não foi possível identificar Angola na tabela countries.'); return; }
-      const { error } = await supabase.from('community_posts').insert({
-        user_id: userId,
-        country_id: country.id,
-        province_id: null,
-        post_type: officialKind,
-        title: officialTitle.trim() || 'Motivação Talaza',
-        content: officialBody.trim(),
-        image_url: null,
-        scope: 'country',
-        duration_days: 365,
-        expires_at: new Date(Date.now() + 365 * 86400000).toISOString(),
-        status: 'published',
-        moderation_status: 'approved'
-      });
-      if (error) { alert('Não foi possível publicar: ' + error.message + '. Confirma a migração e as políticas de community_posts.'); return; }
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      const adminId = authData?.user?.id;
+      if (authError || !adminId) {
+        alert('A sessão administrativa expirou. Entra novamente.');
+        return;
+      }
+
+      if (officialKind === 'motivation') {
+        const { error } = await supabase.from('community_motivation').insert({
+          admin_id: adminId,
+          title: officialTitle.trim(),
+          content: officialBody.trim(),
+          image_url: null,
+          is_active: true,
+        });
+        if (error) {
+          alert('Não foi possível guardar a motivação em community_motivation: ' + error.message + '. Vamos configurar a política RLS desta tabela a seguir.');
+          return;
+        }
+      } else {
+        const now = new Date();
+        const { data: activeTheme, error: activeError } = await supabase
+          .from('community_monthly_themes')
+          .select('id, month_title, month_description, week_title, week_number, starts_at, ends_at')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (activeError) {
+          alert('Não foi possível consultar o tema atual: ' + activeError.message);
+          return;
+        }
+
+        const weekNumber = Math.ceil((((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7);
+
+        if (officialKind === 'weekly_question') {
+          if (!activeTheme) {
+            alert('Publica primeiro o tema do mês. Depois poderás definir o título da semana dentro desse tema.');
+            return;
+          }
+
+          const { error } = await supabase
+            .from('community_monthly_themes')
+            .update({
+              week_title: officialTitle.trim(),
+              week_number: weekNumber,
+            })
+            .eq('id', activeTheme.id);
+
+          if (error) {
+            alert('Não foi possível atualizar o título da semana: ' + error.message + '. Vamos configurar a política RLS administrativa a seguir.');
+            return;
+          }
+        } else {
+          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          const { error } = await supabase.from('community_monthly_themes').insert({
+            admin_id: adminId,
+            month_title: officialTitle.trim(),
+            month_description: officialBody.trim(),
+            week_title: activeTheme?.week_title || 'Título da semana por definir',
+            week_number: weekNumber,
+            starts_at: monthStart.toISOString(),
+            ends_at: monthEnd.toISOString(),
+            is_active: true,
+          });
+
+          if (error) {
+            alert('Não foi possível guardar o tema em community_monthly_themes: ' + error.message + '. Vamos configurar a política RLS desta tabela a seguir.');
+            return;
+          }
+        }
+      }
+
       setOfficialTitle('');
       setOfficialBody('');
-      alert('Conteúdo oficial da Comunidade Talaza publicado.');
-      await loadPendingCommunityPosts();
-    } finally { setOfficialSaving(false); }
+      alert(officialKind === 'motivation'
+        ? 'Motivação Talaza guardada na tabela oficial.'
+        : officialKind === 'theme'
+          ? 'Tema do mês guardado na tabela oficial.'
+          : 'Título da semana atualizado na tabela oficial.');
+    } finally {
+      setOfficialSaving(false);
+    }
   }
-
   async function loadProfiles() {
     const { data, error } = await supabase
       .from('profiles')
@@ -842,10 +910,10 @@ export default function Admin() {
             </select>
             <label style={styles.label}>Título / tema</label>
             <input value={officialTitle} onChange={event => setOfficialTitle(event.target.value)} placeholder={officialKind === 'motivation' ? 'Ex.: A força de recomeçar' : officialKind === 'theme' ? 'Ex.: O valor de recomeçar' : 'Ex.: O que aprendeste esta semana?'} style={styles.input} />
-            <label style={styles.label}>Texto</label>
-            <textarea value={officialBody} onChange={event => setOfficialBody(event.target.value)} placeholder="Escreve aqui o conteúdo que será publicado na Comunidade Talaza." rows={5} style={styles.input} />
+            <label style={styles.label}>{officialKind === 'weekly_question' ? 'Texto de apoio (opcional)' : officialKind === 'theme' ? 'Descrição do tema do mês' : 'Texto da motivação'}</label>
+            <textarea value={officialBody} onChange={event => setOfficialBody(event.target.value)} placeholder={officialKind === 'weekly_question' ? 'Escreve o contexto ou orientação da semana.' : officialKind === 'theme' ? 'Explica o objetivo e a reflexão do tema deste mês.' : 'Escreve a mensagem motivacional.'} rows={5} style={styles.input} />
             <div style={styles.actions}><button type="button" disabled={officialSaving} style={styles.approve} onClick={publishOfficialCommunityContent}>{officialSaving ? 'A publicar…' : 'Publicar conteúdo oficial'}</button></div>
-            <p style={styles.meta}>O conteúdo é guardado em community_posts com estado aprovado. A migração SQL precisa de estar aplicada para permitir a publicação administrativa.</p>
+            <p style={styles.meta}>Motivação é guardada em community_motivation. Tema do mês e título da semana são guardados em community_monthly_themes. As políticas RLS administrativas serão configuradas a seguir.</p>
           </div>
         </section>
 
