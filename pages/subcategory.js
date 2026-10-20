@@ -360,7 +360,7 @@ export default function Subcategory() {
               </Link>
             </div>
           ) : null}
-          {true ? (
+          {true && (
             <>
               <section className="searchPanel">
                 <label className="searchLabel" htmlFor="business-search">
