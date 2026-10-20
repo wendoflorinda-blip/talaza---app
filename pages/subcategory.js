@@ -592,13 +592,7 @@ export default function Subcategory() {
                           </p>
 
                           <div className="businessLocation">
-                            {business.municipality && (
-                              <span>{business.municipality}</span>
-                            )}
-
-                            {business.neighborhood && (
-                              <span>• {business.neighborhood}</span>
-                            )}
+                            <span>Veja contactos e localização no perfil</span>
                           </div>
 
                           <span className="profileLink">
