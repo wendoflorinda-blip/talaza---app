@@ -138,6 +138,8 @@ export default function Comunidade() {
   const [commentDrafts, setCommentDrafts] = useState({});
   const [openComments, setOpenComments] = useState({});
   const [officialContent, setOfficialContent] = useState([]);
+  const [officialMotivation, setOfficialMotivation] = useState([]);
+  const [officialTheme, setOfficialTheme] = useState(null);
 
   const currentArea = AREAS.find((item) => item.id === area);
 
@@ -332,6 +334,56 @@ export default function Comunidade() {
 
     setLoading(false);
   }, [countryId, provinceId, panel, area, currentArea?.db, user]);
+
+  useEffect(() => {
+    if (!router.isReady || (area !== 'motivation' && area !== 'theme')) return;
+
+    let cancelled = false;
+    async function loadOfficialContent() {
+      setLoading(true);
+      setMessage('');
+
+      if (area === 'motivation') {
+        const { data, error } = await supabase
+          .from('community_motivation')
+          .select('id, created_at, title, content, image_url')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+
+        if (cancelled) return;
+        if (error) {
+          setOfficialMotivation([]);
+          setMessage('Não foi possível carregar a motivação oficial: ' + error.message);
+        } else {
+          setOfficialMotivation(data || []);
+        }
+      } else {
+        const now = new Date().toISOString();
+        const { data, error } = await supabase
+          .from('community_monthly_themes')
+          .select('id, created_at, month_title, month_description, week_title, week_number, starts_at, ends_at')
+          .eq('is_active', true)
+          .lte('starts_at', now)
+          .gt('ends_at', now)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (cancelled) return;
+        if (error) {
+          setOfficialTheme(null);
+          setMessage('Não foi possível carregar o tema oficial: ' + error.message);
+        } else {
+          setOfficialTheme(data || null);
+        }
+      }
+
+      if (!cancelled) setLoading(false);
+    }
+
+    loadOfficialContent();
+    return () => { cancelled = true; };
+  }, [router.isReady, area]);
 
   useEffect(() => {
     if (router.isReady) loadPosts();
@@ -1243,26 +1295,43 @@ export default function Comunidade() {
           )}
 
         {area === 'motivation' || area === 'theme' ? (
-          <Panel>
-            <div style={{ fontWeight: 850, color: C.dark }}>
-              {area === 'motivation'
-                ? 'Publicações oficiais da Talaza'
-                : 'Tema do mês e pergunta da semana'}
-            </div>
-
-            <p
-              style={{
-                color: C.muted,
-                fontSize: 13,
-                lineHeight: 1.6,
-                marginBottom: 0,
-              }}
-            >
-              {area === 'motivation'
-                ? 'Só a administração poderá publicar mensagens nesta área. Os conteúdos serão carregados da tabela oficial quando a ligação administrativa estiver pronta.'
-                : 'O tema mensal e a pergunta da semana serão geridos pela administração e apresentados tanto no painel provincial como no nacional.'}
-            </p>
-          </Panel>
+          <section style={{ marginTop: 18 }}>
+            {message ? <Panel style={{ marginBottom: 12 }}><p role="status" style={{ color: C.muted, margin: 0, lineHeight: 1.5 }}>{message}</p></Panel> : null}
+            {loading ? (
+              <Panel><p style={{ color: C.muted, margin: 0 }}>A carregar conteúdo oficial…</p></Panel>
+            ) : area === 'motivation' ? (
+              <>
+                <h2 style={{ fontSize: 18, margin: '0 0 10px', color: C.dark }}>Motivação Talaza</h2>
+                {officialMotivation.length === 0 ? (
+                  <Panel><p style={{ color: C.muted, margin: 0 }}>Ainda não foi publicada uma motivação oficial.</p></Panel>
+                ) : officialMotivation.map((item) => (
+                  <Panel key={item.id} style={{ marginBottom: 12 }}>
+                    <h3 style={{ color: C.dark, margin: '0 0 8px', fontSize: 17 }}>{item.title}</h3>
+                    <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, margin: 0 }}>{item.content}</p>
+                    {item.image_url ? <img src={item.image_url} alt="Imagem da motivação" style={{ width: '100%', maxHeight: 360, objectFit: 'cover', borderRadius: 14, marginTop: 12 }} /> : null}
+                    <small style={{ display: 'block', color: C.faint, marginTop: 12 }}>{new Date(item.created_at).toLocaleDateString('pt-PT')}</small>
+                  </Panel>
+                ))}
+              </>
+            ) : (
+              <>
+                <h2 style={{ fontSize: 18, margin: '0 0 10px', color: C.dark }}>Tema do mês</h2>
+                {!officialTheme ? (
+                  <Panel><p style={{ color: C.muted, margin: 0 }}>Ainda não há um tema oficial ativo para este período.</p></Panel>
+                ) : (
+                  <Panel style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 12, color: C.purple, fontWeight: 800, marginBottom: 7 }}>TEMA DO MÊS</div>
+                    <h3 style={{ color: C.dark, margin: '0 0 8px', fontSize: 18 }}>{officialTheme.month_title}</h3>
+                    {officialTheme.month_description ? <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65 }}>{officialTheme.month_description}</p> : null}
+                    <div style={{ borderTop: '1px solid ' + C.line, marginTop: 14, paddingTop: 12 }}>
+                      <div style={{ fontSize: 12, color: C.green, fontWeight: 800, marginBottom: 7 }}>TÍTULO DA SEMANA · SEMANA {officialTheme.week_number}</div>
+                      <h3 style={{ color: C.dark, margin: 0, fontSize: 16 }}>{officialTheme.week_title}</h3>
+                    </div>
+                  </Panel>
+                )}
+              </>
+            )}
+          </section>
         ) : (
           <section style={{ marginTop: 18 }}>
             <div
