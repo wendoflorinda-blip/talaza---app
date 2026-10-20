@@ -144,7 +144,7 @@ export default function Seller() {
         if (!logoFile.type.startsWith('image/')) throw new Error('O logo deve ser um ficheiro de imagem.');
         if (logoFile.size > 8 * 1024 * 1024) throw new Error('O logo deve ter no máximo 8 MB.');
         const ext = (logoFile.name.split('.').pop() || 'jpg').toLowerCase();
-        const path = user.id + '/logo-edit-' + stamp + '.' + ext;
+        const path = business.id + '/logo-edit-' + stamp + '.' + ext;
         const { error: uploadError } = await supabase.storage.from('business-media').upload(path, logoFile, { upsert: true, contentType: logoFile.type, cacheControl: '3600' });
         if (uploadError) throw uploadError;
         updates.logo_url = supabase.storage.from('business-media').getPublicUrl(path).data?.publicUrl || null;
@@ -153,7 +153,7 @@ export default function Seller() {
         if (!coverFile.type.startsWith('image/')) throw new Error('A imagem principal deve ser um ficheiro de imagem.');
         if (coverFile.size > 10 * 1024 * 1024) throw new Error('A imagem principal deve ter no máximo 10 MB.');
         const ext = (coverFile.name.split('.').pop() || 'jpg').toLowerCase();
-        const path = user.id + '/cover-edit-' + stamp + '.' + ext;
+        const path = business.id + '/cover-edit-' + stamp + '.' + ext;
         const { error: uploadError } = await supabase.storage.from('business-media').upload(path, coverFile, { upsert: true, contentType: coverFile.type, cacheControl: '3600' });
         if (uploadError) throw uploadError;
         updates.cover_url = supabase.storage.from('business-media').getPublicUrl(path).data?.publicUrl || null;
@@ -196,7 +196,7 @@ export default function Seller() {
     setNotice('');
     try {
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-      const path = user.id + '/' + field.replace('_url', '') + '-' + Date.now() + '.' + ext;
+      const path = business.id + '/' + field.replace('_url', '') + '-' + Date.now() + '.' + ext;
       const { error: uploadError } = await supabase.storage.from('business-media').upload(path, file, {
         upsert: false, contentType: file.type, cacheControl: '3600'
       });
