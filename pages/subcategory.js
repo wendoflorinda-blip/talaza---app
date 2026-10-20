@@ -1141,9 +1141,9 @@ export default function Subcategory() {
           min-height: 38px;
           margin: 0 0 13px;
           color: ${COLORS.muted};
-          font-size: 13px;
-          line-height: 1.5;
-          -webkit-line-clamp: 3;
+          font-size: 12px;
+          line-height: 1.45;
+          -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
         }
 
@@ -1186,7 +1186,7 @@ export default function Subcategory() {
           transition: filter .15s;
         }
 
-        .messageButton { border: 1px solid #B9D8CC; background: #EAF4F0; color: #075B4E; }
+        .messageButton { border: 1px solid #D9CBEA; background: #F2EDF8; color: #7656A6; }
         .profileButton { border: 1px solid #075B4E; background: #075B4E; color: white; }
         .disabledButton { opacity: .55; cursor: not-allowed; }
         .messageButton:hover, .profileButton:hover { filter: brightness(.96); }
