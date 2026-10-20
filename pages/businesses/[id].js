@@ -47,7 +47,7 @@ export default function BusinessPublicProfile() {
       try {
         const { data: businessData, error: businessError } = await supabase
           .from('businesses')
-          .select('id, name, description, country_id, province_id, municipality, neighborhood, address, phone, whatsapp, email, show_email, opening_hours, logo_url, cover_url, is_active, approval_status, panel_view_mode')
+          .select('id, name, description, country_id, province_id, municipality, neighborhood, address, phone, whatsapp, email, opening_hours, logo_url, cover_url, is_active, approval_status, panel_view_mode')
           .eq('id', id)
           .eq('is_active', true)
           .eq('approval_status', 'approved')
@@ -55,6 +55,26 @@ export default function BusinessPublicProfile() {
 
         if (businessError) throw businessError;
         if (!businessData) throw new Error('Este negócio não está disponível publicamente.');
+
+        // A província e o país da URL devem corresponder ao negócio.
+        // Isso impede abrir um perfil de outra província alterando o link.
+        if (country && businessData.country_id !== country) {
+          throw new Error('Este negócio pertence a outro país.');
+        }
+        if (province && businessData.province_id !== province) {
+          throw new Error('Este negócio pertence a outra província.');
+        }
+
+        // Privacidade segura por defeito: se a coluna ainda não existir,
+        // o perfil continua a carregar e o e-mail permanece oculto.
+        let emailVisible = false;
+        const { data: emailPreference, error: emailPreferenceError } = await supabase
+          .from('businesses')
+          .select('show_email')
+          .eq('id', businessData.id)
+          .maybeSingle();
+        if (!emailPreferenceError) emailVisible = emailPreference?.show_email === true;
+        businessData.show_email = emailVisible;
 
         const { data: imageData, error: imageError } = await supabase
           .from('business_images')
