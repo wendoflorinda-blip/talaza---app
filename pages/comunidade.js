@@ -374,7 +374,8 @@ export default function Comunidade() {
           setMessage('Não foi possível carregar o tema oficial: ' + error.message);
         } else {
           setOfficialContent(data ? [data] : []);
-        }      }
+        }
+      }
 
       if (!cancelled) setOfficialLoading(false);
     }
