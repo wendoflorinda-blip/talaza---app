@@ -307,8 +307,8 @@ export default function Contratar() {
             municipality: municipality.trim() || null,
             neighborhood: neighborhood.trim() || null,
             image_url: imageUrl,
-            status: 'published',
-            is_active: true,
+            status: 'pending_review',
+            is_active: false,
             expires_at: expiresAt,
           },
         ]);
@@ -321,7 +321,7 @@ export default function Contratar() {
       }
 
       setMessage(
-        'Oportunidade publicada com sucesso. Ela ficará disponível por 30 dias.'
+        'Oportunidade enviada para análise da Talaza. Ficará visível depois da aprovação e terá duração de 30 dias.'
       );
 
       resetForm();
