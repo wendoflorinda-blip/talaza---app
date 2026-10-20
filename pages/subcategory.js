@@ -121,28 +121,22 @@ export default function Subcategory() {
         setCountryName(foundCountryName);
         setProvinceName(foundProvinceName);
 
-        // Sem país e província não mostramos negócios de outras regiões.
-        // A página da subcategoria continua acessível, sem redirecionar.
-        if (!country || !province) {
-          setBusinesses([]);
-          setPremiumBusinesses([]);
-          setLoading(false);
-          setPremiumLoading(false);
-          return;
-        }
+        // Sem província selecionada, permite explorar esta subcategoria
+        // noutras províncias. O filtro de localização continua disponível.
+        let businessQuery = supabase
+          .from('businesses')
+          .select(
+            'id, name, description, municipality, neighborhood, logo_url, country_id, province_id, subcategory_id, is_active, approval_status'
+          )
+          .eq('subcategory_id', id)
+          .eq('is_active', true)
+          .eq('approval_status', 'approved');
+
+        if (country) businessQuery = businessQuery.eq('country_id', country);
+        if (province) businessQuery = businessQuery.eq('province_id', province);
 
         const { data: businessData, error: businessError } =
-          await supabase
-            .from('businesses')
-            .select(
-              'id, name, description, municipality, neighborhood, logo_url, country_id, province_id, subcategory_id, is_active, approval_status'
-            )
-            .eq('country_id', country)
-            .eq('province_id', province)
-            .eq('subcategory_id', id)
-            .eq('is_active', true)
-            .eq('approval_status', 'approved')
-            .order('created_at', { ascending: false });
+          await businessQuery.order('created_at', { ascending: false });
 
         if (businessError) throw businessError;
 
@@ -353,16 +347,19 @@ export default function Subcategory() {
         <section className="content">
           {!country || !province ? (
             <div className="notice">
-              <strong>Escolhe a tua localização.</strong>
+              <strong>Explorar negócios de outras províncias</strong>
               <p>
-                Para mostrar apenas negócios da tua região, abre a Vitrine
-                com o país e a província selecionados.
+                {country
+                  ? 'Estás a ver negócios desta subcategoria em todas as províncias do país.'
+                  : 'Estás a ver negócios desta subcategoria em todas as localizações disponíveis.'}
+                {' '}Podes selecionar uma localização para filtrar os resultados.
               </p>
               <Link href="/country" className="primaryButton">
-                Selecionar país
+                Filtrar por localização
               </Link>
             </div>
-          ) : (
+          ) : null}
+          {true ? (
             <>
               <section className="searchPanel">
                 <label className="searchLabel" htmlFor="business-search">
