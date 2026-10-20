@@ -233,7 +233,7 @@ export default function Comunidade() {
   }, [router.isReady, countryParam, provinceParam]);
 
   const loadPosts = useCallback(async () => {
-    if (!countryId || !area || area === 'motivation' || area === 'theme') {
+    if (!countryId || !area || area === 'motivation' || area === 'theme' || area === 'weekly') {
       setPosts([]);
       return;
     }
@@ -336,30 +336,20 @@ export default function Comunidade() {
   }, [countryId, provinceId, panel, area, currentArea?.db, user]);
 
   useEffect(() => {
-    if (!router.isReady || (area !== 'motivation' && area !== 'theme')) return;
+    if (!router.isReady) return;
 
     let cancelled = false;
     async function loadOfficialContent() {
-      setLoading(true);
-      setMessage('');
-
-      if (area === 'motivation') {
-        const { data, error } = await supabase
+      // Carregar os dois conteúdos oficiais em conjunto, mesmo antes de o
+      // utilizador abrir os separadores Motivação, Tema do mês ou Título da semana.
+      const now = new Date().toISOString();
+      const [motivationResult, themeResult] = await Promise.all([
+        supabase
           .from('community_motivation')
           .select('id, created_at, title, content, image_url')
           .eq('is_active', true)
-          .order('created_at', { ascending: false });
-
-        if (cancelled) return;
-        if (error) {
-          setOfficialMotivation([]);
-          setMessage('Não foi possível carregar a motivação oficial: ' + error.message);
-        } else {
-          setOfficialMotivation(data || []);
-        }
-      } else {
-        const now = new Date().toISOString();
-        const { data, error } = await supabase
+          .order('created_at', { ascending: false }),
+        supabase
           .from('community_monthly_themes')
           .select('id, created_at, month_title, month_description, week_title, week_number, starts_at, ends_at')
           .eq('is_active', true)
@@ -367,23 +357,31 @@ export default function Comunidade() {
           .gt('ends_at', now)
           .order('created_at', { ascending: false })
           .limit(1)
-          .maybeSingle();
+          .maybeSingle(),
+      ]);
 
-        if (cancelled) return;
-        if (error) {
-          setOfficialTheme(null);
-          setMessage('Não foi possível carregar o tema oficial: ' + error.message);
-        } else {
-          setOfficialTheme(data || null);
-        }
+      if (cancelled) return;
+
+      if (motivationResult.error) {
+        setOfficialMotivation([]);
+        setMessage('Não foi possível carregar a motivação oficial: ' + motivationResult.error.message);
+      } else {
+        setOfficialMotivation(motivationResult.data || []);
       }
 
-      if (!cancelled) setLoading(false);
+      if (themeResult.error) {
+        setOfficialTheme(null);
+        setMessage((previous) => previous
+          ? previous + ' | Não foi possível carregar o tema oficial: ' + themeResult.error.message
+          : 'Não foi possível carregar o tema oficial: ' + themeResult.error.message);
+      } else {
+        setOfficialTheme(themeResult.data || null);
+      }
     }
 
     loadOfficialContent();
     return () => { cancelled = true; };
-  }, [router.isReady, area]);
+  }, [router.isReady]);
 
   useEffect(() => {
     if (router.isReady) loadPosts();
