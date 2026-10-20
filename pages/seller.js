@@ -370,11 +370,7 @@ export default function Seller() {
             borderRadius: 24,
             padding: 25,
             boxShadow: '0 15px 40px rgba(0,70,60,.13)',
-            position: 'relative',
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0,1fr) minmax(130px,220px)',
-            gap: 20,
-            alignItems: 'center'
+            position: 'relative'
           }}
         >
           <div
