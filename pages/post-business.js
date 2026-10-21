@@ -393,6 +393,7 @@ export default function PostBusiness() {
           name: profileName || storeName.trim(),
           country_id: countryId,
           province_id: provinceId,
+          account_type: 'vendedor',
         },
         { onConflict: 'id' }
       );
