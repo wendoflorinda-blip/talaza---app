@@ -94,7 +94,7 @@ export default function Perfil() {
       if (uploadError) {
         console.error('Falha no upload da fotografia de perfil:', uploadError);
         const detail = String(uploadError.message || '').toLowerCase();
-        if (detail.includes('bucket not found') || detail.includes('not found')) throw new Error('A fotografia não foi enviada porque o bucket “avatars” não existe ou tem outro nome no Supabase. Abra Storage e confirme que existe um bucket chamado exatamente avatars.');
+        if (detail.includes('bucket not found') || detail.includes('bucket does not exist')) throw new Error('O Supabase informa que o bucket “avatars” não foi encontrado neste projeto. Confirme o projeto Supabase ligado à Preview e o nome real do bucket antes de criar ou alterar qualquer configuração. Detalhe: ' + (uploadError.message || detail));
         if (detail.includes('row-level security') || detail.includes('permission') || detail.includes('unauthorized') || detail.includes('not allowed')) throw new Error('A fotografia não foi enviada porque as regras de segurança do Storage estão a bloquear esta conta. No Supabase, abra Storage → avatars → Policies e permita ao utilizador autenticado enviar ficheiros apenas para a pasta com o seu próprio ID.');
         throw new Error('O Supabase recusou o envio da fotografia: ' + (uploadError.message || 'erro não identificado') + '. Verifique o bucket avatars e as respetivas políticas de Storage.');
       }
@@ -140,7 +140,7 @@ export default function Perfil() {
       const { data, error:visibilityError } = await supabase.from('profiles').update({show_email:nextValue}).eq('id',user.id).select('id,show_email').maybeSingle();
       if (visibilityError) {
         const message = String(visibilityError.message || '');
-        if (/show_email|column/i.test(message)) throw new Error('A opção de e-mail ainda não está ativada na base de dados. No Supabase, abra Table Editor → profiles → Add column, crie show_email do tipo boolean com valor padrão false e tente novamente.');
+        if (/show_email|column/i.test(message)) throw new Error('A coluna show_email não foi reconhecida nesta consulta do perfil pessoal. Como a opção já funciona no painel do vendedor, não crie outra coluna ainda: confirme se a Preview está ligada ao mesmo projeto Supabase e veja o detalhe técnico: ' + message);
         throw new Error('Não foi possível guardar a preferência de e-mail: ' + message);
       }
       if (!data) throw new Error('A preferência não foi guardada porque não foi encontrada a sua linha em profiles. Confirme se profiles.id corresponde ao ID da sua conta.');
