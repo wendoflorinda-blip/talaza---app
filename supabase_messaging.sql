@@ -220,3 +220,10 @@ create policy "Talaza users delete their own avatar"
 on storage.objects for delete to authenticated
 using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 
+
+
+-- Preferência de privacidade do e-mail do perfil pessoal do explorador.
+-- Oculto por padrão; a preferência é separada da visibilidade do e-mail do negócio.
+alter table public.profiles
+  add column if not exists show_email boolean not null default false;
+
