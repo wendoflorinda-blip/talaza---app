@@ -575,7 +575,7 @@ export default function Explore() {
           background: ${C.canvas};
           color: ${C.ink};
           font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-          padding-bottom: 50px;
+          padding-bottom: 110px;
         }
         .page-inner { max-width: 1180px; margin: 0 auto; padding: 0 18px; }
         .top-nav {
