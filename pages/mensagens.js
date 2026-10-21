@@ -46,7 +46,7 @@ export default function Mensagens() {
     const { data: memberships, error: memberError } = await supabase
       .from('conversation_participants').select('conversation_id')
       .eq('user_id', currentUser.id);
-    if (memberError) throw memberError;
+    if (memberError) { console.error('Erro ao consultar conversation_participants:', memberError); throw new Error('Não foi possível consultar os participantes das conversas: ' + (memberError.message || memberError.code || 'erro desconhecido') + '. Verifique as permissões desta tabela no Supabase.'); }
     const ids = [...new Set((memberships || []).map(row => row.conversation_id))];
     if (!ids.length) { setConversations([]); return []; }
     const { data: rows, error: conversationsError } = await supabase
@@ -102,7 +102,7 @@ export default function Mensagens() {
       try { rows = await loadConversations(currentUser); }
       catch (err) {
         console.error(err);
-        setError('As mensagens ainda não estão configuradas. Execute primeiro o ficheiro supabase_messaging.sql no Supabase.');
+        setError('Não foi possível carregar as conversas: ' + (err?.message || err?.code || 'erro não identificado') + '. Não execute SQL novamente antes de confirmar este erro e as permissões das tabelas.');
       }
       if (cancelled) return;
       const requestedId = safe(router.query.conversation);
