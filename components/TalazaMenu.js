@@ -750,7 +750,7 @@ export default function TalazaMenu({
                     icon="seller"
                     color={COLORS.purple}
                     bg={COLORS.purpleSoft}
-                    label={isSellerAccount ? 'A minha loja' : 'Criar perfil de vendedor'}
+                    label={isSellerAccount ? 'Voltar ao painel de vendedor' : 'Criar perfil de negócio'}
                     onClick={openSellerPanel}
                   />
 
