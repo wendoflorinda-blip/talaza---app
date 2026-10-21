@@ -174,7 +174,7 @@ export default function BusinessPublicProfile() {
               <div className="modeChoices" role="group" aria-label="Modo de visualização dos produtos">
                 {VIEW_MODES.map((mode) => <button key={mode} type="button" className={viewMode === mode ? 'modeButton active' : 'modeButton'} onClick={() => setViewMode(mode)} aria-pressed={viewMode === mode}>{MODE_LABELS[mode]}</button>)}
               </div>
-              <ProductsView items={panelImages} mode={viewMode} editable={false} whatsapp={business.phone || ''} businessName={business.name} />
+              <ProductsView items={panelImages} mode={viewMode} editable={false} businessName={business.name} />
             </section>
             <p className="publicNotice">Este é o perfil público do negócio. As alterações só podem ser feitas pelo vendedor no seu painel.</p>
           </div>
