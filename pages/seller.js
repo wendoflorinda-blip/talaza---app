@@ -432,11 +432,40 @@ export default function Seller() {
 
         <button
           type="button"
-          onClick={() => {
-            const params = new URLSearchParams();
-            if (country) params.set('country', String(country));
-            if (province) params.set('province', String(province));
-            window.location.assign('/explore' + (params.toString() ? '?' + params.toString() : ''));
+          onClick={async () => {
+            // Usar a localização pessoal do explorador, não a localização da loja.
+            let targetCountry = '';
+            let targetProvince = '';
+            try {
+              const { data: authData, error: authError } = await supabase.auth.getUser();
+              if (authError) throw authError;
+              const userId = authData?.user?.id;
+              if (userId) {
+                const { data: profile, error: profileError } = await supabase
+                  .from('profiles')
+                  .select('country_id, province_id')
+                  .eq('id', userId)
+                  .maybeSingle();
+                if (profileError) throw profileError;
+                targetCountry = profile?.country_id || '';
+                targetProvince = profile?.province_id || '';
+              }
+            } catch (locationError) {
+              console.error('Não foi possível ler a localização pessoal do explorador:', locationError);
+            }
+            targetCountry = targetCountry || String(country || business?.country_id || '');
+            targetProvince = targetProvince || String(province || business?.province_id || '');
+            if (!targetCountry || !targetProvince) {
+              window.location.assign('/country');
+              return;
+            }
+            const params = new URLSearchParams({
+              country: targetCountry,
+              province: targetProvince,
+              homeCountry: targetCountry,
+              homeProvince: targetProvince
+            });
+            window.location.assign('/explore?' + params.toString());
           }}
           style={{
             display: 'block',
