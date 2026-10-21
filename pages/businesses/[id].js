@@ -19,14 +19,6 @@ function formatPhone(value) {
   return String(value || '').replace(/[^\d+]/g, '');
 }
 
-function whatsappHref(number, businessName) {
-  const digits = String(number || '').replace(/\D/g, '');
-  if (!digits) return null;
-  const normalized = digits.length === 9 ? '244' + digits : digits;
-  const message = encodeURIComponent('Olá! Encontrei ' + businessName + ' na Talaza e gostaria de saber mais.');
-  return 'https://wa.me/' + normalized + '?text=' + message;
-}
-
 export default function BusinessPublicProfile() {
   const router = useRouter();
   const { id, country, province } = router.query;
