@@ -191,6 +191,10 @@ with check (
 
 
 
+-- Colunas do perfil pessoal usadas pela fotografia e pela preferência de privacidade do e-mail.
+alter table public.profiles add column if not exists avatar_url text;
+alter table public.profiles add column if not exists show_email boolean not null default false;
+
 -- Fotografias públicas de perfil. Cada utilizador só pode gerir a pasta com o seu próprio ID.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('avatars', 'avatars', true, 5242880, array['image/jpeg','image/png','image/webp','image/gif'])
