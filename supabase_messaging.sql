@@ -53,6 +53,22 @@ as $$
   );
 $$;
 
+create or replace function public.talaza_is_conversation_creator(p_conversation_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $
+  select exists (
+    select 1 from public.conversations c
+    where c.id = p_conversation_id and c.created_by = auth.uid()
+  );
+$;
+
+revoke all on function public.talaza_is_conversation_creator(uuid) from public;
+grant execute on function public.talaza_is_conversation_creator(uuid) to authenticated;
+
 create or replace function public.talaza_conversation_province(p_conversation_id uuid)
 returns uuid
 language sql
@@ -118,10 +134,7 @@ with check (
     user_id,
     public.talaza_conversation_province(conversation_id)
   )
-  and exists (
-    select 1 from public.conversations c
-    where c.id = conversation_id and c.created_by = auth.uid()
-  )
+  and public.talaza_is_conversation_creator(conversation_id)
 );
 
 drop policy if exists "Talaza participants read messages" on public.messages;
