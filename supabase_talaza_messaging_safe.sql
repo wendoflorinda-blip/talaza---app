@@ -130,10 +130,6 @@ with check (
             exists (select 1 from public.businesses b where b.owner_id = creator.id)
             or lower(coalesce(creator.account_type, '')) like '%vendedor%'
             or lower(coalesce(creator.account_type, '')) like '%seller%'
-            or lower(coalesce(creator.user_type, '')) like '%vendedor%'
-            or lower(coalesce(creator.user_type, '')) like '%seller%'
-            or lower(coalesce(creator.role, '')) like '%vendedor%'
-            or lower(coalesce(creator.role, '')) like '%seller%'
           )
           and participant.province_id = creator.province_id
         )
@@ -142,10 +138,6 @@ with check (
           exists (select 1 from public.businesses b where b.owner_id = creator.id)
           or lower(coalesce(creator.account_type, '')) like '%vendedor%'
           or lower(coalesce(creator.account_type, '')) like '%seller%'
-          or lower(coalesce(creator.user_type, '')) like '%vendedor%'
-          or lower(coalesce(creator.user_type, '')) like '%seller%'
-          or lower(coalesce(creator.role, '')) like '%vendedor%'
-          or lower(coalesce(creator.role, '')) like '%seller%'
         )
       )
   )
