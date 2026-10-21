@@ -20,12 +20,18 @@ export default function Mensagens() {
   const [sending,setSending] = useState(false);
   const [error,setError] = useState('');
   const [notice,setNotice] = useState('');
+  const [selectedFile,setSelectedFile] = useState(null);
+  const [recording,setRecording] = useState(false);
+  const [recordingSupported,setRecordingSupported] = useState(false);
+  const fileRef = useRef(null);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
   const endRef = useRef(null);
 
   const loadMessages = useCallback(async (conversationId) => {
     if (!conversationId) { setMessages([]); return; }
     const { data, error: queryError } = await supabase
-      .from('messages').select('id,conversation_id,sender_id,body,created_at')
+      .from('messages').select('*')
       .eq('conversation_id', conversationId).order('created_at', { ascending:true }).limit(300);
     if (queryError) { setError('Não foi possível carregar as mensagens. Confirme se a migração de mensagens foi executada no Supabase.'); return; }
     setMessages(data || []);
@@ -49,7 +55,7 @@ export default function Mensagens() {
     let profiles = [];
     if (peerIds.length) {
       const { data, error: profilesError } = await supabase.from('profiles')
-        .select('id,name,full_name,avatar_url,photo_url,photo').in('id', peerIds);
+        .select('*').in('id', peerIds);
       if (profilesError) throw profilesError;
       profiles = data || [];
     }
@@ -83,9 +89,9 @@ export default function Mensagens() {
       if (cancelled) return;
       setUser(currentUser);
       const { data:currentProfile, error:profileError } = await supabase.from('profiles')
-        .select('id,name,full_name,province_id,country_id,avatar_url,photo_url,photo')
+        .select('*')
         .eq('id',currentUser.id).maybeSingle();
-      if (profileError) { setError('Não foi possível ler o seu perfil.'); setLoading(false); return; }
+      if (profileError) { console.error('Falha ao consultar o perfil do utilizador nas mensagens:', profileError); setProfile(null); setNotice('Não foi possível carregar alguns dados do seu perfil, mas pode consultar as conversas. Confirme se a sua linha existe na tabela profiles e se permite leitura pelo próprio utilizador.'); }
       setProfile(currentProfile || null);
       let rows = [];
       try { rows = await loadConversations(currentUser); }
@@ -108,7 +114,7 @@ export default function Mensagens() {
           try {
             if (!currentProfile?.province_id) throw new Error('O seu perfil precisa de uma província principal para iniciar conversas.');
             const { data:target, error:targetError } = await supabase.from('profiles')
-              .select('id,name,full_name,province_id,avatar_url,photo_url,photo').eq('id',targetId).maybeSingle();
+              .select('*').eq('id',targetId).maybeSingle();
             if (targetError || !target) throw new Error('Não foi possível encontrar este perfil.');
             if (!target.province_id || String(target.province_id) !== String(currentProfile.province_id)) {
               throw new Error('As mensagens estão limitadas à província principal de cada utilizador.');
@@ -160,36 +166,91 @@ export default function Mensagens() {
   }, [router.isReady, router.query.conversation, router.query.to, router.query.source, router.query.sourceId, loadConversations, loadMessages, router]);
 
   useEffect(() => {
+    setRecordingSupported(typeof window !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined');
+  }, []);
+
+  useEffect(() => {
     endRef.current?.scrollIntoView({behavior:'smooth',block:'end'});
   }, [messages]);
 
   useEffect(() => {
     if (!activeId) return;
     const channel = supabase.channel('talaza-messages-'+activeId)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'conversation_id=eq.'+activeId}, payload => {
-        setMessages(previous => previous.some(item => item.id === payload.new.id) ? previous : [...previous,payload.new]);
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'conversation_id=eq.'+activeId}, async payload => {
+        let next = payload.new;
+        if (next.storage_path) { const { data } = await supabase.storage.from('message-attachments').createSignedUrl(next.storage_path,3600); next = {...next,attachment_url:data?.signedUrl || ''}; }
+        setMessages(previous => previous.some(item => item.id === next.id) ? previous : [...previous,next]);
       }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [activeId]);
 
   async function sendMessage(event) {
     event?.preventDefault?.();
-    if (!user || !activeId || !message.trim() || sending) return;
-    setSending(true); setError('');
-    const body = message.trim();
-    const { data, error:sendError } = await supabase.from('messages')
-      .insert({conversation_id:activeId,sender_id:user.id,body})
-      .select('id,conversation_id,sender_id,body,created_at').single();
-    if (sendError) {
-      console.error(sendError);
-      setError('Não foi possível enviar. Confirme se executou supabase_messaging.sql e se as políticas RLS estão ativas.');
-    } else {
-      setMessages(previous => previous.some(item => item.id === data.id) ? previous : [...previous,data]);
-      setMessage('');
+    if (!activeId) { setNotice('Para enviar uma mensagem, abra uma conversa existente ou toque em “Enviar mensagem” no perfil da pessoa/negócio. Assim a mensagem chega ao destinatário certo.'); return; }
+    if (!user || (!message.trim() && !selectedFile) || sending) return;
+    setSending(true); setError(''); setNotice('');
+    try {
+      let attachmentPath = null;
+      let attachmentName = null;
+      let messageType = 'text';
+      let body = message.trim() || null;
+      if (selectedFile) {
+        if (selectedFile.size > 15 * 1024 * 1024) throw new Error('O ficheiro excede 15 MB. Escolha um ficheiro menor.');
+        const ext = (selectedFile.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g,'') || 'bin';
+        attachmentPath = activeId + '/' + user.id + '/' + Date.now() + '.' + ext;
+        attachmentName = selectedFile.name;
+        messageType = selectedFile.type.startsWith('audio/') ? 'audio' : selectedFile.type.startsWith('image/') ? 'image' : 'file';
+        const { error: uploadError } = await supabase.storage.from('message-attachments').upload(attachmentPath, selectedFile, { upsert:false, contentType:selectedFile.type || 'application/octet-stream' });
+        if (uploadError) throw new Error('Não foi possível anexar o ficheiro: ' + uploadError.message + '. Confirme se executou a atualização de supabase_messaging.sql e se o bucket privado message-attachments existe.');
+      }
+      const { data, error:sendError } = await supabase.from('messages')
+        .insert({conversation_id:activeId,sender_id:user.id,body,storage_path:attachmentPath,attachment_name:attachmentName,message_type:messageType})
+        .select('*').single();
+      if (sendError) throw new Error('O ficheiro foi carregado, mas a mensagem não foi guardada: ' + sendError.message + '. Confirme a migração supabase_messaging.sql.');
+      let rendered = data;
+      if (data.storage_path) {
+        const { data: signed } = await supabase.storage.from('message-attachments').createSignedUrl(data.storage_path,3600);
+        rendered = {...data,attachment_url:signed?.signedUrl || ''};
+      }
+      setMessages(previous => previous.some(item => item.id === rendered.id) ? previous : [...previous,rendered]);
+      setMessage(''); setSelectedFile(null);
       await supabase.from('conversations').update({updated_at:new Date().toISOString()}).eq('id',activeId);
-      setNotice('');
+    } catch (err) {
+      console.error('Falha ao enviar mensagem:',err);
+      setError(err.message || 'Não foi possível enviar a mensagem. Verifique a configuração das mensagens no Supabase.');
+    } finally { setSending(false); }
+  }
+
+  async function startRecording() {
+    if (!activeId) { setNotice('Abra primeiro uma conversa para gravar e enviar áudio à pessoa certa.'); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+      const recorder = new MediaRecorder(stream);
+      recorderRef.current = recorder; chunksRef.current = [];
+      recorder.ondataavailable = event => { if (event.data?.size) chunksRef.current.push(event.data); };
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current,{type:recorder.mimeType || 'audio/webm'});
+        const file = new File([blob],'audio-'+Date.now()+'.webm',{type:blob.type});
+        setSelectedFile(file); stream.getTracks().forEach(track=>track.stop()); setRecording(false);
+        setNotice('Áudio gravado. Toque em Enviar para o partilhar na conversa.');
+      };
+      recorder.start(); setRecording(true); setError(''); setNotice('A gravar áudio… toque novamente no botão para terminar.');
+    } catch (err) {
+      console.error(err);
+      setError('Não foi possível gravar áudio. Permita o acesso ao microfone no navegador e tente novamente.');
     }
-    setSending(false);
+  }
+
+  function toggleRecording() {
+    if (recording && recorderRef.current) recorderRef.current.stop();
+    else startRecording();
+  }
+
+  async function openAttachment(item) {
+    if (!item.storage_path) return;
+    const { data, error: urlError } = await supabase.storage.from('message-attachments').createSignedUrl(item.storage_path,3600);
+    if (urlError || !data?.signedUrl) { setError('Não foi possível abrir este anexo. Confirme se o bucket message-attachments e as permissões estão configurados.'); return; }
+    window.open(data.signedUrl,'_blank','noopener,noreferrer');
   }
 
   function backToList() {
@@ -216,29 +277,35 @@ export default function Mensagens() {
       <div style={S.sectionTitle}>As suas conversas</div>
       {conversations.length === 0 ? <div style={S.empty}>
         <div style={S.emptyIcon}>✉</div><h2>Ainda não tem conversas</h2>
-        <p>Abra o perfil de uma pessoa na Talaza e escolha a opção de mensagem para iniciar uma conversa.</p>
+        <p>A área de escrita fica disponível em baixo. Para enviar, escolha primeiro a pessoa: abra o perfil de um negócio ou utilizador e toque em “Enviar mensagem”.</p>
         <button type="button" onClick={()=>router.push('/explore')} style={S.primaryButton}>Explorar a Talaza</button>
       </div> : conversations.map(item => <button type="button" key={item.id} onClick={()=>openConversation(item)} style={S.conversationRow}>
         {item.peerPhoto ? <img src={item.peerPhoto} alt="" style={S.avatarPhoto}/> : <div style={S.avatar}>{(item.peerName || 'T').slice(0,1).toUpperCase()}</div>}
         <span style={S.conversationInfo}><strong>{item.peerName}</strong><small>{item.source || 'Talaza'} · abrir conversa</small></span>
         <span style={S.chevron}>›</span>
       </button>)}
-    </section> : <>
-      <section style={S.chat} aria-label="Mensagens da conversa">
-        {messages.length===0 ? <div style={S.emptyChat}>Esta conversa começou agora. Envie a primeira mensagem.</div> : messages.map(item=><div key={item.id} style={{...S.messageRow,justifyContent:item.sender_id===user?.id?'flex-end':'flex-start'}}>
-          <div style={{...S.bubble,background:item.sender_id===user?.id?'#E0F4E8':'#FFFFFF',borderRadius:item.sender_id===user?.id?'15px 15px 4px 15px':'15px 15px 15px 4px'}}>
-            <div style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{item.body}</div>
-            <div style={S.time}>{new Date(item.created_at).toLocaleTimeString('pt-AO',{hour:'2-digit',minute:'2-digit'})}</div>
-          </div>
-        </div>)}
-        <div ref={endRef}/>
-      </section>
-      <form style={S.composer} onSubmit={sendMessage}>
-        <textarea value={message} onChange={event=>setMessage(event.target.value)} placeholder="Escreva uma mensagem…" rows={1} maxLength={5000} style={S.input} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage(event);}}}/>
-        <button type="submit" style={{...S.send,opacity:message.trim()&&!sending?1:.5}} disabled={!message.trim()||sending} aria-label="Enviar mensagem">{sending?'…':'➤'}</button>
-      </form>
-      <div style={S.hint}>Enter para enviar · Shift + Enter para nova linha</div>
-    </>}
+    </section> : null}
+    <section style={S.chat} aria-label="Mensagens da conversa">
+      {!activeId ? <div style={S.emptyChat}>Escolha uma conversa para ver mensagens e enviar texto, ficheiros ou áudio.</div> : messages.length===0 ? <div style={S.emptyChat}>Esta conversa começou agora. Envie a primeira mensagem.</div> : messages.map(item=><div key={item.id} style={{...S.messageRow,justifyContent:item.sender_id===user?.id?'flex-end':'flex-start'}}>
+        <div style={{...S.bubble,background:item.sender_id===user?.id?'#E0F4E8':'#FFFFFF',borderRadius:item.sender_id===user?.id?'15px 15px 4px 15px':'15px 15px 15px 4px'}}>
+          {item.body && <div style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{item.body}</div>}
+          {item.storage_path && <div style={{marginTop:item.body?8:0}}>
+            {item.message_type==='audio' && item.attachment_url ? <audio controls src={item.attachment_url} style={{maxWidth:'100%'}}/> : item.message_type==='image' && item.attachment_url ? <a href={item.attachment_url} target="_blank" rel="noreferrer"><img src={item.attachment_url} alt={item.attachment_name || 'Imagem enviada'} style={{maxWidth:220,maxHeight:220,objectFit:'contain',borderRadius:10}}/></a> : <button type="button" onClick={()=>openAttachment(item)} style={S.fileLink}>📎 {item.attachment_name || 'Abrir ficheiro'}</button>}
+          </div>}
+          <div style={S.time}>{new Date(item.created_at).toLocaleTimeString('pt-AO',{hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+      </div>)}
+      <div ref={endRef}/>
+    </section>
+    {selectedFile && <div style={S.filePreview}>📎 {selectedFile.name} <button type="button" onClick={()=>setSelectedFile(null)} style={S.removeFile}>Remover</button></div>}
+    <form style={S.composer} onSubmit={sendMessage}>
+      <input ref={fileRef} type="file" onChange={event=>setSelectedFile(event.target.files?.[0] || null)} hidden />
+      <button type="button" onClick={()=>fileRef.current?.click()} style={S.toolButton} title="Anexar ficheiro" aria-label="Anexar ficheiro">＋</button>
+      <button type="button" onClick={toggleRecording} disabled={!recordingSupported} style={{...S.toolButton,color:recording?'#C62828':C.purple}} title={recording?'Terminar gravação':'Gravar áudio'} aria-label={recording?'Terminar gravação':'Gravar áudio'}>{recording?'■':'🎙'}</button>
+      <textarea value={message} onChange={event=>setMessage(event.target.value)} placeholder={activeId?'Escreva uma mensagem…':'Escolha uma conversa para escrever…'} rows={1} maxLength={5000} style={S.input} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage(event);}}}/>
+      <button type="submit" style={{...S.send,opacity:(message.trim()||selectedFile)&&activeId&&!sending?1:.5}} disabled={(!message.trim()&&!selectedFile)||!activeId||sending} aria-label="Enviar mensagem">{sending?'…':'➤'}</button>
+    </form>
+    <div style={S.hint}>{activeId?'Enter para enviar · Shift + Enter para nova linha':'Abra uma conversa para ativar o envio de texto, ficheiros e áudio.'}</div>
   </main>;
 }
 
@@ -263,12 +330,16 @@ const S = {
  empty:{maxWidth:420,margin:'8vh auto 0',padding:25,borderRadius:20,background:'rgba(255,255,255,.94)',textAlign:'center',boxShadow:'0 7px 25px rgba(30,40,35,.05)'},
  emptyIcon:{margin:'0 auto',display:'grid',placeItems:'center',width:56,height:56,borderRadius:18,background:'#F2EAF9',color:C.purple,fontSize:27},
  primaryButton:{border:0,borderRadius:12,padding:'12px 17px',background:C.green,color:'#fff',fontWeight:800,cursor:'pointer'},
- chat:{flex:1,minHeight:0,overflowY:'auto',padding:'16px 14px 20px',backgroundColor:'#F4F0E8',backgroundImage:'radial-gradient(rgba(100,53,139,.055) .8px,transparent .8px)',backgroundSize:'17px 17px'},
+ chat:{flex:'1 1 0',minHeight:0,overflowY:'auto',padding:'16px 14px 20px',backgroundColor:'#F4F0E8',backgroundImage:'radial-gradient(rgba(100,53,139,.055) .8px,transparent .8px)',backgroundSize:'17px 17px'},
  emptyChat:{maxWidth:360,margin:'22px auto',padding:16,borderRadius:14,background:'rgba(255,255,255,.9)',textAlign:'center',fontSize:13,color:C.muted,lineHeight:1.5},
  messageRow:{display:'flex',margin:'9px 0'},
  bubble:{maxWidth:'min(82%,520px)',padding:'11px 13px',boxShadow:'0 1px 2px rgba(0,0,0,.06)',fontSize:14,lineHeight:1.5},
  time:{textAlign:'right',fontSize:9,color:C.muted,marginTop:6},
- composer:{flex:'0 0 auto',display:'flex',alignItems:'flex-end',gap:8,padding:'10px 12px',background:'#fff',borderTop:'1px solid '+C.line},
+ composer:{flex:'0 0 auto',display:'flex',alignItems:'flex-end',gap:6,padding:'10px 8px',background:'#fff',borderTop:'1px solid '+C.line},
+ toolButton:{flex:'0 0 38px',width:38,height:40,border:'1px solid '+C.line,borderRadius:12,background:'#F8F6FB',color:C.purple,fontSize:19,fontWeight:800,cursor:'pointer'},
+ filePreview:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,padding:'7px 12px',background:'#FFF8E4',fontSize:12,color:C.ink},
+ removeFile:{border:0,background:'transparent',color:'#A52F3B',fontWeight:800,cursor:'pointer'},
+ fileLink:{border:0,background:'transparent',color:C.purple,textDecoration:'underline',cursor:'pointer',fontSize:13},
  input:{flex:1,minWidth:0,resize:'none',border:'1px solid '+C.line,borderRadius:17,padding:'11px 13px',outline:0,background:'#FBFCFB',fontSize:14,lineHeight:1.5,maxHeight:120,color:C.ink},
  send:{flex:'0 0 43px',width:43,height:43,border:0,borderRadius:'50%',background:C.green,color:'#fff',fontSize:20,fontWeight:900,cursor:'pointer'},
  hint:{flex:'0 0 auto',padding:'4px 12px 6px',textAlign:'center',fontSize:9,color:C.muted,background:'#fff'},
