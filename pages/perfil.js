@@ -49,6 +49,7 @@ export default function Perfil() {
       const { data, error: profileError } = await supabase.from('profiles').select('*').eq('id', current.id).maybeSingle();
       if (profileError) throw profileError;
       setProfile(data || null);
+      setShowEmail(data?.show_email === true);
       if (data) {
         setFullName(data.name || data.full_name || current.user_metadata?.full_name || current.user_metadata?.name || '');
         setProvinceId(data.province_id || '');
