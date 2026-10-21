@@ -31,12 +31,12 @@ export default function Mensagens() {
   const loadMessages = useCallback(async (conversationId) => {
     if (!conversationId) { setMessages([]); return; }
     const { data, error: queryError } = await supabase
-      .from('messages').select('*')
+      .from('talaza_messages').select('*')
       .eq('conversation_id', conversationId).order('created_at', { ascending:true }).limit(300);
     if (queryError) { setError('Não foi possível carregar as mensagens. Confirme se a migração de mensagens foi executada no Supabase.'); return; }
     const hydrated = await Promise.all((data || []).map(async item => {
       if (!item.storage_path) return item;
-      const { data: signed } = await supabase.storage.from('message-attachments').createSignedUrl(item.storage_path,3600);
+      const { data: signed } = await supabase.storage.from('message-media').createSignedUrl(item.storage_path,3600);
       return { ...item, attachment_url:signed?.signedUrl || '' };
     }));
     setMessages(hydrated);
@@ -181,9 +181,9 @@ export default function Mensagens() {
   useEffect(() => {
     if (!activeId) return;
     const channel = supabase.channel('talaza-messages-'+activeId)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'conversation_id=eq.'+activeId}, async payload => {
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'talaza_messages',filter:'conversation_id=eq.'+activeId}, async payload => {
         let next = payload.new;
-        if (next.storage_path) { const { data } = await supabase.storage.from('message-attachments').createSignedUrl(next.storage_path,3600); next = {...next,attachment_url:data?.signedUrl || ''}; }
+        if (next.storage_path) { const { data } = await supabase.storage.from('message-media').createSignedUrl(next.storage_path,3600); next = {...next,attachment_url:data?.signedUrl || ''}; }
         setMessages(previous => previous.some(item => item.id === next.id) ? previous : [...previous,next]);
       }).subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -202,19 +202,19 @@ export default function Mensagens() {
       if (selectedFile) {
         if (selectedFile.size > 15 * 1024 * 1024) throw new Error('O ficheiro excede 15 MB. Escolha um ficheiro menor.');
         const ext = (selectedFile.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g,'') || 'bin';
-        attachmentPath = activeId + '/' + user.id + '/' + Date.now() + '.' + ext;
+        attachmentPath = user.id + '/' + activeId + '/' + Date.now() + '.' + ext;
         attachmentName = selectedFile.name;
         messageType = selectedFile.type.startsWith('audio/') ? 'audio' : selectedFile.type.startsWith('image/') ? 'image' : 'file';
-        const { error: uploadError } = await supabase.storage.from('message-attachments').upload(attachmentPath, selectedFile, { upsert:false, contentType:selectedFile.type || 'application/octet-stream' });
-        if (uploadError) throw new Error('Não foi possível anexar o ficheiro: ' + uploadError.message + '. Confirme se executou a atualização de supabase_messaging.sql e se o bucket privado message-attachments existe.');
+        const { error: uploadError } = await supabase.storage.from('message-media').upload(attachmentPath, selectedFile, { upsert:false, contentType:selectedFile.type || 'application/octet-stream' });
+        if (uploadError) throw new Error('Não foi possível anexar o ficheiro: ' + uploadError.message + '. Confirme se executou a atualização de supabase_talaza_messaging_safe.sql e se o bucket message-media existe.');
       }
-      const { data, error:sendError } = await supabase.from('messages')
+      const { data, error:sendError } = await supabase.from('talaza_messages')
         .insert({conversation_id:activeId,sender_id:user.id,body,storage_path:attachmentPath,attachment_name:attachmentName,message_type:messageType})
         .select('*').single();
-      if (sendError) throw new Error('O ficheiro foi carregado, mas a mensagem não foi guardada: ' + sendError.message + '. Confirme a migração supabase_messaging.sql.');
+      if (sendError) throw new Error('O ficheiro foi carregado, mas a mensagem não foi guardada: ' + sendError.message + '. Confirme a migração supabase_talaza_messaging_safe.sql.');
       let rendered = data;
       if (data.storage_path) {
-        const { data: signed } = await supabase.storage.from('message-attachments').createSignedUrl(data.storage_path,3600);
+        const { data: signed } = await supabase.storage.from('message-media').createSignedUrl(data.storage_path,3600);
         rendered = {...data,attachment_url:signed?.signedUrl || ''};
       }
       setMessages(previous => previous.some(item => item.id === rendered.id) ? previous : [...previous,rendered]);
@@ -253,8 +253,8 @@ export default function Mensagens() {
 
   async function openAttachment(item) {
     if (!item.storage_path) return;
-    const { data, error: urlError } = await supabase.storage.from('message-attachments').createSignedUrl(item.storage_path,3600);
-    if (urlError || !data?.signedUrl) { setError('Não foi possível abrir este anexo. Confirme se o bucket message-attachments e as permissões estão configurados.'); return; }
+    const { data, error: urlError } = await supabase.storage.from('message-media').createSignedUrl(item.storage_path,3600);
+    if (urlError || !data?.signedUrl) { setError('Não foi possível abrir este anexo. Confirme se o bucket message-media e as permissões estão configurados.'); return; }
     window.open(data.signedUrl,'_blank','noopener,noreferrer');
   }
 
