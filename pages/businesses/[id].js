@@ -113,7 +113,6 @@ export default function BusinessPublicProfile() {
 
   const contactNumber = business?.phone;
   const messageHref = business?.owner_id ? '/mensagens?to=' + encodeURIComponent(business.owner_id) + '&source=Vitrine&sourceId=' + encodeURIComponent(business.id) : null;
-  const whatsappContactHref = business ? whatsappHref(contactNumber, business.name) : null;
   const addressParts = [business?.address, business?.neighborhood].map(clean).filter(Boolean);
   const addressLine = addressParts.join(', ');
 
@@ -157,7 +156,7 @@ export default function BusinessPublicProfile() {
                 {business.description && <p className="description">{business.description}</p>}
                 <div className="topActions">
                   {messageHref ? <Link className="messageButton" href={messageHref}>Enviar mensagem dentro da Talaza</Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
-                  {whatsappContactHref && <a className="messageButton" href={whatsappContactHref} target="_blank" rel="noopener noreferrer">Contactar fora da Talaza (WhatsApp)</a>}
+                  
                 </div>
               </div>
             </section>
