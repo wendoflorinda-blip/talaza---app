@@ -231,24 +231,6 @@ export default function Start() {
           </Link>
         </div>
 
-        <div
-          style={{
-            textAlign: 'center',
-            marginTop: 28,
-          }}
-        >
-          <Link
-            href="/login"
-            style={{
-              color: '#075B4E',
-              textDecoration: 'none',
-              fontSize: 13,
-              fontWeight: 700,
-            }}
-          >
-            Já tem conta? Entrar
-          </Link>
-        </div>
       </div>
     </div>
   );
