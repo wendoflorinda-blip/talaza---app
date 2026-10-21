@@ -96,7 +96,7 @@ export default function Mensagens() {
       const { data:currentProfile, error:profileError } = await supabase.from('profiles')
         .select('*')
         .eq('id',currentUser.id).maybeSingle();
-      if (profileError) { console.error('Falha ao consultar o perfil do utilizador nas mensagens:', profileError); setProfile(null); setNotice('Não foi possível carregar alguns dados do seu perfil, mas pode consultar as conversas. Confirme se a sua linha existe na tabela profiles e se permite leitura pelo próprio utilizador.'); }
+      if (profileError) { console.error('Falha ao consultar o perfil do utilizador nas mensagens:', profileError); setProfile(null); setNotice('Não foi possível ler o seu perfil pessoal na tabela profiles. A mensagem interna não pode iniciar sem confirmar a sua província principal. Detalhe técnico: ' + (profileError.message || profileError.code || 'erro não identificado') + '.'); }
       setProfile(currentProfile || null);
       let rows = [];
       try { rows = await loadConversations(currentUser); }
@@ -117,7 +117,7 @@ export default function Mensagens() {
         const targetId = safe(router.query.to);
         if (targetId && targetId !== currentUser.id) {
           try {
-            if (!currentProfile?.province_id) throw new Error('O seu perfil precisa de uma província principal para iniciar conversas.');
+            if (!currentProfile?.province_id) throw new Error('Não foi possível iniciar a mensagem interna porque o seu perfil pessoal não devolveu a província principal. Confirme se existe a linha em profiles com id igual ao ID desta conta e se province_id está preenchido. Se aparecer erro de permissão, é necessário corrigir a política de leitura do próprio perfil no Supabase.');
             const { data:target, error:targetError } = await supabase.from('profiles')
               .select('*').eq('id',targetId).maybeSingle();
             if (targetError || !target) throw new Error('Não foi possível encontrar este perfil.');
