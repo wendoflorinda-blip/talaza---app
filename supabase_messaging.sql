@@ -53,6 +53,19 @@ as $$
   );
 $$;
 
+create or replace function public.talaza_conversation_province(p_conversation_id uuid)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $
+  select c.province_id from public.conversations c where c.id = p_conversation_id;
+$;
+
+revoke all on function public.talaza_conversation_province(uuid) from public;
+grant execute on function public.talaza_conversation_province(uuid) to authenticated;
+
 create or replace function public.talaza_same_primary_province(p_user_id uuid, p_province_id uuid)
 returns boolean
 language sql
@@ -103,7 +116,7 @@ on public.conversation_participants for insert to authenticated
 with check (
   public.talaza_same_primary_province(
     user_id,
-    (select c.province_id from public.conversations c where c.id = conversation_id)
+    public.talaza_conversation_province(conversation_id)
   )
   and exists (
     select 1 from public.conversations c
