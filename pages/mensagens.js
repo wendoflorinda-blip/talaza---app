@@ -185,7 +185,12 @@ export default function Mensagens() {
             }
             if (existing) {
               setActiveId(existing.id);
-              setActivePeer({id:target.id,name:target.name || 'Utilizador Talaza',photo:target.avatar_url || target.photo_url || target.photo || ''});
+              setActivePeer({
+                id:target.id,
+                name:existing.peerName || target.name || 'Utilizador Talaza',
+                photo:existing.peerPhoto || target.avatar_url || target.photo_url || target.photo || '',
+                sourceLabel:existing.sourceLabel || existing.source
+              });
               await loadMessages(existing.id);
             } else {
               // Gera o ID no cliente e insere sem .select(): a política SELECT
