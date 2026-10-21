@@ -121,8 +121,20 @@ export default function Mensagens() {
             const { data:target, error:targetError } = await supabase.from('profiles')
               .select('*').eq('id',targetId).maybeSingle();
             if (targetError || !target) throw new Error('Não foi possível encontrar este perfil.');
-            if (!target.province_id || String(target.province_id) !== String(currentProfile.province_id)) {
-              throw new Error('As mensagens estão limitadas à província principal de cada utilizador.');
+            if (!target.province_id) {
+              throw new Error('Este utilizador ainda não tem uma província principal definida no perfil.');
+            }
+            // O vendedor mantém a restrição da sua província principal.
+            // O Explorador Talaza pode iniciar conversa com pessoas/negócios de outras províncias.
+            const { data: ownedBusiness, error: ownedBusinessError } = await supabase
+              .from('businesses').select('id').eq('owner_id', currentUser.id).limit(1).maybeSingle();
+            if (ownedBusinessError) {
+              throw new Error('Não foi possível confirmar o tipo de conta para aplicar a regra de província: ' + ownedBusinessError.message);
+            }
+            const accountType = String(currentProfile.account_type || currentProfile.user_type || currentProfile.role || '').trim().toLowerCase();
+            const isSeller = Boolean(ownedBusiness?.id) || accountType.includes('vendedor') || accountType.includes('seller');
+            if (isSeller && String(target.province_id) !== String(currentProfile.province_id)) {
+              throw new Error('A conta de vendedor só pode iniciar mensagens dentro da sua província principal. O Explorador Talaza pode contactar negócios de outras províncias.');
             }
             const { data:myMemberships, error:myMembershipError } = await supabase.from('conversation_participants')
               .select('conversation_id').eq('user_id',currentUser.id);
@@ -184,7 +196,12 @@ export default function Mensagens() {
   }, [router.isReady, router.query.conversation, router.query.to, router.query.source, router.query.sourceId, loadConversations, loadMessages, router]);
 
   useEffect(() => {
-    setRecordingSupported(typeof window !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined');
+    const supported = typeof window !== 'undefined'
+      && window.isSecureContext
+      && !!navigator.mediaDevices
+      && typeof navigator.mediaDevices.getUserMedia === 'function'
+      && typeof window.MediaRecorder !== 'undefined';
+    setRecordingSupported(supported);
   }, []);
 
   useEffect(() => {
@@ -241,27 +258,67 @@ export default function Mensagens() {
 
   async function startRecording() {
     if (!activeId) { setNotice('Abra primeiro uma conversa para gravar e enviar áudio à pessoa certa.'); return; }
+    if (typeof window === 'undefined' || !window.isSecureContext) {
+      setError('A gravação de áudio exige uma ligação segura HTTPS. Abra a Talaza pelo endereço seguro da aplicação.');
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia || typeof window.MediaRecorder === 'undefined') {
+      setError('Este navegador não permite gravar áudio aqui. Atualize o navegador ou anexe um ficheiro de áudio pelo botão +.');
+      return;
+    }
+    let stream;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-      const recorder = new MediaRecorder(stream);
-      recorderRef.current = recorder; chunksRef.current = [];
+      stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+      const preferredTypes = ['audio/webm;codecs=opus','audio/webm','audio/mp4'];
+      const mimeType = preferredTypes.find(type => window.MediaRecorder.isTypeSupported?.(type));
+      const recorder = mimeType ? new window.MediaRecorder(stream,{mimeType}) : new window.MediaRecorder(stream);
+      recorderRef.current = recorder;
+      chunksRef.current = [];
       recorder.ondataavailable = event => { if (event.data?.size) chunksRef.current.push(event.data); };
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current,{type:recorder.mimeType || 'audio/webm'});
-        const file = new File([blob],'audio-'+Date.now()+'.webm',{type:blob.type});
-        setSelectedFile(file); stream.getTracks().forEach(track=>track.stop()); setRecording(false);
-        setNotice('Áudio gravado. Toque em Enviar para o partilhar na conversa.');
+      recorder.onerror = event => {
+        console.error('Erro no gravador de áudio:',event.error);
+        setError('O navegador encontrou um erro durante a gravação. Tente novamente ou anexe um áudio.');
+        setRecording(false);
+        stream?.getTracks().forEach(track=>track.stop());
       };
-      recorder.start(); setRecording(true); setError(''); setNotice('A gravar áudio… toque novamente no botão para terminar.');
+      recorder.onstop = () => {
+        const blobType = recorder.mimeType || chunksRef.current[0]?.type || 'audio/webm';
+        const blob = new Blob(chunksRef.current,{type:blobType});
+        stream?.getTracks().forEach(track=>track.stop());
+        setRecording(false);
+        if (!blob.size) {
+          setError('A gravação ficou vazia. Verifique o microfone e grave novamente.');
+          return;
+        }
+        const extension = blobType.includes('mp4') ? 'm4a' : blobType.includes('ogg') ? 'ogg' : 'webm';
+        const file = new File([blob],'audio-'+Date.now()+'.'+extension,{type:blobType});
+        setSelectedFile(file);
+        setError('');
+        setNotice('Áudio gravado e pronto. Toque no botão de enviar para partilhá-lo na conversa.');
+      };
+      recorder.start(250);
+      setRecording(true);
+      setError('');
+      setNotice('A gravar áudio… fale agora e toque no botão ■ para terminar.');
     } catch (err) {
-      console.error(err);
-      setError('Não foi possível gravar áudio. Permita o acesso ao microfone no navegador e tente novamente.');
+      console.error('Não foi possível iniciar a gravação:',err);
+      stream?.getTracks().forEach(track=>track.stop());
+      setRecording(false);
+      const message = err?.name === 'NotAllowedError'
+        ? 'O acesso ao microfone foi recusado. Permita o microfone nas definições do navegador e tente novamente.'
+        : err?.name === 'NotFoundError'
+          ? 'Não foi encontrado um microfone ligado a este dispositivo.'
+          : 'Não foi possível iniciar a gravação de áudio. Verifique o microfone e as permissões do navegador.';
+      setError(message);
     }
   }
 
   function toggleRecording() {
-    if (recording && recorderRef.current) recorderRef.current.stop();
-    else startRecording();
+    if (recording && recorderRef.current && recorderRef.current.state !== 'inactive') {
+      recorderRef.current.stop();
+    } else {
+      startRecording();
+    }
   }
 
   async function openAttachment(item) {
@@ -317,9 +374,9 @@ export default function Mensagens() {
     </section>
     {activeId && selectedFile && <div style={S.filePreview}>📎 {selectedFile.name} <button type="button" onClick={()=>setSelectedFile(null)} style={S.removeFile}>Remover</button></div>}
     {activeId && <form style={S.composer} onSubmit={sendMessage}>
-      <input ref={fileRef} type="file" onChange={event=>setSelectedFile(event.target.files?.[0] || null)} hidden />
+      <input ref={fileRef} type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={event=>{setSelectedFile(event.target.files?.[0] || null);if(event.target.files?.[0])setNotice('Ficheiro selecionado. Toque em Enviar para o partilhar.');event.target.value='';}} hidden />
       <button type="button" onClick={()=>fileRef.current?.click()} style={S.toolButton} title="Anexar ficheiro" aria-label="Anexar ficheiro">＋</button>
-      <button type="button" onClick={toggleRecording} disabled={!recordingSupported} style={{...S.toolButton,color:recording?'#C62828':C.purple}} title={recording?'Terminar gravação':'Gravar áudio'} aria-label={recording?'Terminar gravação':'Gravar áudio'}>{recording?'■':'🎙'}</button>
+      <button type="button" onClick={toggleRecording} style={{...S.toolButton,color:recording?'#C62828':C.purple,background:recording?'#FFF0F0':'#F8F6FB'}} title={recording?'Terminar gravação':recordingSupported?'Gravar áudio':'Gravação indisponível; pode anexar áudio no botão +'} aria-label={recording?'Terminar gravação':'Gravar áudio'}>{recording?'■':'🎙'}</button>
       <textarea value={message} onChange={event=>setMessage(event.target.value)} placeholder={activeId?'Escreva uma mensagem…':'Escolha uma conversa para escrever…'} rows={1} maxLength={5000} style={S.input} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage(event);}}}/>
       <button type="submit" style={{...S.send,opacity:(message.trim()||selectedFile)&&activeId&&!sending?1:.5}} disabled={(!message.trim()&&!selectedFile)||!activeId||sending} aria-label="Enviar mensagem">{sending?'…':'➤'}</button>
     </form>}
