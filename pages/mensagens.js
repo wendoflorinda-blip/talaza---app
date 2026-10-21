@@ -132,7 +132,8 @@ export default function Mensagens() {
               throw new Error('Não foi possível confirmar o tipo de conta para aplicar a regra de província: ' + ownedBusinessError.message);
             }
             const accountType = String(currentProfile.account_type || currentProfile.user_type || currentProfile.role || '').trim().toLowerCase();
-            const isSeller = Boolean(ownedBusiness?.id) || accountType.includes('vendedor') || accountType.includes('seller');
+            const hasExplicitType = /explorador|explorer|cliente|vendedor|seller/.test(accountType);
+            const isSeller = /vendedor|seller/.test(accountType) || (!hasExplicitType && Boolean(ownedBusiness?.id));
             if (isSeller && String(target.province_id) !== String(currentProfile.province_id)) {
               throw new Error('A conta de vendedor só pode iniciar mensagens dentro da sua província principal. O Explorador Talaza pode contactar negócios de outras províncias.');
             }
