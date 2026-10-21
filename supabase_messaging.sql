@@ -77,12 +77,12 @@ language sql
 stable
 security definer
 set search_path = public
-as $
+as $$
   select exists (
     select 1 from public.conversations c
     where c.id = p_conversation_id and c.created_by = auth.uid()
   );
-$;
+$$;
 
 revoke all on function public.talaza_is_conversation_creator(uuid) from public;
 grant execute on function public.talaza_is_conversation_creator(uuid) to authenticated;
@@ -93,9 +93,9 @@ language sql
 stable
 security definer
 set search_path = public
-as $
+as $$
   select c.province_id from public.conversations c where c.id = p_conversation_id;
-$;
+$$;
 
 revoke all on function public.talaza_conversation_province(uuid) from public;
 grant execute on function public.talaza_conversation_province(uuid) to authenticated;
