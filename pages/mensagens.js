@@ -64,10 +64,35 @@ export default function Mensagens() {
       if (profilesError) throw profilesError;
       profiles = data || [];
     }
+    // Em conversas iniciadas a partir da Vitrine, source_id identifica o negócio.
+    // Usamos a identidade pública da loja sem alterar a identidade pessoal da conta.
+    const businessIds = [...new Set((rows || [])
+      .filter(row => row.source === 'Vitrine' && row.source_id)
+      .map(row => String(row.source_id)))];
+    let sourceBusinesses = [];
+    if (businessIds.length) {
+      const { data, error: businessError } = await supabase.from('businesses')
+        .select('id,owner_id,name,logo_url,category,subcategory')
+        .in('id', businessIds);
+      if (businessError) console.warn('Não foi possível carregar o contexto público das lojas nas mensagens:', businessError);
+      sourceBusinesses = data || [];
+    }
     const enriched = (rows || []).map(row => {
       const peer = (participants || []).find(p => p.conversation_id === row.id && p.user_id !== currentUser.id);
       const peerProfile = profiles.find(p => p.id === peer?.user_id);
-      return { ...row, peerId:peer?.user_id || '', peerName:peerProfile?.name || 'Utilizador Talaza', peerPhoto:peerProfile?.avatar_url || peerProfile?.photo_url || peerProfile?.photo || '' };
+      const sourceBusiness = row.source === 'Vitrine'
+        ? sourceBusinesses.find(b => String(b.id) === String(row.source_id) && String(b.owner_id) === String(peer?.user_id))
+        : null;
+      const category = sourceBusiness?.category && sourceBusiness.category !== sourceBusiness.name ? String(sourceBusiness.category) : '';
+      const subcategory = sourceBusiness?.subcategory ? String(sourceBusiness.subcategory) : '';
+      const contextParts = [row.source || 'Talaza', category, subcategory].filter(Boolean);
+      return {
+        ...row,
+        peerId:peer?.user_id || '',
+        peerName:sourceBusiness?.name || peerProfile?.name || 'Utilizador Talaza',
+        peerPhoto:sourceBusiness?.logo_url || peerProfile?.avatar_url || peerProfile?.photo_url || peerProfile?.photo || '',
+        sourceLabel:contextParts.join(' · ')
+      };
     });
     setConversations(enriched);
     return enriched;
@@ -75,7 +100,7 @@ export default function Mensagens() {
 
   const openConversation = useCallback(async (conversation, peer) => {
     setActiveId(conversation.id);
-    setActivePeer(peer || { id:conversation.peerId, name:conversation.peerName, photo:conversation.peerPhoto });
+    setActivePeer(peer || { id:conversation.peerId, name:conversation.peerName, photo:conversation.peerPhoto, sourceLabel:conversation.sourceLabel || conversation.source });
     setError('');
     setNotice('');
     await loadMessages(conversation.id);
@@ -110,7 +135,7 @@ export default function Mensagens() {
         const found = rows.find(row => row.id === requestedId);
         if (found) {
           setActiveId(found.id);
-          setActivePeer({id:found.peerId,name:found.peerName,photo:found.peerPhoto});
+          setActivePeer({id:found.peerId,name:found.peerName,photo:found.peerPhoto,sourceLabel:found.sourceLabel || found.source});
           await loadMessages(found.id);
         }
       } else {
@@ -137,6 +162,9 @@ export default function Mensagens() {
             if (isSeller && String(target.province_id) !== String(currentProfile.province_id)) {
               throw new Error('A conta de vendedor só pode iniciar mensagens dentro da sua província principal. O Explorador Talaza pode contactar negócios de outras províncias.');
             }
+            const requestedSource = safe(router.query.source) || 'Vitrine';
+            const source = sourceNames.includes(requestedSource) ? requestedSource : 'Vitrine';
+            const createdSourceId = safe(router.query.sourceId) || null;
             const { data:myMemberships, error:myMembershipError } = await supabase.from('conversation_participants')
               .select('conversation_id').eq('user_id',currentUser.id);
             if (myMembershipError) throw myMembershipError;
@@ -147,21 +175,24 @@ export default function Mensagens() {
                 .select('conversation_id').eq('user_id',targetId).in('conversation_id',myIds);
               if (theirError) throw theirError;
               const shared = (theirMemberships || []).map(x => x.conversation_id);
-              existing = rows.find(row => shared.includes(row.id)) || null;
+              // Uma conversa só pode ser reutilizada quando as duas pessoas e a origem
+              // forem iguais. Ex.: a mesma loja pode ter conversas separadas por área.
+              existing = rows.find(row =>
+                shared.includes(row.id) &&
+                row.source === source &&
+                String(row.source_id || '') === String(createdSourceId || '')
+              ) || null;
             }
             if (existing) {
               setActiveId(existing.id);
               setActivePeer({id:target.id,name:target.name || 'Utilizador Talaza',photo:target.avatar_url || target.photo_url || target.photo || ''});
               await loadMessages(existing.id);
             } else {
-              const requestedSource = safe(router.query.source) || 'Vitrine';
-              const source = sourceNames.includes(requestedSource) ? requestedSource : 'Vitrine';
               // Gera o ID no cliente e insere sem .select(): a política SELECT
               // só permite ler conversas depois de existir uma participação, então
               // pedir a linha de volta antes de inserir os participantes falha por RLS.
               const createdId = crypto.randomUUID();
               const createdAt = new Date().toISOString();
-              const createdSourceId = safe(router.query.sourceId) || null;
               const { error:createError } = await supabase.from('conversations')
                 .insert({id:createdId,created_by:currentUser.id,province_id:currentProfile.province_id,source,source_id:createdSourceId});
               if (createError) throw createError;
@@ -178,10 +209,24 @@ export default function Mensagens() {
                 {conversation_id:created.id,user_id:targetId}
               ]);
               if (joinError) throw joinError;
-              const newConversation = {...created,peerId:target.id,peerName:target.name || 'Utilizador Talaza',peerPhoto:target.avatar_url || target.photo_url || target.photo || ''};
+              let targetBusiness = null;
+              if (source === 'Vitrine' && createdSourceId) {
+                const { data:business } = await supabase.from('businesses')
+                  .select('id,owner_id,name,logo_url,category,subcategory')
+                  .eq('id',createdSourceId).maybeSingle();
+                if (business && String(business.owner_id) === String(target.id)) targetBusiness = business;
+              }
+              const contextParts = [source, targetBusiness?.category, targetBusiness?.subcategory].filter(Boolean);
+              const newConversation = {
+                ...created,
+                peerId:target.id,
+                peerName:targetBusiness?.name || target.name || 'Utilizador Talaza',
+                peerPhoto:targetBusiness?.logo_url || target.avatar_url || target.photo_url || target.photo || '',
+                sourceLabel:contextParts.join(' · ')
+              };
               setConversations(previous => [newConversation,...previous]);
               setActiveId(created.id);
-              setActivePeer({id:target.id,name:newConversation.peerName,photo:newConversation.peerPhoto});
+              setActivePeer({id:target.id,name:newConversation.peerName,photo:newConversation.peerPhoto,sourceLabel:newConversation.sourceLabel});
               router.replace({pathname:'/mensagens',query:{conversation:created.id}},undefined,{shallow:true});
               await loadMessages(created.id);
             }
@@ -343,7 +388,7 @@ export default function Mensagens() {
       <div style={S.brandMark}>T</div>
       <div style={{flex:1,minWidth:0}}>
         <strong style={S.title}>{activeId ? (activePeer?.name || 'Conversa') : 'Mensagens Talaza'}</strong>
-        <div style={S.subtitle}>{activeId ? 'Conversa privada' : 'As suas conversas'}</div>
+        <div style={S.subtitle}>{activeId ? (activePeer?.sourceLabel || 'Conversa privada') : 'As suas conversas'}</div>
       </div>
       {activeId && activePeer?.photo ? <img src={activePeer.photo} alt="" style={S.headerPhoto}/> : null}
     </header>
@@ -357,7 +402,7 @@ export default function Mensagens() {
         <button type="button" onClick={()=>router.push('/explore')} style={S.primaryButton}>Explorar a Talaza</button>
       </div> : conversations.map(item => <button type="button" key={item.id} onClick={()=>openConversation(item)} style={S.conversationRow}>
         {item.peerPhoto ? <img src={item.peerPhoto} alt="" style={S.avatarPhoto}/> : <div style={S.avatar}>{(item.peerName || 'T').slice(0,1).toUpperCase()}</div>}
-        <span style={S.conversationInfo}><strong>{item.peerName}</strong><small>{item.source || 'Talaza'} · abrir conversa</small></span>
+        <span style={S.conversationInfo}><strong>{item.peerName}</strong><small>{item.sourceLabel || item.source || 'Talaza'} · abrir conversa</small></span>
         <span style={S.chevron}>›</span>
       </button>)}
     </section> : null}
