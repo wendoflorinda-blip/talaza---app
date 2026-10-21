@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'next/router';
 import { formatKz } from '../lib/imageTools';
 
 export const VIEW_MODES = ['vertical', 'deslize', 'normal'];
@@ -9,18 +10,11 @@ const MODES = [
   { id: 'normal', title: 'Normal', hint: 'Opção 3 · grade' }
 ];
 
-function whatsappLink(whatsapp, text) {
-  let digits = String(whatsapp || '').replace(/\D/g, '');
-  if (!digits) return null;
-  if (digits.length === 9) digits = '244' + digits;
-  return 'https://wa.me/' + digits + '?text=' + encodeURIComponent(text);
-}
-
-export default function ProductsView({ items = [], mode = 'normal', onModeChange, editable = false, onEdit, whatsapp = '', businessName = '', showNextCard = true }) {
+export default function ProductsView({ items = [], mode = 'normal', onModeChange, editable = false, onEdit, businessName = '', businessId = '', sellerId = '', showNextCard = true }) {
   const [open, setOpen] = useState(null);
+  const router = useRouter();
   const current = VIEW_MODES.includes(mode) ? mode : 'normal';
   const openItem = open ? items.find((item) => item.id === open) : null;
-  const wa = openItem ? whatsappLink(whatsapp, 'Olá, tenho interesse em ' + (openItem.name || 'este produto') + (openItem.price ? ' (' + formatKz(openItem.price) + ')' : '') + (businessName ? ' da ' + businessName : '') + '.') : null;
 
   return (
     <div className="pv">
@@ -55,7 +49,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
           <img className="big" src={openItem.image_url} alt={openItem.name || 'Produto'} />
           <div className="bigprice">{openItem.price ? formatKz(openItem.price) : 'Sem preço'}</div>
           <h3>{openItem.name || 'Sem nome'}</h3><p>{openItem.description || 'Sem descrição'}</p>
-          <div className="acts"><button type="button" className="close" onClick={() => setOpen(null)}>Fechar</button>{wa && <a className="wa" href={wa} target="_blank" rel="noopener noreferrer">Pedir no WhatsApp</a>}</div>
+          <div className="acts"><button type="button" className="close" onClick={() => setOpen(null)}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}>Enviar mensagem</button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
         </div>
       </div>}
       <style jsx>{`
@@ -71,7 +65,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         .cap{display:flex;gap:8px;margin-top:7px;font-size:13px;line-height:1.4;color:#14201C}.dash{color:#075B4E;font-weight:800}.vert{display:grid;gap:20px}
         .hint{font-size:13px;font-weight:700;color:#075B4E;margin-bottom:8px}.slide{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:4px}.slide article,.next{flex:0 0 84%;scroll-snap-align:center}.next{aspect-ratio:1/1;border-radius:14px;background:linear-gradient(135deg,#075B4E,#075B4E);color:#fff;display:grid;place-items:center;text-align:center;font-weight:700;padding:20px}.next small{display:block;font-weight:400;opacity:.85;margin-top:4px}
         .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.cell{position:relative;aspect-ratio:1/1;border-radius:7px;overflow:hidden;background:#E8F2EE}.open{display:block;width:100%;height:100%}.open img{width:100%;height:100%;object-fit:cover;display:block}.tag{position:absolute;left:4px;bottom:4px;background:rgba(15,22,20,.74);color:#fff;font-weight:800;font-size:10px;padding:2px 6px;border-radius:999px}
-        .veu{position:fixed;inset:0;background:rgba(10,20,17,.55);z-index:120;display:flex;align-items:flex-end;justify-content:center}.sheet{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}.big{width:100%;max-height:52vh;object-fit:contain;background:#E8F2EE;border-radius:14px;display:block;margin:0 0 10px}.bigprice{font-weight:800;color:#075B4E;font-size:18px}.sheet h3{margin:2px 0;font-size:17px;color:#14201C}.sheet p{margin:2px 0 12px;font-size:13px;color:#5A6A64;line-height:1.5;white-space:pre-wrap}.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.acts .close,.acts .wa{padding:13px;border-radius:11px;font-weight:700;text-align:center;text-decoration:none}.acts .close{background:#E9EEEC;color:#14201C}.acts .wa{background:#1FA855;color:#fff}
+        .veu{position:fixed;inset:0;background:rgba(10,20,17,.55);z-index:120;display:flex;align-items:flex-end;justify-content:center}.sheet{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}.big{width:100%;max-height:52vh;object-fit:contain;background:#E8F2EE;border-radius:14px;display:block;margin:0 0 10px}.bigprice{font-weight:800;color:#075B4E;font-size:18px}.sheet h3{margin:2px 0;font-size:17px;color:#14201C}.sheet p{margin:2px 0 12px;font-size:13px;color:#5A6A64;line-height:1.5;white-space:pre-wrap}.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.acts .close,.acts .wa{padding:13px;border-radius:11px;font-weight:700;text-align:center;text-decoration:none}.acts .close{background:#E9EEEC;color:#14201C}.acts .internalMessage{background:#075B4E;color:#fff;border:0;cursor:pointer}.acts .unavailableMessage{background:#EDF1EF;color:#7A8983;display:grid;place-items:center;padding:13px;border-radius:11px;font-size:12px;text-align:center}
       `}</style>
     </div>
   );
