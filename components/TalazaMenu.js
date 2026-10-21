@@ -564,6 +564,13 @@ export default function TalazaMenu({
                   />
 
                   <MenuButton
+                    icon="home"
+                    title="O meu perfil pessoal"
+                    subtitle="Fotografia, dados e privacidade do e-mail"
+                    onClick={() => router.push('/perfil')}
+                  />
+
+                  <MenuButton
                     icon="seller"
                     title="Voltar ao perfil de vendedor"
                     subtitle="Aceder à sua área de vendedor"
