@@ -215,6 +215,7 @@ export default function Signup() {
             name: fullName.trim(),
             country_id: countryId,
             province_id: provinceId,
+            account_type: 'explorador',
           },
           { onConflict: 'id' }
         );
