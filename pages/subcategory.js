@@ -131,7 +131,7 @@ export default function Subcategory() {
         let businessQuery = supabase
           .from('businesses')
           .select(
-            'id, name, description, municipality, neighborhood, address, phone, whatsapp, opening_hours, logo_url, cover_url, country_id, province_id, subcategory_id, is_active, approval_status, created_at'
+            'id, owner_id, name, description, municipality, neighborhood, address, phone, whatsapp, opening_hours, logo_url, cover_url, country_id, province_id, subcategory_id, is_active, approval_status, created_at'
           )
           .eq('subcategory_id', id)
           .eq('is_active', true)
@@ -563,14 +563,9 @@ export default function Subcategory() {
                         .filter((image) => image.kind === 'main')
                         .sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0))
                         .slice(0, 3);
-                      const messageText = encodeURIComponent(
-                        'Olá! Vi o negócio ' + business.name + ' na Talaza e gostaria de saber mais.'
-                      );
-                      const phoneDigits = String(business.whatsapp || business.phone || '').replace(/\D/g, '');
-                      const whatsappNumber = phoneDigits.length === 9 ? '244' + phoneDigits : phoneDigits;
-                      const messageHref = whatsappNumber
-                        ? 'https://wa.me/' + whatsappNumber + '?text=' + messageText
-                        : null;
+                      // O botão principal abre sempre a conversa interna Talaza.
+                      // owner_id identifica o utilizador vendedor; business.id identifica o negócio.
+                      const canMessage = Boolean(business.owner_id);
 
                       return (
                         <article className="businessCard" key={business.id}>
@@ -614,10 +609,25 @@ export default function Subcategory() {
                             </p>
 
                             <div className="businessActions">
-                              {messageHref ? (
-                                <a className="messageButton" href={messageHref} target="_blank" rel="noopener noreferrer">Enviar mensagem</a>
+                              {canMessage ? (
+                                <button
+                                  type="button"
+                                  className="messageButton"
+                                  onClick={() => router.push({
+                                    pathname: '/mensagens',
+                                    query: {
+                                      to: business.owner_id,
+                                      source: 'Vitrine',
+                                      sourceId: business.id,
+                                    },
+                                  })}
+                                >
+                                  Enviar mensagem
+                                </button>
                               ) : (
-                                <span className="messageButton disabledButton" aria-disabled="true">Enviar mensagem</span>
+                                <span className="messageButton disabledButton" aria-disabled="true">
+                                  Mensagem interna indisponível
+                                </span>
                               )}
                               <Link className="profileButton" href={makeBusinessHref(business.id, country, province, id)}>Ver perfil</Link>
                             </div>
