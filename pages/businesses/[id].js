@@ -156,8 +156,8 @@ export default function BusinessPublicProfile() {
                 </div>
                 {business.description && <p className="description">{business.description}</p>}
                 <div className="topActions">
-                  {messageHref ? <Link className="messageButton" href={messageHref}>Enviar mensagem na Talaza</Link> : <span className="disabledMessage">Mensagem indisponível</span>}
-                  {whatsappContactHref && <a className="messageButton" href={whatsappContactHref} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
+                  {messageHref ? <Link className="messageButton" href={messageHref}>Enviar mensagem dentro da Talaza</Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
+                  {whatsappContactHref && <a className="messageButton" href={whatsappContactHref} target="_blank" rel="noopener noreferrer">Contactar fora da Talaza (WhatsApp)</a>}
                 </div>
               </div>
             </section>
