@@ -79,7 +79,7 @@ export default function Mensagens() {
     async function initialise() {
       setLoading(true); setError(''); setNotice('');
       const { data:{ user:currentUser }, error:authError } = await supabase.auth.getUser();
-      if (authError || !currentUser) { router.replace('/login?redirect=%2Fmensagens'); return; }
+      if (authError || !currentUser) { router.replace('/login?redirect=' + encodeURIComponent(router.asPath || '/mensagens')); return; }
       if (cancelled) return;
       setUser(currentUser);
       const { data:currentProfile, error:profileError } = await supabase.from('profiles')
