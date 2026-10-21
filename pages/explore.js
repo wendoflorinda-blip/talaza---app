@@ -842,3 +842,6 @@ export default function Explore() {
     </div>
   );
 }
+
+// Forçar a barra inferior de Perfil, Mensagens e Notificações nesta página.
+Explore.showMessageDock = true;
