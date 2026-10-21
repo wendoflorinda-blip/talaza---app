@@ -337,14 +337,11 @@ export default function TalazaMenu({
       setPrimaryCountry(profile?.country_id || country || '');
       setPrimaryProvince(profile?.province_id || province || '');
       const storedType = String(profile?.account_type || '').trim().toLowerCase();
-      const hasExplicitType = /explorador|explorer|cliente|vendedor|seller/.test(storedType);
-      let seller = /vendedor|seller/.test(storedType);
-      // Só recorrer à existência de negócio para contas antigas sem tipo explícito.
-      // Um perfil marcado como explorador não deve herdar privilégios de vendedor.
-      if (!hasExplicitType) {
-        const { data: ownedBusiness } = await supabase.from('businesses').select('id').eq('owner_id', user.id).limit(1).maybeSingle();
-        seller = Boolean(ownedBusiness);
-      }
+      const { data: ownedBusiness } = await supabase
+        .from('businesses').select('id').eq('owner_id', user.id).limit(1).maybeSingle();
+      // A mesma conta pode explorar Talaza e ter uma loja. A existência de negócio
+      // habilita o atalho ao painel, sem eliminar a área pessoal do Explorador.
+      const seller = /vendedor|seller/.test(storedType) || Boolean(ownedBusiness);
       setIsSellerAccount(seller);
     } catch (error) {
       console.error(
