@@ -47,7 +47,7 @@ export default function BusinessPublicProfile() {
       try {
         const { data: businessData, error: businessError } = await supabase
           .from('businesses')
-          .select('id, name, description, country_id, province_id, municipality, neighborhood, address, phone, whatsapp, email, opening_hours, logo_url, cover_url, is_active, approval_status, panel_view_mode')
+          .select('id, owner_id, name, description, country_id, province_id, municipality, neighborhood, address, phone, whatsapp, email, opening_hours, logo_url, cover_url, is_active, approval_status, panel_view_mode')
           .eq('id', id)
           .eq('is_active', true)
           .eq('approval_status', 'approved')
@@ -112,7 +112,8 @@ export default function BusinessPublicProfile() {
   }, [router.query.returnTo, country, province, business]);
 
   const contactNumber = business?.phone;
-  const messageHref = business ? whatsappHref(contactNumber, business.name) : null;
+  const messageHref = business?.owner_id ? '/mensagens?to=' + encodeURIComponent(business.owner_id) + '&source=Vitrine&sourceId=' + encodeURIComponent(business.id) : null;
+  const whatsappContactHref = business ? whatsappHref(contactNumber, business.name) : null;
   const addressParts = [business?.address, business?.neighborhood].map(clean).filter(Boolean);
   const addressLine = addressParts.join(', ');
 
@@ -155,7 +156,8 @@ export default function BusinessPublicProfile() {
                 </div>
                 {business.description && <p className="description">{business.description}</p>}
                 <div className="topActions">
-                  {messageHref ? <a className="messageButton" href={messageHref} target="_blank" rel="noopener noreferrer">Enviar mensagem</a> : <span className="disabledMessage">Contacto não disponível</span>}
+                  {messageHref ? <Link className="messageButton" href={messageHref}>Enviar mensagem na Talaza</Link> : <span className="disabledMessage">Mensagem indisponível</span>}
+                  {whatsappContactHref && <a className="messageButton" href={whatsappContactHref} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
                 </div>
               </div>
             </section>
