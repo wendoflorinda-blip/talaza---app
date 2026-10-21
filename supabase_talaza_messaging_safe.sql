@@ -46,69 +46,84 @@ alter table public.conversations enable row level security;
 alter table public.conversation_participants enable row level security;
 alter table public.talaza_messages enable row level security;
 
+-- Funções SECURITY DEFINER evitam recursão nas políticas RLS de participantes.
+create or replace function public.talaza_is_conversation_participant(target_conversation uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.conversation_participants cp
+    where cp.conversation_id = target_conversation and cp.user_id = auth.uid()
+  );
+$$;
+
+create or replace function public.talaza_is_conversation_creator(target_conversation uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.conversations c
+    where c.id = target_conversation and c.created_by = auth.uid()
+  );
+$$;
+
+revoke all on function public.talaza_is_conversation_participant(uuid) from public;
+revoke all on function public.talaza_is_conversation_creator(uuid) from public;
+grant execute on function public.talaza_is_conversation_participant(uuid) to authenticated;
+grant execute on function public.talaza_is_conversation_creator(uuid) to authenticated;
+
 drop policy if exists "Talaza participants can view conversations" on public.conversations;
 create policy "Talaza participants can view conversations"
 on public.conversations for select to authenticated
-using (exists (
-  select 1 from public.conversation_participants cp
-  where cp.conversation_id = conversations.id and cp.user_id = auth.uid()
-));
+using (public.talaza_is_conversation_participant(id));
 
 drop policy if exists "Talaza users can create conversations" on public.conversations;
 create policy "Talaza users can create conversations"
 on public.conversations for insert to authenticated
-with check (created_by = auth.uid());
+with check (
+  created_by = auth.uid()
+  and exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.province_id = conversations.province_id
+  )
+);
 
 drop policy if exists "Talaza participants can update conversations" on public.conversations;
 create policy "Talaza participants can update conversations"
 on public.conversations for update to authenticated
-using (exists (
-  select 1 from public.conversation_participants cp
-  where cp.conversation_id = conversations.id and cp.user_id = auth.uid()
-))
-with check (exists (
-  select 1 from public.conversation_participants cp
-  where cp.conversation_id = conversations.id and cp.user_id = auth.uid()
-));
+using (public.talaza_is_conversation_participant(id))
+with check (public.talaza_is_conversation_participant(id));
 
 drop policy if exists "Talaza participants can view memberships" on public.conversation_participants;
 create policy "Talaza participants can view memberships"
 on public.conversation_participants for select to authenticated
-using (exists (
-  select 1 from public.conversation_participants own
-  where own.conversation_id = conversation_participants.conversation_id
-    and own.user_id = auth.uid()
-));
+using (public.talaza_is_conversation_participant(conversation_id));
 
 drop policy if exists "Talaza users can join conversations they create" on public.conversation_participants;
 create policy "Talaza users can join conversations they create"
 on public.conversation_participants for insert to authenticated
 with check (
   user_id = auth.uid()
-  or exists (
-    select 1 from public.conversations c
-    where c.id = conversation_participants.conversation_id
-      and c.created_by = auth.uid()
-  )
+  or public.talaza_is_conversation_creator(conversation_id)
 );
 
 drop policy if exists "Talaza users can view conversation messages" on public.talaza_messages;
 create policy "Talaza users can view conversation messages"
 on public.talaza_messages for select to authenticated
-using (exists (
-  select 1 from public.conversation_participants cp
-  where cp.conversation_id = talaza_messages.conversation_id and cp.user_id = auth.uid()
-));
+using (public.talaza_is_conversation_participant(conversation_id));
 
 drop policy if exists "Talaza users can send own conversation messages" on public.talaza_messages;
 create policy "Talaza users can send own conversation messages"
 on public.talaza_messages for insert to authenticated
 with check (
   sender_id = auth.uid()
-  and exists (
-    select 1 from public.conversation_participants cp
-    where cp.conversation_id = talaza_messages.conversation_id and cp.user_id = auth.uid()
-  )
+  and public.talaza_is_conversation_participant(conversation_id)
 );
 
 -- Anexos: mantém o bucket existente message-media e as políticas atuais.
