@@ -261,6 +261,7 @@ export default function Perfil() {
             {photo ? <img src={photo} alt="Fotografia do perfil" style={S.photo} /> : <span style={S.avatarPlaceholder}>♙</span>}
             <span style={S.photoBadge}>+</span>
           </button>
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={photoUploading} style={S.addPhotoButton}>{photoUploading ? 'A enviar fotografia…' : '＋ Adicionar fotografia'}</button>
           <input ref={fileRef} type="file" accept="image/*" onChange={uploadProfilePhotoImmediately} hidden />
           <span style={S.photoHelp}>{photoUploading ? 'A enviar fotografia…' : 'Toque no + para adicionar ou trocar a fotografia'}</span>
           <strong style={S.profileName}>{profile?.name || profile?.full_name || user?.user_metadata?.full_name || 'Perfil Talaza'}</strong>
@@ -275,10 +276,10 @@ export default function Perfil() {
             <div><span style={S.detailLabel}>E-mail de acesso</span><strong>{user?.email || 'Não definido'}</strong></div>
             <div style={S.emailVisibilityRow}>
               <div style={{flex:1,minWidth:0}}>
-                <strong style={{display:'block',fontSize:13}}>Privacidade do e-mail</strong>
+                <strong style={{display:'block',fontSize:14}}>Mostrar ou ocultar o e-mail no perfil público</strong>
                 <span style={S.help}>{showEmail ? 'O e-mail pode ser visto no seu perfil pessoal público.' : 'O e-mail fica oculto para outras pessoas.'}</span>
               </div>
-              <button type="button" role="switch" aria-checked={showEmail} disabled={savingEmailVisibility} onClick={toggleEmailVisibility} style={{...S.visibilityToggle,background:showEmail?C.green:'#AAB4AF',opacity:savingEmailVisibility ? 0.6 : 1}}>{savingEmailVisibility?'…':showEmail?'Mostrar':'Ocultar'}</button>
+              <button type="button" role="switch" aria-checked={showEmail} disabled={savingEmailVisibility} onClick={toggleEmailVisibility} style={{...S.visibilityToggle,background:showEmail?C.green:'#AAB4AF',opacity:savingEmailVisibility ? 0.6 : 1}}>{savingEmailVisibility?'A guardar…':showEmail?'Visível':'Oculto'}</button>
             </div>
             <div><span style={S.detailLabel}>Contacto</span><strong>{phone || 'Não definido'}</strong></div>
             <div><span style={S.detailLabel}>Província principal e Comunidade</span><strong>{provinceName}</strong></div>
@@ -330,7 +331,8 @@ const S = {
   photo:{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'},
   avatarPlaceholder:{display:'grid',placeItems:'center',width:'100%',height:'100%',fontSize:44,color:C.purple},
   photoBadge:{position:'absolute',right:-2,bottom:0,width:32,height:32,borderRadius:'50%',display:'grid',placeItems:'center',background:C.gold,color:C.dark,border:'3px solid white',fontWeight:900,fontSize:23},
-  photoHelp:{marginTop:9,fontSize:11,color:C.muted,textAlign:'center'},
+  photoHelp:{marginTop:9,fontSize:12,color:C.muted,textAlign:'center'},
+ addPhotoButton:{marginTop:10,padding:'9px 14px',border:'1px solid '+C.green,borderRadius:999,background:'#E8F5EF',color:C.green,fontWeight:800,fontSize:13,cursor:'pointer'},
   emailVisibilityRow:{display:'flex',alignItems:'center',gap:12,padding:'12px 0',borderTop:'1px solid '+C.line},
   visibilityToggle:{flex:'0 0 auto',minWidth:76,border:0,borderRadius:999,padding:'9px 12px',color:'#fff',fontWeight:800,cursor:'pointer'},
   passwordWrap:{position:'relative'},
