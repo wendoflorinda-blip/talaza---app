@@ -67,7 +67,7 @@ export default function Mensagens() {
     const enriched = (rows || []).map(row => {
       const peer = (participants || []).find(p => p.conversation_id === row.id && p.user_id !== currentUser.id);
       const peerProfile = profiles.find(p => p.id === peer?.user_id);
-      return { ...row, peerId:peer?.user_id || '', peerName:peerProfile?.name || peerProfile?.full_name || 'Utilizador Talaza', peerPhoto:peerProfile?.avatar_url || peerProfile?.photo_url || peerProfile?.photo || '' };
+      return { ...row, peerId:peer?.user_id || '', peerName:peerProfile?.name || 'Utilizador Talaza', peerPhoto:peerProfile?.avatar_url || peerProfile?.photo_url || peerProfile?.photo || '' };
     });
     setConversations(enriched);
     return enriched;
@@ -131,7 +131,7 @@ export default function Mensagens() {
             if (ownedBusinessError) {
               throw new Error('Não foi possível confirmar o tipo de conta para aplicar a regra de província: ' + ownedBusinessError.message);
             }
-            const accountType = String(currentProfile.account_type || currentProfile.user_type || currentProfile.role || '').trim().toLowerCase();
+            const accountType = String(currentProfile.account_type || '').trim().toLowerCase();
             const hasExplicitType = /explorador|explorer|cliente|vendedor|seller/.test(accountType);
             const isSeller = /vendedor|seller/.test(accountType) || (!hasExplicitType && Boolean(ownedBusiness?.id));
             if (isSeller && String(target.province_id) !== String(currentProfile.province_id)) {
@@ -151,7 +151,7 @@ export default function Mensagens() {
             }
             if (existing) {
               setActiveId(existing.id);
-              setActivePeer({id:target.id,name:target.name || target.full_name || 'Utilizador Talaza',photo:target.avatar_url || target.photo_url || target.photo || ''});
+              setActivePeer({id:target.id,name:target.name || 'Utilizador Talaza',photo:target.avatar_url || target.photo_url || target.photo || ''});
               await loadMessages(existing.id);
             } else {
               const requestedSource = safe(router.query.source) || 'Vitrine';
@@ -178,7 +178,7 @@ export default function Mensagens() {
                 {conversation_id:created.id,user_id:targetId}
               ]);
               if (joinError) throw joinError;
-              const newConversation = {...created,peerId:target.id,peerName:target.name || target.full_name || 'Utilizador Talaza',peerPhoto:target.avatar_url || target.photo_url || target.photo || ''};
+              const newConversation = {...created,peerId:target.id,peerName:target.name || 'Utilizador Talaza',peerPhoto:target.avatar_url || target.photo_url || target.photo || ''};
               setConversations(previous => [newConversation,...previous]);
               setActiveId(created.id);
               setActivePeer({id:target.id,name:newConversation.peerName,photo:newConversation.peerPhoto});
