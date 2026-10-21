@@ -143,10 +143,23 @@ export default function Mensagens() {
             } else {
               const requestedSource = safe(router.query.source) || 'Vitrine';
               const source = sourceNames.includes(requestedSource) ? requestedSource : 'Vitrine';
-              const { data:created, error:createError } = await supabase.from('conversations')
-                .insert({created_by:currentUser.id,province_id:currentProfile.province_id,source,source_id:safe(router.query.sourceId) || null})
-                .select('id,source,source_id,province_id,created_at,updated_at').single();
+              // Gera o ID no cliente e insere sem .select(): a política SELECT
+              // só permite ler conversas depois de existir uma participação, então
+              // pedir a linha de volta antes de inserir os participantes falha por RLS.
+              const createdId = crypto.randomUUID();
+              const createdAt = new Date().toISOString();
+              const createdSourceId = safe(router.query.sourceId) || null;
+              const { error:createError } = await supabase.from('conversations')
+                .insert({id:createdId,created_by:currentUser.id,province_id:currentProfile.province_id,source,source_id:createdSourceId});
               if (createError) throw createError;
+              const created = {
+                id:createdId,
+                source,
+                source_id:createdSourceId,
+                province_id:currentProfile.province_id,
+                created_at:createdAt,
+                updated_at:createdAt
+              };
               const { error:joinError } = await supabase.from('conversation_participants').insert([
                 {conversation_id:created.id,user_id:currentUser.id},
                 {conversation_id:created.id,user_id:targetId}
