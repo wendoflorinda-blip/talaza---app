@@ -789,37 +789,36 @@ export default function Seller() {
         <button
           type="button"
           onClick={async () => {
-            // Mudar para o espaço de exploração sem sair da conta do vendedor.
-            // A província principal do explorador vem de profiles; a loja mantém a sua localização fixa.
-            let homeCountry = business.country_id;
-            let homeProvince = business.province_id;
+            // Navegação completa para a Vitrine, mantendo a mesma sessão de autenticação.
+            // A localização principal vem do perfil pessoal, nunca da localização da loja.
+            let homeCountry = '';
+            let homeProvince = '';
             try {
-              const { data: authData } = await supabase.auth.getUser();
+              const { data: authData, error: authError } = await supabase.auth.getUser();
+              if (authError) throw authError;
               if (authData?.user?.id) {
-                const { data: profile } = await supabase
+                const { data: profile, error: profileError } = await supabase
                   .from('profiles')
                   .select('country_id, province_id')
                   .eq('id', authData.user.id)
                   .maybeSingle();
-                homeCountry = profile?.country_id || homeCountry;
-                homeProvince = profile?.province_id || homeProvince;
+                if (profileError) throw profileError;
+                homeCountry = profile?.country_id || '';
+                homeProvince = profile?.province_id || '';
               }
             } catch (exploreError) {
               console.error('Não foi possível carregar a localização principal do explorador:', exploreError);
             }
-            router.push({
-              pathname: '/explore',
-              query: {
-                country: business.country_id || homeCountry,
-                province: business.province_id || homeProvince,
-                homeCountry,
-                homeProvince,
-              },
-            });
+            const params = new URLSearchParams();
+            if (homeCountry || business.country_id) params.set('country', homeCountry || business.country_id);
+            if (homeProvince || business.province_id) params.set('province', homeProvince || business.province_id);
+            if (homeCountry || business.country_id) params.set('homeCountry', homeCountry || business.country_id);
+            if (homeProvince || business.province_id) params.set('homeProvince', homeProvince || business.province_id);
+            window.location.assign('/explore' + (params.toString() ? '?' + params.toString() : ''));
           }}
           style={{ display: 'block', width: '100%', marginTop: 14, padding: 13, borderRadius: 12, border: '1.5px solid #075B4E', background: '#FFFFFF', color: '#075B4E', fontWeight: 800, cursor: 'pointer' }}
         >
-          ← Explorar Talaza como cliente
+          ← Ir para a Vitrine principal como cliente
         </button>
         <button type="button" onClick={() => { if (!subscriptionPending) router.push({ pathname: '/impulsionar', query: { business: business.id } }); }} disabled={subscriptionPending} style={{ position: 'fixed', right: 0, top: '44%', zIndex: 15, writingMode: 'vertical-rl', transform: 'rotate(180deg)', padding: '18px 12px', borderRadius: '18px 0 0 18px', background: 'linear-gradient(160deg,#F7CF45,#E6A900 55%,#C98F00)', color: '#17342F', boxShadow: '-6px 8px 22px rgba(201,143,0,.35)', fontWeight: 900, letterSpacing: 1, border: 0, cursor: subscriptionPending ? 'not-allowed' : 'pointer' }} aria-label="Impulsionar negócio">⚡ Impulsionar</button>
 
