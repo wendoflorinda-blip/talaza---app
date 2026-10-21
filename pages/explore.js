@@ -467,45 +467,14 @@ export default function Explore() {
   }
 
   async function loadBusinesses() {
+    /*
+      A Vitrine principal é reservada exclusivamente aos Destaques Premium.
+      Como o plano Premium ainda não está configurado/validado, não mostrar
+      negócios de hospedagem normal nesta secção. Os negócios continuam
+      disponíveis nas respetivas subcategorias.
+    */
     setLoading(true);
-
-    let request = supabase
-      .from('businesses')
-      .select(`
-        id,
-        name,
-        description,
-        municipality,
-        neighborhood,
-        logo_url
-      `)
-      .eq('country_id', country)
-      .eq('province_id', province)
-      .eq('is_active', true)
-      .eq('approval_status', 'approved')
-      .order('created_at', { ascending: false });
-
-    if (query.trim()) {
-      request = request.ilike(
-        'name',
-        `%${query.trim()}%`
-      );
-    }
-
-    const { data, error } = await request;
-
-    if (error) {
-      console.error(
-        'Erro ao carregar negócios:',
-        error
-      );
-
-      setBusinesses([]);
-      setLoading(false);
-      return;
-    }
-
-    setBusinesses(data || []);
+    setBusinesses([]);
     setLoading(false);
   }
 
