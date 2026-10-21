@@ -329,14 +329,14 @@ export default function TalazaMenu({
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('name, country_id, province_id, account_type, user_type, role')
+        .select('name, country_id, province_id, account_type')
         .eq('id', user.id)
         .maybeSingle();
 
       setUserName(profile?.name || user.email || 'Utilizador');
       setPrimaryCountry(profile?.country_id || country || '');
       setPrimaryProvince(profile?.province_id || province || '');
-      const storedType = String(profile?.account_type || profile?.user_type || profile?.role || '').trim().toLowerCase();
+      const storedType = String(profile?.account_type || '').trim().toLowerCase();
       const hasExplicitType = /explorador|explorer|cliente|vendedor|seller/.test(storedType);
       let seller = /vendedor|seller/.test(storedType);
       // Só recorrer à existência de negócio para contas antigas sem tipo explícito.
