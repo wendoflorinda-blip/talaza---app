@@ -7,6 +7,7 @@ export default function Login() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -245,14 +246,36 @@ export default function Login() {
             Palavra-passe
           </label>
 
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="A sua palavra-passe"
-            required
-            style={inputStyle}
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="A sua palavra-passe"
+              autoComplete="current-password"
+              required
+              style={{ ...inputStyle, paddingRight: 92 }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((current) => !current)}
+              aria-label={showPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
+              style={{
+                position: 'absolute',
+                right: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                border: 0,
+                background: 'transparent',
+                color: '#075B4E',
+                fontWeight: 800,
+                cursor: 'pointer',
+                padding: 8
+              }}
+            >
+              {showPassword ? 'Ocultar' : 'Mostrar'}
+            </button>
+          </div>
 
           {error && (
             <div
