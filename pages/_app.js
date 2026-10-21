@@ -1,4 +1,3 @@
-
 import '../styles/globals.css';
 import { useRouter } from 'next/router';
 import MessageDock from '../components/MessageDock';
@@ -26,10 +25,13 @@ export default function App({ Component, pageProps }) {
       ? Component.showMessageDock
       : isVitrineArea;
 
+  // A barra fixa não pode cobrir o compositor de mensagens.
+  const showDockOnPage = showDock && router.pathname !== '/mensagens';
+
   return (
     <>
       <Component {...pageProps} />
-      {showDock && <MessageDock />}
+      {showDockOnPage && <MessageDock />}
     </>
   );
 }
