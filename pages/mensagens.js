@@ -34,7 +34,12 @@ export default function Mensagens() {
       .from('messages').select('*')
       .eq('conversation_id', conversationId).order('created_at', { ascending:true }).limit(300);
     if (queryError) { setError('Não foi possível carregar as mensagens. Confirme se a migração de mensagens foi executada no Supabase.'); return; }
-    setMessages(data || []);
+    const hydrated = await Promise.all((data || []).map(async item => {
+      if (!item.storage_path) return item;
+      const { data: signed } = await supabase.storage.from('message-attachments').createSignedUrl(item.storage_path,3600);
+      return { ...item, attachment_url:signed?.signedUrl || '' };
+    }));
+    setMessages(hydrated);
   }, []);
 
   const loadConversations = useCallback(async (currentUser) => {
