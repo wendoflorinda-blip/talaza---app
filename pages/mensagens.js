@@ -302,15 +302,16 @@ export default function Mensagens() {
       </div>)}
       <div ref={endRef}/>
     </section>
-    {selectedFile && <div style={S.filePreview}>📎 {selectedFile.name} <button type="button" onClick={()=>setSelectedFile(null)} style={S.removeFile}>Remover</button></div>}
-    <form style={S.composer} onSubmit={sendMessage}>
+    {activeId && selectedFile && <div style={S.filePreview}>📎 {selectedFile.name} <button type="button" onClick={()=>setSelectedFile(null)} style={S.removeFile}>Remover</button></div>}
+    {activeId && <form style={S.composer} onSubmit={sendMessage}>
       <input ref={fileRef} type="file" onChange={event=>setSelectedFile(event.target.files?.[0] || null)} hidden />
       <button type="button" onClick={()=>fileRef.current?.click()} style={S.toolButton} title="Anexar ficheiro" aria-label="Anexar ficheiro">＋</button>
       <button type="button" onClick={toggleRecording} disabled={!recordingSupported} style={{...S.toolButton,color:recording?'#C62828':C.purple}} title={recording?'Terminar gravação':'Gravar áudio'} aria-label={recording?'Terminar gravação':'Gravar áudio'}>{recording?'■':'🎙'}</button>
       <textarea value={message} onChange={event=>setMessage(event.target.value)} placeholder={activeId?'Escreva uma mensagem…':'Escolha uma conversa para escrever…'} rows={1} maxLength={5000} style={S.input} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage(event);}}}/>
       <button type="submit" style={{...S.send,opacity:(message.trim()||selectedFile)&&activeId&&!sending?1:.5}} disabled={(!message.trim()&&!selectedFile)||!activeId||sending} aria-label="Enviar mensagem">{sending?'…':'➤'}</button>
-    </form>
-    <div style={S.hint}>{activeId?'Enter para enviar · Shift + Enter para nova linha':'Abra uma conversa para ativar o envio de texto, ficheiros e áudio.'}</div>
+    </form>}
+    {!activeId && <div style={S.hint}>Abra uma conversa para ativar o envio de texto, ficheiros e áudio.</div>}
+    {activeId && <div style={S.hint}>Enter para enviar · Shift + Enter para nova linha</div>}
   </main>;
 }
 
