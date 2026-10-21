@@ -14,6 +14,8 @@ export default function Perfil() {
   const [profile, setProfile] = useState(null);
   const [email, setEmail] = useState('');
   const [hasBusiness, setHasBusiness] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
+  const [savingEmailVisibility, setSavingEmailVisibility] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -99,19 +101,56 @@ export default function Perfil() {
       const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(path);
       const url = publicData?.publicUrl || '';
       if (!url) throw new Error('A fotografia foi enviada, mas o Supabase não devolveu o endereço da imagem. Confirme se o bucket avatars é público ou configure uma URL assinada.');
-      const updates = {};
-      if (profile && Object.prototype.hasOwnProperty.call(profile,'avatar_url')) updates.avatar_url = url;
-      else if (profile && Object.prototype.hasOwnProperty.call(profile,'photo_url')) updates.photo_url = url;
-      else if (profile && Object.prototype.hasOwnProperty.call(profile,'photo')) updates.photo = url;
-      else throw new Error('A imagem foi enviada, mas não encontrei uma coluna de fotografia compatível na tabela profiles. Confirme se existe avatar_url.');
-      const { error: profileUpdateError } = await supabase.from('profiles').update(updates).eq('id',user.id);
-      if (profileUpdateError) throw new Error('A fotografia foi enviada para o Storage, mas não foi possível guardar o endereço na tabela profiles: ' + profileUpdateError.message);
+      const photoColumn = profile && Object.prototype.hasOwnProperty.call(profile,'avatar_url') ? 'avatar_url'
+        : profile && Object.prototype.hasOwnProperty.call(profile,'photo_url') ? 'photo_url'
+        : profile && Object.prototype.hasOwnProperty.call(profile,'photo') ? 'photo'
+        : 'avatar_url';
+      const updates = { id:user.id, [photoColumn]:url };
+      const displayName = profile?.name || profile?.full_name || fullName || user.user_metadata?.full_name || user.user_metadata?.name || String(user.email || '').split('@')[0] || 'Utilizador Talaza';
+      if (profile && Object.prototype.hasOwnProperty.call(profile,'name')) updates.name = displayName;
+      else if (profile && Object.prototype.hasOwnProperty.call(profile,'full_name')) updates.full_name = displayName;
+      else updates.name = displayName;
+      let countryId = profile?.country_id || '';
+      let primaryProvinceId = profile?.province_id || '';
+      try {
+        countryId = countryId || localStorage.getItem('talaza_home_country_id') || localStorage.getItem('talaza_country_id') || '';
+        primaryProvinceId = primaryProvinceId || localStorage.getItem('talaza_home_province_id') || localStorage.getItem('talaza_province_id') || '';
+      } catch {}
+      if (!profile && (!countryId || !primaryProvinceId)) {
+        throw new Error('A fotografia foi carregada, mas a sua conta ainda não tem um perfil pessoal completo. Volte a entrar na Talaza e confirme o país e a província principal antes de tentar novamente.');
+      }
+      if (countryId) updates.country_id = countryId;
+      if (primaryProvinceId) updates.province_id = primaryProvinceId;
+      const { data: savedProfile, error: profileUpdateError } = await supabase.from('profiles').upsert(updates,{onConflict:'id'}).select('*').single();
+      if (profileUpdateError) throw new Error('A imagem chegou ao armazenamento, mas não foi possível guardar a fotografia no perfil pessoal. Erro do Supabase: ' + profileUpdateError.message);
+      if (!savedProfile) throw new Error('O Supabase não confirmou a gravação da fotografia no perfil pessoal. Tente novamente.');
       const { error: metadataError } = await supabase.auth.updateUser({ data:{ ...(user.user_metadata || {}), avatar_url:url } });
       if (metadataError) console.warn('A fotografia foi guardada no perfil, mas os metadados de autenticação não foram atualizados:',metadataError);
-      setPhoto(url); setFile(null); setProfile(current => current ? {...current,...updates} : current);
+      setPhoto(url); setFile(null); setProfile(current => ({...(current || {}),...updates}));
       setNotice('Fotografia de perfil atualizada com sucesso. Não precisa de abrir “Editar perfil” nem de guardar o formulário.');
     } catch (err) { console.error(err); setError(err.message || 'Não foi possível guardar a fotografia.'); }
     finally { setPhotoUploading(false); }
+  }
+
+  async function toggleEmailVisibility() {
+    if (!user) return;
+    const nextValue = !showEmail;
+    setSavingEmailVisibility(true); setError(''); setNotice('');
+    try {
+      const { data, error:visibilityError } = await supabase.from('profiles').update({show_email:nextValue}).eq('id',user.id).select('id,show_email').maybeSingle();
+      if (visibilityError) {
+        const message = String(visibilityError.message || '');
+        if (/show_email|column/i.test(message)) throw new Error('A opção de e-mail ainda não está ativada na base de dados. No Supabase, abra Table Editor → profiles → Add column, crie show_email do tipo boolean com valor padrão false e tente novamente.');
+        throw new Error('Não foi possível guardar a preferência de e-mail: ' + message);
+      }
+      if (!data) throw new Error('A preferência não foi guardada porque não foi encontrada a sua linha em profiles. Confirme se profiles.id corresponde ao ID da sua conta.');
+      setShowEmail(data.show_email === true);
+      setProfile(current => current ? {...current,show_email:data.show_email === true} : current);
+      setNotice(data.show_email ? 'O seu e-mail ficará visível no perfil pessoal público.' : 'O seu e-mail ficará oculto no perfil pessoal público.');
+    } catch (err) {
+      console.error('Falha ao guardar visibilidade do e-mail:',err);
+      setError(err.message || 'Não foi possível guardar a preferência de e-mail.');
+    } finally { setSavingEmailVisibility(false); }
   }
 
   async function saveProfile(event) {
@@ -233,7 +272,14 @@ export default function Perfil() {
         {!editing ? (
           <div style={S.details}>
             <div><span style={S.detailLabel}>Nome</span><strong>{profile?.name || profile?.full_name || user?.user_metadata?.full_name || 'Não definido'}</strong></div>
-            <div><span style={S.detailLabel}>E-mail</span><strong>{user?.email || 'Não definido'}</strong></div>
+            <div><span style={S.detailLabel}>E-mail de acesso</span><strong>{user?.email || 'Não definido'}</strong></div>
+            <div style={S.emailVisibilityRow}>
+              <div style={{flex:1,minWidth:0}}>
+                <strong style={{display:'block',fontSize:13}}>Privacidade do e-mail</strong>
+                <span style={S.help}>{showEmail ? 'O e-mail pode ser visto no seu perfil pessoal público.' : 'O e-mail fica oculto para outras pessoas.'}</span>
+              </div>
+              <button type="button" role="switch" aria-checked={showEmail} disabled={savingEmailVisibility} onClick={toggleEmailVisibility} style={{...S.visibilityToggle,background:showEmail?C.green:'#AAB4AF',opacity:savingEmailVisibility?.6:1}}>{savingEmailVisibility?'…':showEmail?'Mostrar':'Ocultar'}</button>
+            </div>
             <div><span style={S.detailLabel}>Contacto</span><strong>{phone || 'Não definido'}</strong></div>
             <div><span style={S.detailLabel}>Província principal e Comunidade</span><strong>{provinceName}</strong></div>
             <p style={S.help}>A província escolhida no menu serve para explorar negócios de outras regiões e não altera a província principal nem a sua Comunidade Talaza.</p>
@@ -285,6 +331,8 @@ const S = {
   avatarPlaceholder:{display:'grid',placeItems:'center',width:'100%',height:'100%',fontSize:44,color:C.purple},
   photoBadge:{position:'absolute',right:-2,bottom:0,width:32,height:32,borderRadius:'50%',display:'grid',placeItems:'center',background:C.gold,color:C.dark,border:'3px solid white',fontWeight:900,fontSize:23},
   photoHelp:{marginTop:9,fontSize:11,color:C.muted,textAlign:'center'},
+  emailVisibilityRow:{display:'flex',alignItems:'center',gap:12,padding:'12px 0',borderTop:'1px solid '+C.line},
+  visibilityToggle:{flex:'0 0 auto',minWidth:76,border:0,borderRadius:999,padding:'9px 12px',color:'#fff',fontWeight:800,cursor:'pointer'},
   passwordWrap:{position:'relative'},
   passwordToggle:{position:'absolute',right:8,top:7,bottom:7,border:0,borderRadius:8,padding:'0 10px',background:'#EEE8F5',color:C.purple,fontSize:12,fontWeight:800,cursor:'pointer'},
   profileName:{marginTop:14,fontSize:18},
