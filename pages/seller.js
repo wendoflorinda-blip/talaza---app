@@ -430,13 +430,13 @@ export default function Seller() {
           </div>
         </div>
 
-        <Link
-          href={{
-            pathname: '/explore',
-            query: {
-              country,
-              province
-            }
+        <button
+          type="button"
+          onClick={() => {
+            const params = new URLSearchParams();
+            if (country) params.set('country', String(country));
+            if (province) params.set('province', String(province));
+            window.location.assign('/explore' + (params.toString() ? '?' + params.toString() : ''));
           }}
           style={{
             display: 'block',
@@ -452,7 +452,7 @@ export default function Seller() {
           }}
         >
           ← Explorar a Talaza como cliente
-        </Link>
+        </button>
       </main>
     </div>
   );
