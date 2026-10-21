@@ -616,6 +616,14 @@ export default function Seller() {
             >
               Painel do negócio
             </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+              <Link href="/mensagens?box=explore" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 12px', borderRadius: 10, background: '#FFFFFF', color: '#075B4E', textDecoration: 'none', fontSize: 13, fontWeight: 800 }}>
+                ✉ Mensagens do Explorar
+              </Link>
+              <Link href="/mensagens?box=store" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 12px', borderRadius: 10, background: '#E6A900', color: '#18352F', textDecoration: 'none', fontSize: 13, fontWeight: 800 }}>
+                ▣ Mensagens da minha loja
+              </Link>
+            </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
