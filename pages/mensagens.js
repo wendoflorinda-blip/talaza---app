@@ -70,12 +70,28 @@ export default function Mensagens() {
       .filter(row => row.source === 'Vitrine' && row.source_id)
       .map(row => String(row.source_id)))];
     let sourceBusinesses = [];
+    let sourceSubcategories = [];
+    let sourceCategories = [];
     if (businessIds.length) {
       const { data, error: businessError } = await supabase.from('businesses')
-        .select('id,owner_id,name,logo_url,category,subcategory')
+        .select('id,owner_id,name,logo_url,subcategory_id')
         .in('id', businessIds);
       if (businessError) console.warn('Não foi possível carregar o contexto público das lojas nas mensagens:', businessError);
       sourceBusinesses = data || [];
+      const subcategoryIds = [...new Set(sourceBusinesses.map(b => b.subcategory_id).filter(Boolean).map(String))];
+      if (subcategoryIds.length) {
+        const { data: subcategoriesData, error: subcategoriesError } = await supabase.from('subcategories')
+          .select('id,name,category_id').in('id', subcategoryIds);
+        if (subcategoriesError) console.warn('Não foi possível carregar subcategorias para identificar a origem da conversa:', subcategoriesError);
+        sourceSubcategories = subcategoriesData || [];
+        const categoryIds = [...new Set(sourceSubcategories.map(s => s.category_id).filter(Boolean).map(String))];
+        if (categoryIds.length) {
+          const { data: categoriesData, error: categoriesError } = await supabase.from('categories')
+            .select('id,name').in('id', categoryIds);
+          if (categoriesError) console.warn('Não foi possível carregar categorias para identificar a origem da conversa:', categoriesError);
+          sourceCategories = categoriesData || [];
+        }
+      }
     }
     const enriched = (rows || []).map(row => {
       const peer = (participants || []).find(p => p.conversation_id === row.id && p.user_id !== currentUser.id);
@@ -83,8 +99,10 @@ export default function Mensagens() {
       const sourceBusiness = row.source === 'Vitrine'
         ? sourceBusinesses.find(b => String(b.id) === String(row.source_id) && String(b.owner_id) === String(peer?.user_id))
         : null;
-      const category = sourceBusiness?.category && sourceBusiness.category !== sourceBusiness.name ? String(sourceBusiness.category) : '';
-      const subcategory = sourceBusiness?.subcategory ? String(sourceBusiness.subcategory) : '';
+      const subcategoryRecord = sourceSubcategories.find(s => String(s.id) === String(sourceBusiness?.subcategory_id));
+      const categoryRecord = sourceCategories.find(cat => String(cat.id) === String(subcategoryRecord?.category_id));
+      const category = categoryRecord?.name || '';
+      const subcategory = subcategoryRecord?.name || '';
       const contextParts = [row.source || 'Talaza', category, subcategory].filter(Boolean);
       return {
         ...row,
@@ -215,13 +233,27 @@ export default function Mensagens() {
               ]);
               if (joinError) throw joinError;
               let targetBusiness = null;
+              let targetCategoryName = '';
+              let targetSubcategoryName = '';
               if (source === 'Vitrine' && createdSourceId) {
                 const { data:business } = await supabase.from('businesses')
-                  .select('id,owner_id,name,logo_url,category,subcategory')
+                  .select('id,owner_id,name,logo_url,subcategory_id')
                   .eq('id',createdSourceId).maybeSingle();
-                if (business && String(business.owner_id) === String(target.id)) targetBusiness = business;
+                if (business && String(business.owner_id) === String(target.id)) {
+                  targetBusiness = business;
+                  if (business.subcategory_id) {
+                    const { data:subcategory } = await supabase.from('subcategories')
+                      .select('id,name,category_id').eq('id',business.subcategory_id).maybeSingle();
+                    targetSubcategoryName = subcategory?.name || '';
+                    if (subcategory?.category_id) {
+                      const { data:category } = await supabase.from('categories')
+                        .select('id,name').eq('id',subcategory.category_id).maybeSingle();
+                      targetCategoryName = category?.name || '';
+                    }
+                  }
+                }
               }
-              const contextParts = [source, targetBusiness?.category, targetBusiness?.subcategory].filter(Boolean);
+              const contextParts = [source, targetCategoryName, targetSubcategoryName].filter(Boolean);
               const newConversation = {
                 ...created,
                 peerId:target.id,
