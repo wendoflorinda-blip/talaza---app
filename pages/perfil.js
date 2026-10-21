@@ -278,7 +278,7 @@ export default function Perfil() {
                 <strong style={{display:'block',fontSize:13}}>Privacidade do e-mail</strong>
                 <span style={S.help}>{showEmail ? 'O e-mail pode ser visto no seu perfil pessoal público.' : 'O e-mail fica oculto para outras pessoas.'}</span>
               </div>
-              <button type="button" role="switch" aria-checked={showEmail} disabled={savingEmailVisibility} onClick={toggleEmailVisibility} style={{...S.visibilityToggle,background:showEmail?C.green:'#AAB4AF',opacity:savingEmailVisibility?.6:1}}>{savingEmailVisibility?'…':showEmail?'Mostrar':'Ocultar'}</button>
+              <button type="button" role="switch" aria-checked={showEmail} disabled={savingEmailVisibility} onClick={toggleEmailVisibility} style={{...S.visibilityToggle,background:showEmail?C.green:'#AAB4AF',opacity:savingEmailVisibility ? 0.6 : 1}}>{savingEmailVisibility?'…':showEmail?'Mostrar':'Ocultar'}</button>
             </div>
             <div><span style={S.detailLabel}>Contacto</span><strong>{phone || 'Não definido'}</strong></div>
             <div><span style={S.detailLabel}>Província principal e Comunidade</span><strong>{provinceName}</strong></div>
