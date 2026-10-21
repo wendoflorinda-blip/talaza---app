@@ -49,10 +49,20 @@ export default function Mensagens() {
     if (memberError) { console.error('Erro ao consultar conversation_participants:', memberError); throw new Error('Não foi possível consultar os participantes das conversas: ' + (memberError.message || memberError.code || 'erro desconhecido') + '. Verifique as permissões desta tabela no Supabase.'); }
     const ids = [...new Set((memberships || []).map(row => row.conversation_id))];
     if (!ids.length) { setConversations([]); return []; }
-    const { data: rows, error: conversationsError } = await supabase
+    const { data: allRows, error: conversationsError } = await supabase
       .from('conversations').select('id,source,source_id,province_id,created_at,updated_at')
       .in('id', ids).order('updated_at', { ascending:false });
     if (conversationsError) throw conversationsError;
+    // Separar a caixa pessoal da caixa da loja sem duplicar tabelas nem mensagens.
+    const { data: ownedBusinesses, error: ownedBusinessesError } = await supabase
+      .from('businesses').select('id').eq('owner_id', currentUser.id);
+    if (ownedBusinessesError) console.warn('Não foi possível identificar os negócios próprios para separar as caixas:', ownedBusinessesError);
+    const ownedBusinessIds = new Set((ownedBusinesses || []).map(b => String(b.id)));
+    const box = safe(router.query.box) === 'store' ? 'store' : 'explore';
+    const rows = (allRows || []).filter(row => {
+      const belongsToMyStore = row.source === 'Vitrine' && row.source_id && ownedBusinessIds.has(String(row.source_id));
+      return box === 'store' ? Boolean(belongsToMyStore) : !belongsToMyStore;
+    });
     const { data: participants, error: participantsError } = await supabase
       .from('conversation_participants').select('conversation_id,user_id').in('conversation_id', ids);
     if (participantsError) throw participantsError;
@@ -114,7 +124,7 @@ export default function Mensagens() {
     });
     setConversations(enriched);
     return enriched;
-  }, []);
+  }, [router.query.box]);
 
   const openConversation = useCallback(async (conversation, peer) => {
     setActiveId(conversation.id);
@@ -123,7 +133,7 @@ export default function Mensagens() {
     setNotice('');
     await loadMessages(conversation.id);
     if (router.query.conversation !== conversation.id) {
-      router.replace({ pathname:'/mensagens', query:{ conversation:conversation.id } }, undefined, { shallow:true });
+      router.replace({ pathname:'/mensagens', query:{ ...(safe(router.query.box) ? { box:safe(router.query.box) } : {}), conversation:conversation.id } }, undefined, { shallow:true });
     }
   }, [loadMessages, router]);
 
@@ -264,7 +274,7 @@ export default function Mensagens() {
               setConversations(previous => [newConversation,...previous]);
               setActiveId(created.id);
               setActivePeer({id:target.id,name:newConversation.peerName,photo:newConversation.peerPhoto,sourceLabel:newConversation.sourceLabel});
-              router.replace({pathname:'/mensagens',query:{conversation:created.id}},undefined,{shallow:true});
+              router.replace({pathname:'/mensagens',query:{...(safe(router.query.box) ? {box:safe(router.query.box)} : {}),conversation:created.id}},undefined,{shallow:true});
               await loadMessages(created.id);
             }
           } catch (err) {
@@ -413,7 +423,7 @@ export default function Mensagens() {
 
   function backToList() {
     setActiveId(''); setActivePeer(null); setMessages([]);
-    router.replace('/mensagens',undefined,{shallow:true});
+    router.replace({pathname:'/mensagens',query:safe(router.query.box) ? {box:safe(router.query.box)} : {}},undefined,{shallow:true});
   }
 
   if (loading) return <main style={S.center}>A carregar mensagens…</main>;
@@ -424,15 +434,19 @@ export default function Mensagens() {
       {activeId && <button type="button" onClick={backToList} style={S.back} aria-label="Voltar às conversas">‹</button>}
       <div style={S.brandMark}>T</div>
       <div style={{flex:1,minWidth:0}}>
-        <strong style={S.title}>{activeId ? (activePeer?.name || 'Conversa') : 'Mensagens Talaza'}</strong>
-        <div style={S.subtitle}>{activeId ? (activePeer?.sourceLabel || 'Conversa privada') : 'As suas conversas'}</div>
+        <strong style={S.title}>{activeId ? (activePeer?.name || 'Conversa') : (safe(router.query.box) === 'store' ? 'Mensagens da minha loja' : 'Mensagens do Explorar Talaza')}</strong>
+        <div style={S.subtitle}>{activeId ? (activePeer?.sourceLabel || 'Conversa privada') : (safe(router.query.box) === 'store' ? 'Conversas recebidas pelos seus negócios' : 'Conversas pessoais e outras áreas da Talaza')}</div>
       </div>
       {activeId && activePeer?.photo ? <img src={activePeer.photo} alt="" style={S.headerPhoto}/> : null}
     </header>
     {error && <div role="alert" style={S.error}>{error}</div>}
     {notice && <div role="status" style={S.notice}>{notice}</div>}
     {!activeId ? <section style={S.list}>
-      <div style={S.sectionTitle}>As suas conversas</div>
+      <div style={{display:'flex',gap:8,padding:12,flexWrap:'wrap'}}>
+        <button type="button" onClick={()=>router.push('/mensagens?box=explore')} style={{...S.primaryButton,background:safe(router.query.box)==='store'?'#E7EEEA':C.green,color:safe(router.query.box)==='store'?C.ink:C.white}}>Mensagens do Explorar</button>
+        <button type="button" onClick={()=>router.push('/mensagens?box=store')} style={{...S.primaryButton,background:safe(router.query.box)==='store'?C.gold:'#E7EEEA',color:C.ink}}>Minha loja</button>
+      </div>
+      <div style={S.sectionTitle}>{safe(router.query.box)==='store' ? 'Mensagens recebidas pela loja' : 'Mensagens pessoais do explorador'}</div>
       {conversations.length === 0 ? <div style={S.empty}>
         <div style={S.emptyIcon}>✉</div><h2>Ainda não tem conversas</h2>
         <p>A área de escrita fica disponível em baixo. Para enviar, escolha primeiro a pessoa: abra o perfil de um negócio ou utilizador e toque em “Enviar mensagem”.</p>
