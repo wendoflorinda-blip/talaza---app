@@ -48,23 +48,6 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values ('message-attachments', 'message-attachments', false, 15728640, null)
 on conflict (id) do nothing;
 
-drop policy if exists "Talaza participants read message attachments" on storage.objects;
-create policy "Talaza participants read message attachments"
-on storage.objects for select to authenticated
-using (
-  bucket_id = 'message-attachments'
-  and public.talaza_is_conversation_participant((storage.foldername(name))[1]::uuid)
-);
-
-drop policy if exists "Talaza participants upload message attachments" on storage.objects;
-create policy "Talaza participants upload message attachments"
-on storage.objects for insert to authenticated
-with check (
-  bucket_id = 'message-attachments'
-  and public.talaza_is_conversation_participant((storage.foldername(name))[1]::uuid)
-  and (storage.foldername(name))[2] = auth.uid()::text
-);
-
 create index if not exists conversations_updated_at_idx on public.conversations(updated_at desc);
 create index if not exists conversation_participants_user_idx on public.conversation_participants(user_id);
 create index if not exists messages_conversation_created_idx on public.messages(conversation_id, created_at);
@@ -188,3 +171,21 @@ with check (
 grant select, insert, update on public.conversations to authenticated;
 grant select, insert on public.conversation_participants to authenticated;
 grant select, insert on public.messages to authenticated;
+
+drop policy if exists "Talaza participants read message attachments" on storage.objects;
+create policy "Talaza participants read message attachments"
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'message-attachments'
+  and public.talaza_is_conversation_participant((storage.foldername(name))[1]::uuid)
+);
+
+drop policy if exists "Talaza participants upload message attachments" on storage.objects;
+create policy "Talaza participants upload message attachments"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'message-attachments'
+  and public.talaza_is_conversation_participant((storage.foldername(name))[1]::uuid)
+  and (storage.foldername(name))[2] = auth.uid()::text
+);
+
