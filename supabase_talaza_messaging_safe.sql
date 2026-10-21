@@ -109,8 +109,17 @@ drop policy if exists "Talaza users can join conversations they create" on publi
 create policy "Talaza users can join conversations they create"
 on public.conversation_participants for insert to authenticated
 with check (
-  user_id = auth.uid()
-  or public.talaza_is_conversation_creator(conversation_id)
+  (
+    user_id = auth.uid()
+    or public.talaza_is_conversation_creator(conversation_id)
+  )
+  and exists (
+    select 1
+    from public.conversations c
+    join public.profiles p on p.id = conversation_participants.user_id
+    where c.id = conversation_participants.conversation_id
+      and p.province_id = c.province_id
+  )
 );
 
 drop policy if exists "Talaza users can view conversation messages" on public.talaza_messages;
