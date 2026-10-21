@@ -13,6 +13,10 @@ export default function Perfil() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [email, setEmail] = useState('');
+  const [hasBusiness, setHasBusiness] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [phone, setPhone] = useState('');
   const [fullName, setFullName] = useState('');
   const [provinceId, setProvinceId] = useState('');
@@ -34,6 +38,9 @@ export default function Perfil() {
       if (authError || !current) { await router.replace('/login'); return; }
       setUser(current);
       setEmail(current.email || '');
+      const { data: ownedBusiness, error: ownedBusinessError } = await supabase.from('businesses').select('id').eq('owner_id', current.id).limit(1).maybeSingle();
+      if (ownedBusinessError) console.warn('Não foi possível verificar o negócio associado:', ownedBusinessError);
+      setHasBusiness(Boolean(ownedBusiness?.id));
       setFullName(current.user_metadata?.full_name || current.user_metadata?.name || '');
       setPhoto(current.user_metadata?.avatar_url || current.user_metadata?.picture || '');
 
@@ -68,6 +75,43 @@ export default function Perfil() {
     setError('');
     setNotice('');
     setPhoto(URL.createObjectURL(selected));
+  }
+
+  async function uploadProfilePhotoImmediately(event) {
+    const selected = event.target.files?.[0];
+    event.target.value = '';
+    if (!selected) return;
+    if (!selected.type.startsWith('image/')) { setError('O ficheiro escolhido não é uma imagem. Escolha uma fotografia em JPG, PNG ou WebP.'); return; }
+    if (selected.size > 5 * 1024 * 1024) { setError('Esta fotografia tem mais de 5 MB. Escolha uma imagem menor e tente novamente.'); return; }
+    if (!user) { setError('A sua sessão expirou. Entre novamente na Talaza antes de alterar a fotografia.'); return; }
+    setPhotoUploading(true); setError(''); setNotice('');
+    try {
+      const ext = (selected.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = user.id + '/avatar-' + Date.now() + '.' + ext;
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(path, selected, { upsert:true, contentType:selected.type, cacheControl:'3600' });
+      if (uploadError) {
+        console.error('Falha no upload da fotografia de perfil:', uploadError);
+        const detail = String(uploadError.message || '').toLowerCase();
+        if (detail.includes('bucket not found') || detail.includes('not found')) throw new Error('A fotografia não foi enviada porque o bucket “avatars” não existe ou tem outro nome no Supabase. Abra Storage e confirme que existe um bucket chamado exatamente avatars.');
+        if (detail.includes('row-level security') || detail.includes('permission') || detail.includes('unauthorized') || detail.includes('not allowed')) throw new Error('A fotografia não foi enviada porque as regras de segurança do Storage estão a bloquear esta conta. No Supabase, abra Storage → avatars → Policies e permita ao utilizador autenticado enviar ficheiros apenas para a pasta com o seu próprio ID.');
+        throw new Error('O Supabase recusou o envio da fotografia: ' + (uploadError.message || 'erro não identificado') + '. Verifique o bucket avatars e as respetivas políticas de Storage.');
+      }
+      const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(path);
+      const url = publicData?.publicUrl || '';
+      if (!url) throw new Error('A fotografia foi enviada, mas o Supabase não devolveu o endereço da imagem. Confirme se o bucket avatars é público ou configure uma URL assinada.');
+      const updates = {};
+      if (profile && Object.prototype.hasOwnProperty.call(profile,'avatar_url')) updates.avatar_url = url;
+      else if (profile && Object.prototype.hasOwnProperty.call(profile,'photo_url')) updates.photo_url = url;
+      else if (profile && Object.prototype.hasOwnProperty.call(profile,'photo')) updates.photo = url;
+      else throw new Error('A imagem foi enviada, mas não encontrei uma coluna de fotografia compatível na tabela profiles. Confirme se existe avatar_url.');
+      const { error: profileUpdateError } = await supabase.from('profiles').update(updates).eq('id',user.id);
+      if (profileUpdateError) throw new Error('A fotografia foi enviada para o Storage, mas não foi possível guardar o endereço na tabela profiles: ' + profileUpdateError.message);
+      const { error: metadataError } = await supabase.auth.updateUser({ data:{ ...(user.user_metadata || {}), avatar_url:url } });
+      if (metadataError) console.warn('A fotografia foi guardada no perfil, mas os metadados de autenticação não foram atualizados:',metadataError);
+      setPhoto(url); setFile(null); setProfile(current => current ? {...current,...updates} : current);
+      setNotice('Fotografia de perfil atualizada com sucesso. Não precisa de abrir “Editar perfil” nem de guardar o formulário.');
+    } catch (err) { console.error(err); setError(err.message || 'Não foi possível guardar a fotografia.'); }
+    finally { setPhotoUploading(false); }
   }
 
   async function saveProfile(event) {
@@ -120,8 +164,12 @@ export default function Perfil() {
       if (photoUrl) metadata.avatar_url = photoUrl;
       if (changingProvince) metadata.talaza_province_changed_at = new Date().toISOString();
       const authUpdates = { data: metadata };
-      const emailChanged = email.trim().toLowerCase() !== String(user.email || '').toLowerCase();
+      const emailChanged = !hasBusiness && email.trim().toLowerCase() !== String(user.email || '').toLowerCase();
       if (emailChanged) authUpdates.email = email.trim().toLowerCase();
+      if (newPassword.trim()) {
+        if (newPassword.trim().length < 6) throw new Error('A nova palavra-passe deve ter pelo menos 6 caracteres.');
+        authUpdates.password = newPassword.trim();
+      }
       const { data: updated, error: authUpdateError } = await supabase.auth.updateUser(authUpdates);
       if (authUpdateError) throw authUpdateError;
       if (updated?.user) setUser(updated.user);
@@ -136,6 +184,8 @@ export default function Perfil() {
       if (profile) setProfile({ ...profile, ...updates });
       setPhoto(photoUrl);
       setFile(null);
+      setNewPassword('');
+      setShowPassword(false);
       setEditing(false);
       setNotice(emailChanged
         ? 'Perfil atualizado. A alteração do e-mail pode exigir confirmação na sua caixa de entrada.'
@@ -168,11 +218,12 @@ export default function Perfil() {
 
       <section style={S.card}>
         <div style={S.avatarWrap}>
-          <button type="button" onClick={() => editing && fileRef.current?.click()} style={{ ...S.avatar, cursor: editing ? 'pointer' : 'default' }} aria-label={editing ? 'Alterar fotografia' : 'Fotografia do perfil'}>
+          <button type="button" onClick={() => fileRef.current?.click()} style={{ ...S.avatar, cursor: 'pointer' }} aria-label="Adicionar ou alterar fotografia do perfil" title="Adicionar ou alterar fotografia">
             {photo ? <img src={photo} alt="Fotografia do perfil" style={S.photo} /> : <span style={S.avatarPlaceholder}>♙</span>}
-            {editing && <span style={S.photoBadge}>✎</span>}
+            <span style={S.photoBadge}>+</span>
           </button>
-          <input ref={fileRef} type="file" accept="image/*" onChange={choosePhoto} hidden />
+          <input ref={fileRef} type="file" accept="image/*" onChange={uploadProfilePhotoImmediately} hidden />
+          <span style={S.photoHelp}>{photoUploading ? 'A enviar fotografia…' : 'Toque no + para adicionar ou trocar a fotografia'}</span>
           <strong style={S.profileName}>{profile?.name || profile?.full_name || user?.user_metadata?.full_name || 'Perfil Talaza'}</strong>
           <span style={S.caption}>Explorar Talaza</span>
         </div>
@@ -191,8 +242,12 @@ export default function Perfil() {
           <form onSubmit={saveProfile}>
             <label style={S.label} htmlFor="profile-name">Nome</label>
             <input id="profile-name" style={S.input} value={fullName} onChange={(event) => setFullName(event.target.value)} required />
-            <label style={S.label} htmlFor="profile-email">E-mail</label>
-            <input id="profile-email" style={S.input} type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="seu@email.com" />
+            <label style={S.label} htmlFor="profile-email">E-mail de acesso</label>
+            <input id="profile-email" style={{ ...S.input, background:hasBusiness ? '#F0F2F1' : '#fff', color:hasBusiness ? '#66736F' : C.ink }} type="email" required value={email} onChange={(event) => setEmail(event.target.value)} readOnly={hasBusiness} aria-readonly={hasBusiness} />
+            {hasBusiness && <p style={S.help}>O seu e-mail é a credencial única da sua conta Talaza, usada para entrar no painel do negócio e explorar como cliente. Como esta conta tem um negócio associado, o e-mail de acesso não pode ser alterado nesta área. Assim evita perder o acesso ou criar confusão entre contas.</p>}
+            <label style={S.label} htmlFor="profile-password">Nova palavra-passe (opcional)</label>
+            <div style={S.passwordWrap}><input id="profile-password" style={{ ...S.input, paddingRight:94 }} type={showPassword ? 'text' : 'password'} autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="Deixe vazio para manter a atual" minLength={6} /><button type="button" onClick={() => setShowPassword(value => !value)} style={S.passwordToggle}>{showPassword ? 'Ocultar' : 'Mostrar'}</button></div>
+            <p style={S.help}>A palavra-passe atual nunca é mostrada. Este campo só altera a palavra-passe se escrever uma nova. Use Mostrar/Ocultar para a ver enquanto escreve.</p>
             <label style={S.label} htmlFor="profile-phone">Contacto</label>
             <input id="profile-phone" style={S.input} type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Indicativo + número" />
             <label style={S.label} htmlFor="profile-province">Província principal</label>
@@ -228,7 +283,10 @@ const S = {
   avatar:{position:'relative',width:104,height:104,border:0,borderRadius:'50%',background:'#F1ECFA',overflow:'visible',padding:0},
   photo:{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'},
   avatarPlaceholder:{display:'grid',placeItems:'center',width:'100%',height:'100%',fontSize:44,color:C.purple},
-  photoBadge:{position:'absolute',right:-2,bottom:0,width:30,height:30,borderRadius:'50%',display:'grid',placeItems:'center',background:C.gold,color:C.dark,border:'3px solid white',fontWeight:900},
+  photoBadge:{position:'absolute',right:-2,bottom:0,width:32,height:32,borderRadius:'50%',display:'grid',placeItems:'center',background:C.gold,color:C.dark,border:'3px solid white',fontWeight:900,fontSize:23},
+  photoHelp:{marginTop:9,fontSize:11,color:C.muted,textAlign:'center'},
+  passwordWrap:{position:'relative'},
+  passwordToggle:{position:'absolute',right:8,top:7,bottom:7,border:0,borderRadius:8,padding:'0 10px',background:'#EEE8F5',color:C.purple,fontSize:12,fontWeight:800,cursor:'pointer'},
   profileName:{marginTop:14,fontSize:18},
   caption:{marginTop:5,fontSize:12,color:C.muted},
   menuPopup:{display:'flex',justifyContent:'flex-end',marginBottom:14},
