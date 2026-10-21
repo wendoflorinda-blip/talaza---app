@@ -336,8 +336,12 @@ export default function TalazaMenu({
       setUserName(profile?.name || user.email || 'Utilizador');
       setPrimaryCountry(profile?.country_id || country || '');
       setPrimaryProvince(profile?.province_id || province || '');
-      let seller = /vendedor|seller/i.test(String(profile?.account_type || profile?.user_type || profile?.role || ''));
-      if (!seller) {
+      const storedType = String(profile?.account_type || profile?.user_type || profile?.role || '').trim().toLowerCase();
+      const hasExplicitType = /explorador|explorer|cliente|vendedor|seller/.test(storedType);
+      let seller = /vendedor|seller/.test(storedType);
+      // Só recorrer à existência de negócio para contas antigas sem tipo explícito.
+      // Um perfil marcado como explorador não deve herdar privilégios de vendedor.
+      if (!hasExplicitType) {
         const { data: ownedBusiness } = await supabase.from('businesses').select('id').eq('owner_id', user.id).limit(1).maybeSingle();
         seller = Boolean(ownedBusiness);
       }
