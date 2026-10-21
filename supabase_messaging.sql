@@ -26,8 +26,43 @@ create table if not exists public.messages (
   id uuid primary key default gen_random_uuid(),
   conversation_id uuid not null references public.conversations(id) on delete cascade,
   sender_id uuid not null references auth.users(id) on delete cascade,
-  body text not null check (length(trim(body)) between 1 and 5000),
+  body text check (body is null or length(trim(body)) between 1 and 5000),
+  storage_path text,
+  attachment_name text,
+  message_type text not null default 'text' check (message_type in ('text','image','file','audio')),
   created_at timestamptz not null default now()
+);
+
+alter table public.messages add column if not exists storage_path text;
+alter table public.messages add column if not exists attachment_name text;
+alter table public.messages add column if not exists message_type text not null default 'text';
+alter table public.messages alter column body drop not null;
+do $
+begin
+  if not exists (select 1 from pg_constraint where conname = 'messages_message_type_check') then
+    alter table public.messages add constraint messages_message_type_check check (message_type in ('text','image','file','audio'));
+  end if;
+end $;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('message-attachments', 'message-attachments', false, 15728640, null)
+on conflict (id) do nothing;
+
+drop policy if exists "Talaza participants read message attachments" on storage.objects;
+create policy "Talaza participants read message attachments"
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'message-attachments'
+  and public.talaza_is_conversation_participant((storage.foldername(name))[1]::uuid)
+);
+
+drop policy if exists "Talaza participants upload message attachments" on storage.objects;
+create policy "Talaza participants upload message attachments"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'message-attachments'
+  and public.talaza_is_conversation_participant((storage.foldername(name))[1]::uuid)
+  and (storage.foldername(name))[2] = auth.uid()::text
 );
 
 create index if not exists conversations_updated_at_idx on public.conversations(updated_at desc);
