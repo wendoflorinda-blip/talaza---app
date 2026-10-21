@@ -105,6 +105,9 @@ create policy "Talaza participants can view memberships"
 on public.conversation_participants for select to authenticated
 using (public.talaza_is_conversation_participant(conversation_id));
 
+-- Vendedores ficam limitados à província principal.
+-- O Explorador Talaza pode iniciar conversas com perfis de outras províncias.
+-- A província da conversa continua a ser a do utilizador que a criou.
 drop policy if exists "Talaza users can join conversations they create" on public.conversation_participants;
 create policy "Talaza users can join conversations they create"
 on public.conversation_participants for insert to authenticated
@@ -116,9 +119,35 @@ with check (
   and exists (
     select 1
     from public.conversations c
-    join public.profiles p on p.id = conversation_participants.user_id
+    join public.profiles creator on creator.id = c.created_by
+    join public.profiles participant on participant.id = conversation_participants.user_id
     where c.id = conversation_participants.conversation_id
-      and p.province_id = c.province_id
+      and (
+        -- Se quem criou for vendedor, os participantes têm de pertencer
+        -- à mesma província do vendedor.
+        (
+          (
+            exists (select 1 from public.businesses b where b.owner_id = creator.id)
+            or lower(coalesce(creator.account_type, '')) like '%vendedor%'
+            or lower(coalesce(creator.account_type, '')) like '%seller%'
+            or lower(coalesce(creator.user_type, '')) like '%vendedor%'
+            or lower(coalesce(creator.user_type, '')) like '%seller%'
+            or lower(coalesce(creator.role, '')) like '%vendedor%'
+            or lower(coalesce(creator.role, '')) like '%seller%'
+          )
+          and participant.province_id = creator.province_id
+        )
+        -- Se quem criou for Explorador Talaza, pode contactar noutra província.
+        or not (
+          exists (select 1 from public.businesses b where b.owner_id = creator.id)
+          or lower(coalesce(creator.account_type, '')) like '%vendedor%'
+          or lower(coalesce(creator.account_type, '')) like '%seller%'
+          or lower(coalesce(creator.user_type, '')) like '%vendedor%'
+          or lower(coalesce(creator.user_type, '')) like '%seller%'
+          or lower(coalesce(creator.role, '')) like '%vendedor%'
+          or lower(coalesce(creator.role, '')) like '%seller%'
+        )
+      )
   )
 );
 
