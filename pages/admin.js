@@ -1546,7 +1546,7 @@ export default function Admin() {
               <option value="user">Uma pessoa específica</option>
             </select>
             {['user', 'seller_user'].includes(notificationAudience) && <>
-              <label style={styles.formLabel} htmlFor="notification-user">Escolher utilizador</label>
+              <label style={styles.formLabel} htmlFor="notification-user">{notificationAudience === 'seller_user' ? 'Escolher vendedor' : 'Escolher utilizador'}</label>
               <select id="notification-user" value={notificationUserId} onChange={event => setNotificationUserId(event.target.value)} style={styles.formInput} required>
                 <option value="">{notificationAudience === 'seller_user' ? 'Selecione um vendedor' : 'Selecione um utilizador'}</option>
                 {profiles.filter(profile => notificationAudience !== 'seller_user' || ['seller','vendedor','business'].includes(String(profile.account_type || '').toLowerCase())).map(profile => <option key={profile.id} value={profile.id}>{profile.name || 'Utilizador'} · {profile.id.slice(0, 8)}</option>)}
@@ -1563,7 +1563,7 @@ export default function Admin() {
             <span style={styles.counter}>{adminNotifications.length} recentes</span>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-            {[[ 'all', 'Todas' ], [ 'general', 'Todos' ], [ 'explorers', 'Exploradores' ], [ 'sellers', 'Vendedores' ], [ 'individual', 'Individuais' ]].map(([value,label]) => <button key={value} type="button" onClick={() => setNotificationHistoryFilter(value)} style={{ padding: '9px 13px', borderRadius: 999, border: notificationHistoryFilter === value ? '1px solid #64358B' : '1px solid #DDE5E0', background: notificationHistoryFilter === value ? 'linear-gradient(135deg,#075B4E,#64358B)' : '#FFFFFF', color: notificationHistoryFilter === value ? '#FFFFFF' : '#244A42', fontWeight: 800, cursor: 'pointer' }}>{label}</button>)}
+            {[[ 'all', 'Todas' ], [ 'general', 'Todos' ], [ 'explorers', 'Exploradores' ], [ 'sellers', 'Vendedores' ], [ 'individual', 'Individuais' ], [ 'support', 'Suporte Talaza' ]].map(([value,label]) => <button key={value} type="button" onClick={() => setNotificationHistoryFilter(value)} style={{ padding: '9px 13px', borderRadius: 999, border: notificationHistoryFilter === value ? '1px solid #64358B' : '1px solid #DDE5E0', background: notificationHistoryFilter === value ? 'linear-gradient(135deg,#075B4E,#64358B)' : '#FFFFFF', color: notificationHistoryFilter === value ? '#FFFFFF' : '#244A42', fontWeight: 800, cursor: 'pointer' }}>{label}</button>)}
           </div>
           {adminNotifications.filter(item => notificationHistoryFilter === 'all' || String(item.type || 'general').toLowerCase() === notificationHistoryFilter).length === 0
             ? <div style={styles.empty}><p>Não existem notificações nesta categoria.</p></div>
