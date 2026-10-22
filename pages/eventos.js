@@ -85,15 +85,6 @@ export default function Eventos() {
   const [feedNotice, setFeedNotice] = useState('');
 
   useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem('talaza_history_events');
-      if (saved) setHistoryItems(JSON.parse(saved));
-    } catch {
-      setHistoryItems([]);
-    }
-  }, []);
-
-  useEffect(() => {
     if (!router.isReady) return;
 
     let cancelled = false;
@@ -280,9 +271,6 @@ export default function Eventos() {
         image_url: item.image_url || null,
         at: new Date().toISOString()
       }, ...previous.filter(entry => entry.id !== item.id)].slice(0, 100);
-      try {
-        sessionStorage.setItem('talaza_history_events', JSON.stringify(next));
-      } catch {}
       return next;
     });
     setEvents(previous => {
@@ -479,7 +467,13 @@ export default function Eventos() {
         <header style={styles.header}>
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.push({
+              pathname: '/explore',
+              query: {
+                ...(countryId ? { country: countryId } : {}),
+                ...(provinceId ? { province: provinceId } : {}),
+              },
+            })}
             style={styles.backButton}
           >
             ← Voltar
