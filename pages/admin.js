@@ -427,7 +427,10 @@ export default function Admin() {
   async function moderateJob(post, approved) {
     const reason = approved ? '' : window.prompt('Indique o motivo da recusa da oportunidade:');
     if (!approved && (!reason || !reason.trim())) return;
-    const patch = approved ? { status: 'published', is_active: true } : { status: 'rejected', is_active: false };
+    const alreadyPaid = ['paid', 'approved', 'completed'].includes(String(post.payment_status || '').trim().toLowerCase());
+    const patch = approved
+      ? { admin_approved: true, status: alreadyPaid ? 'published' : 'pending_payment', is_active: alreadyPaid }
+      : { admin_approved: false, status: 'rejected', is_active: false };
     const { data, error } = await supabase.from('job_posts').update(patch).eq('id', post.id).select('id, user_id').maybeSingle();
     if (error || !data) { alert('Não foi possível atualizar a oportunidade: ' + (error?.message || 'Nenhuma linha foi alterada.')); return; }
     await notifyUser(data.user_id || post.user_id, approved ? 'Oportunidade aprovada' : 'Oportunidade recusada', approved ? 'A sua oportunidade foi aprovada pela Talaza.' : 'A sua oportunidade foi recusada. Motivo: ' + reason.trim(), 'opportunity_review');
@@ -760,7 +763,7 @@ export default function Admin() {
       if (eventReadError || !event) {
         activationMessage += ' O pagamento foi aprovado, mas o evento associado não foi encontrado.';
       } else {
-        const eventPatch = { payment_status: 'approved' };
+        const eventPatch = { payment_status: 'paid' };
         if (event.admin_approved === true) eventPatch.status = 'published';
         const { error: eventUpdateError } = await supabase.from('events').update(eventPatch).eq('id', event.id);
         if (eventUpdateError) activationMessage += ' O pagamento foi aprovado, mas não foi possível atualizar o evento: ' + eventUpdateError.message;
@@ -784,7 +787,7 @@ export default function Admin() {
       if (opportunityReadError || !opportunity) {
         activationMessage += ' O pagamento foi aprovado, mas a oportunidade associada não foi encontrada.';
       } else {
-        const opportunityPatch = { payment_status: 'approved' };
+        const opportunityPatch = { payment_status: 'paid' };
         if (opportunity.admin_approved === true) {
           opportunityPatch.status = 'published';
           opportunityPatch.is_active = true;
