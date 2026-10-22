@@ -54,6 +54,9 @@ export default function Admin() {
   const [officialBackgroundImage, setOfficialBackgroundImage] = useState('');
   const [officialTextColor, setOfficialTextColor] = useState('#FFFFFF');
   const [officialFontFamily, setOfficialFontFamily] = useState('Georgia');
+  const [officialDuration, setOfficialDuration] = useState(30);
+  const [activeAdminSection, setActiveAdminSection] = useState('vendedores');
+  const [officialArchive, setOfficialArchive] = useState([]);
   const [notificationAudience, setNotificationAudience] = useState('all');
   const [notificationUserId, setNotificationUserId] = useState('');
   const [notificationTitle, setNotificationTitle] = useState('');
@@ -139,6 +142,7 @@ export default function Admin() {
     await loadProfiles();
     await loadEvents();
     await loadJobPosts();
+    await loadOfficialArchive();
 
     setLoading(false);
   }
@@ -414,6 +418,21 @@ export default function Admin() {
     }
 
     setCommunityPosts(data || []);
+  }
+
+  async function loadOfficialArchive() {
+    const [motivationResult, themeResult] = await Promise.all([
+      supabase.from('community_motivation').select('id, title, created_at, duration_days, expires_at, is_active').order('created_at', { ascending: false }),
+      supabase.from('community_monthly_themes').select('id, month_title, created_at, duration_days, starts_at, ends_at, is_active').order('created_at', { ascending: false }),
+    ]);
+    if (motivationResult.error || themeResult.error) {
+      console.error('Não foi possível carregar o histórico editorial:', motivationResult.error || themeResult.error);
+      return;
+    }
+    setOfficialArchive([
+      ...(motivationResult.data || []).map(item => ({ ...item, archiveType: 'Motivação', archiveTitle: item.title, archiveExpiresAt: item.expires_at })),
+      ...(themeResult.data || []).map(item => ({ ...item, archiveType: 'Tema do mês', archiveTitle: item.month_title, archiveExpiresAt: item.ends_at })),
+    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
   }
 
   async function loadSupportMessages() {
@@ -995,8 +1014,8 @@ export default function Admin() {
 
           <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '0 0 28px' }}>
             {[
-              ['#vendedores', 'Vendedores'], ['#pagamentos', 'Pagamentos e hospedagem'], ['#eventos', 'Eventos e pagamentos de eventos'], ['#oportunidades', 'Oportunidades (Contratar grátis)'], ['#conteudo-oficial', 'Comunidade Terapêutica'], ['#comunidade', 'Comunidade Talaza'], ['#suporte', 'Suporte Talaza']
-            ].map(([href, label]) => <a key={href} href={href} style={{ padding: '10px 13px', borderRadius: 9, background: '#E4F0ED', color: '#075B4E', fontWeight: 800, textDecoration: 'none', fontSize: 13 }}>{label}</a>)}
+              ['vendedores', 'Vendedores'], ['pagamentos', 'Pagamentos e hospedagem'], ['eventos', 'Eventos'], ['oportunidades', 'Oportunidades'], ['conteudo-oficial', 'Motivação e tema do mês'], ['comunidade', 'Comunidade Talaza'], ['suporte', 'Suporte Talaza']
+            ].map(([key, label]) => <button key={key} type="button" onClick={() => setActiveAdminSection(key)} aria-pressed={activeAdminSection === key} style={{ padding: '10px 13px', borderRadius: 9, border: activeAdminSection === key ? '2px solid #075B4E' : '1px solid #D5E4DF', background: activeAdminSection === key ? '#075B4E' : '#E4F0ED', color: activeAdminSection === key ? '#FFFFFF' : '#075B4E', fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>{label}</button>)}
           </nav>
           <div style={styles.counter}>
             {businesses.length} pendente
@@ -1004,6 +1023,7 @@ export default function Admin() {
           </div>
         </div>
 
+        <div style={{ display: activeAdminSection === 'vendedores' ? 'block' : 'none' }}>
         {message && (
           <div style={styles.errorBox}>
             {message}
@@ -1154,7 +1174,9 @@ export default function Admin() {
           </div>
         )}
 
-        <section id="eventos" style={{ marginTop: 42 }}>
+        </div>
+
+        <section id="eventos" style={{ marginTop: 0, display: activeAdminSection === 'eventos' ? 'block' : 'none' }}>
           <div style={styles.titleRow}><div><h2 style={styles.title}>Eventos</h2><p style={styles.description}>Analise os eventos submetidos, consulte os detalhes e aprove ou recuse com um motivo.</p></div><div style={styles.counter}>{events.filter(item => ['pending_payment', 'pending', 'pending_review'].includes(String(item.status || '').toLowerCase())).length} por analisar · {events.length} total</div></div>
           {events.length === 0 ? <div style={styles.empty}><h3>Sem eventos registados</h3><p>Os eventos enviados aparecerão aqui.</p></div> : <div style={styles.list}>{events.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>EV</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || 'Evento sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · Pagamento: {item.payment_status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || 'Sem descrição.'}</p>{item.image_url && <p><a href={item.image_url} target="_blank" rel="noreferrer">Ver imagem do evento ↗</a></p>}<p><strong>Local:</strong> {item.location || '—'}</p><p><strong>Responsável:</strong> {profiles.find(profile => profile.id === item.user_id)?.name || 'Nome não disponível'}</p><p><strong>ID interno:</strong> {item.user_id || '—'}</p></div>{!item.admin_approved && !['published','approved','rejected','cancelled','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateEvent(item, false)}>Recusar evento</button><button type="button" style={styles.approve} onClick={() => moderateEvent(item, true)}>Aprovar evento</button></div>}</article>)}</div>}
           <div style={{ marginTop: 30 }}>
@@ -1190,12 +1212,12 @@ export default function Admin() {
           </div>
         </section>
 
-        <section id="oportunidades" style={{ marginTop: 42 }}>
+        <section id="oportunidades" style={{ marginTop: 0, display: activeAdminSection === 'oportunidades' ? 'block' : 'none' }}>
           <div style={styles.titleRow}><div><h2 style={styles.title}>Oportunidades</h2><p style={styles.description}>Revise as oportunidades/vagas publicadas e envie o motivo ao responsável se houver recusa.</p></div><div style={styles.counter}>{jobPosts.filter(item => !['rejected','closed','expired'].includes(String(item.status || '').toLowerCase())).length} por analisar · {jobPosts.length} total</div></div>
           {jobPosts.length === 0 ? <div style={styles.empty}><h3>Sem oportunidades registadas</h3><p>As oportunidades enviadas aparecerão aqui.</p></div> : <div style={styles.list}>{jobPosts.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>OP</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || item.position || 'Oportunidade sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || item.details || 'Sem descrição.'}</p><p><strong>Província:</strong> {item.province_id || '—'}</p><p><strong>Responsável:</strong> {profiles.find(profile => profile.id === (item.user_id || item.employer_id))?.name || 'Nome não disponível'}</p><p><strong>ID interno:</strong> {item.user_id || item.employer_id || '—'}</p></div>{!['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateJob(item, false)}>Recusar oportunidade</button><button type="button" style={styles.approve} onClick={() => moderateJob(item, true)}>Aprovar oportunidade</button></div>}</article>)}</div>}
         </section>
 
-        <section id="conteudo-oficial" style={{ marginTop: 42 }}>
+        <section id="conteudo-oficial" style={{ marginTop: 0, display: activeAdminSection === 'conteudo-oficial' ? 'block' : 'none' }}>
           <div style={styles.titleRow}><div><h2 style={styles.title}>Comunidade Terapêutica — Motivação e Tema do Mês</h2><p style={styles.description}>Publica e gere apenas a Motivação Talaza, o Tema do Mês e a descrição do Tema da Semana.</p></div></div>
           <div style={styles.card}>
             <label style={styles.label}>Tipo de conteúdo</label>
@@ -1224,7 +1246,7 @@ export default function Admin() {
           </div>
         </section>
 
-        <section id="comunidade" style={{ marginTop: 42 }}>
+        <section id="comunidade" style={{ marginTop: 0, display: activeAdminSection === 'comunidade' ? 'block' : 'none' }}>
           <div style={styles.titleRow}>
             <div>
               <h2 style={styles.title}>Aprovação da Comunidade Talaza</h2>
@@ -1272,7 +1294,7 @@ export default function Admin() {
           )}
         </section>
 
-        <section id="pagamentos" style={{ marginTop: 42 }}>
+        <section id="pagamentos" style={{ marginTop: 0, display: activeAdminSection === 'pagamentos' ? 'block' : 'none' }}>
           <div style={styles.titleRow}>
             <div>
               <h2 style={styles.title}>Pagamentos e hospedagem da Vitrine</h2>
@@ -1346,7 +1368,7 @@ export default function Admin() {
           )}
         </section>
 
-        <section id="suporte" style={{ marginTop: 42 }}>
+        <section id="suporte" style={{ marginTop: 0, display: activeAdminSection === 'suporte' ? 'block' : 'none' }}>
           <div style={styles.titleRow}>
             <div>
               <h2 style={styles.title}>Suporte Talaza — mensagens recebidas</h2>
