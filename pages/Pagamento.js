@@ -513,8 +513,8 @@ export default function Pagamento() {
             <Card>
               <div style={{ padding: '5px 0 8px' }}>
                 <div style={{ display: 'inline-block', padding: '7px 11px', borderRadius: 999, background: '#FFF1C2', color: '#5B4300', fontSize: 11, fontWeight: 900, marginBottom: 12 }}>PAGAMENTO EM VERIFICAÇÃO</div>
-                <h1 style={{ margin: '0 0 10px', color: C.ink, fontSize: 25 }}>O seu negócio está em verificação</h1>
-                <p style={{ color: C.muted, lineHeight: 1.65 }}>O comprovativo já foi enviado. Esta página mostra os dados do plano escolhido para sua consulta. Não precisa enviar novamente e não pode mudar de plano nem editar o perfil enquanto a equipa Talaza verifica o pagamento e a ativação.</p>
+                <h1 style={{ margin: '0 0 10px', color: C.ink, fontSize: 25 }}>{eventRecord ? 'O seu evento está em verificação' : 'O seu negócio está em verificação'}</h1>
+                <p style={{ color: C.muted, lineHeight: 1.65 }}>{eventRecord ? 'O comprovativo já foi enviado. O anúncio ficará ativo assim que o pagamento for aprovado. Aguarde; não envie outro comprovativo.' : 'O comprovativo já foi enviado. Esta página mostra os dados do plano escolhido para sua consulta. Não precisa enviar novamente e não pode mudar de plano nem editar o perfil enquanto a equipa Talaza verifica o pagamento e a ativação.'}</p>
               </div>
               <div style={{ marginTop: 12, padding: 16, borderRadius: 14, background: C.soft, border: `1px solid ${C.line}` }}>
                 <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>NEGÓCIO</p>
@@ -539,7 +539,7 @@ export default function Pagamento() {
                 </div>
               </div>
               <p style={{ margin: '14px 0 0', color: C.muted, fontSize: 13, lineHeight: 1.6 }}>Não envie outro comprovativo nem faça um novo pagamento por causa desta mensagem. Aguarde a verificação da equipa Talaza.</p>
-              <Link href={panelHref} style={{ display: 'block', marginTop: 20, padding: 15, borderRadius: 12, background: C.green, color: '#fff', textAlign: 'center', textDecoration: 'none', fontWeight: 800 }}>Ir para o meu painel de negócio</Link>
+              <Link href={panelHref} style={{ display: 'block', marginTop: 20, padding: 15, borderRadius: 12, background: C.green, color: '#fff', textAlign: 'center', textDecoration: 'none', fontWeight: 800 }}>{eventRecord ? 'Voltar à área de Eventos' : 'Ir para o meu painel de negócio'}</Link>
             </Card>
           ) : (
           <div style={{ minWidth: 0 }}>
