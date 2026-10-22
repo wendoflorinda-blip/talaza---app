@@ -147,15 +147,10 @@ export default function Eventos() {
             return false;
           }
 
-          const area = String(
-            plan.area || plan.plan_type || plan.type || ''
-          ).toLowerCase();
-
-          // Se a tabela identificar explicitamente a área,
-          // só apresentar planos relacionados com Eventos.
-          if (area && !area.includes('evento')) return false;
-
-          return true;
+          const area = String(plan.area || '').trim().toLowerCase();
+          const type = String(plan.plan_type || '').trim().toLowerCase();
+          // Não misturar os planos antigos de hospedagem com publicação de eventos.
+          return area === 'eventos área' && type === 'publicação ativa';
         });
 
         if (!cancelled) setPlans(eventPlans);
@@ -418,9 +413,9 @@ export default function Eventos() {
       // O fluxo de planos/pagamentos deve validar o pagamento.
       if (createdEvent?.id) {
         await router.push({
-          pathname: '/planos',
+          pathname: '/Pagamento',
           query: {
-            plan_id: planId,
+            plan: planId,
             country: countryId,
             province: provinceId,
             area: 'Eventos',
