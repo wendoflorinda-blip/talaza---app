@@ -50,6 +50,10 @@ export default function Admin() {
   const [officialTitle, setOfficialTitle] = useState('');
   const [officialBody, setOfficialBody] = useState('');
   const [officialSaving, setOfficialSaving] = useState(false);
+  const [officialBackgroundColor, setOfficialBackgroundColor] = useState('#173B35');
+  const [officialBackgroundImage, setOfficialBackgroundImage] = useState('');
+  const [officialTextColor, setOfficialTextColor] = useState('#FFFFFF');
+  const [officialFontFamily, setOfficialFontFamily] = useState('Georgia');
   const [notificationAudience, setNotificationAudience] = useState('all');
   const [notificationUserId, setNotificationUserId] = useState('');
   const [notificationTitle, setNotificationTitle] = useState('');
@@ -449,10 +453,8 @@ export default function Admin() {
 
   async function publishOfficialCommunityContent() {
     if (officialSaving) return;
-    if (officialKind !== 'weekly_question' && !officialBody.trim()) {
-      alert(officialKind === 'theme'
-        ? 'Escreve a descrição do tema do mês.'
-        : 'Escreve o conteúdo da motivação.');
+    if (officialKind === 'weekly_question' && !officialBody.trim()) {
+      alert('Escreve a descrição da semana.');
       return;
     }
     if (!officialTitle.trim()) {
@@ -473,9 +475,14 @@ export default function Admin() {
         const { error } = await supabase.from('community_motivation').insert({
           admin_id: adminId,
           title: officialTitle.trim(),
-          content: officialBody.trim(),
+          content: officialTitle.trim(),
           image_url: null,
           is_active: true,
+          background_color: officialBackgroundColor,
+          background_image_url: officialBackgroundImage.trim() || null,
+          text_color: officialTextColor,
+          font_family: officialFontFamily,
+          aspect_ratio: '16:9',
         });
         if (error) {
           alert('Não foi possível guardar a motivação em community_motivation: ' + error.message + '. Vamos configurar a política RLS desta tabela a seguir.');
@@ -485,7 +492,7 @@ export default function Admin() {
         const now = new Date();
         const { data: activeTheme, error: activeError } = await supabase
           .from('community_monthly_themes')
-          .select('id, month_title, month_description, week_title, week_number, starts_at, ends_at')
+          .select('id, month_title, week_title, week_description, week_number, starts_at, ends_at')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(1)
@@ -508,6 +515,7 @@ export default function Admin() {
             .from('community_monthly_themes')
             .update({
               week_title: officialTitle.trim(),
+              week_description: officialBody.trim(),
               week_number: weekNumber,
             })
             .eq('id', activeTheme.id);
@@ -522,12 +530,17 @@ export default function Admin() {
           const { error } = await supabase.from('community_monthly_themes').insert({
             admin_id: adminId,
             month_title: officialTitle.trim(),
-            month_description: officialBody.trim(),
+            month_description: null,
             week_title: 'Título da semana por definir',
+            week_description: null,
             week_number: weekNumber,
             starts_at: monthStart.toISOString(),
             ends_at: monthEnd.toISOString(),
             is_active: true,
+            background_color: officialBackgroundColor,
+            background_image_url: officialBackgroundImage.trim() || null,
+            text_color: officialTextColor,
+            font_family: officialFontFamily,
           });
 
           if (error) {
@@ -1099,8 +1112,21 @@ export default function Admin() {
             </select>
             <label style={styles.label}>Título / tema</label>
             <input value={officialTitle} onChange={event => setOfficialTitle(event.target.value)} placeholder={officialKind === 'motivation' ? 'Ex.: A força de recomeçar' : officialKind === 'theme' ? 'Ex.: O valor de recomeçar' : 'Ex.: O que aprendeste esta semana?'} style={styles.input} />
-            <label style={styles.label}>{officialKind === 'weekly_question' ? 'Texto de apoio (opcional)' : officialKind === 'theme' ? 'Descrição do tema do mês' : 'Texto da motivação'}</label>
-            <textarea value={officialBody} onChange={event => setOfficialBody(event.target.value)} placeholder={officialKind === 'weekly_question' ? 'Escreve o contexto ou orientação da semana.' : officialKind === 'theme' ? 'Explica o objetivo e a reflexão do tema deste mês.' : 'Escreve a mensagem motivacional.'} rows={5} style={styles.input} />
+            {officialKind !== 'theme' && <>
+              <label style={styles.label}>{officialKind === 'weekly_question' ? 'Descrição da semana' : 'Frase motivacional'}</label>
+              <textarea value={officialBody} onChange={event => setOfficialBody(event.target.value)} placeholder={officialKind === 'weekly_question' ? 'Escreve a descrição e a orientação da semana.' : 'Escreve a frase motivacional que será apresentada num cartão 16:9.'} rows={officialKind === 'motivation' ? 3 : 5} style={styles.input} />
+            </>}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))', gap:12, marginTop:14 }}>
+              <div><label style={styles.label}>Cor do fundo</label><input aria-label="Cor do fundo" type="color" value={officialBackgroundColor} onChange={event=>setOfficialBackgroundColor(event.target.value)} style={{ ...styles.input, height:46, padding:4 }} /></div>
+              <div><label style={styles.label}>Cor das letras</label><input aria-label="Cor das letras" type="color" value={officialTextColor} onChange={event=>setOfficialTextColor(event.target.value)} style={{ ...styles.input, height:46, padding:4 }} /></div>
+              <div><label style={styles.label}>Tipo de letra</label><select value={officialFontFamily} onChange={event=>setOfficialFontFamily(event.target.value)} style={styles.input}><option value="Georgia">Georgia — elegante</option><option value="Arial">Arial — simples</option><option value="Verdana">Verdana — legível</option><option value="Trebuchet MS">Trebuchet MS — moderno</option><option value="Times New Roman">Times New Roman — clássico</option><option value="system-ui">Sistema — contemporâneo</option></select></div>
+            </div>
+            <label style={styles.label}>Fundo externo (URL de imagem, opcional)</label>
+            <input type="url" value={officialBackgroundImage} onChange={event=>setOfficialBackgroundImage(event.target.value)} placeholder="https://... imagem de fundo" style={styles.input} />
+            <div style={{ marginTop:12, padding:16, minHeight:officialKind==='motivation'?180:110, aspectRatio:officialKind==='motivation'?'16 / 9':undefined, borderRadius:14, color:officialTextColor, fontFamily:officialFontFamily, backgroundColor:officialBackgroundColor, backgroundImage:officialBackgroundImage.trim()? 'linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.15)),url('+officialBackgroundImage.trim()+')':undefined, backgroundSize:'cover', backgroundPosition:'center', display:'flex', flexDirection:'column', justifyContent:'center', textAlign:'center', overflow:'hidden' }}>
+              <strong style={{ fontSize:officialKind==='motivation'?22:18 }}>{officialTitle || (officialKind==='theme'?'Tema do mês':officialKind==='weekly_question'?'Título da semana':'A sua frase motivacional')}</strong>
+              {officialKind==='weekly_question' && <span style={{ marginTop:8, fontSize:14 }}>{officialBody || 'A descrição da semana aparecerá aqui.'}</span>}
+            </div>
             <div style={styles.actions}><button type="button" disabled={officialSaving} style={styles.approve} onClick={publishOfficialCommunityContent}>{officialSaving ? 'A publicar…' : 'Publicar conteúdo oficial'}</button></div>
             <p style={styles.meta}>Motivação é guardada em community_motivation. Tema do mês e título da semana são guardados em community_monthly_themes. As políticas RLS administrativas serão configuradas a seguir.</p>
           </div>
