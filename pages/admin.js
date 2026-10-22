@@ -1,4 +1,4 @@
- import { useEffect, useState } from 'react';
+ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
@@ -43,6 +43,11 @@ export default function Admin() {
   const [communityReports, setCommunityReports] = useState([]);
   const [communityPosts, setCommunityPosts] = useState([]);
   const [supportMessages, setSupportMessages] = useState([]);
+  const [supportFilter, setSupportFilter] = useState('all');
+  const [reportFilter, setReportFilter] = useState('pending');
+  const [adminNotifications, setAdminNotifications] = useState([]);
+  const [notificationHistoryFilter, setNotificationHistoryFilter] = useState('all');
+  const [deletingNotificationId, setDeletingNotificationId] = useState('');
   const [profiles, setProfiles] = useState([]);
   const [events, setEvents] = useState([]);
   const [jobPosts, setJobPosts] = useState([]);
@@ -54,6 +59,7 @@ export default function Admin() {
   const [officialBackgroundImage, setOfficialBackgroundImage] = useState('');
   const [officialBackgroundGradient, setOfficialBackgroundGradient] = useState('linear-gradient(135deg, #173B35 0%, #64358B 55%, #D8A319 100%)');
   const [officialImageUploading, setOfficialImageUploading] = useState(false);
+  const officialImageInputRef = useRef(null);
   const [deletingPaymentId, setDeletingPaymentId] = useState('');
   const [deletingSupportId, setDeletingSupportId] = useState('');
   const [officialTextColor, setOfficialTextColor] = useState('#FFFFFF');
@@ -143,6 +149,7 @@ export default function Admin() {
     await loadCommunityReports();
     await loadPendingCommunityPosts();
     await loadSupportMessages();
+    await loadAdminNotifications();
     await loadProfiles();
     await loadEvents();
     await loadJobPosts();
@@ -454,6 +461,12 @@ export default function Admin() {
     setSupportMessages(data || []);
   }
 
+  async function loadAdminNotifications() {
+    const { data, error } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(200);
+    if (error) { console.error('Erro ao carregar notificações administrativas:', error); setAdminNotifications([]); setMessage('Não foi possível carregar o histórico de notificações: ' + error.message); return; }
+    setAdminNotifications(data || []);
+  }
+
   async function loadEvents() {
     const [{ data, error }, { data: proofs, error: proofError }] = await Promise.all([
       supabase.from('events').select('*').order('created_at', { ascending: false }),
@@ -687,20 +700,22 @@ export default function Admin() {
       alert('Preencha o título e a mensagem da notificação.');
       return;
     }
-    if (notificationAudience === 'user' && !notificationUserId) {
+    if (['user', 'seller_user'].includes(notificationAudience) && !notificationUserId) {
       alert('Escolha o utilizador que vai receber a notificação.');
       return;
     }
 
     setSendingNotification(true);
-    const recipients = notificationAudience === 'user'
-      ? profiles.filter(profile => profile.id === notificationUserId)
-      : profiles.filter(profile => notificationAudience === 'all' || (notificationAudience === 'sellers' && ['seller','vendedor','business'].includes(String(profile.account_type || '').toLowerCase())) || (notificationAudience === 'explorers' && !['seller','vendedor','business'].includes(String(profile.account_type || '').toLowerCase())));
+    const sellerRoles = ['seller', 'vendedor', 'business'];
+    const isSeller = profile => sellerRoles.includes(String(profile.account_type || '').toLowerCase());
+    const recipients = ['user', 'seller_user'].includes(notificationAudience)
+      ? profiles.filter(profile => profile.id === notificationUserId && (notificationAudience !== 'seller_user' || isSeller(profile)))
+      : profiles.filter(profile => notificationAudience === 'all' || (notificationAudience === 'sellers' && isSeller(profile)) || (notificationAudience === 'explorers' && !isSeller(profile)));
     const { error } = recipients.length ? await supabase.from('notifications').insert(recipients.map(profile => ({
       user_id: profile.id,
       title: notificationTitle.trim(),
       content: notificationBody.trim(),
-      type: notificationAudience === 'user' ? 'individual' : notificationAudience === 'sellers' ? 'sellers' : notificationAudience === 'explorers' ? 'explorers' : 'general',
+      type: ['user', 'seller_user'].includes(notificationAudience) ? 'individual' : notificationAudience === 'sellers' ? 'sellers' : notificationAudience === 'explorers' ? 'explorers' : 'general',
     }))) : { error: new Error('Não existem destinatários para este filtro.') };
     setSendingNotification(false);
 
@@ -711,9 +726,34 @@ export default function Admin() {
 
     setNotificationTitle('');
     setNotificationBody('');
-    alert(notificationAudience === 'all'
-      ? 'Notificação geral enviada. Ficará visível nas notificações dos utilizadores autenticados.'
-      : 'Notificação enviada ao utilizador selecionado.');
+    await loadAdminNotifications();
+    alert(notificationAudience === 'all' ? 'Notificação geral enviada aos utilizadores autenticados.' : notificationAudience === 'seller_user' ? 'Notificação enviada ao vendedor selecionado.' : notificationAudience === 'user' ? 'Notificação enviada ao utilizador selecionado.' : 'Notificação enviada ao grupo selecionado.');
+  }
+
+  async function editSupportMessage(item) {
+    const nextMessage = window.prompt('Editar mensagem de suporte:', item.message || '');
+    if (nextMessage === null || !nextMessage.trim()) return;
+    const { error } = await supabase.from('support_messages').update({ message: nextMessage.trim() }).eq('id', item.id);
+    if (error) { alert('Não foi possível editar a mensagem: ' + error.message); return; }
+    await loadSupportMessages();
+  }
+
+  async function copyText(value) {
+    try { if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(String(value || '')); else { const helper = document.createElement('textarea'); helper.value = String(value || ''); helper.style.position = 'fixed'; helper.style.opacity = '0'; document.body.appendChild(helper); helper.select(); const copied = document.execCommand('copy'); helper.remove(); if (!copied) throw new Error('Cópia não suportada pelo navegador.'); } alert('Conteúdo copiado.'); }
+    catch (error) { alert('Não foi possível copiar o conteúdo: ' + error.message); }
+  }
+
+  async function editAdminNotification(item) {
+    const nextTitle = window.prompt('Editar título da notificação:', item.title || ''); if (nextTitle === null || !nextTitle.trim()) return;
+    const nextBody = window.prompt('Editar mensagem da notificação:', item.content || item.body || ''); if (nextBody === null || !nextBody.trim()) return;
+    const { error } = await supabase.from('notifications').update({ title: nextTitle.trim(), content: nextBody.trim() }).eq('id', item.id);
+    if (error) { alert('Não foi possível editar a notificação: ' + error.message); return; } await loadAdminNotifications();
+  }
+
+  async function deleteAdminNotification(item) {
+    if (!window.confirm('Eliminar esta notificação? Esta ação não pode ser desfeita.')) return;
+    setDeletingNotificationId(item.id); const { error } = await supabase.from('notifications').delete().eq('id', item.id); setDeletingNotificationId('');
+    if (error) { alert('Não foi possível eliminar a notificação: ' + error.message); return; } await loadAdminNotifications();
   }
 
   async function deleteSupportMessage(item) {
@@ -990,6 +1030,7 @@ export default function Admin() {
       loadCommunityReports(),
       loadPendingCommunityPosts(),
       loadSupportMessages(),
+      loadAdminNotifications(),
       loadProfiles(),
       loadEvents(),
       loadJobPosts(),
