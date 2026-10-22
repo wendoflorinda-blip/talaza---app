@@ -60,8 +60,11 @@ export default function Mensagens() {
     const ownedBusinessIds = new Set((ownedBusinesses || []).map(b => String(b.id)));
     const box = safe(router.query.box) === 'store' ? 'store' : 'explore';
     const rows = (allRows || []).filter(row => {
-      const belongsToMyStore = row.source === 'Vitrine' && row.source_id && ownedBusinessIds.has(String(row.source_id));
-      return box === 'store' ? Boolean(belongsToMyStore) : !belongsToMyStore;
+      // O source_id é a referência principal do negócio. Não exigir source ===
+      // 'Vitrine' evita que conversas antigas/gravadas com outra etiqueta caiam
+      // por engano na caixa pessoal quando pertencem a uma loja do utilizador.
+      const belongsToMyStore = Boolean(row.source_id) && ownedBusinessIds.has(String(row.source_id));
+      return box === 'store' ? belongsToMyStore : !belongsToMyStore;
     });
     const { data: participants, error: participantsError } = await supabase
       .from('conversation_participants').select('conversation_id,user_id').in('conversation_id', ids);
