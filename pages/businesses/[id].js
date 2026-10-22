@@ -103,6 +103,8 @@ export default function BusinessPublicProfile() {
     return '/explore' + (params.toString() ? '?' + params.toString() : '');
   }, [router.query.returnTo, country, province, business]);
 
+  const backLabel = backHref.startsWith('/subcategory?') ? 'Voltar à subcategoria' : backHref.startsWith('/category?') ? 'Voltar às subcategorias' : 'Voltar à Vitrine';
+
   const contactNumber = business?.phone;
   const messageHref = business?.owner_id ? '/mensagens?to=' + encodeURIComponent(business.owner_id) + '&source=Vitrine&sourceId=' + encodeURIComponent(business.id) + '&returnTo=' + encodeURIComponent(backHref) : null;
   const addressParts = [business?.address, business?.neighborhood].map(clean).filter(Boolean);
@@ -117,7 +119,7 @@ export default function BusinessPublicProfile() {
       <main className="publicPage">
         <header className="topbar">
           <Link href={backHref} className="brand"><span className="brandMark">T</span><span>Talaza</span></Link>
-          <Link href={backHref} className="backLink">← Voltar à Vitrine</Link>
+          <Link href={backHref} className="backLink">← {backLabel}</Link>
         </header>
 
         {loading ? (
@@ -126,7 +128,7 @@ export default function BusinessPublicProfile() {
           <div className="stateCard errorState">
             <h1>Perfil indisponível</h1>
             <p>{error}</p>
-            <Link href={backHref} className="primaryButton">Voltar à Vitrine</Link>
+            <Link href={backHref} className="primaryButton">{backLabel}</Link>
           </div>
         ) : business && (
           <div className="profileWrap">
