@@ -218,7 +218,7 @@ export default function Admin() {
       return;
     }
     // Comprovativos sem ficheiro não entram em nenhuma fila de aprovação.
-    const requests = (data || []).filter((item) => String(item.proof_url || '').trim());
+    const requests = (data || []).filter((item) => String(item.proof_url || '').trim() && (item.business_id || item.event_id));
     setSubscriptionRequests(requests);
 
     const businessIds = [...new Set(requests.map(item => item.business_id).filter(Boolean))];
@@ -994,7 +994,7 @@ export default function Admin() {
 
           <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '0 0 28px' }}>
             {[
-              ['#vendedores', 'Vendedores'], ['#pagamentos', 'Pagamentos e hospedagens'], ['#eventos', 'Eventos'], ['#oportunidades', 'Oportunidades'], ['#conteudo-oficial', 'Conteúdo editorial'], ['#comunidade', 'Comunidade Talaza'], ['#suporte', 'Suporte Talaza']
+              ['#vendedores', 'Vendedores'], ['#pagamentos', 'Pagamentos e hospedagem'], ['#eventos', 'Eventos e pagamentos de eventos'], ['#oportunidades', 'Oportunidades (Contratar grátis)'], ['#conteudo-oficial', 'Comunidade Terapêutica'], ['#comunidade', 'Comunidade Talaza'], ['#suporte', 'Suporte Talaza']
             ].map(([href, label]) => <a key={href} href={href} style={{ padding: '10px 13px', borderRadius: 9, background: '#E4F0ED', color: '#075B4E', fontWeight: 800, textDecoration: 'none', fontSize: 13 }}>{label}</a>)}
           </nav>
           <div style={styles.counter}>
