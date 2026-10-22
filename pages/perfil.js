@@ -249,7 +249,8 @@ export default function Perfil() {
       <Head><title>O meu perfil | Talaza</title></Head>
       <header style={S.header}>
         <Link href="/" style={S.logo}><span style={S.mark}>T</span>TALAZA</Link>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', justifyContent:'flex-end' }}>
+          <Link href={{ pathname:'/explore', query:{ ...(profile?.country_id ? { country:profile.country_id } : {}), ...(profile?.province_id ? { province:profile.province_id } : {}) } }} style={{ color:'#64358B', textDecoration:'none', fontWeight:800, fontSize:12, padding:'8px 10px', border:'1px solid #D9C6E9', borderRadius:10, background:'#F7F1FB' }}>← Voltar à Vitrine</Link>
           <span style={S.headerText}>O meu perfil</span>
           <button type="button" onClick={() => setMenuOpen((value) => !value)} aria-label="Opções do perfil" style={S.more}>•••</button>
           <TalazaMenu country={profile?.country_id} province={profile?.province_id} countryName="" provinceName="" />
