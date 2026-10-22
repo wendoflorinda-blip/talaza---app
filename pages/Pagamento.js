@@ -425,7 +425,8 @@ export default function Pagamento() {
     }
   }
 
-  const opportunityHref = { pathname: '/oportunidades', query: { ...(countryId ? { country: countryId } : {}), ...(provinceId ? { province: provinceId } : {}) } };
+  const safeReturnTo = typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null;
+  const opportunityHref = safeReturnTo || { pathname: '/oportunidades', query: { ...(countryId ? { country: countryId } : {}), ...(provinceId ? { province: provinceId } : {}) } };
   const panelHref = isOpportunitySubscription
     ? opportunityHref
     : business
