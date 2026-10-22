@@ -513,8 +513,11 @@ export default function Eventos() {
             <div style={styles.eventList}>
               {visibleEvents.map(item => (
                 <article key={item.id} style={styles.eventCard} onClick={() => trackEventAction(item)}>
-                  {item.image_url && <img src={item.image_url} alt={item.title} style={styles.eventImage} />}
-                  {item.video_url && <video src={item.video_url} controls preload="metadata" style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} />}
+                  {(item.video_url || item.image_url) && <div style={styles.eventMedia}>
+                    {item.video_url
+                      ? <video src={item.video_url} controls playsInline preload="metadata" poster={item.image_url || undefined} style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} />
+                      : <img src={item.image_url} alt={item.title} style={styles.eventImage} />}
+                  </div>}
                   <div style={styles.eventBody}>
                     <div style={styles.eventMeta}>{item.event_type || 'Evento'}{item.location ? ' · ' + item.location : ''}</div>
                     <h3 style={styles.eventTitle}>{item.title}</h3>
@@ -667,7 +670,8 @@ const styles = {
   feedSection: { background: '#FFFFFF', border: '1px solid #E5EBE8', borderRadius: 18, padding: 20, marginBottom: 20 },
   eventList: { display: 'grid', gap: 18, marginTop: 18 },
   eventCard: { border: '1px solid #E4EAE7', borderRadius: 16, overflow: 'hidden', background: '#FFFFFF' },
-  eventImage: { display: 'block', width: '100%', maxHeight: 360, objectFit: 'cover', background: '#F1F5F3' },
+  eventMedia: { display: 'block', width: '100%', aspectRatio: '16 / 9', maxHeight: 460, overflow: 'hidden', background: '#10221D', boxSizing: 'border-box' },
+  eventImage: { display: 'block', width: '100%', height: '100%', aspectRatio: '16 / 9', objectFit: 'cover', background: '#10221D' },
   eventBody: { padding: 18 },
   eventMeta: { color: '#687772', fontSize: 12, lineHeight: 1.5 },
   eventTitle: { margin: '6px 0 8px', fontSize: 22, color: '#12332D' },
