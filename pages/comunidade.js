@@ -347,6 +347,7 @@ export default function Comunidade() {
           .from('community_motivation')
           .select('id, created_at, title, content, image_url, background_color, background_image_url, text_color, font_family, aspect_ratio')
           .eq('is_active', true)
+          .gt('expires_at', new Date().toISOString())
           .order('created_at', { ascending: false });
 
         if (cancelled) return;
