@@ -4,7 +4,15 @@ import { supabase } from '../lib/supabaseClient';
 
 const BUCKET = 'event-images';
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const VIDEO_TYPES = ['video/mp4', 'video/webm'];
+const EVENT_TYPES = ['Geral', 'Formação', 'Show', 'Atividades', 'Sessão de Lançamento e Venda', 'Conferência', 'Fórum', 'Workshop', 'Palestra', 'Cinema'];
+const PLAN_DETAILS = {
+  Quinzenal: 'Ideal para divulgar eventos de curta duração e alcançar o público durante 15 dias.',
+  Mensal: 'Mais tempo para promover o evento, gerar interesse e receber mensagens durante 30 dias.',
+  Trimestral: 'Maior período de divulgação para eventos recorrentes, grandes iniciativas e campanhas de longo prazo.'
+};
 
 function firstValue(...values) {
   return values.find(
@@ -38,6 +46,8 @@ export default function Eventos() {
   const [location, setLocation] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [image, setImage] = useState(null);
+  const [video, setVideo] = useState(null);
+  const [step, setStep] = useState(1);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -177,7 +187,7 @@ export default function Eventos() {
     setFeedLoading(true);
     setFeedError('');
     try {
-      let query = supabase.from('events').select('id,user_id,country_id,province_id,title,description,event_type,image_url,location,starts_at,expires_at,status,payment_status,admin_approved,created_at').eq('status', 'published').eq('payment_status', 'paid').eq('admin_approved', true).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(60);
+      let query = supabase.from('events').select('id,user_id,country_id,province_id,title,description,event_type,image_url,video_url,location,starts_at,expires_at,status,payment_status,admin_approved,created_at').eq('status', 'published').eq('payment_status', 'paid').eq('admin_approved', true).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(60);
       if (provinceId) query = query.eq('province_id', provinceId);
       if (countryId) query = query.eq('country_id', countryId);
       const { data, error: eventsError } = await query;
@@ -287,72 +297,32 @@ export default function Eventos() {
       return;
     }
 
-    if (!title.trim() || !description.trim()) {
-      setError('Preenche o título e a descrição do evento.');
-      return;
-    }
-
-    if (!planId) {
-      setError('Seleciona o plano para a publicação.');
-      return;
-    }
-
-    if (!image) {
-      setError('Carrega uma imagem para o evento.');
-      return;
-    }
-
-    if (image.size > MAX_IMAGE_SIZE) {
-      setError('A imagem deve ter, no máximo, 5 MB.');
-      return;
-    }
-
-    if (!IMAGE_TYPES.includes(image.type)) {
-      setError('Usa uma imagem JPG, PNG ou WEBP.');
-      return;
-    }
+    if (!title.trim() || !description.trim()) { setStep(1); setError('Preenche o título e a descrição do evento.'); return; }
+    if (!image && !video) { setStep(1); setError('Carrega pelo menos uma imagem ou um vídeo para apresentar o evento.'); return; }
+    if (image && (image.size > MAX_IMAGE_SIZE || !IMAGE_TYPES.includes(image.type))) { setStep(1); setError('A imagem deve ser JPG, PNG ou WEBP e ter, no máximo, 5 MB.'); return; }
+    if (video && (video.size > MAX_VIDEO_SIZE || !VIDEO_TYPES.includes(video.type))) { setStep(1); setError('O vídeo deve ser MP4 ou WEBM e ter, no máximo, 50 MB.'); return; }
+    if (!EVENT_TYPES.includes(eventType)) { setStep(2); setError('Seleciona uma categoria válida para o evento.'); return; }
+    if (!location.trim() || !startsAt) { setStep(2); setError('Indica o local, a data e a hora do evento.'); return; }
+    if (new Date(startsAt).getTime() < Date.now() - 60000) { setStep(2); setError('A data e hora do evento não podem estar no passado.'); return; }
+    if (!planId || !plans.some((plan) => plan.id === planId)) { setStep(3); setError('Seleciona um dos planos de publicação disponíveis.'); return; }
 
     setSaving(true);
 
-    let uploadedPath = '';
+    async function uploadEventMedia(file, prefix) {
+      if (!file) return null;
+      const extension = file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '');
+      const uniqueId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2));
+      const path = user.id + '/' + prefix + '-' + uniqueId + '.' + extension;
+      const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false });
+      if (uploadError) throw new Error('Não foi possível carregar ' + (prefix === 'video' ? 'o vídeo: ' : 'a imagem: ') + uploadError.message);
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+      if (!data?.publicUrl) throw new Error('Não foi possível obter o endereço do ficheiro carregado.');
+      return data.publicUrl;
+    }
 
     try {
-      const extension = image.name.split('.').pop().toLowerCase();
-      const safeExtension = ['jpg', 'jpeg', 'png', 'webp'].includes(
-        extension
-      )
-        ? extension
-        : 'jpg';
-
-      const uniqueId =
-        typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-      uploadedPath = `${user.id}/${uniqueId}.${safeExtension}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET)
-        .upload(uploadedPath, image, {
-          contentType: image.type,
-          upsert: false,
-        });
-
-      if (uploadError) {
-        throw new Error(
-          `Não foi possível carregar a imagem. Confirma que o bucket "${BUCKET}" existe e que as políticas de Storage permitem o carregamento.`
-        );
-      }
-
-      const { data: publicData } = supabase.storage
-        .from(BUCKET)
-        .getPublicUrl(uploadedPath);
-
-      const imageUrl = publicData?.publicUrl;
-
-      if (!imageUrl) {
-        throw new Error('Não foi possível obter o endereço da imagem.');
-      }
+      const imageUrl = await uploadEventMedia(image, 'image');
+      const videoUrl = await uploadEventMedia(video, 'video');
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -378,7 +348,8 @@ export default function Eventos() {
             description: description.trim(),
             event_type: eventType,
             image_url: imageUrl,
-            location: location.trim() || null,
+            video_url: videoUrl,
+            location: location.trim(),
             starts_at: startsAt
               ? new Date(startsAt).toISOString()
               : null,
@@ -405,9 +376,12 @@ export default function Eventos() {
       setLocation('');
       setStartsAt('');
       setImage(null);
-
+      setVideo(null);
+      setStep(1);
       const fileInput = document.getElementById('event-image');
       if (fileInput) fileInput.value = '';
+      const videoInput = document.getElementById('event-video');
+      if (videoInput) videoInput.value = '';
 
       // Não marcar como pago nem publicar automaticamente.
       // O fluxo de planos/pagamentos deve validar o pagamento.
@@ -480,6 +454,7 @@ export default function Eventos() {
               {events.map(item => (
                 <article key={item.id} style={styles.eventCard}>
                   {item.image_url && <img src={item.image_url} alt={item.title} style={styles.eventImage} />}
+                  {item.video_url && <video src={item.video_url} controls preload="metadata" style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} />}
                   <div style={styles.eventBody}>
                     <div style={styles.eventMeta}>{item.event_type || 'Evento'}{item.location ? ' · ' + item.location : ''}</div>
                     <h3 style={styles.eventTitle}>{item.title}</h3>
@@ -531,143 +506,46 @@ export default function Eventos() {
           {error && <div style={styles.error}>{error}</div>}
           {success && <div style={styles.success}>{success}</div>}
 
+          <div style={styles.stepsIndicator}>
+            {[1, 2, 3].map((number) => <div key={number} style={{ ...styles.stepItem, ...(step === number ? styles.currentStep : step > number ? styles.completedStep : {}) }}><span style={styles.stepNumber}>{step > number ? '✓' : number}</span><span>{number === 1 ? 'Conteúdo' : number === 2 ? 'Detalhes' : 'Plano'}</span></div>)}
+          </div>
+          {error && <div style={styles.error}>{error}</div>}
+          {success && <div style={styles.success}>{success}</div>}
           <form onSubmit={handleSubmit} style={styles.form}>
-            <label htmlFor="event-title" style={styles.label}>
-              Título do evento
-            </label>
-            <input
-              id="event-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex.: Feira de Empreendedorismo"
-              maxLength={150}
-              required
-              style={styles.input}
-            />
-
-            <label htmlFor="event-description" style={styles.label}>
-              Descrição
-            </label>
-            <textarea
-              id="event-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="O que vai acontecer neste evento?"
-              rows={5}
-              required
-              style={styles.textarea}
-            />
-
-            <label htmlFor="event-type" style={styles.label}>
-              Categoria do evento
-            </label>
-            <select
-              id="event-type"
-              value={eventType}
-              onChange={(e) => setEventType(e.target.value)}
-              style={styles.input}
-            >
-              <option>Geral</option>
-              <option>Formação</option>
-              <option>Negócios</option>
-              <option>Cultura</option>
-              <option>Desporto</option>
-              <option>Entretenimento</option>
-              <option>Religião</option>
-            </select>
-
-            <label htmlFor="event-location" style={styles.label}>
-              Local do evento
-            </label>
-            <input
-              id="event-location"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Município, bairro ou local"
-              style={styles.input}
-            />
-
-            <label htmlFor="event-date" style={styles.label}>
-              Data e hora (opcional)
-            </label>
-            <input
-              id="event-date"
-              type="datetime-local"
-              value={startsAt}
-              onChange={(e) => setStartsAt(e.target.value)}
-              style={styles.input}
-            />
-
-            <label htmlFor="event-image" style={styles.label}>
-              Imagem do evento
-            </label>
-            <label htmlFor="event-image" style={styles.uploadBox}>
-              <span style={styles.uploadIcon}>＋</span>
-              <strong>
-                {image ? image.name : 'Escolher imagem'}
-              </strong>
-              <span style={styles.muted}>JPG, PNG ou WEBP · máximo 5 MB</span>
-            </label>
-            <input
-              id="event-image"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(e) => setImage(e.target.files?.[0] || null)}
-              style={styles.hiddenInput}
-            />
-
-            {plans.length > 0 && (
-              <>
-                <label htmlFor="event-plan" style={styles.label}>
-                  Plano de publicação
-                </label>
-                <select
-                  id="event-plan"
-                  value={planId}
-                  onChange={(e) => setPlanId(e.target.value)}
-                  required
-                  style={styles.input}
-                >
-                  <option value="">Seleciona um plano</option>
-                  {plans.map((plan) => (
-                    <option key={plan.id} value={plan.id}>
-                      {planLabel(plan)}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-
-            {!loading && plans.length === 0 && (
-              <div style={styles.notice}>
-                Ainda não foram encontrados planos compatíveis com Eventos.
-                Verifica os registos e as colunas da tabela `plans`.
-              </div>
-            )}
-
-            <div style={styles.paymentNotice}>
-              <strong>Como funciona a publicação?</strong>
-              <p>
-                Depois de submeteres, o evento fica pendente. A publicação
-                só deve ficar ativa após a confirmação do pagamento do plano.
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || saving || !user || plans.length === 0}
-              style={{
-                ...styles.button,
-                opacity:
-                  loading || saving || !user || plans.length === 0
-                    ? 0.6
-                    : 1,
-              }}
-            >
-              {saving
-                ? 'A guardar evento...'
-                : 'Submeter evento'}
-            </button>
+            {step === 1 && <>
+              <h3 style={styles.wizardTitle}>Fase 1 — Apresenta o teu evento</h3>
+              <p style={styles.muted}>Começa com um título claro, uma descrição atrativa e imagens ou vídeo que mostrem o que as pessoas vão encontrar.</p>
+              <label htmlFor="event-title" style={styles.label}>Título do evento</label>
+              <input id="event-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex.: Feira de Empreendedorismo" maxLength={150} required style={styles.input} />
+              <label htmlFor="event-description" style={styles.label}>Descrição</label>
+              <textarea id="event-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Explica o que vai acontecer, para quem é e o que torna o evento especial." rows={5} maxLength={5000} required style={styles.textarea} />
+              <label htmlFor="event-image" style={styles.label}>Imagem de capa (opcional se carregares vídeo)</label>
+              <label htmlFor="event-image" style={styles.uploadBox}><span style={styles.uploadIcon}>▧</span><strong>{image ? image.name : 'Escolher imagem de capa'}</strong><span style={styles.muted}>JPG, PNG ou WEBP · máximo 5 MB</span></label>
+              <input id="event-image" type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setImage(e.target.files?.[0] || null)} style={styles.hiddenInput} />
+              {image && <img src={URL.createObjectURL(image)} alt="Pré-visualização da capa" style={styles.mediaPreview} />}
+              <label htmlFor="event-video" style={styles.label}>Vídeo do evento (opcional)</label>
+              <label htmlFor="event-video" style={styles.uploadBox}><span style={styles.uploadIcon}>▶</span><strong>{video ? video.name : 'Escolher vídeo'}</strong><span style={styles.muted}>MP4 ou WEBM · máximo 50 MB</span></label>
+              <input id="event-video" type="file" accept="video/mp4,video/webm" onChange={(e) => setVideo(e.target.files?.[0] || null)} style={styles.hiddenInput} />
+              {video && <video controls src={URL.createObjectURL(video)} style={styles.mediaPreview} />}
+              <button type="button" onClick={() => { setError(''); if (!title.trim() || !description.trim()) { setError('Preenche o título e a descrição.'); return; } if (!image && !video) { setError('Carrega pelo menos uma imagem ou um vídeo.'); return; } if (image && (image.size > MAX_IMAGE_SIZE || !IMAGE_TYPES.includes(image.type))) { setError('A imagem deve ser JPG, PNG ou WEBP e ter no máximo 5 MB.'); return; } if (video && (video.size > MAX_VIDEO_SIZE || !VIDEO_TYPES.includes(video.type))) { setError('O vídeo deve ser MP4 ou WEBM e ter no máximo 50 MB.'); return; } setStep(2); }} style={styles.button}>Seguinte: detalhes do evento →</button>
+            </>}
+            {step === 2 && <>
+              <h3 style={styles.wizardTitle}>Fase 2 — Adiciona os detalhes</h3>
+              <p style={styles.muted}>Escolhe a categoria e indica onde e quando o evento vai acontecer.</p>
+              <label htmlFor="event-type" style={styles.label}>Categoria do evento</label>
+              <select id="event-type" value={eventType} onChange={(e) => setEventType(e.target.value)} style={styles.input} required>{EVENT_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select>
+              <label htmlFor="event-location" style={styles.label}>Local do evento</label>
+              <input id="event-location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Província, município, bairro ou nome do local" maxLength={250} required style={styles.input} />
+              <label htmlFor="event-date" style={styles.label}>Data e hora</label>
+              <input id="event-date" type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required style={styles.input} />
+              <div style={styles.wizardActions}><button type="button" onClick={() => { setError(''); setStep(1); }} style={styles.secondaryButton}>← Voltar</button><button type="button" onClick={() => { setError(''); if (!EVENT_TYPES.includes(eventType) || !location.trim() || !startsAt) { setError('Preenche a categoria, o local, a data e a hora.'); return; } if (new Date(startsAt).getTime() < Date.now() - 60000) { setError('A data e hora não podem estar no passado.'); return; } setStep(3); }} style={styles.button}>Seguinte: escolher plano →</button></div>
+            </>}
+            {step === 3 && <>
+              <h3 style={styles.wizardTitle}>Fase 3 — Escolhe como divulgar</h3>
+              <p style={styles.muted}>Seleciona o período que melhor corresponde ao teu evento. Depois vais ver as instruções de pagamento e poderás enviar o comprovativo.</p>
+              {plans.length > 0 ? <div style={styles.planGrid}>{plans.map((plan) => { const name = String(plan.name || '').toLowerCase(); const key = name.includes('quinzenal') ? 'Quinzenal' : name.includes('trimestral') ? 'Trimestral' : 'Mensal'; const selected = planId === plan.id; return <button key={plan.id} type="button" onClick={() => setPlanId(plan.id)} style={{ ...styles.planCard, ...(selected ? styles.selectedPlanCard : {}) }}><span style={styles.planDuration}>{Number(plan.duration_days || 0)} dias</span><strong style={styles.planName}>{key}</strong><span style={styles.planPrice}>{Number(plan.price || 0).toLocaleString('pt-AO')} Kz</span><span style={styles.planDescription}>{PLAN_DETAILS[key]}</span><span style={styles.planChoose}>{selected ? '✓ Plano selecionado' : 'Escolher este plano'}</span></button>; })}</div> : <div style={styles.notice}>Não foram encontrados planos de publicação ativos para Eventos.</div>}
+              <div style={styles.wizardActions}><button type="button" onClick={() => { setError(''); setStep(2); }} style={styles.secondaryButton}>← Voltar</button><button type="submit" disabled={saving || !user || !planId || plans.length === 0} style={{ ...styles.button, opacity: saving || !user || !planId || plans.length === 0 ? 0.6 : 1 }}>{saving ? 'A guardar anúncio…' : 'Continuar para pagamento →'}</button></div>
+            </>}
           </form>
         </section>}
       </div>
@@ -677,6 +555,24 @@ export default function Eventos() {
 
 const styles = {
   tabs: { display: 'flex', gap: 10, marginBottom: 18, padding: 5, background: '#EAF1EE', borderRadius: 14 },
+  stepsIndicator: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: '8px 0 24px' },
+  stepItem: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 5px', borderRadius: 12, background: '#F2F5F3', color: '#718078', fontSize: 12, fontWeight: 800 },
+  currentStep: { background: '#DCEFE8', color: '#075B4E', boxShadow: 'inset 0 0 0 1px #8CB7A8' },
+  completedStep: { background: '#EAF4E9', color: '#277044' },
+  stepNumber: { display: 'grid', placeItems: 'center', width: 24, height: 24, borderRadius: '50%', background: '#FFFFFF', fontSize: 12 },
+  wizardTitle: { margin: '0 0 4px', color: '#083F35', fontSize: 20 },
+  wizardActions: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10, marginTop: 12 },
+  secondaryButton: { border: '1px solid #D5E0DB', background: '#FFFFFF', borderRadius: 12, padding: '13px 16px', color: '#254B40', fontWeight: 800, cursor: 'pointer' },
+  planGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, margin: '14px 0' },
+  planCard: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10, textAlign: 'left', padding: 18, border: '1px solid #DCE6E0', borderRadius: 16, background: '#FFFFFF', color: '#173D32', cursor: 'pointer', minHeight: 220 },
+  selectedPlanCard: { border: '2px solid #08745D', background: '#F0FAF5', boxShadow: '0 8px 22px rgba(8,116,93,.12)' },
+  planDuration: { color: '#61756D', fontSize: 12, fontWeight: 800 },
+  planName: { fontSize: 19 },
+  planPrice: { fontSize: 23, fontWeight: 900, color: '#08745D' },
+  planDescription: { fontSize: 13, lineHeight: 1.5, color: '#596560', flex: 1 },
+  planChoose: { fontSize: 12, fontWeight: 800, color: '#08745D' },
+  mediaPreview: { width: '100%', maxHeight: 280, objectFit: 'contain', borderRadius: 12, background: '#10221D' },
+  eventVideo: { display: 'block', width: '100%', maxHeight: 420, background: '#10221D' },
   tab: { flex: 1, border: 0, borderRadius: 10, padding: '12px 14px', background: 'transparent', color: '#35534B', fontWeight: 800, cursor: 'pointer' },
   activeTab: { background: '#075B4E', color: '#FFFFFF', boxShadow: '0 3px 10px rgba(7,91,78,.18)' },
   feedSection: { background: '#FFFFFF', border: '1px solid #E5EBE8', borderRadius: 18, padding: 20, marginBottom: 20 },
