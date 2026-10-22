@@ -210,8 +210,15 @@ export default function Pagamento() {
       setLoading(false);
       return;
     }
-    if (eventId && (String(eventResult.data.plan_id) !== String(planId) || eventResult.data.status !== 'pending_payment' || eventResult.data.payment_status !== 'pending')) {
-      setError('Este evento não está pendente de pagamento para o plano selecionado.');
+    if (eventId && (
+      String(eventResult.data.plan_id) !== String(planId) ||
+      eventResult.data.status !== 'pending_payment' ||
+      eventResult.data.payment_status !== 'pending' ||
+      String(planResult.data.plan_type || '').trim().toLowerCase() !== 'publicação ativa' ||
+      String(planResult.data.area || '').trim().toLowerCase() !== 'eventos área' ||
+      planResult.data.is_active !== true
+    )) {
+      setError('Este evento não está pendente de pagamento ou o plano não é um plano ativo de publicação de Eventos.');
       setLoading(false);
       return;
     }
@@ -231,10 +238,18 @@ export default function Pagamento() {
     const latestPaymentStatus = String(pendingPayment?.status || '').toLowerCase();
     if (
       pendingPayment &&
-      (latestPaymentStatus === 'pending' ||
-        (latestPaymentStatus === 'approved' &&
-          (!businessResult.data.is_active ||
-            String(businessResult.data.approval_status || '').toLowerCase() !== 'approved')))
+      (
+        latestPaymentStatus === 'pending' ||
+        (
+          latestPaymentStatus === 'approved' &&
+          (
+            eventId
+              ? eventResult.data.status !== 'published'
+              : (!businessResult.data.is_active ||
+                 String(businessResult.data.approval_status || '').toLowerCase() !== 'approved')
+          )
+        )
+      )
     ) {
       setAlreadySubmitted(true);
       if (pendingPayment.plan_id && String(pendingPayment.plan_id) !== String(planResult.data.id)) {
