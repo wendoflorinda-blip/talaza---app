@@ -43,6 +43,16 @@ export default function Eventos() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [view, setView] = useState('browse');
+  const [events, setEvents] = useState([]);
+  const [likesByEvent, setLikesByEvent] = useState({});
+  const [likedByMe, setLikedByMe] = useState({});
+  const [commentsByEvent, setCommentsByEvent] = useState({});
+  const [commentDrafts, setCommentDrafts] = useState({});
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [interactionBusy, setInteractionBusy] = useState('');
+  const [feedError, setFeedError] = useState('');
+  const [feedNotice, setFeedNotice] = useState('');
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -167,6 +177,101 @@ export default function Eventos() {
       cancelled = true;
     };
   }, [router.isReady, router.query]);
+
+  async function loadEvents() {
+    setFeedLoading(true);
+    setFeedError('');
+    try {
+      let query = supabase.from('events').select('id,user_id,country_id,province_id,title,description,event_type,image_url,location,starts_at,expires_at,status,payment_status,admin_approved,created_at').eq('status', 'published').eq('payment_status', 'paid').eq('admin_approved', true).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(60);
+      if (provinceId) query = query.eq('province_id', provinceId);
+      if (countryId) query = query.eq('country_id', countryId);
+      const { data, error: eventsError } = await query;
+      if (eventsError) throw eventsError;
+      const rows = data || [];
+      setEvents(rows);
+      if (!rows.length) {
+        setLikesByEvent({});
+        setLikedByMe({});
+        setCommentsByEvent({});
+        return;
+      }
+      const ids = rows.map(row => row.id);
+      const [{ data: likes, error: likesError }, { data: comments, error: commentsError }] = await Promise.all([
+        supabase.from('event_likes').select('event_id,user_id').in('event_id', ids),
+        supabase.from('event_comments').select('id,event_id,user_id,content,created_at').in('event_id', ids).eq('status', 'published').order('created_at', { ascending: true })
+      ]);
+      if (likesError) throw likesError;
+      if (commentsError) throw commentsError;
+      const counts = {};
+      const mine = {};
+      (likes || []).forEach(row => {
+        counts[row.event_id] = (counts[row.event_id] || 0) + 1;
+        if (user && row.user_id === user.id) mine[row.event_id] = true;
+      });
+      setLikesByEvent(counts);
+      setLikedByMe(mine);
+      setCommentsByEvent((comments || []).reduce((acc, row) => {
+        (acc[row.event_id] ||= []).push(row);
+        return acc;
+      }, {}));
+    } catch (err) {
+      setFeedError(err.message || 'Não foi possível carregar os eventos. Confirme as políticas RLS.');
+    } finally {
+      setFeedLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!router.isReady || loading) return;
+    loadEvents();
+  }, [router.isReady, loading, provinceId, countryId, user?.id]);
+
+  async function toggleLike(eventId) {
+    if (!user) {
+      setFeedError('Inicia sessão na Talaza para gostar de um evento.');
+      return;
+    }
+    setInteractionBusy('like:' + eventId);
+    setFeedError('');
+    setFeedNotice('');
+    try {
+      if (likedByMe[eventId]) {
+        const { error: removeError } = await supabase.from('event_likes').delete().eq('event_id', eventId).eq('user_id', user.id);
+        if (removeError) throw removeError;
+      } else {
+        const { error: addError } = await supabase.from('event_likes').insert({ event_id: eventId, user_id: user.id });
+        if (addError && addError.code !== '23505') throw addError;
+      }
+      await loadEvents();
+    } catch (err) {
+      setFeedError(err.message || 'Não foi possível atualizar o gosto.');
+    } finally {
+      setInteractionBusy('');
+    }
+  }
+
+  async function submitComment(eventId) {
+    if (!user) {
+      setFeedError('Inicia sessão na Talaza para comentar.');
+      return;
+    }
+    const content = String(commentDrafts[eventId] || '').trim();
+    if (!content) return;
+    setInteractionBusy('comment:' + eventId);
+    setFeedError('');
+    setFeedNotice('');
+    try {
+      const { error: insertError } = await supabase.from('event_comments').insert({ event_id: eventId, user_id: user.id, content, status: 'published' });
+      if (insertError) throw insertError;
+      setCommentDrafts(previous => ({ ...previous, [eventId]: '' }));
+      await loadEvents();
+      setFeedNotice('Comentário publicado.');
+    } catch (err) {
+      setFeedError(err.message || 'Não foi possível publicar o comentário.');
+    } finally {
+      setInteractionBusy('');
+    }
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -363,8 +468,57 @@ export default function Eventos() {
           </div>
         </section>
 
-        <section style={styles.card}>
-          <h2 style={styles.sectionTitle}>Dados do evento</h2>
+        <nav style={styles.tabs} aria-label="Área de Eventos">
+          <button type="button" onClick={() => { setView('browse'); setFeedError(''); setFeedNotice(''); }} style={{ ...styles.tab, ...(view === 'browse' ? styles.activeTab : {}) }}>Ver eventos</button>
+          <button type="button" onClick={() => { setView('publish'); setFeedError(''); setFeedNotice(''); }} style={{ ...styles.tab, ...(view === 'publish' ? styles.activeTab : {}) }}>Publicar eventos</button>
+        </nav>
+
+        {view === 'browse' && (
+          <section style={styles.feedSection}>
+            <h2 style={styles.sectionTitle}>Eventos aprovados</h2>
+            <p style={styles.muted}>Descobre o que está a acontecer na tua província. Podes gostar, comentar e falar com o organizador através das mensagens internas da Talaza.</p>
+            {feedError && <div style={styles.error}>{feedError}</div>}
+            {feedNotice && <div style={styles.success}>{feedNotice}</div>}
+            {feedLoading && <p style={styles.muted}>A carregar eventos...</p>}
+            {!feedLoading && events.length === 0 && <div style={styles.notice}>Ainda não existem eventos aprovados e ativos nesta província.</div>}
+            <div style={styles.eventList}>
+              {events.map(item => (
+                <article key={item.id} style={styles.eventCard}>
+                  {item.image_url && <img src={item.image_url} alt={item.title} style={styles.eventImage} />}
+                  <div style={styles.eventBody}>
+                    <div style={styles.eventMeta}>{item.event_type || 'Evento'}{item.location ? ' · ' + item.location : ''}</div>
+                    <h3 style={styles.eventTitle}>{item.title}</h3>
+                    <p style={styles.eventDescription}>{item.description}</p>
+                    {item.starts_at && <p style={styles.eventMeta}>📅 {new Date(item.starts_at).toLocaleString('pt-AO')}</p>}
+                    <div style={styles.eventActions}>
+                      <button type="button" disabled={interactionBusy === 'like:' + item.id} onClick={() => toggleLike(item.id)} style={{ ...styles.actionButton, ...(likedByMe[item.id] ? styles.likedButton : {}) }}>
+                        {likedByMe[item.id] ? '♥ Gostaste' : '♡ Gostar'} · {likesByEvent[item.id] || 0}
+                      </button>
+                      {user && item.user_id !== user.id && <button type="button" onClick={() => router.push({ pathname: '/mensagens', query: { to: item.user_id, source: 'Eventos', sourceId: item.id } })} style={styles.messageButton}>Enviar mensagem</button>}
+                    </div>
+                    <div style={styles.comments}>
+                      <strong>Comentários ({(commentsByEvent[item.id] || []).length})</strong>
+                      {(commentsByEvent[item.id] || []).map(comment => (
+                        <div key={comment.id} style={styles.comment}>
+                          <p style={styles.commentText}>{comment.content}</p>
+                          <span style={styles.eventMeta}>{new Date(comment.created_at).toLocaleString('pt-AO')}</span>
+                        </div>
+                      ))}
+                      <form onSubmit={(e) => { e.preventDefault(); submitComment(item.id); }} style={styles.commentForm}>
+                        <input aria-label="Escrever comentário" maxLength={2000} value={commentDrafts[item.id] || ''} onChange={e => setCommentDrafts(previous => ({ ...previous, [item.id]: e.target.value }))} placeholder={user ? 'Escreve um comentário...' : 'Inicia sessão para comentar'} style={styles.commentInput} />
+                        <button type="submit" disabled={!user || interactionBusy === 'comment:' + item.id || !String(commentDrafts[item.id] || '').trim()} style={styles.messageButton}>{interactionBusy === 'comment:' + item.id ? 'A enviar…' : 'Comentar'}</button>
+                      </form>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {view === 'publish' && <section style={styles.card}>
+          <h2 style={styles.sectionTitle}>Publicar eventos</h2>
+          <p style={styles.muted}>Esta área destina-se a quem tem um evento a anunciar: vendas de livros, shows, atividades, entre outros.</p>
 
           {loading && <p style={styles.muted}>A carregar dados...</p>}
 
@@ -520,13 +674,33 @@ export default function Eventos() {
                 : 'Submeter evento'}
             </button>
           </form>
-        </section>
+        </section>}
       </div>
     </main>
   );
 }
 
 const styles = {
+  tabs: { display: 'flex', gap: 10, marginBottom: 18, padding: 5, background: '#EAF1EE', borderRadius: 14 },
+  tab: { flex: 1, border: 0, borderRadius: 10, padding: '12px 14px', background: 'transparent', color: '#35534B', fontWeight: 800, cursor: 'pointer' },
+  activeTab: { background: '#075B4E', color: '#FFFFFF', boxShadow: '0 3px 10px rgba(7,91,78,.18)' },
+  feedSection: { background: '#FFFFFF', border: '1px solid #E5EBE8', borderRadius: 18, padding: 20, marginBottom: 20 },
+  eventList: { display: 'grid', gap: 18, marginTop: 18 },
+  eventCard: { border: '1px solid #E4EAE7', borderRadius: 16, overflow: 'hidden', background: '#FFFFFF' },
+  eventImage: { display: 'block', width: '100%', maxHeight: 360, objectFit: 'cover', background: '#F1F5F3' },
+  eventBody: { padding: 18 },
+  eventMeta: { color: '#687772', fontSize: 12, lineHeight: 1.5 },
+  eventTitle: { margin: '6px 0 8px', fontSize: 22, color: '#12332D' },
+  eventDescription: { whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: '8px 0 14px', color: '#344C45' },
+  eventActions: { display: 'flex', flexWrap: 'wrap', gap: 10, margin: '14px 0' },
+  actionButton: { border: '1px solid #D6E3DD', borderRadius: 10, padding: '9px 13px', background: '#FFFFFF', color: '#075B4E', fontWeight: 800, cursor: 'pointer' },
+  likedButton: { background: '#FFF0F0', borderColor: '#F3C4C4', color: '#B42332' },
+  messageButton: { border: 0, borderRadius: 10, padding: '10px 14px', background: '#075B4E', color: '#FFFFFF', fontWeight: 800, cursor: 'pointer' },
+  comments: { marginTop: 16, borderTop: '1px solid #E8EEEB', paddingTop: 14 },
+  comment: { marginTop: 10, padding: 12, background: '#F7F9F8', borderRadius: 10 },
+  commentText: { margin: '0 0 5px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' },
+  commentForm: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  commentInput: { flex: '1 1 200px', minWidth: 0, border: '1px solid #D9E3DE', borderRadius: 10, padding: '11px 12px', font: 'inherit' },
   page: {
     minHeight: '100vh',
     background: '#F8F6F3',
