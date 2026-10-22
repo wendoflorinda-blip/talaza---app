@@ -1379,7 +1379,7 @@ export default function Comunidade() {
                     <h3 style={{ margin: 0, fontSize: 'clamp(18px,3vw,30px)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>{item.title || item.content}</h3>
                     <small style={{ opacity: .85 }}>{new Date(item.created_at).toLocaleDateString('pt-PT')}</small>
                   </div>
-                  <div style={{ position: 'absolute', marginTop: 155, alignSelf: 'flex-end', padding: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
                     <button type="button" onClick={() => toggleOfficialLike(item, 'motivation')} style={{ ...buttonStyle, background: officialInteractions[item.id]?.liked ? C.purpleSoft : 'rgba(255,255,255,.92)', color: officialInteractions[item.id]?.liked ? C.purple : C.ink, border: '1px solid rgba(255,255,255,.6)' }}>{officialInteractions[item.id]?.liked ? '♥ Gostaste' : '♡ Gostar'} · {officialInteractions[item.id]?.likes || 0}</button>
                   </div>
                 </Panel>
