@@ -288,18 +288,15 @@ export default function Oportunidades() {
 
   function goToPlan() {
     const query = new URLSearchParams();
-
-    query.set('planId', OPPORTUNITY_PLAN_ID);
-
-    if (country) {
-      query.set('country', country);
-    }
-
-    if (province) {
-      query.set('province', province);
-    }
-
-    router.push(`/planos?${query.toString()}`);
+    query.set('plan', OPPORTUNITY_PLAN_ID);
+    query.set('subscription', 'opportunities');
+    if (country) query.set('country_id', country);
+    if (province) query.set('province_id', province);
+    query.set('returnTo', '/oportunidades' + (country || province ? '?' + new URLSearchParams({
+      ...(country ? { country } : {}),
+      ...(province ? { province } : {})
+    }).toString() : ''));
+    router.push(`/Pagamento?${query.toString()}`);
   }
 
   const exploreUrl = `/explore?country=${encodeURIComponent(
