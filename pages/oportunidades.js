@@ -183,6 +183,21 @@ export default function Oportunidades() {
 
   async function checkOpportunityAccess(userId) {
     try {
+      // O plano desbloqueia exclusivamente a província principal guardada no perfil.
+      // Selecionar outra província na navegação não deve conceder acesso nessa região.
+      const { data: mainProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('country_id, province_id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profileError || !mainProfile?.province_id || !province) {
+        if (profileError) console.error('Não foi possível consultar a província principal:', profileError);
+        return false;
+      }
+      if (String(mainProfile.province_id) !== String(province)) return false;
+      if (mainProfile.country_id && country && String(mainProfile.country_id) !== String(country)) return false;
+
       const { data, error: subscriptionError } = await supabase
         .from('user_plan_subscriptions')
         .select(`
