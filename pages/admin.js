@@ -443,12 +443,15 @@ export default function Admin() {
   async function moderateJob(post, approved) {
     const reason = approved ? '' : window.prompt('Indique o motivo da recusa da oportunidade:');
     if (!approved && (!reason || !reason.trim())) return;
-    const patch = approved ? { status: 'published', is_active: true } : { status: 'rejected', is_active: false };
+    const alreadyPaid = ['approved', 'paid', 'completed'].includes(String(post.payment_status || '').toLowerCase());
+    const patch = approved
+      ? { status: alreadyPaid ? 'published' : 'pending_payment', is_active: alreadyPaid, admin_approved: true }
+      : { status: 'rejected', is_active: false, admin_approved: false };
     const { data, error } = await supabase.from('job_posts').update(patch).eq('id', post.id).select('id, user_id').maybeSingle();
     if (error || !data) { alert('Não foi possível atualizar a oportunidade: ' + (error?.message || 'Nenhuma linha foi alterada.')); return; }
-    await notifyUser(data.user_id || post.user_id, approved ? 'Oportunidade aprovada' : 'Oportunidade recusada', approved ? 'A sua oportunidade foi aprovada pela Talaza.' : 'A sua oportunidade foi recusada. Motivo: ' + reason.trim(), 'opportunity_review');
+    await notifyUser(data.user_id || post.user_id, approved ? 'Oportunidade aprovada pela Talaza' : 'Oportunidade recusada', approved ? (alreadyPaid ? 'A sua oportunidade foi aprovada e publicada.' : 'A sua oportunidade passou na análise administrativa. Para ser publicada, falta confirmar o pagamento.') : 'A sua oportunidade foi recusada. Motivo: ' + reason.trim(), 'opportunity_review');
     await loadJobPosts();
-    alert(approved ? 'Oportunidade aprovada.' : 'Oportunidade recusada e motivo enviado nas notificações.');
+    alert(approved ? (alreadyPaid ? 'Oportunidade aprovada e publicada.' : 'Oportunidade aprovada na análise; permanece pendente do pagamento.') : 'Oportunidade recusada e motivo enviado nas notificações.');
   }
 
   async function publishOfficialCommunityContent() {
