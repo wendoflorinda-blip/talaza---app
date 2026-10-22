@@ -74,8 +74,26 @@ export default function Subcategory() {
   const [historyItems, setHistoryItems] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
 
+  const historyStorageKey = 'talaza_history_subcategory_' + String(id || '') + '_' + String(province || 'all');
+
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [premiumIndex, setPremiumIndex] = useState(0);
+
+  useEffect(() => {
+    if (!router.isReady || !id) return;
+    try {
+      const saved = sessionStorage.getItem(historyStorageKey);
+      setHistoryItems(saved ? JSON.parse(saved) : []);
+    } catch {
+      setHistoryItems([]);
+    }
+  }, [router.isReady, id, province]);
+
+  function clearSubcategoryHistory() {
+    try { sessionStorage.removeItem(historyStorageKey); } catch {}
+    setHistoryItems([]);
+    setShowHistory(false);
+  }
 
   function trackBusinessAction(business) {
     if (!business?.id) return;
@@ -88,6 +106,7 @@ export default function Subcategory() {
         at: new Date().toISOString(),
         href: makeBusinessHref(business.id, country, province, id)
       }, ...previous.filter(item => item.id !== business.id)].slice(0, 100);
+      try { sessionStorage.setItem(historyStorageKey, JSON.stringify(next)); } catch {}
       return next;
     });
   }
@@ -347,7 +366,7 @@ export default function Subcategory() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <button type="button" onClick={() => setShowHistory(value => !value)} style={{ border: '1px solid #D7C3EA', background: '#F0E7F7', color: '#64358B', borderRadius: 10, padding: '9px 12px', fontWeight: 800, cursor: 'pointer', fontSize: 12 }}>◷ Ver histórico ({historyItems.length})</button>
-            <Link href={getBackHref()} className="backLink">← Voltar à Vitrine</Link>
+            <Link href={getBackHref()} className="backLink" onClick={clearSubcategoryHistory}>← Voltar às subcategorias</Link>
           </div>
         </header>
 
