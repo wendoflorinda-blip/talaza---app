@@ -423,7 +423,10 @@ export default function Pagamento() {
   /* Comprovativo enviado */
   if (done) {
     return (
-      <AuthShell backHref={panelHref} backLabel="Painel">
+      <AuthShell
+        backHref={eventRecord ? { pathname: '/eventos', query: { country_id: eventRecord.country_id, province_id: eventRecord.province_id } } : panelHref}
+        backLabel={eventRecord ? 'Voltar aos eventos' : 'Painel'}
+      >
         <Head>
           <title>Comprovativo enviado | Talaza</title>
         </Head>
@@ -461,7 +464,7 @@ export default function Pagamento() {
                 lineHeight: 1.6,
               }}
             >
-              O seu perfil foi criado, mas ainda não está visível para os clientes. A visibilidade só será ativada depois de a equipa Talaza verificar o comprovativo, confirmar o pagamento e aprovar o negócio.
+              {eventRecord ? 'O seu anúncio ficará ativo assim que o seu pagamento for aprovado. Aguarde.' : 'O seu perfil foi criado, mas ainda não está visível para os clientes. A visibilidade só será ativada depois de a equipa Talaza verificar o comprovativo, confirmar o pagamento e aprovar o negócio.'}
             </p>
 
             <Link
@@ -478,7 +481,7 @@ export default function Pagamento() {
                 textDecoration: 'none',
               }}
             >
-              Ir para o painel
+              {eventRecord ? 'Voltar à área de Eventos' : 'Ir para o painel'}
             </Link>
           </div>
         </Card>
@@ -489,10 +492,10 @@ export default function Pagamento() {
   return (
     <AuthShell
       backHref={{
-        pathname: '/impulsionar',
-        query: businessId ? { business: businessId } : {},
+        pathname: eventRecord ? '/eventos' : '/impulsionar',
+        query: eventRecord ? { country_id: eventRecord.country_id, province_id: eventRecord.province_id } : businessId ? { business: businessId } : {},
       }}
-      backLabel="← Planos"
+      backLabel={eventRecord ? '← Voltar aos eventos' : '← Planos'}
     >
       <Head>
         <title>Pagamento | Talaza</title>
