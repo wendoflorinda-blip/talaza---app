@@ -1555,6 +1555,20 @@ export default function Admin() {
             <textarea id="notification-body" value={notificationBody} onChange={event => setNotificationBody(event.target.value)} rows={5} maxLength={5000} required style={{ ...styles.formInput, resize: 'vertical' }} placeholder="Escreva a mensagem que será mostrada na área de notificações." />
             <div style={styles.actions}><button type="submit" disabled={sendingNotification} style={{ ...styles.approve, opacity: sendingNotification ? .7 : 1 }}>{sendingNotification ? 'A enviar…' : 'Enviar notificação'}</button></div>
           </form>
+          <div style={{ ...styles.titleRow, marginTop: 26, marginBottom: 12 }}>
+            <div><h3 style={{ ...styles.title, fontSize: 20 }}>Histórico de notificações</h3><p style={styles.description}>Edite, copie ou elimine uma notificação já enviada.</p></div>
+            <span style={styles.counter}>{adminNotifications.length} recentes</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+            {[[ 'all', 'Todas' ], [ 'general', 'Todos' ], [ 'explorers', 'Exploradores' ], [ 'sellers', 'Vendedores' ], [ 'individual', 'Individuais' ]].map(([value,label]) => <button key={value} type="button" onClick={() => setNotificationHistoryFilter(value)} style={{ padding: '9px 13px', borderRadius: 999, border: notificationHistoryFilter === value ? '1px solid #64358B' : '1px solid #DDE5E0', background: notificationHistoryFilter === value ? 'linear-gradient(135deg,#075B4E,#64358B)' : '#FFFFFF', color: notificationHistoryFilter === value ? '#FFFFFF' : '#244A42', fontWeight: 800, cursor: 'pointer' }}>{label}</button>)}
+          </div>
+          {adminNotifications.filter(item => notificationHistoryFilter === 'all' || String(item.type || 'general').toLowerCase() === notificationHistoryFilter).length === 0
+            ? <div style={styles.empty}><p>Não existem notificações nesta categoria.</p></div>
+            : <div style={styles.list}>{adminNotifications.filter(item => notificationHistoryFilter === 'all' || String(item.type || 'general').toLowerCase() === notificationHistoryFilter).map(item => <article key={item.id} style={{ ...styles.card, borderLeft: '5px solid #64358B', background: 'linear-gradient(135deg,#FFFFFF 0%,#F7F2FC 100%)' }}>
+              <div style={styles.cardTop}><div style={{ ...styles.logoPlaceholder, background: 'linear-gradient(135deg,#075B4E,#64358B)', color: '#FFFFFF' }}>N</div><div style={{ flex: 1, minWidth: 0 }}><h4 style={styles.businessName}>{item.title || 'Notificação Talaza'}</h4><div style={styles.meta}>{item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : 'Data indisponível'} · {item.type || 'general'} · {item.user_id ? 'Destinatário: ' + String(item.user_id).slice(0,8) : 'Sem destinatário'}</div></div></div>
+              <div style={styles.details}><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{item.content || item.body || ''}</p></div>
+              <div style={{ ...styles.actions, flexWrap: 'wrap' }}><button type="button" style={styles.proofLink} onClick={() => copyText((item.title || '') + '\n' + (item.content || item.body || ''))}>Copiar</button><button type="button" style={styles.button} onClick={() => editAdminNotification(item)}>Editar</button><button type="button" disabled={deletingNotificationId === item.id} style={styles.reject} onClick={() => deleteAdminNotification(item)}>{deletingNotificationId === item.id ? 'A eliminar…' : 'Eliminar'}</button></div>
+            </article>)}</div>}
         </section>
 
         <section id="denuncias" style={{ marginTop: 0, display: activeAdminSection === 'denuncias' ? 'block' : 'none' }}>
