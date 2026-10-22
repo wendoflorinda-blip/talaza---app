@@ -132,11 +132,12 @@ function UploadBox({ id, icon, title, hint, accept, file, thumb, onPick }) {
 
 export default function Pagamento() {
   const router = useRouter();
-  const { plan: planId, business: businessId } = router.query;
+  const { plan: planId, business: businessId, event_id: eventId } = router.query;
 
   const [user, setUser] = useState(null);
   const [plan, setPlan] = useState(null);
   const [business, setBusiness] = useState(null);
+  const [eventRecord, setEventRecord] = useState(null);
 
   const [imageFile, setImageFile] = useState(null);
   const [imageThumb, setImageThumb] = useState('');
@@ -152,13 +153,13 @@ export default function Pagamento() {
   useEffect(() => {
     if (!router.isReady) return;
 
-    if (!planId || !businessId) {
+    if (!planId || (!businessId && !eventId)) {
       router.replace('/impulsionar');
       return;
     }
 
     load();
-  }, [router.isReady, planId, businessId]);
+  }, [router.isReady, planId, businessId, eventId]);
 
   async function load() {
     setLoading(true);
@@ -175,14 +176,14 @@ export default function Pagamento() {
 
     setUser(session.user);
 
-    const [planResult, businessResult] = await Promise.all([
+    const [planResult, businessResult, eventResult] = await Promise.all([
       supabase.from('plans').select('*').eq('id', planId).maybeSingle(),
-      supabase
-        .from('businesses')
-        .select('id, name, country_id, province_id, is_active, approval_status')
-        .eq('id', businessId)
-        .eq('owner_id', session.user.id)
-        .maybeSingle(),
+      businessId
+        ? supabase.from('businesses').select('id, name, country_id, province_id, is_active, approval_status').eq('id', businessId).eq('owner_id', session.user.id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      eventId
+        ? supabase.from('events').select('id,user_id,plan_id,title,country_id,province_id,status,payment_status,expires_at').eq('id', eventId).eq('user_id', session.user.id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
     if (planResult.error || !planResult.data) {
@@ -192,23 +193,40 @@ export default function Pagamento() {
       return;
     }
 
-    if (businessResult.error || !businessResult.data) {
+    const subject = eventId ? eventResult.data : businessResult.data;
+    if (eventId && (eventResult.error || !eventResult.data)) {
+      setError('Não foi possível encontrar o evento desta conta.');
+      setLoading(false);
+      return;
+    }
+    if (businessId && (businessResult.error || !businessResult.data)) {
       console.error(businessResult.error);
       setError('Não foi possível encontrar o seu negócio.');
+      setLoading(false);
+      return;
+    }
+    if (!subject) {
+      setError('Não foi possível encontrar o anúncio associado a este pagamento.');
+      setLoading(false);
+      return;
+    }
+    if (eventId && (String(eventResult.data.plan_id) !== String(planId) || eventResult.data.status !== 'pending_payment' || eventResult.data.payment_status !== 'pending')) {
+      setError('Este evento não está pendente de pagamento para o plano selecionado.');
       setLoading(false);
       return;
     }
 
     setPlan(planResult.data);
     setBusiness(businessResult.data);
+    setEventRecord(eventResult.data || null);
 
-    const { data: pendingPayment, error: pendingPaymentError } = await supabase
+    let pendingQuery = supabase
       .from('payment_submissions')
       .select('id, plan_id, status, created_at')
-      .eq('business_id', businessResult.data.id)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+    pendingQuery = eventId ? pendingQuery.eq('event_id', eventId) : pendingQuery.eq('business_id', businessResult.data.id);
+    const { data: pendingPayment, error: pendingPaymentError } = await pendingQuery.maybeSingle();
     if (pendingPaymentError) console.error('Erro ao verificar comprovativo já enviado:', pendingPaymentError);
     const latestPaymentStatus = String(pendingPayment?.status || '').toLowerCase();
     if (
@@ -265,7 +283,7 @@ export default function Pagamento() {
       return;
     }
 
-    if (!user?.id || !business?.id || !plan?.id) {
+    if (!user?.id || (!business?.id && !eventRecord?.id) || !plan?.id) {
       setError('A sessão ou os dados do pagamento expiraram. Atualize a página e tente novamente.');
       return;
     }
@@ -317,7 +335,8 @@ export default function Pagamento() {
 
       submissionStage = 'guardar o pedido na tabela payment_submissions';
       const submission = {
-        business_id: business.id,
+        business_id: business?.id || null,
+        event_id: eventRecord?.id || null,
         plan_id: plan.id,
         user_id: session.user.id,
         amount: Number(plan.price),
@@ -382,7 +401,9 @@ export default function Pagamento() {
         pathname: '/seller',
         query: { country: business.country_id, province: business.province_id },
       }
-    : '/seller';
+    : eventRecord
+      ? { pathname: '/eventos', query: { country_id: eventRecord.country_id, province_id: eventRecord.province_id } }
+      : '/seller';
 
   /* Comprovativo enviado */
   if (done) {
@@ -479,7 +500,7 @@ export default function Pagamento() {
               </div>
               <div style={{ marginTop: 12, padding: 16, borderRadius: 14, background: C.soft, border: `1px solid ${C.line}` }}>
                 <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>NEGÓCIO</p>
-                <strong style={{ display: 'block', color: C.ink, marginBottom: 14 }}>{cleanText(business?.name)}</strong>
+                <strong style={{ display: 'block', color: C.ink, marginBottom: 14 }}>{cleanText(eventRecord?.title || business?.name || 'Anúncio Talaza')}</strong>
                 <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>PLANO ESCOLHIDO</p>
                 <strong style={{ display: 'block', color: C.ink, marginBottom: 14 }}>Plano {termName(plan.duration_days)} · {durationLabel(plan.duration_days)}</strong>
                 <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>VALOR DO PLANO</p>
@@ -536,7 +557,7 @@ export default function Pagamento() {
             </strong>
           </div>
 
-          {business && (
+          {(business || eventRecord) && (
             <p
               style={{
                 margin: '8px 4px 0',
@@ -544,7 +565,7 @@ export default function Pagamento() {
                 fontSize: 13,
               }}
             >
-              Para: {cleanText(business.name)}
+              Para: {cleanText(eventRecord?.title || business?.name || 'Anúncio Talaza')}
             </p>
           )}
 

@@ -512,7 +512,37 @@ export default function Admin() {
       return;
     }
 
-    if (approved && request.business_id && request.plan_id) {
+    if (request.event_id && request.plan_id) {
+      const [{ data: eventRecord, error: eventError }, { data: eventPlan, error: eventPlanError }] = await Promise.all([
+        supabase.from('events').select('id,user_id,admin_approved,status').eq('id', request.event_id).maybeSingle(),
+        supabase.from('plans').select('duration_days,plan_type,area,is_active').eq('id', request.plan_id).maybeSingle()
+      ]);
+      if (eventError || eventPlanError || !eventRecord || !eventPlan) {
+        alert('O pagamento foi analisado, mas não foi possível confirmar o evento e o plano. Verifique o registo antes de ativar.');
+      } else if (
+        approved &&
+        eventPlan.is_active === true &&
+        String(eventPlan.plan_type || '').trim().toLowerCase() === 'publicação ativa' &&
+        String(eventPlan.area || '').trim().toLowerCase() === 'eventos área' &&
+        Number(eventPlan.duration_days) > 0
+      ) {
+        const expiresAt = new Date(Date.now() + Number(eventPlan.duration_days) * 86400000).toISOString();
+        const patch = {
+          payment_status: 'paid',
+          status: eventRecord.admin_approved ? 'published' : 'pending_review',
+          expires_at: expiresAt
+        };
+        const { error: activationError } = await supabase.from('events').update(patch).eq('id', request.event_id);
+        if (activationError) alert('Pagamento aprovado, mas não foi possível atualizar o evento: ' + activationError.message);
+      } else if (!approved) {
+        const { error: resetError } = await supabase.from('events').update({
+          payment_status: 'pending',
+          status: 'pending_payment',
+          expires_at: null
+        }).eq('id', request.event_id);
+        if (resetError) alert('O pagamento foi recusado, mas não foi possível atualizar o estado do evento: ' + resetError.message);
+      }
+    } else if (approved && request.business_id && request.plan_id) {
       const [{ data: business, error: businessError }, { data: plan, error: planError }] = await Promise.all([
         supabase.from('businesses').select('approval_status').eq('id', request.business_id).maybeSingle(),
         supabase.from('plans').select('duration_days').eq('id', request.plan_id).maybeSingle()
@@ -532,7 +562,7 @@ export default function Admin() {
       await supabase.from('businesses').update({ is_active: false }).eq('id', request.business_id);
     }
 
-    await notifyUser(request.user_id, approved ? 'Pagamento aprovado — Talaza' : 'Comprovativo recusado — Talaza', approved ? 'O seu pagamento foi aprovado. A equipa Talaza está a atualizar a hospedagem do seu perfil.' : 'O comprovativo do seu pagamento foi recusado. Motivo: ' + rejectionReason.trim() + ' Pode corrigir e enviar novamente.', 'payment_review');
+    await notifyUser(request.user_id, approved ? 'Pagamento aprovado — Talaza' : 'Comprovativo recusado — Talaza', approved ? (request.event_id ? 'O pagamento do seu anúncio de evento foi aprovado. A publicação ficará visível depois de aprovada pela equipa Talaza.' : 'O seu pagamento foi aprovado. A equipa Talaza está a atualizar a hospedagem do seu perfil.') : 'O comprovativo do seu pagamento foi recusado. Motivo: ' + rejectionReason.trim() + ' Pode corrigir e enviar novamente.', 'payment_review');
     await loadSubscriptionRequests();
     await loadBusinesses();
     setReviewingPaymentId('');
