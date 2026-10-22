@@ -77,17 +77,6 @@ export default function Subcategory() {
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [premiumIndex, setPremiumIndex] = useState(0);
 
-  useEffect(() => {
-    if (!router.isReady || !id) return;
-    try {
-      const key = 'talaza_history_subcategory_' + String(id) + '_' + String(province || 'all');
-      const saved = sessionStorage.getItem(key);
-      setHistoryItems(saved ? JSON.parse(saved) : []);
-    } catch {
-      setHistoryItems([]);
-    }
-  }, [router.isReady, id, province]);
-
   function trackBusinessAction(business) {
     if (!business?.id) return;
     setHistoryItems(previous => {
@@ -99,10 +88,6 @@ export default function Subcategory() {
         at: new Date().toISOString(),
         href: makeBusinessHref(business.id, country, province, id)
       }, ...previous.filter(item => item.id !== business.id)].slice(0, 100);
-      try {
-        const key = 'talaza_history_subcategory_' + String(id) + '_' + String(province || 'all');
-        sessionStorage.setItem(key, JSON.stringify(next));
-      } catch {}
       return next;
     });
   }
@@ -325,12 +310,18 @@ export default function Subcategory() {
   }
 
   function getBackHref() {
-    const params = new URLSearchParams();
+    const categoryId = subcategory?.category_id;
+    if (!categoryId) {
+      const params = new URLSearchParams();
+      if (country) params.set('country', country);
+      if (province) params.set('province', province);
+      return `/explore${params.toString() ? `?${params.toString()}` : ''}`;
+    }
 
-    if (country) params.set('country', country);
-    if (province) params.set('province', province);
-
-    return `/explore${params.toString() ? `?${params.toString()}` : ''}`;
+    const params = new URLSearchParams({ id: String(categoryId) });
+    if (country) params.set('country', String(country));
+    if (province) params.set('province', String(province));
+    return `/category?${params.toString()}`;
   }
 
   return (
