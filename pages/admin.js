@@ -1523,7 +1523,7 @@ export default function Admin() {
                   <span style={String(item.status || 'pending') === 'pending' ? styles.pending : styles.paymentStatus}>{item.status || 'pending'}</span>
                 </div>
                 <div style={styles.details}><p style={{ whiteSpace: 'pre-wrap' }}>{item.message}</p><p><strong>ID do utilizador:</strong> {item.user_id}</p></div>
-                <div style={styles.actions}>{String(item.status || 'pending') === 'pending' && <button type="button" style={styles.approve} onClick={() => markSupportReviewed(item)}>Marcar como analisada</button>}<button type="button" disabled={deletingSupportId === item.id} style={styles.reject} onClick={() => deleteSupportMessage(item)}>{deletingSupportId === item.id ? 'A eliminar…' : 'Eliminar mensagem'}</button></div>
+                <div style={styles.actions}><button type="button" style={styles.proofLink} onClick={() => copyText(item.message || '')}>Copiar</button><button type="button" style={styles.button} onClick={() => editSupportMessage(item)}>Editar</button>{String(item.status || 'pending') === 'pending' && <button type="button" style={styles.approve} onClick={() => markSupportReviewed(item)}>Marcar como analisada</button>}<button type="button" disabled={deletingSupportId === item.id} style={styles.reject} onClick={() => deleteSupportMessage(item)}>{deletingSupportId === item.id ? 'A eliminar…' : 'Eliminar mensagem'}</button></div>
               </article>
             ))}</div>
           )}
