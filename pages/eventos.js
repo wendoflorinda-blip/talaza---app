@@ -14,6 +14,23 @@ const PLAN_DETAILS = {
   Trimestral: 'Maior período de divulgação para eventos recorrentes, grandes iniciativas e campanhas de longo prazo.'
 };
 
+function categoryTheme(type) {
+  const palette = [
+    { color: '#08745F', soft: '#E3F4ED' },
+    { color: '#64358B', soft: '#F0E7F7' },
+    { color: '#A77912', soft: '#FBF2D7' },
+    { color: '#2167A5', soft: '#E5F1FC' },
+    { color: '#B33B5A', soft: '#FCE9EF' },
+    { color: '#0C7C86', soft: '#E1F5F6' },
+    { color: '#5C6B24', soft: '#F0F4DD' },
+    { color: '#9A4F16', soft: '#FCEBDD' },
+    { color: '#5146A5', soft: '#EEECFF' },
+    { color: '#47606A', soft: '#E8F0F2' }
+  ];
+  const index = Math.max(0, EVENT_TYPES.indexOf(type || 'Geral'));
+  return palette[index % palette.length];
+}
+
 function firstValue(...values) {
   return values.find(
     (value) =>
@@ -519,7 +536,7 @@ export default function Eventos() {
                       : <img src={item.image_url} alt={item.title} style={styles.eventImage} />}
                   </div>}
                   <div style={styles.eventBody}>
-                    <div style={styles.eventMeta}>{item.event_type || 'Evento'}{item.location ? ' · ' + item.location : ''}</div>
+                    <div style={styles.eventMeta}><span style={{ ...styles.eventCategoryBadge, color: categoryTheme(item.event_type).color, background: categoryTheme(item.event_type).soft }}>{item.event_type || 'Geral'}</span>{item.location ? <span style={styles.eventLocation}>📍 {item.location}</span> : null}</div>
                     <h3 style={styles.eventTitle}>{item.title}</h3>
                     <p style={styles.eventDescription}>{item.description}</p>
                     {item.starts_at && <p style={styles.eventMeta}>📅 {new Date(item.starts_at).toLocaleString('pt-AO')}</p>}
@@ -673,7 +690,9 @@ const styles = {
   eventMedia: { display: 'block', width: '100%', aspectRatio: '16 / 9', maxHeight: 460, overflow: 'hidden', background: '#10221D', boxSizing: 'border-box' },
   eventImage: { display: 'block', width: '100%', height: '100%', aspectRatio: '16 / 9', objectFit: 'cover', background: '#10221D' },
   eventBody: { padding: 18 },
-  eventMeta: { color: '#687772', fontSize: 12, lineHeight: 1.5 },
+  eventMeta: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, color: '#687772', fontSize: 12, lineHeight: 1.5 },
+  eventCategoryBadge: { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '6px 10px', fontSize: 11, fontWeight: 900 },
+  eventLocation: { color: '#687772', fontSize: 12 },
   eventTitle: { margin: '6px 0 8px', fontSize: 22, color: '#12332D' },
   eventDescription: { whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: '8px 0 14px', color: '#344C45' },
   eventActions: { display: 'flex', flexWrap: 'wrap', gap: 10, margin: '14px 0' },
