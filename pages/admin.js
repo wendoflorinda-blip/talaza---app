@@ -182,7 +182,28 @@ export default function Admin() {
       return;
     }
 
-    setBusinesses(data || []);
+    // Só entra na fila de aprovação quando o perfil está completo e existe comprovativo de plano.
+    const { data: proofRows, error: proofError } = await supabase
+      .from('payment_submissions')
+      .select('business_id, plan_id, proof_url, status')
+      .not('proof_url', 'is', null);
+    if (proofError) {
+      console.error('Erro ao validar comprovativos dos negócios:', proofError);
+      setMessage('Não foi possível validar os comprovativos dos vendedores: ' + proofError.message);
+      setBusinesses([]);
+      return;
+    }
+    const readyBusinessIds = new Set((proofRows || [])
+      .filter((payment) => payment.business_id && payment.plan_id && String(payment.proof_url || '').trim())
+      .map((payment) => payment.business_id));
+    setBusinesses((data || []).filter((business) =>
+      business.name?.trim() &&
+      business.country_id &&
+      business.province_id &&
+      business.category_id &&
+      business.subcategory_id &&
+      readyBusinessIds.has(business.id)
+    ));
   }
 
   async function loadSubscriptionRequests() {
@@ -196,7 +217,8 @@ export default function Admin() {
       setSubscriptionRequests([]);
       return;
     }
-    const requests = data || [];
+    // Comprovativos sem ficheiro não entram em nenhuma fila de aprovação.
+    const requests = (data || []).filter((item) => String(item.proof_url || '').trim());
     setSubscriptionRequests(requests);
 
     const businessIds = [...new Set(requests.map(item => item.business_id).filter(Boolean))];
@@ -409,15 +431,42 @@ export default function Admin() {
   }
 
   async function loadEvents() {
-    const { data, error } = await supabase.from('events').select('*').order('created_at', { ascending: false });
-    if (error) { console.error('Erro ao carregar eventos:', error); setMessage('Não foi possível carregar eventos: ' + error.message); setEvents([]); return; }
-    setEvents(data || []);
+    const [{ data, error }, { data: proofs, error: proofError }] = await Promise.all([
+      supabase.from('events').select('*').order('created_at', { ascending: false }),
+      supabase.from('payment_submissions').select('event_id, plan_id, proof_url').not('proof_url', 'is', null),
+    ]);
+    if (error || proofError) {
+      const issue = error || proofError;
+      console.error('Erro ao carregar eventos/comprovativos:', issue);
+      setMessage('Não foi possível carregar eventos completos e os seus comprovativos: ' + issue.message);
+      setEvents([]);
+      return;
+    }
+    const paidEventIds = new Set((proofs || []).filter((item) => item.event_id && item.plan_id && String(item.proof_url || '').trim()).map((item) => item.event_id));
+    setEvents((data || []).filter((item) =>
+      item.title?.trim() &&
+      item.description?.trim() &&
+      item.event_type?.trim() &&
+      item.country_id &&
+      item.province_id &&
+      item.location?.trim() &&
+      item.starts_at &&
+      (item.image_url || item.video_url) &&
+      paidEventIds.has(item.id)
+    ));
   }
 
   async function loadJobPosts() {
     const { data, error } = await supabase.from('job_posts').select('*').order('created_at', { ascending: false });
     if (error) { console.error('Erro ao carregar oportunidades:', error); setMessage('Não foi possível carregar oportunidades: ' + error.message); setJobPosts([]); return; }
-    setJobPosts(data || []);
+    // Contratar é gratuito: uma oportunidade só entra na fila quando o formulário essencial está completo.
+    setJobPosts((data || []).filter((item) =>
+      item.user_id &&
+      item.country_id &&
+      item.province_id &&
+      item.title?.trim() &&
+      item.description?.trim()
+    ));
   }
 
   async function notifyUser(userId, title, body, type = 'admin_review') {
@@ -443,15 +492,15 @@ export default function Admin() {
   async function moderateJob(post, approved) {
     const reason = approved ? '' : window.prompt('Indique o motivo da recusa da oportunidade:');
     if (!approved && (!reason || !reason.trim())) return;
-    const alreadyPaid = ['approved', 'paid', 'completed'].includes(String(post.payment_status || '').toLowerCase());
+    // Publicar uma vaga em Contratar é gratuito. O plano pago pertence a quem consulta Oportunidades.
     const patch = approved
-      ? { status: alreadyPaid ? 'published' : 'pending_payment', is_active: alreadyPaid, admin_approved: true }
+      ? { status: 'published', is_active: true, admin_approved: true }
       : { status: 'rejected', is_active: false, admin_approved: false };
     const { data, error } = await supabase.from('job_posts').update(patch).eq('id', post.id).select('id, user_id').maybeSingle();
     if (error || !data) { alert('Não foi possível atualizar a oportunidade: ' + (error?.message || 'Nenhuma linha foi alterada.')); return; }
-    await notifyUser(data.user_id || post.user_id, approved ? 'Oportunidade aprovada pela Talaza' : 'Oportunidade recusada', approved ? (alreadyPaid ? 'A sua oportunidade foi aprovada e publicada.' : 'A sua oportunidade passou na análise administrativa. Para ser publicada, falta confirmar o pagamento.') : 'A sua oportunidade foi recusada. Motivo: ' + reason.trim(), 'opportunity_review');
+    await notifyUser(data.user_id || post.user_id, approved ? 'Oportunidade aprovada pela Talaza' : 'Oportunidade recusada', approved ? 'A sua oportunidade foi aprovada e publicada gratuitamente em Contratar. A consulta na área Oportunidades continua reservada a quem tem plano ativo na sua província principal.' : 'A sua oportunidade foi recusada. Motivo: ' + reason.trim(), 'opportunity_review');
     await loadJobPosts();
-    alert(approved ? (alreadyPaid ? 'Oportunidade aprovada e publicada.' : 'Oportunidade aprovada na análise; permanece pendente do pagamento.') : 'Oportunidade recusada e motivo enviado nas notificações.');
+    alert(approved ? 'Oportunidade aprovada e publicada gratuitamente.' : 'Oportunidade recusada e motivo enviado nas notificações.');
   }
 
   async function publishOfficialCommunityContent() {
@@ -788,7 +837,7 @@ export default function Admin() {
       if (eventReadError || !event) {
         activationMessage += ' O pagamento foi aprovado, mas o evento associado não foi encontrado.';
       } else {
-        const eventPatch = { payment_status: 'approved' };
+        const eventPatch = { payment_status: 'paid' };
         if (event.admin_approved === true) eventPatch.status = 'published';
         const { error: eventUpdateError } = await supabase.from('events').update(eventPatch).eq('id', event.id);
         if (eventUpdateError) activationMessage += ' O pagamento foi aprovado, mas não foi possível atualizar o evento: ' + eventUpdateError.message;
@@ -1098,12 +1147,12 @@ export default function Admin() {
 
         <section id="eventos" style={{ marginTop: 42 }}>
           <div style={styles.titleRow}><div><h2 style={styles.title}>Eventos</h2><p style={styles.description}>Analise os eventos submetidos, consulte os detalhes e aprove ou recuse com um motivo.</p></div><div style={styles.counter}>{events.filter(item => ['pending_payment', 'pending', 'pending_review'].includes(String(item.status || '').toLowerCase())).length} por analisar · {events.length} total</div></div>
-          {events.length === 0 ? <div style={styles.empty}><h3>Sem eventos registados</h3><p>Os eventos enviados aparecerão aqui.</p></div> : <div style={styles.list}>{events.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>EV</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || 'Evento sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · Pagamento: {item.payment_status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || 'Sem descrição.'}</p>{item.image_url && <p><a href={item.image_url} target="_blank" rel="noreferrer">Ver imagem do evento ↗</a></p>}<p><strong>Local:</strong> {item.location || '—'}</p><p><strong>Responsável:</strong> {item.user_id || '—'}</p></div>{!item.admin_approved && !['published','approved','rejected','cancelled','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateEvent(item, false)}>Recusar evento</button><button type="button" style={styles.approve} onClick={() => moderateEvent(item, true)}>Aprovar evento</button></div>}</article>)}</div>}
+          {events.length === 0 ? <div style={styles.empty}><h3>Sem eventos registados</h3><p>Os eventos enviados aparecerão aqui.</p></div> : <div style={styles.list}>{events.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>EV</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || 'Evento sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · Pagamento: {item.payment_status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || 'Sem descrição.'}</p>{item.image_url && <p><a href={item.image_url} target="_blank" rel="noreferrer">Ver imagem do evento ↗</a></p>}<p><strong>Local:</strong> {item.location || '—'}</p><p><strong>Responsável:</strong> {profiles.find(profile => profile.id === item.user_id)?.name || 'Nome não disponível'}</p><p><strong>ID interno:</strong> {item.user_id || '—'}</p></div>{!item.admin_approved && !['published','approved','rejected','cancelled','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateEvent(item, false)}>Recusar evento</button><button type="button" style={styles.approve} onClick={() => moderateEvent(item, true)}>Aprovar evento</button></div>}</article>)}</div>}
         </section>
 
         <section id="oportunidades" style={{ marginTop: 42 }}>
           <div style={styles.titleRow}><div><h2 style={styles.title}>Oportunidades</h2><p style={styles.description}>Revise as oportunidades/vagas publicadas e envie o motivo ao responsável se houver recusa.</p></div><div style={styles.counter}>{jobPosts.filter(item => !['rejected','closed','expired'].includes(String(item.status || '').toLowerCase())).length} por analisar · {jobPosts.length} total</div></div>
-          {jobPosts.length === 0 ? <div style={styles.empty}><h3>Sem oportunidades registadas</h3><p>As oportunidades enviadas aparecerão aqui.</p></div> : <div style={styles.list}>{jobPosts.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>OP</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || item.position || 'Oportunidade sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || item.details || 'Sem descrição.'}</p><p><strong>Província:</strong> {item.province_id || '—'} · <strong>Responsável:</strong> {item.user_id || item.employer_id || '—'}</p></div>{!['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateJob(item, false)}>Recusar oportunidade</button><button type="button" style={styles.approve} onClick={() => moderateJob(item, true)}>Aprovar oportunidade</button></div>}</article>)}</div>}
+          {jobPosts.length === 0 ? <div style={styles.empty}><h3>Sem oportunidades registadas</h3><p>As oportunidades enviadas aparecerão aqui.</p></div> : <div style={styles.list}>{jobPosts.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>OP</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || item.position || 'Oportunidade sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || item.details || 'Sem descrição.'}</p><p><strong>Província:</strong> {item.province_id || '—'}</p><p><strong>Responsável:</strong> {profiles.find(profile => profile.id === (item.user_id || item.employer_id))?.name || 'Nome não disponível'}</p><p><strong>ID interno:</strong> {item.user_id || item.employer_id || '—'}</p></div>{!['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateJob(item, false)}>Recusar oportunidade</button><button type="button" style={styles.approve} onClick={() => moderateJob(item, true)}>Aprovar oportunidade</button></div>}</article>)}</div>}
         </section>
 
         <section id="conteudo-oficial" style={{ marginTop: 42 }}>
@@ -1186,12 +1235,12 @@ export default function Admin() {
         <section id="pagamentos" style={{ marginTop: 42 }}>
           <div style={styles.titleRow}>
             <div>
-              <h2 style={styles.title}>Pagamentos de todas as áreas</h2>
-              <p style={styles.description}>Analise os comprovativos da Vitrine/Hospedagem, Eventos e Oportunidades. A publicação só acontece quando os requisitos administrativos e de pagamento estiverem cumpridos.</p>
+              <h2 style={styles.title}>Pagamentos e hospedagem da Vitrine</h2>
+              <p style={styles.description}>Esta secção mostra apenas os comprovativos com ficheiro enviados para a hospedagem dos negócios. Os pagamentos de eventos ficam em Eventos; as publicações gratuitas ficam em Oportunidades.</p>
             </div>
-            <div style={styles.counter}>{subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending').length} pagamentos pendentes</div>
+            <div style={styles.counter}>{subscriptionRequests.filter(item => item.business_id && String(item.status || '').toLowerCase() === 'pending').length} pagamentos de hospedagem pendentes</div>
           </div>
-          {subscriptionRequests.length === 0 ? (
+          {subscriptionRequests.filter(item => item.business_id).length === 0 ? (
             <div style={styles.empty}>
               <div style={styles.emptyIcon}>◇</div>
               <h2>Sem pedidos de pagamento</h2>
@@ -1199,7 +1248,7 @@ export default function Admin() {
             </div>
           ) : (
             <div style={styles.list}>
-              {subscriptionRequests.map(request => {
+              {subscriptionRequests.filter(item => item.business_id).map(request => {
                 const pending = String(request.status || '').toLowerCase() === 'pending';
                 return <article key={request.id} style={styles.card}>
                   <div style={styles.cardTop}>
