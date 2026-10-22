@@ -207,16 +207,13 @@ export default function Admin() {
 
     if (planIds.length) {
       const { data: planRows, error: planNamesError } = await supabase
-        .from('plans').select('id, name, title, plan_name, nome, duration_days').in('id', planIds);
+        .from('plans').select('id, name, duration_days').in('id', planIds);
       if (planNamesError) console.error('Erro ao carregar nomes dos planos:', planNamesError);
       else {
         const namesById = {};
         (planRows || []).forEach((item) => {
           namesById[item.id] =
             item.name ||
-            item.title ||
-            item.plan_name ||
-            item.nome ||
             (item.duration_days ? String(item.duration_days) + ' dias' : 'Plano');
         });
         setPlanNames(namesById);
@@ -390,18 +387,9 @@ export default function Admin() {
   }
 
   async function loadSupportMessages() {
-    const { data, error } = await supabase
-      .from('support_messages')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Erro ao carregar mensagens do suporte:', error);
-      setMessage('Não foi possível carregar as mensagens do Suporte Talaza: ' + error.message);
-      setSupportMessages([]);
-      return;
-    }
-    setSupportMessages(data || []);
+    // A tabela support_messages não existe no Talaza core. Não fazer uma
+    // consulta que falha e bloqueia/contamina o estado do painel.
+    setSupportMessages([]);
   }
 
   async function loadEvents() {
