@@ -107,8 +107,6 @@ export default function Subcategory() {
     });
   }
 
-  const historyKey = 'talaza_history_subcategory_' + String(id) + '_' + String(province || 'all');
-
   useEffect(() => {
     if (!router.isReady || !id) return;
 
