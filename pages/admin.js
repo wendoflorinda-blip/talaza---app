@@ -1078,7 +1078,7 @@ export default function Admin() {
 
           <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '0 0 28px' }}>
             {[
-              ['vendedores', 'Vendedores'], ['pagamentos', 'Pagamentos e hospedagem'], ['eventos', 'Eventos'], ['oportunidades', 'Oportunidades'], ['conteudo-oficial', 'Motivação e tema do mês'], ['comunidade', 'Comunidade Talaza'], ['suporte', 'Suporte Talaza']
+              ['vendedores', 'Vendedores'], ['pagamentos', 'Pagamentos e hospedagem'], ['eventos', 'Eventos'], ['oportunidades', 'Oportunidades'], ['conteudo-oficial', 'Motivação e tema do mês'], ['comunidade', 'Comunidade Talaza'], ['notificacoes', 'Notificações'], ['suporte', 'Suporte Talaza']
             ].map(([key, label]) => <button key={key} type="button" onClick={() => setActiveAdminSection(key)} aria-pressed={activeAdminSection === key} style={{ padding: '10px 13px', borderRadius: 9, border: activeAdminSection === key ? '2px solid #075B4E' : '1px solid #D5E4DF', background: activeAdminSection === key ? '#075B4E' : '#E4F0ED', color: activeAdminSection === key ? '#FFFFFF' : '#075B4E', fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>{label}</button>)}
           </nav>
           <div style={styles.counter}>
@@ -1486,7 +1486,7 @@ export default function Admin() {
           )}
         </section>
 
-        <section style={{ marginTop: 42 }}>
+        <section style={{ marginTop: 0, display: activeAdminSection === 'notificacoes' ? 'block' : 'none' }}>
           <div style={styles.titleRow}>
             <div>
               <h2 style={styles.title}>Notificações do Suporte Talaza</h2>
