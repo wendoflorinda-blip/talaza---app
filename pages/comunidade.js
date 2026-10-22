@@ -841,6 +841,25 @@ export default function Comunidade() {
               ? provinceName || 'Província'
               : countryName || 'Painel nacional'}
           </Pill>
+          <Link
+            href={`/explore?country=${encodeURIComponent(countryParam || countryId || '')}&province=${encodeURIComponent(provinceParam || provinceId || '')}`}
+            style={{
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '9px 12px',
+              borderRadius: 10,
+              border: '1px solid #D9C6E9',
+              background: '#F1ECFA',
+              color: '#7252B8',
+              fontSize: 12,
+              fontWeight: 800,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            ← Voltar à Vitrine
+          </Link>
         </header>
 
         <section
