@@ -198,6 +198,7 @@ export default function Admin() {
       .map((payment) => payment.business_id));
     setBusinesses((data || []).filter((business) =>
       business.name?.trim() &&
+      business.description?.trim() &&
       business.country_id &&
       business.province_id &&
       business.category_id &&
@@ -1063,6 +1064,14 @@ export default function Admin() {
 
                 <div style={styles.details}>
 
+                  <p>
+                    <strong>Responsável:</strong>{' '}
+                    {profiles.find(profile => profile.id === business.owner_id)?.name || 'Nome não disponível'}
+                  </p>
+                  <p>
+                    <strong>ID interno do responsável:</strong>{' '}
+                    {business.owner_id || '—'}
+                  </p>
                   <p>
                     <strong>Localização:</strong>{' '}
                     {business.countries?.name || '-'}
