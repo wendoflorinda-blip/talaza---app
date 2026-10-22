@@ -543,6 +543,8 @@ export default function Admin() {
         return;
       }
 
+      const expiresAt = new Date(Date.now() + officialDuration * 24 * 60 * 60 * 1000).toISOString();
+
       if (officialKind === 'motivation') {
         const { error } = await supabase.from('community_motivation').insert({
           admin_id: adminId,
@@ -555,6 +557,8 @@ export default function Admin() {
           text_color: officialTextColor,
           font_family: officialFontFamily,
           aspect_ratio: '16:9',
+          duration_days: officialDuration,
+          expires_at: expiresAt,
         });
         if (error) {
           alert('Não foi possível guardar a motivação em community_motivation: ' + error.message + '. Vamos configurar a política RLS desta tabela a seguir.');
@@ -606,8 +610,9 @@ export default function Admin() {
             week_title: 'Título da semana por definir',
             week_description: null,
             week_number: weekNumber,
-            starts_at: monthStart.toISOString(),
-            ends_at: monthEnd.toISOString(),
+            starts_at: now.toISOString(),
+            ends_at: expiresAt,
+            duration_days: officialDuration,
             is_active: true,
             background_color: officialBackgroundColor,
             background_image_url: officialBackgroundImage.trim() || null,
@@ -622,6 +627,7 @@ export default function Admin() {
         }
       }
 
+      await loadOfficialArchive();
       setOfficialTitle('');
       setOfficialBody('');
       alert(officialKind === 'motivation'
@@ -1224,6 +1230,11 @@ export default function Admin() {
             <select value={officialKind} onChange={event => setOfficialKind(event.target.value)} style={styles.input}>
               <option value="motivation">Motivação</option><option value="theme">Tema do mês</option><option value="weekly_question">Título da semana</option>
             </select>
+            <label style={styles.label}>Duração da publicação</label>
+            <select value={officialDuration} onChange={event => setOfficialDuration(Number(event.target.value))} style={styles.input}>
+              <option value={7}>7 dias</option><option value={15}>15 dias</option><option value={30}>30 dias</option>
+            </select>
+            <p style={styles.meta}>Quando a duração terminar, o conteúdo deixa de aparecer ao público, mas permanece guardado no histórico para consulta e reutilização futura.</p>
             <label style={styles.label}>Título / tema</label>
             <input value={officialTitle} onChange={event => setOfficialTitle(event.target.value)} placeholder={officialKind === 'motivation' ? 'Ex.: A força de recomeçar' : officialKind === 'theme' ? 'Ex.: O valor de recomeçar' : 'Ex.: O que aprendeste esta semana?'} style={styles.input} />
             {officialKind !== 'theme' && <>
@@ -1242,7 +1253,16 @@ export default function Admin() {
               {officialKind==='weekly_question' && <span style={{ marginTop:8, fontSize:14 }}>{officialBody || 'A descrição da semana aparecerá aqui.'}</span>}
             </div>
             <div style={styles.actions}><button type="button" disabled={officialSaving} style={styles.approve} onClick={publishOfficialCommunityContent}>{officialSaving ? 'A publicar…' : 'Publicar conteúdo oficial'}</button></div>
-            <p style={styles.meta}>Motivação é guardada em community_motivation. Tema do mês e título da semana são guardados em community_monthly_themes. As políticas RLS administrativas serão configuradas a seguir.</p>
+            <p style={styles.meta}>Motivação e temas ficam guardados nas tabelas oficiais, mesmo depois de expirarem. A expiração apenas os retira da apresentação pública.</p>
+            <div style={{ marginTop: 22 }}>
+              <h3 style={{ ...styles.title, fontSize: 20 }}>Histórico de motivações e temas</h3>
+              {officialArchive.length === 0 ? <div style={styles.empty}><p>Ainda não existem conteúdos guardados.</p></div> : <div style={styles.list}>{officialArchive.map(item => {
+                const expired = item.archiveExpiresAt && new Date(item.archiveExpiresAt) <= new Date();
+                return <article key={item.archiveType + item.id} style={styles.card}>
+                  <div style={styles.cardTop}><div style={styles.logoPlaceholder}>{item.archiveType === 'Motivação' ? 'M' : 'T'}</div><div style={{ flex: 1 }}><h4 style={styles.businessName}>{item.archiveTitle || 'Sem título'}</h4><div style={styles.meta}>{item.archiveType} · {item.duration_days || 30} dias · Publicado: {new Date(item.created_at).toLocaleDateString('pt-AO')}</div></div><span style={expired ? styles.paymentStatus : styles.pending}>{expired ? 'Arquivado' : 'Ativo'}</span></div>
+                </article>;
+              })}</div>}
+            </div>
           </div>
         </section>
 
