@@ -10,13 +10,78 @@ export default function MessageDock() {
 
   const isActive = (href) => router.pathname === href || (href === '/perfil' && router.pathname.startsWith('/perfil'));
 
-  // As contagens serão ligadas às tabelas de mensagens e notificações quando o esquema estiver confirmado.
+  // Conta conversas com uma última mensagem recebida ainda não lida.
+  // O mesmo registo local talaza_read é usado pela página de mensagens.
   useEffect(() => {
+    let cancelled = false;
+
     async function loadCounts() {
-      setMsgCount(0);
-      setNotifCount(0);
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        if (!user) {
+          if (!cancelled) setMsgCount(0);
+          return;
+        }
+
+        const { data: memberships, error: participantsError } = await supabase
+          .from('conversation_participants')
+          .select('conversation_id')
+          .eq('user_id', user.id);
+        if (participantsError) throw participantsError;
+
+        const ids = [...new Set((memberships || []).map(row => row.conversation_id).filter(Boolean))];
+        if (!ids.length) {
+          if (!cancelled) setMsgCount(0);
+          return;
+        }
+
+        const { data: rows, error: messagesError } = await supabase
+          .from('talaza_messages')
+          .select('conversation_id,sender_id,created_at')
+          .in('conversation_id', ids)
+          .order('created_at', { ascending: false });
+        if (messagesError) throw messagesError;
+
+        let readMap = {};
+        try {
+          readMap = JSON.parse(window.localStorage.getItem('talaza_read') || '{}') || {};
+        } catch (_) {
+          readMap = {};
+        }
+
+        const latestByConversation = {};
+        (rows || []).forEach(message => {
+          if (!latestByConversation[message.conversation_id]) {
+            latestByConversation[message.conversation_id] = message;
+          }
+        });
+
+        const unreadCount = ids.reduce((count, id) => {
+          const last = latestByConversation[id];
+          if (!last || last.sender_id === user.id) return count;
+          const readAt = readMap[id];
+          if (readAt && new Date(last.created_at).getTime() <= new Date(readAt).getTime()) return count;
+          return count + 1;
+        }, 0);
+
+        if (!cancelled) setMsgCount(unreadCount);
+      } catch (error) {
+        console.warn('Não foi possível atualizar o contador de mensagens:', error);
+      }
     }
+
     loadCounts();
+    const intervalId = window.setInterval(loadCounts, 15000);
+    const onFocus = () => loadCounts();
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('storage', onFocus);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('storage', onFocus);
+    };
   }, []);
 
   const badge = (count) => count > 0 ? (
