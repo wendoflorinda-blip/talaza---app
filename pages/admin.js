@@ -1187,7 +1187,7 @@ export default function Admin() {
         </section>
 
         <section id="conteudo-oficial" style={{ marginTop: 42 }}>
-          <div style={styles.titleRow}><div><h2 style={styles.title}>Conteúdo editorial da Comunidade Talaza</h2><p style={styles.description}>Publica a Motivação, define o Tema do mês ou apresenta o título/pergunta da semana. Estes conteúdos são publicados pela equipa administrativa.</p></div></div>
+          <div style={styles.titleRow}><div><h2 style={styles.title}>Comunidade Terapêutica — Motivação e Tema do Mês</h2><p style={styles.description}>Publica e gere apenas a Motivação Talaza, o Tema do Mês e a descrição do Tema da Semana.</p></div></div>
           <div style={styles.card}>
             <label style={styles.label}>Tipo de conteúdo</label>
             <select value={officialKind} onChange={event => setOfficialKind(event.target.value)} style={styles.input}>
