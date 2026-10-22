@@ -345,7 +345,7 @@ export default function Comunidade() {
       if (area === 'motivation') {
         const { data, error } = await supabase
           .from('community_motivation')
-          .select('id, created_at, title, content, image_url, background_color, background_image_url, text_color, font_family, aspect_ratio')
+          .select('id, created_at, title, content, image_url, background_color, background_gradient, background_image_url, text_color, font_family, aspect_ratio, duration_days, expires_at')
           .eq('is_active', true)
           .gt('expires_at', new Date().toISOString())
           .order('created_at', { ascending: false });
@@ -364,7 +364,7 @@ export default function Comunidade() {
         const now = new Date().toISOString();
         const { data, error } = await supabase
           .from('community_monthly_themes')
-          .select('id, created_at, month_title, month_description, week_title, week_description, week_number, starts_at, ends_at, background_color, background_image_url, text_color, font_family')
+          .select('id, created_at, month_title, month_description, week_title, week_description, week_number, starts_at, ends_at, background_color, background_gradient, background_image_url, text_color, font_family, duration_days')
           .eq('is_active', true)
           .lte('starts_at', now)
           .gt('ends_at', now)
@@ -1375,7 +1375,7 @@ export default function Comunidade() {
               officialContent.length === 0 ? (
                 <Panel><p style={{ color: C.muted, margin: 0 }}>Ainda não foi publicada uma motivação oficial.</p></Panel>
               ) : officialContent.map((item) => (
-                <Panel key={item.id} style={{ marginBottom: 12, padding: 0, overflow: 'hidden', aspectRatio: '16 / 9', minHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.text_color || '#FFFFFF', fontFamily: item.font_family || 'Georgia', backgroundColor: item.background_color || '#173B35', backgroundImage: item.background_image_url ? 'linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,.12)),url(' + item.background_image_url + ')' : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                <Panel key={item.id} style={{ marginBottom: 12, padding: 0, overflow: 'hidden', aspectRatio: '16 / 9', minHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.text_color || '#FFFFFF', fontFamily: item.font_family || 'Georgia', backgroundColor: item.background_color || '#173B35', backgroundImage: item.background_image_url ? 'linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,.12)),url(' + item.background_image_url + ')' : (item.background_gradient || undefined), backgroundSize: 'cover', backgroundPosition: 'center' }}>
                   <div style={{ width: '100%', height: '100%', minHeight: 180, boxSizing: 'border-box', padding: 'clamp(16px,4vw,32px)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 12 }}>
                     <h3 style={{ margin: 0, fontSize: 'clamp(18px,3vw,30px)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>{item.title || item.content}</h3>
                     <small style={{ opacity: .85 }}>{new Date(item.created_at).toLocaleDateString('pt-PT')}</small>
