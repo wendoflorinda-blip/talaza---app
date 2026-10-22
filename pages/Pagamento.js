@@ -132,7 +132,8 @@ function UploadBox({ id, icon, title, hint, accept, file, thumb, onPick }) {
 
 export default function Pagamento() {
   const router = useRouter();
-  const { plan: planId, business: businessId, event_id: eventId } = router.query;
+  const { plan: planId, business: businessId, event_id: eventId, subscription, country_id: countryId, province_id: provinceId, returnTo } = router.query;
+  const isOpportunitySubscription = subscription === 'opportunities';
 
   const [user, setUser] = useState(null);
   const [plan, setPlan] = useState(null);
@@ -153,13 +154,13 @@ export default function Pagamento() {
   useEffect(() => {
     if (!router.isReady) return;
 
-    if (!planId || (!businessId && !eventId)) {
+    if (!planId || (!businessId && !eventId && !isOpportunitySubscription)) {
       router.replace('/impulsionar');
       return;
     }
 
     load();
-  }, [router.isReady, planId, businessId, eventId]);
+  }, [router.isReady, planId, businessId, eventId, isOpportunitySubscription]);
 
   async function load() {
     setLoading(true);
@@ -193,7 +194,7 @@ export default function Pagamento() {
       return;
     }
 
-    const subject = eventId ? eventResult.data : businessResult.data;
+    const subject = isOpportunitySubscription ? true : eventId ? eventResult.data : businessResult.data;
     if (eventId && (eventResult.error || !eventResult.data)) {
       setError('Não foi possível encontrar o evento desta conta.');
       setLoading(false);
@@ -223,6 +224,16 @@ export default function Pagamento() {
       return;
     }
 
+    if (isOpportunitySubscription && (
+      String(planResult.data.plan_type || '').trim().toLowerCase() !== 'opportunities' ||
+      String(planResult.data.area || '').trim().toLowerCase() !== 'oportunidades' ||
+      planResult.data.is_active !== true
+    )) {
+      setError('Este plano não é um plano ativo de acesso às Oportunidades.');
+      setLoading(false);
+      return;
+    }
+
     setPlan(planResult.data);
     setBusiness(businessResult.data);
     setEventRecord(eventResult.data || null);
@@ -232,7 +243,7 @@ export default function Pagamento() {
       .select('id, plan_id, status, created_at')
       .order('created_at', { ascending: false })
       .limit(1);
-    pendingQuery = eventId ? pendingQuery.eq('event_id', eventId) : pendingQuery.eq('business_id', businessResult.data.id);
+    pendingQuery = eventId ? pendingQuery.eq('event_id', eventId) : businessId ? pendingQuery.eq('business_id', businessResult.data.id) : isOpportunitySubscription ? pendingQuery.eq('user_id', session.user.id).is('business_id', null).is('event_id', null).is('job_post_id', null).eq('plan_id', planId) : pendingQuery.eq('business_id', businessResult.data.id);
     const { data: pendingPayment, error: pendingPaymentError } = await pendingQuery.maybeSingle();
     if (pendingPaymentError) console.error('Erro ao verificar comprovativo já enviado:', pendingPaymentError);
     const latestPaymentStatus = String(pendingPayment?.status || '').toLowerCase();
@@ -245,8 +256,10 @@ export default function Pagamento() {
           (
             eventId
               ? eventResult.data.status !== 'published'
-              : (!businessResult.data.is_active ||
-                 String(businessResult.data.approval_status || '').toLowerCase() !== 'approved')
+              : isOpportunitySubscription
+                ? true
+                : (!businessResult.data.is_active ||
+                   String(businessResult.data.approval_status || '').toLowerCase() !== 'approved')
           )
         )
       )
@@ -298,7 +311,7 @@ export default function Pagamento() {
       return;
     }
 
-    if (!user?.id || (!business?.id && !eventRecord?.id) || !plan?.id) {
+    if (!user?.id || (!business?.id && !eventRecord?.id && !isOpportunitySubscription) || !plan?.id) {
       setError('A sessão ou os dados do pagamento expiraram. Atualize a página e tente novamente.');
       return;
     }
@@ -352,6 +365,7 @@ export default function Pagamento() {
       const submission = {
         business_id: business?.id || null,
         event_id: eventRecord?.id || null,
+        job_post_id: null,
         plan_id: plan.id,
         user_id: session.user.id,
         amount: Number(plan.price),
@@ -411,7 +425,10 @@ export default function Pagamento() {
     }
   }
 
-  const panelHref = business
+  const opportunityHref = { pathname: '/oportunidades', query: { ...(countryId ? { country: countryId } : {}), ...(provinceId ? { province: provinceId } : {}) } };
+  const panelHref = isOpportunitySubscription
+    ? opportunityHref
+    : business
     ? {
         pathname: '/seller',
         query: { country: business.country_id, province: business.province_id },
@@ -425,7 +442,7 @@ export default function Pagamento() {
     return (
       <AuthShell
         backHref={eventRecord ? { pathname: '/eventos', query: { country_id: eventRecord.country_id, province_id: eventRecord.province_id } } : panelHref}
-        backLabel={eventRecord ? 'Voltar aos eventos' : 'Painel'}
+        backLabel={eventRecord ? 'Voltar aos eventos' : isOpportunitySubscription ? 'Voltar às Oportunidades' : 'Painel'}
       >
         <Head>
           <title>Comprovativo enviado | Talaza</title>
@@ -464,7 +481,7 @@ export default function Pagamento() {
                 lineHeight: 1.6,
               }}
             >
-              {eventRecord ? 'O seu anúncio ficará ativo assim que o seu pagamento for aprovado. Aguarde.' : 'O seu perfil foi criado, mas ainda não está visível para os clientes. A visibilidade só será ativada depois de a equipa Talaza verificar o comprovativo, confirmar o pagamento e aprovar o negócio.'}
+              {eventRecord ? 'O seu anúncio ficará ativo assim que o seu pagamento for aprovado. Aguarde.' : isOpportunitySubscription ? 'O seu acesso às Oportunidades será ativado assim que o pagamento for aprovado. Aguarde.' : 'O seu perfil foi criado, mas ainda não está visível para os clientes. A visibilidade só será ativada depois de a equipa Talaza verificar o comprovativo, confirmar o pagamento e aprovar o negócio.'}
             </p>
 
             <Link
@@ -481,7 +498,7 @@ export default function Pagamento() {
                 textDecoration: 'none',
               }}
             >
-              {eventRecord ? 'Voltar à área de Eventos' : 'Ir para o painel'}
+              {eventRecord ? 'Voltar à área de Eventos' : isOpportunitySubscription ? 'Voltar às Oportunidades' : 'Ir para o painel'}
             </Link>
           </div>
         </Card>
@@ -492,10 +509,10 @@ export default function Pagamento() {
   return (
     <AuthShell
       backHref={{
-        pathname: eventRecord ? '/eventos' : '/impulsionar',
-        query: eventRecord ? { country_id: eventRecord.country_id, province_id: eventRecord.province_id } : businessId ? { business: businessId } : {},
+        pathname: eventRecord ? '/eventos' : isOpportunitySubscription ? '/oportunidades' : '/impulsionar',
+        query: eventRecord ? { country_id: eventRecord.country_id, province_id: eventRecord.province_id } : isOpportunitySubscription ? { ...(countryId ? { country: countryId } : {}), ...(provinceId ? { province: provinceId } : {}) } : businessId ? { business: businessId } : {},
       }}
-      backLabel={eventRecord ? '← Voltar aos eventos' : '← Planos'}
+      backLabel={eventRecord ? '← Voltar aos eventos' : isOpportunitySubscription ? '← Voltar às Oportunidades' : '← Planos'}
     >
       <Head>
         <title>Pagamento | Talaza</title>
