@@ -573,7 +573,7 @@ export default function Eventos() {
                     { color: '#A77912', soft: '#FBF2D7', border: '#EBD58C', icon: '♛' }
                   ];
                   const theme = themes[plans.indexOf(plan) % themes.length];
-                  const benefits = String(plan.description || '').split(/\\n|;|\\|/).map(value => value.trim()).filter(value => value && !/^benefícios?$/i.test(value));
+                  const benefits = String(plan.description || '').split(/\r?\n|;|\|/).map(value => value.trim()).filter(value => value && !/^benefícios?$/i.test(value));
                   return <button key={plan.id} type="button" onClick={() => setPlanId(plan.id)} style={{ ...styles.planCard, borderColor: selected ? theme.color : theme.border, background: selected ? theme.soft : '#FFFFFF', ...(selected ? styles.selectedPlanCard : {}) }}>
                     <span style={{ ...styles.planBadge, background: theme.color }}>{theme.icon} {key}</span>
                     <span style={styles.planDuration}>{Number(plan.duration_days || 0)} dias de divulgação</span>
