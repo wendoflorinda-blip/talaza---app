@@ -36,6 +36,10 @@ export default function Mensagens() {
   const [sending,setSending] = useState(false);
   const [error,setError] = useState('');
   const [notice,setNotice] = useState('');
+  const [messageMenuId,setMessageMenuId] = useState('');
+  const [editingMessageId,setEditingMessageId] = useState('');
+  const [editingBody,setEditingBody] = useState('');
+  const [messageActionBusy,setMessageActionBusy] = useState('');
   const [selectedFile,setSelectedFile] = useState(null);
   const [recording,setRecording] = useState(false);
   const [recordingSupported,setRecordingSupported] = useState(false);
@@ -461,6 +465,45 @@ export default function Mensagens() {
     }
   }
 
+  async function copyMessageContent(item) {
+    try {
+      const content = item.body || item.attachment_url || item.attachment_name || '';
+      if (!content) { setNotice('Esta mensagem não tem texto ou endereço para copiar.'); return; }
+      await navigator.clipboard.writeText(content);
+      setNotice('Mensagem copiada.'); setMessageMenuId('');
+    } catch (err) { setError('Não foi possível copiar. Selecione e copie o texto manualmente.'); }
+  }
+
+  function beginEditMessage(item) {
+    if (item.sender_id !== user?.id || item.storage_path || !item.body) return;
+    setEditingMessageId(item.id); setEditingBody(item.body); setMessageMenuId(''); setError(''); setNotice('');
+  }
+
+  async function saveEditedMessage(item) {
+    const body = editingBody.trim();
+    if (!body) { setError('A mensagem não pode ficar vazia.'); return; }
+    setMessageActionBusy(item.id); setError('');
+    const { data, error: updateError } = await supabase.from('talaza_messages').update({ body }).eq('id', item.id).eq('sender_id', user.id).select('id,body').maybeSingle();
+    setMessageActionBusy('');
+    if (updateError || !data) { setError('Não foi possível editar esta mensagem. Confirme as permissões de edição no Supabase. ' + (updateError?.message || 'Nenhuma mensagem foi atualizada.')); return; }
+    setMessages(previous => previous.map(row => row.id === item.id ? { ...row, body: data.body, edited_at: new Date().toISOString() } : row));
+    setEditingMessageId(''); setEditingBody(''); setNotice('Mensagem atualizada.');
+  }
+
+  async function deleteMessage(item) {
+    if (item.sender_id !== user?.id) { setError('Só podes eliminar as mensagens que enviaste.'); return; }
+    if (!window.confirm('Eliminar esta mensagem? Esta ação não pode ser desfeita.')) return;
+    setMessageActionBusy(item.id); setError('');
+    const { error: deleteError } = await supabase.from('talaza_messages').delete().eq('id', item.id).eq('sender_id', user.id);
+    if (deleteError) { setMessageActionBusy(''); setError('Não foi possível eliminar a mensagem. Confirme as permissões no Supabase. ' + deleteError.message); return; }
+    if (item.storage_path) {
+      const { error: storageError } = await supabase.storage.from('message-media').remove([item.storage_path]);
+      if (storageError) console.warn('Mensagem eliminada; o anexo não pôde ser removido do armazenamento:', storageError.message);
+    }
+    setMessages(previous => previous.filter(row => row.id !== item.id));
+    setMessageMenuId(''); setMessageActionBusy(''); setNotice('Mensagem eliminada.');
+  }
+
   async function openAttachment(item) {
     if (!item.storage_path) return;
     const { data, error: urlError } = await supabase.storage.from('message-media').createSignedUrl(item.storage_path,3600);
@@ -515,12 +558,22 @@ export default function Mensagens() {
     </section> : null}
     <section style={S.chat} aria-label="Mensagens da conversa">
       {!activeId ? <div style={S.emptyChat}>Escolha uma conversa para ver mensagens e enviar texto, ficheiros ou áudio.</div> : messages.length===0 ? <div style={S.emptyChat}>Esta conversa começou agora. Envie a primeira mensagem.</div> : messages.map(item=><div key={item.id} style={{...S.messageRow,justifyContent:item.sender_id===user?.id?'flex-end':'flex-start'}}>
-        <div style={{...S.bubble,background:item.sender_id===user?.id?'#E0F4E8':'#FFFFFF',borderRadius:item.sender_id===user?.id?'15px 15px 4px 15px':'15px 15px 15px 4px'}}>
-          {item.body && <div style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{renderMessageText(item.body)}</div>}
-          {item.storage_path && <div style={{marginTop:item.body?8:0}}>
-            {item.message_type==='audio' && item.attachment_url ? <audio controls src={item.attachment_url} style={{maxWidth:'100%'}}/> : item.message_type==='image' && item.attachment_url ? <a href={item.attachment_url} target="_blank" rel="noreferrer"><img src={item.attachment_url} alt={item.attachment_name || 'Imagem enviada'} style={{maxWidth:220,maxHeight:220,objectFit:'contain',borderRadius:10}}/></a> : <button type="button" onClick={()=>openAttachment(item)} style={S.fileLink}>📎 {item.attachment_name || 'Abrir ficheiro'}</button>}
-          </div>}
-          <div style={S.time}>{new Date(item.created_at).toLocaleTimeString('pt-AO',{hour:'2-digit',minute:'2-digit'})}</div>
+        <div style={{...S.bubble,background:item.sender_id===user?.id?'#E0F4E8':'#FFFFFF',borderRadius:item.sender_id===user?.id?'15px 15px 4px 15px':'15px 15px 15px 4px'}} onContextMenu={event=>{event.preventDefault();setMessageMenuId(item.id);}} onTouchStart={()=>{}} onClick={()=>setMessageMenuId(previous=>previous===item.id?'':item.id)}>
+          {editingMessageId===item.id ? <div onClick={event=>event.stopPropagation()} style={{minWidth:220}}>
+            <textarea value={editingBody} onChange={event=>setEditingBody(event.target.value)} rows={3} maxLength={5000} style={{width:'100%',boxSizing:'border-box',border:'1px solid #D7C8E6',borderRadius:8,padding:8,font: 'inherit'}}/>
+            <div style={{display:'flex',gap:6,marginTop:7}}><button type="button" disabled={messageActionBusy===item.id} onClick={()=>saveEditedMessage(item)} style={S.actionButton}>Guardar</button><button type="button" onClick={()=>{setEditingMessageId('');setEditingBody('');}} style={S.actionButton}>Cancelar</button></div>
+          </div> : <>
+            {item.body && <div style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{renderMessageText(item.body)}</div>}
+            {item.storage_path && <div style={{marginTop:item.body?8:0}}>
+              {item.message_type==='audio' && item.attachment_url ? <audio controls src={item.attachment_url} style={{maxWidth:'100%'}} onClick={event=>event.stopPropagation()}/> : item.message_type==='image' && item.attachment_url ? <a href={item.attachment_url} target="_blank" rel="noreferrer" onClick={event=>event.stopPropagation()}><img src={item.attachment_url} alt={item.attachment_name || 'Imagem enviada'} style={{maxWidth:220,maxHeight:220,objectFit:'contain',borderRadius:10}}/></a> : <button type="button" onClick={event=>{event.stopPropagation();openAttachment(item);}} style={S.fileLink}>📎 {item.attachment_name || 'Abrir ficheiro'}</button>}
+            </div>}
+            <div style={S.time}>{new Date(item.created_at).toLocaleTimeString('pt-AO',{hour:'2-digit',minute:'2-digit'})}{item.edited_at ? ' · editada' : ''}</div>
+            {messageMenuId===item.id && <div onClick={event=>event.stopPropagation()} style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:9,paddingTop:8,borderTop:'1px solid #DCE6E1'}}>
+              <button type="button" onClick={()=>copyMessageContent(item)} style={S.actionButton}>Copiar</button>
+              {item.sender_id===user?.id && item.body && !item.storage_path && <button type="button" onClick={()=>beginEditMessage(item)} style={S.actionButton}>Editar</button>}
+              {item.sender_id===user?.id && <button type="button" disabled={messageActionBusy===item.id} onClick={()=>deleteMessage(item)} style={{...S.actionButton,color:'#A52F3B'}}>{messageActionBusy===item.id?'A eliminar…':'Eliminar'}</button>}
+            </div>}
+          </>}
         </div>
       </div>)}
       <div ref={endRef}/>
@@ -569,6 +622,7 @@ const S = {
  filePreview:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,padding:'7px 12px',background:'#FFF8E4',fontSize:12,color:C.ink},
  removeFile:{border:0,background:'transparent',color:'#A52F3B',fontWeight:800,cursor:'pointer'},
  fileLink:{border:0,background:'transparent',color:C.purple,textDecoration:'underline',cursor:'pointer',fontSize:13},
+ actionButton:{border:'1px solid #D8C9E6',borderRadius:8,padding:'6px 10px',background:'#FFFFFF',color:'#64358B',fontWeight:800,fontSize:12,cursor:'pointer'},
  input:{flex:1,minWidth:0,resize:'none',border:'1px solid '+C.line,borderRadius:17,padding:'11px 13px',outline:0,background:'#FBFCFB',fontSize:14,lineHeight:1.5,maxHeight:120,color:C.ink},
  send:{flex:'0 0 43px',width:43,height:43,border:0,borderRadius:'50%',background:C.green,color:'#fff',fontSize:20,fontWeight:900,cursor:'pointer'},
  hint:{flex:'0 0 auto',padding:'4px 12px 6px',textAlign:'center',fontSize:9,color:C.muted,background:'#fff'},
