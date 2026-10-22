@@ -296,7 +296,7 @@ export default function Oportunidades() {
       ...(country ? { country: String(country) } : {}),
       ...(province ? { province: String(province) } : {}),
     }).toString() : ''));
-    router.push('/Pagamento?' + query.toString());
+    router.push('/planos-oportunidades?' + new URLSearchParams({ ...(country ? { country: String(country) } : {}), ...(province ? { province: String(province) } : {}) }).toString());
   }
 
   const exploreUrl = `/explore?country=${encodeURIComponent(
