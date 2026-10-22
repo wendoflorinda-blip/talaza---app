@@ -1329,7 +1329,7 @@ export default function Admin() {
             <select value={officialKind} onChange={event => setOfficialKind(event.target.value)} style={styles.input}>
               <option value="motivation">Motivação</option><option value="theme">Tema do mês</option><option value="weekly_question">Título da semana</option>
             </select>
-            <label style={styles.label}>Duração da publicação</label>
+            <label style={styles.label}>Duração da motivação / tema</label>
             <select value={officialDuration} onChange={event => setOfficialDuration(Number(event.target.value))} style={styles.input}>
               <option value={7}>7 dias</option><option value={15}>15 dias</option><option value={30}>30 dias</option>
             </select>
@@ -1345,9 +1345,10 @@ export default function Admin() {
               <div><label style={styles.label}>Cor das letras</label><input aria-label="Cor das letras" type="color" value={officialTextColor} onChange={event=>setOfficialTextColor(event.target.value)} style={{ ...styles.input, height:46, padding:4 }} /></div>
               <div><label style={styles.label}>Tipo de letra</label><select value={officialFontFamily} onChange={event=>setOfficialFontFamily(event.target.value)} style={styles.input}><option value="Georgia">Georgia — elegante</option><option value="Arial">Arial — simples</option><option value="Verdana">Verdana — legível</option><option value="Trebuchet MS">Trebuchet MS — moderno</option><option value="Times New Roman">Times New Roman — clássico</option><option value="system-ui">Sistema — contemporâneo</option></select></div>
             </div>
-            <label style={styles.label}>Fundo externo (carregar imagem)</label>
-            <input type="file" accept="image/*" disabled={officialImageUploading} onChange={event => { uploadOfficialBackground(event.target.files?.[0]); event.target.value = ''; }} style={styles.input} />
-            <p style={styles.meta}>{officialImageUploading ? 'A carregar imagem…' : 'Escolhe uma imagem da galeria/disco (máximo 8 MB). Também podes colar um URL abaixo.'}</p>
+            <label style={styles.label}>Imagem de fundo externa</label>
+            <input ref={officialImageInputRef} type="file" accept="image/*" disabled={officialImageUploading} onChange={event => { const selectedFile = event.target.files?.[0]; if (selectedFile) uploadOfficialBackground(selectedFile); event.target.value = ''; }} style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }} />
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}><button type="button" disabled={officialImageUploading} onClick={() => officialImageInputRef.current?.click()} style={{ ...styles.approve, background: 'linear-gradient(135deg, #075B4E 0%, #64358B 58%, #D8A319 100%)', opacity: officialImageUploading ? .65 : 1 }}>{officialImageUploading ? 'A carregar imagem…' : 'Escolher imagem da galeria'}</button>{officialBackgroundImage && <button type="button" onClick={() => setOfficialBackgroundImage('')} style={styles.reject}>Remover imagem</button>}</div>
+            <p style={styles.meta}>{officialImageUploading ? 'A carregar imagem…' : 'Seleciona uma imagem do computador/galeria (máximo 8 MB) ou cola um URL abaixo.'}</p>
             <input type="url" value={officialBackgroundImage} onChange={event=>setOfficialBackgroundImage(event.target.value)} placeholder="Ou cola aqui o URL da imagem" style={styles.input} />
             <label style={styles.label}>Fundo em degradê</label>
             <select value={officialBackgroundGradient} onChange={event => setOfficialBackgroundGradient(event.target.value)} style={styles.input}>
@@ -1507,10 +1508,11 @@ export default function Admin() {
             </div>
             <div style={styles.counter}>{supportMessages.filter(item => String(item.status || 'pending') === 'pending').length} por analisar</div>
           </div>
-          {supportMessages.length === 0 ? (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>{[['all','Todas'],['pending','Por analisar'],['reviewed','Analisadas']].map(([value,label]) => <button key={value} type="button" onClick={() => setSupportFilter(value)} style={{ padding: '9px 13px', borderRadius: 999, border: supportFilter === value ? '1px solid #64358B' : '1px solid #DDE5E0', background: supportFilter === value ? 'linear-gradient(135deg,#075B4E,#64358B)' : '#FFFFFF', color: supportFilter === value ? '#FFFFFF' : '#244A42', fontWeight: 800, cursor: 'pointer' }}>{label}</button>)}</div>
+           {supportMessages.filter(item => supportFilter === 'all' || String(item.status || 'pending').toLowerCase() === supportFilter).length === 0 ? (
             <div style={styles.empty}><div style={styles.emptyIcon}>✉</div><h2>Sem mensagens recebidas</h2><p>As mensagens enviadas pelos utilizadores aparecerão aqui.</p></div>
           ) : (
-            <div style={styles.list}>{supportMessages.map(item => (
+            <div style={styles.list}>{supportMessages.filter(item => supportFilter === 'all' || String(item.status || 'pending').toLowerCase() === supportFilter).map(item => (
               <article key={item.id} style={styles.card}>
                 <div style={styles.cardTop}>
                   <div style={styles.logoPlaceholder}>✉</div>
@@ -1539,14 +1541,15 @@ export default function Admin() {
             <select id="notification-audience" value={notificationAudience} onChange={event => setNotificationAudience(event.target.value)} style={styles.formInput}>
               <option value="all">Todos os utilizadores</option>
               <option value="explorers">Exploradores normais</option>
-              <option value="sellers">Vendedores</option>
+              <option value="sellers">Todos os vendedores</option>
+              <option value="seller_user">Um vendedor específico</option>
               <option value="user">Uma pessoa específica</option>
             </select>
-            {notificationAudience === 'user' && <>
+            {['user', 'seller_user'].includes(notificationAudience) && <>
               <label style={styles.formLabel} htmlFor="notification-user">Escolher utilizador</label>
               <select id="notification-user" value={notificationUserId} onChange={event => setNotificationUserId(event.target.value)} style={styles.formInput} required>
-                <option value="">Selecione um utilizador</option>
-                {profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.name || 'Utilizador'} · {profile.id.slice(0, 8)}</option>)}
+                <option value="">{notificationAudience === 'seller_user' ? 'Selecione um vendedor' : 'Selecione um utilizador'}</option>
+                {profiles.filter(profile => notificationAudience !== 'seller_user' || ['seller','vendedor','business'].includes(String(profile.account_type || '').toLowerCase())).map(profile => <option key={profile.id} value={profile.id}>{profile.name || 'Utilizador'} · {profile.id.slice(0, 8)}</option>)}
               </select>
             </>}
             <label style={styles.formLabel} htmlFor="notification-title">Título</label>
@@ -1579,8 +1582,9 @@ export default function Admin() {
             </div>
             <div style={styles.counter}>{communityReports.filter(report => String(report.status || 'pending').toLowerCase() === 'pending').length} por analisar</div>
           </div>
-          {communityReports.length === 0 ? <div style={styles.empty}><div style={styles.emptyIcon}>✓</div><h2>Sem denúncias pendentes</h2><p>Quando os utilizadores denunciarem publicações da comunidade, os registos aparecerão aqui.</p></div> :
-            <div style={styles.list}>{communityReports.map(report => {
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>{[['pending','Por analisar'],['reviewed','Revistas'],['rejected','Rejeitadas'],['all','Todas']].map(([value,label]) => <button key={value} type="button" onClick={() => setReportFilter(value)} style={{ padding: '9px 13px', borderRadius: 999, border: reportFilter === value ? '1px solid #64358B' : '1px solid #DDE5E0', background: reportFilter === value ? 'linear-gradient(135deg,#075B4E,#64358B)' : '#FFFFFF', color: reportFilter === value ? '#FFFFFF' : '#244A42', fontWeight: 800, cursor: 'pointer' }}>{label}</button>)}</div>
+          {communityReports.filter(report => reportFilter === 'all' || String(report.status || 'pending').toLowerCase() === reportFilter).length === 0 ? <div style={styles.empty}><div style={styles.emptyIcon}>✓</div><h2>Sem denúncias pendentes</h2><p>Quando os utilizadores denunciarem publicações da comunidade, os registos aparecerão aqui.</p></div> :
+            <div style={styles.list}>{communityReports.filter(report => reportFilter === 'all' || String(report.status || 'pending').toLowerCase() === reportFilter).map(report => {
               const pending = String(report.status || 'pending').toLowerCase() === 'pending';
               return <article key={report.id} style={styles.card}>
                 <div style={styles.cardTop}>
