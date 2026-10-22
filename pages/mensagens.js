@@ -167,7 +167,7 @@ export default function Mensagens() {
     setNotice('');
     await loadMessages(conversation.id);
     if (router.query.conversation !== conversation.id) {
-      router.replace({ pathname:'/mensagens', query:{ ...(safe(router.query.box) ? { box:safe(router.query.box) } : {}), conversation:conversation.id } }, undefined, { shallow:true });
+      router.replace({ pathname:'/mensagens', query:{ ...(safe(router.query.box) ? { box:safe(router.query.box) } : {}), ...(safe(router.query.returnTo) ? { returnTo:safe(router.query.returnTo) } : {}), conversation:conversation.id } }, undefined, { shallow:true });
     }
   }, [loadMessages, router]);
 
@@ -308,7 +308,7 @@ export default function Mensagens() {
               setConversations(previous => [newConversation,...previous]);
               setActiveId(created.id);
               setActivePeer({id:target.id,name:newConversation.peerName,photo:newConversation.peerPhoto,sourceLabel:newConversation.sourceLabel});
-              router.replace({pathname:'/mensagens',query:{...(safe(router.query.box) ? {box:safe(router.query.box)} : {}),conversation:created.id}},undefined,{shallow:true});
+              router.replace({pathname:'/mensagens',query:{...(safe(router.query.box) ? {box:safe(router.query.box)} : {}),...(safe(router.query.returnTo) ? {returnTo:safe(router.query.returnTo)} : {}),conversation:created.id}},undefined,{shallow:true});
               await loadMessages(created.id);
             }
           } catch (err) {
@@ -457,7 +457,7 @@ export default function Mensagens() {
 
   function backToList() {
     setActiveId(''); setActivePeer(null); setMessages([]);
-    router.replace({pathname:'/mensagens',query:safe(router.query.box) ? {box:safe(router.query.box)} : {}},undefined,{shallow:true});
+    router.replace({pathname:'/mensagens',query:{...(safe(router.query.box) ? {box:safe(router.query.box)} : {}),...(safe(router.query.returnTo) ? {returnTo:safe(router.query.returnTo)} : {})}},undefined,{shallow:true});
   }
 
   if (loading) return <main style={S.center}>A carregar mensagens…</main>;
@@ -473,6 +473,9 @@ export default function Mensagens() {
       </div>
       {activeId && activePeer?.photo ? <img src={activePeer.photo} alt="" style={S.headerPhoto}/> : null}
     </header>
+    {safe(router.query.returnTo) && typeof safe(router.query.returnTo) === 'string' && safe(router.query.returnTo).startsWith('/') && !safe(router.query.returnTo).startsWith('//') && <div style={{padding:'8px 14px',background:'#FFFFFF',borderBottom:'1px solid '+C.line}}>
+      <button type="button" onClick={()=>router.push(safe(router.query.returnTo))} style={{border:0,background:'transparent',color:C.purple,fontSize:12,fontWeight:800,cursor:'pointer',padding:'5px 0'}}>← Voltar à área anterior</button>
+    </div>}
     {error && <div role="alert" style={S.error}>{error}</div>}
     {notice && <div role="status" style={S.notice}>{notice}</div>}
     {!activeId ? <section style={S.list}>
