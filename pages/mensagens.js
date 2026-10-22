@@ -12,6 +12,9 @@ export default function Mensagens() {
   const [user,setUser] = useState(null);
   const [profile,setProfile] = useState(null);
   const [conversations,setConversations] = useState([]);
+  const [lastMessages,setLastMessages] = useState({});
+  const [readMap,setReadMap] = useState({});
+  const [ownedBusinessIds,setOwnedBusinessIds] = useState(new Set());
   const [activeId,setActiveId] = useState('');
   const [activePeer,setActivePeer] = useState(null);
   const [messages,setMessages] = useState([]);
@@ -57,13 +60,30 @@ export default function Mensagens() {
     const { data: ownedBusinesses, error: ownedBusinessesError } = await supabase
       .from('businesses').select('id').eq('owner_id', currentUser.id);
     if (ownedBusinessesError) console.warn('Não foi possível identificar os negócios próprios para separar as caixas:', ownedBusinessesError);
-    const ownedBusinessIds = new Set((ownedBusinesses || []).map(b => String(b.id)));
-    const box = safe(router.query.box) === 'store' ? 'store' : 'explore';
+    const ownedIds = new Set((ownedBusinesses || []).map(b => String(b.id)));
+    setOwnedBusinessIds(ownedIds);
+    let storedReadMap = {};
+    try {
+      storedReadMap = JSON.parse(window.localStorage.getItem('talaza_read') || '{}') || {};
+    } catch (readError) {
+      console.warn('Não foi possível ler o estado local das mensagens lidas:', readError);
+    }
+    setReadMap(storedReadMap);
+    const { data: latestRows, error: latestError } = await supabase
+      .from('talaza_messages').select('conversation_id,sender_id,created_at')
+      .in('conversation_id', ids).order('created_at', { ascending:false });
+    if (latestError) console.warn('Não foi possível carregar a última mensagem de cada conversa:', latestError);
+    const latestByConversation = {};
+    (latestRows || []).forEach(item => {
+      if (!latestByConversation[item.conversation_id]) latestByConversation[item.conversation_id] = item;
+    });
+    setLastMessages(latestByConversation);
+    const box = safe(router.query.box) === 'store' && ownedIds.size > 0 ? 'store' : 'explore';
     const rows = (allRows || []).filter(row => {
       // O source_id é a referência principal do negócio. Não exigir source ===
       // 'Vitrine' evita que conversas antigas/gravadas com outra etiqueta caiam
       // por engano na caixa pessoal quando pertencem a uma loja do utilizador.
-      const belongsToMyStore = Boolean(row.source_id) && ownedBusinessIds.has(String(row.source_id));
+      const belongsToMyStore = Boolean(row.source_id) && ownedIds.has(String(row.source_id));
       return box === 'store' ? belongsToMyStore : !belongsToMyStore;
     });
     const { data: participants, error: participantsError } = await supabase
@@ -108,6 +128,9 @@ export default function Mensagens() {
     }
     const enriched = (rows || []).map(row => {
       const peer = (participants || []).find(p => p.conversation_id === row.id && p.user_id !== currentUser.id);
+      const last = latestByConversation[row.id];
+      const lastReadAt = storedReadMap[row.id];
+      const isUnread = Boolean(last && last.sender_id !== currentUser.id && (!lastReadAt || new Date(last.created_at).getTime() > new Date(lastReadAt).getTime()));
       const peerProfile = profiles.find(p => p.id === peer?.user_id);
       const sourceBusiness = row.source === 'Vitrine'
         ? sourceBusinesses.find(b => String(b.id) === String(row.source_id) && String(b.owner_id) === String(peer?.user_id))
@@ -119,6 +142,7 @@ export default function Mensagens() {
       const contextParts = [row.source || 'Talaza', category, subcategory].filter(Boolean);
       return {
         ...row,
+        isUnread,
         peerId:peer?.user_id || '',
         peerName:sourceBusiness?.name || peerProfile?.name || 'Utilizador Talaza',
         peerPhoto:sourceBusiness?.logo_url || peerProfile?.avatar_url || peerProfile?.photo_url || peerProfile?.photo || '',
@@ -131,6 +155,13 @@ export default function Mensagens() {
 
   const openConversation = useCallback(async (conversation, peer) => {
     setActiveId(conversation.id);
+    const readAt = new Date().toISOString();
+    setReadMap(previous => {
+      const next = { ...previous, [conversation.id]:readAt };
+      try { window.localStorage.setItem('talaza_read', JSON.stringify(next)); } catch (storageError) { console.warn('Não foi possível guardar o estado lido:', storageError); }
+      return next;
+    });
+    setConversations(previous => previous.map(item => item.id === conversation.id ? { ...item, isUnread:false } : item));
     setActivePeer(peer || { id:conversation.peerId, name:conversation.peerName, photo:conversation.peerPhoto, sourceLabel:conversation.sourceLabel || conversation.source });
     setError('');
     setNotice('');
@@ -437,8 +468,8 @@ export default function Mensagens() {
       {activeId && <button type="button" onClick={backToList} style={S.back} aria-label="Voltar às conversas">‹</button>}
       <div style={S.brandMark}>T</div>
       <div style={{flex:1,minWidth:0}}>
-        <strong style={S.title}>{activeId ? (activePeer?.name || 'Conversa') : (safe(router.query.box) === 'store' ? 'Mensagens da minha loja' : 'Mensagens do Explorar Talaza')}</strong>
-        <div style={S.subtitle}>{activeId ? (activePeer?.sourceLabel || 'Conversa privada') : (safe(router.query.box) === 'store' ? 'Conversas recebidas pelos seus negócios' : 'Conversas pessoais e outras áreas da Talaza')}</div>
+        <strong style={S.title}>{activeId ? (activePeer?.name || 'Conversa') : (safe(router.query.box) === 'store' && ownedBusinessIds.size > 0 ? 'Mensagens da minha loja' : 'Mensagens do Explorar Talaza')}</strong>
+        <div style={S.subtitle}>{activeId ? (activePeer?.sourceLabel || 'Conversa privada') : (safe(router.query.box) === 'store' && ownedBusinessIds.size > 0 ? 'Conversas recebidas pelos seus negócios' : 'Conversas pessoais e outras áreas da Talaza')}</div>
       </div>
       {activeId && activePeer?.photo ? <img src={activePeer.photo} alt="" style={S.headerPhoto}/> : null}
     </header>
@@ -446,17 +477,18 @@ export default function Mensagens() {
     {notice && <div role="status" style={S.notice}>{notice}</div>}
     {!activeId ? <section style={S.list}>
       <div style={{display:'flex',gap:8,padding:12,flexWrap:'wrap'}}>
-        <button type="button" onClick={()=>router.push('/mensagens?box=explore')} style={{...S.primaryButton,background:safe(router.query.box)==='store'?'#E7EEEA':C.green,color:safe(router.query.box)==='store'?C.ink:C.white}}>Mensagens do Explorar</button>
-        <button type="button" onClick={()=>router.push('/mensagens?box=store')} style={{...S.primaryButton,background:safe(router.query.box)==='store'?C.gold:'#E7EEEA',color:C.ink}}>Minha loja</button>
+        <button type="button" onClick={()=>router.push('/mensagens?box=explore')} style={{...S.primaryButton,background:safe(router.query.box)==='store' && ownedBusinessIds.size>0?'#E7EEEA':C.purple,color:safe(router.query.box)==='store' && ownedBusinessIds.size>0?C.ink:C.white}}>Mensagens do Explorar Talaza</button>
+        {ownedBusinessIds.size > 0 && <button type="button" onClick={()=>router.push('/mensagens?box=store')} style={{...S.primaryButton,background:safe(router.query.box)==='store'?C.gold:'#F2EAF9',color:C.purple,border:'1px solid #D9C6E9'}}>Mensagens da minha loja</button>}
       </div>
       <div style={S.sectionTitle}>{safe(router.query.box)==='store' ? 'Mensagens recebidas pela loja' : 'Mensagens pessoais do explorador'}</div>
       {conversations.length === 0 ? <div style={S.empty}>
         <div style={S.emptyIcon}>✉</div><h2>Ainda não tem conversas</h2>
         <p>A área de escrita fica disponível em baixo. Para enviar, escolha primeiro a pessoa: abra o perfil de um negócio ou utilizador e toque em “Enviar mensagem”.</p>
         <button type="button" onClick={()=>router.push('/explore')} style={S.primaryButton}>Explorar a Talaza</button>
-      </div> : conversations.map(item => <button type="button" key={item.id} onClick={()=>openConversation(item)} style={S.conversationRow}>
-        {item.peerPhoto ? <img src={item.peerPhoto} alt="" style={S.avatarPhoto}/> : <div style={S.avatar}>{(item.peerName || 'T').slice(0,1).toUpperCase()}</div>}
-        <span style={S.conversationInfo}><strong>{item.peerName}</strong><small>{item.sourceLabel || item.source || 'Talaza'} · abrir conversa</small></span>
+      </div> : conversations.map(item => <button type="button" key={item.id} onClick={()=>openConversation(item)} style={{...S.conversationRow,background:item.isUnread?'#F2EAF9':'transparent',borderLeft:item.isUnread?'4px solid #64358B':'4px solid transparent',fontWeight:item.isUnread?800:400,opacity:item.isUnread?1:0.85}}>
+        {item.peerPhoto ? <img src={item.peerPhoto} alt="" style={S.avatarPhoto}/> : <div style={{...S.avatar,background:item.isUnread?'#E6D6F2':'#F2EAF9',color:C.purple}}>{(item.peerName || 'T').slice(0,1).toUpperCase()}</div>}
+        <span style={S.conversationInfo}><strong style={{fontSize:14,fontWeight:item.isUnread?800:400,color:item.isUnread?'#4D236F':'#43354F'}}>{item.peerName}</strong><small style={{fontSize:11,color:'#76558F',fontWeight:650,fontFamily:'Arial,Helvetica,sans-serif'}}>{item.sourceLabel || item.source || 'Talaza'} · abrir conversa</small></span>
+        {item.isUnread && <span style={{display:'inline-flex',alignItems:'center',gap:6,marginLeft:'auto',color:'#64358B',fontSize:11,fontWeight:850,whiteSpace:'nowrap'}}><span style={{width:8,height:8,borderRadius:'50%',background:'#D8A319',display:'inline-block'}}/><span style={{background:'#64358B',color:'#fff',borderRadius:999,minWidth:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',padding:'0 5px',boxSizing:'border-box'}}>1</span></span>}
         <span style={S.chevron}>›</span>
       </button>)}
     </section> : null}
@@ -496,7 +528,7 @@ const S = {
  headerPhoto:{width:40,height:40,objectFit:'cover',borderRadius:'50%'},
  list:{flex:1,overflowY:'auto',padding:'16px 14px 24px'},
  sectionTitle:{fontSize:18,fontWeight:850,color:C.dark,margin:'4px 4px 14px'},
- conversationRow:{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'13px 8px',border:0,borderBottom:'1px solid '+C.line,background:'transparent',textAlign:'left',cursor:'pointer'},
+ conversationRow:{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 10px',border:0,borderBottom:'1px solid #E4D8EE',borderRadius:12,background:'transparent',textAlign:'left',cursor:'pointer',marginBottom:5},
  avatar:{width:46,height:46,flex:'0 0 46px',borderRadius:'50%',display:'grid',placeItems:'center',background:'#E8F3F0',color:C.green,fontWeight:900,fontSize:18},
  avatarPhoto:{width:46,height:46,flex:'0 0 46px',borderRadius:'50%',objectFit:'cover'},
  conversationInfo:{flex:1,minWidth:0,display:'flex',flexDirection:'column',gap:5},
