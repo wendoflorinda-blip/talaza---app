@@ -54,6 +54,9 @@ export default function Eventos() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [view, setView] = useState('browse');
+  const [selectedCategory, setSelectedCategory] = useState('Todas');
+  const [historyItems, setHistoryItems] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [events, setEvents] = useState([]);
   const [likesByEvent, setLikesByEvent] = useState({});
   const [likedByMe, setLikedByMe] = useState({});
@@ -192,7 +195,17 @@ export default function Eventos() {
       if (countryId) query = query.eq('country_id', countryId);
       const { data, error: eventsError } = await query;
       if (eventsError) throw eventsError;
-      const rows = data || [];
+      let rows = data || [];
+      // A ordem é personalizada nesta sessão: eventos já consultados descem para o fim.
+      const seenIds = historyItems.map(item => item.id);
+      rows = [...rows].sort((a, b) => {
+        const ai = seenIds.indexOf(a.id);
+        const bi = seenIds.indexOf(b.id);
+        if (ai === -1 && bi === -1) return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+        if (ai === -1) return -1;
+        if (bi === -1) return 1;
+        return bi - ai;
+      });
       setEvents(rows);
       if (!rows.length) {
         setLikesByEvent({});
@@ -256,6 +269,8 @@ export default function Eventos() {
   }
 
   async function submitComment(eventId) {
+    const selected = events.find(item => item.id === eventId);
+    if (selected) trackEventAction(selected);
     if (!user) {
       setFeedError('Inicia sessão na Talaza para comentar.');
       return;
@@ -444,15 +459,23 @@ export default function Eventos() {
 
         {view === 'browse' && (
           <section style={styles.feedSection}>
-            <h2 style={styles.sectionTitle}>Eventos aprovados</h2>
+            <div style={styles.feedHeading}>
+              <div><h2 style={styles.sectionTitle}>Eventos aprovados</h2><p style={styles.muted}>Explora por categoria ou descobre todos os eventos disponíveis.</p></div>
+              <button type="button" onClick={() => setShowHistory(value => !value)} style={styles.historyButton}>◷ Ver histórico ({historyItems.length})</button>
+            </div>
+            {showHistory && <div style={styles.historyPanel}><strong>Eventos que consultaste nesta sessão</strong>{historyItems.length === 0 ? <p style={styles.muted}>Ainda não consultaste nenhum evento. Ao gostar, comentar ou contactar o organizador, ele aparece aqui.</p> : historyItems.map(entry => <button key={entry.id} type="button" onClick={() => { setSelectedCategory('Todas'); setShowHistory(false); const selected = events.find(event => event.id === entry.id); if (selected) trackEventAction(selected); }} style={styles.historyItem}>{entry.image_url ? <img src={entry.image_url} alt="" style={styles.historyThumb} /> : <span style={styles.historyThumbFallback}>▣</span>}<span><strong>{entry.title}</strong><small>{entry.event_type}</small></span></button>)}</div>}
+            <div style={styles.categoryChips} aria-label="Filtrar eventos por categoria">
+              {['Todas', ...EVENT_TYPES].map(category => <button key={category} type="button" onClick={() => setSelectedCategory(category)} style={{ ...styles.categoryChip, ...(selectedCategory === category ? styles.categoryChipActive : {}) }}>{category}</button>)}
+            </div>
             <p style={styles.muted}>Descobre o que está a acontecer na tua província. Podes gostar, comentar e falar com o organizador através das mensagens internas da Talaza.</p>
             {feedError && <div style={styles.error}>{feedError}</div>}
             {feedNotice && <div style={styles.success}>{feedNotice}</div>}
             {feedLoading && <p style={styles.muted}>A carregar eventos...</p>}
             {!feedLoading && events.length === 0 && <div style={styles.notice}>Ainda não existem eventos aprovados e ativos nesta província.</div>}
+            {!feedLoading && events.length > 0 && visibleEvents.length === 0 && <div style={styles.notice}>Ainda não há eventos nesta categoria. Escolhe outra categoria ou «Todas».</div>}
             <div style={styles.eventList}>
-              {events.map(item => (
-                <article key={item.id} style={styles.eventCard}>
+              {visibleEvents.map(item => (
+                <article key={item.id} style={styles.eventCard} onClick={() => trackEventAction(item)}>
                   {item.image_url && <img src={item.image_url} alt={item.title} style={styles.eventImage} />}
                   {item.video_url && <video src={item.video_url} controls preload="metadata" style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} />}
                   <div style={styles.eventBody}>
@@ -464,7 +487,7 @@ export default function Eventos() {
                       <button type="button" disabled={interactionBusy === 'like:' + item.id} onClick={() => toggleLike(item.id)} style={{ ...styles.actionButton, ...(likedByMe[item.id] ? styles.likedButton : {}) }}>
                         {likedByMe[item.id] ? '♥ Gostaste' : '♡ Gostar'} · {likesByEvent[item.id] || 0}
                       </button>
-                      {user && item.user_id !== user.id && <button type="button" onClick={() => router.push({ pathname: '/mensagens', query: { to: item.user_id, source: 'Eventos', sourceId: item.id } })} style={styles.messageButton}>Enviar mensagem</button>}
+                      {user && item.user_id !== user.id && <button type="button" onClick={(event) => { event.stopPropagation(); trackEventAction(item); router.push({ pathname: '/mensagens', query: { to: item.user_id, source: 'Eventos', sourceId: item.id } }); }} style={styles.messageButton}>Enviar mensagem</button>}
                     </div>
                     <div style={styles.comments}>
                       <strong>Comentários ({(commentsByEvent[item.id] || []).length})</strong>
@@ -543,7 +566,22 @@ export default function Eventos() {
             {step === 3 && <>
               <h3 style={styles.wizardTitle}>Fase 3 — Escolhe como divulgar</h3>
               <p style={styles.muted}>Seleciona o período que melhor corresponde ao teu evento. Depois vais ver as instruções de pagamento e poderás enviar o comprovativo.</p>
-              {plans.length > 0 ? <div style={styles.planGrid}>{plans.map((plan) => { const name = String(plan.name || '').toLowerCase(); const key = name.includes('quinzenal') ? 'Quinzenal' : name.includes('trimestral') ? 'Trimestral' : 'Mensal'; const selected = planId === plan.id; return <button key={plan.id} type="button" onClick={() => setPlanId(plan.id)} style={{ ...styles.planCard, ...(selected ? styles.selectedPlanCard : {}) }}><span style={styles.planDuration}>{Number(plan.duration_days || 0)} dias</span><strong style={styles.planName}>{key}</strong><span style={styles.planPrice}>{Number(plan.price || 0).toLocaleString('pt-AO')} Kz</span><span style={styles.planDescription}>{PLAN_DETAILS[key]}</span><span style={styles.planChoose}>{selected ? '✓ Plano selecionado' : 'Escolher este plano'}</span></button>; })}</div> : <div style={styles.notice}>Não foram encontrados planos de publicação ativos para Eventos.</div>}
+              {plans.length > 0 ? <div style={styles.planGrid}>{plans.map((plan) => { const name = String(plan.name || '').toLowerCase(); const key = name.includes('quinzenal') ? 'Quinzenal' : name.includes('trimestral') ? 'Trimestral' : 'Mensal'; const selected = planId === plan.id;
+                  const themes = [
+                    { color: '#08745F', soft: '#E3F4ED', border: '#B8E0D2', icon: '◈' },
+                    { color: '#64358B', soft: '#F0E7F7', border: '#D7C3EA', icon: '✦' },
+                    { color: '#A77912', soft: '#FBF2D7', border: '#EBD58C', icon: '♛' }
+                  ];
+                  const theme = themes[plans.indexOf(plan) % themes.length];
+                  const benefits = String(plan.description || '').split(/\\n|;|\\|/).map(value => value.trim()).filter(value => value && !/^benefícios?$/i.test(value));
+                  return <button key={plan.id} type="button" onClick={() => setPlanId(plan.id)} style={{ ...styles.planCard, borderColor: selected ? theme.color : theme.border, background: selected ? theme.soft : '#FFFFFF', ...(selected ? styles.selectedPlanCard : {}) }}>
+                    <span style={{ ...styles.planBadge, background: theme.color }}>{theme.icon} {key}</span>
+                    <span style={styles.planDuration}>{Number(plan.duration_days || 0)} dias de divulgação</span>
+                    <span style={{ ...styles.planPrice, color: theme.color }}>{Number(plan.price || 0).toLocaleString('pt-AO')} Kz</span>
+                    <span style={styles.benefitTitle}>O que está incluído</span>
+                    <span style={styles.planBenefits}>{benefits.length ? benefits.map((benefit, index) => <span key={index} style={styles.planBenefit}><span style={{ ...styles.benefitCheck, background: theme.color }}>✓</span><span>{benefit}</span></span>) : <span style={styles.planDescription}>{PLAN_DETAILS[key]}</span>}</span>
+                    <span style={{ ...styles.planChoose, color: theme.color }}>{selected ? '✓ Plano selecionado' : 'Escolher este plano →'}</span>
+                  </button>; })}</div> : <div style={styles.notice}>Não foram encontrados planos de publicação ativos para Eventos.</div>}
               <div style={styles.wizardActions}><button type="button" onClick={() => { setError(''); setStep(2); }} style={styles.secondaryButton}>← Voltar</button><button type="submit" disabled={saving || !user || !planId || plans.length === 0} style={{ ...styles.button, opacity: saving || !user || !planId || plans.length === 0 ? 0.6 : 1 }}>{saving ? 'A guardar anúncio…' : 'Continuar para pagamento →'}</button></div>
             </>}
           </form>
@@ -555,6 +593,15 @@ export default function Eventos() {
 
 const styles = {
   tabs: { display: 'flex', gap: 10, marginBottom: 18, padding: 5, background: '#EAF1EE', borderRadius: 14 },
+  feedHeading: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 },
+  historyButton: { border: '1px solid #D7C3EA', background: '#F0E7F7', color: '#64358B', borderRadius: 10, padding: '9px 12px', fontWeight: 800, cursor: 'pointer', fontSize: 12 },
+  historyPanel: { display: 'grid', gap: 8, padding: 14, margin: '12px 0', borderRadius: 14, border: '1px solid #D7C3EA', background: '#FBF8FE' },
+  historyItem: { display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: 8, border: '1px solid #EAE1F2', borderRadius: 10, background: '#FFFFFF', cursor: 'pointer', color: '#26352F' },
+  historyThumb: { width: 42, height: 42, objectFit: 'cover', borderRadius: 8, flexShrink: 0 },
+  historyThumbFallback: { width: 42, height: 42, display: 'grid', placeItems: 'center', borderRadius: 8, background: '#F0E7F7', color: '#64358B' },
+  categoryChips: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 },
+  categoryChip: { border: '1px solid #D8E3DD', borderRadius: 999, padding: '8px 12px', background: '#FFFFFF', color: '#35534B', fontWeight: 700, fontSize: 12, cursor: 'pointer' },
+  categoryChipActive: { borderColor: '#075B4E', background: '#075B4E', color: '#FFFFFF' },
   stepsIndicator: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: '8px 0 24px' },
   stepItem: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 5px', borderRadius: 12, background: '#F2F5F3', color: '#718078', fontSize: 12, fontWeight: 800 },
   currentStep: { background: '#DCEFE8', color: '#075B4E', boxShadow: 'inset 0 0 0 1px #8CB7A8' },
@@ -566,13 +613,18 @@ const styles = {
   planGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, margin: '14px 0' },
   planCard: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10, textAlign: 'left', padding: 18, border: '1px solid #DCE6E0', borderRadius: 16, background: '#FFFFFF', color: '#173D32', cursor: 'pointer', minHeight: 220 },
   selectedPlanCard: { border: '2px solid #08745D', background: '#F0FAF5', boxShadow: '0 8px 22px rgba(8,116,93,.12)' },
+  planBadge: { display: 'inline-flex', alignItems: 'center', gap: 7, borderRadius: 999, padding: '7px 11px', color: '#FFFFFF', fontSize: 12, fontWeight: 900 },
   planDuration: { color: '#61756D', fontSize: 12, fontWeight: 800 },
+  benefitTitle: { color: '#243A32', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: .6, marginTop: 3 },
+  planBenefits: { display: 'grid', gap: 9, width: '100%', flex: 1 },
+  planBenefit: { display: 'flex', alignItems: 'flex-start', gap: 8, color: '#364D44', fontSize: 12, lineHeight: 1.45, fontWeight: 500 },
+  benefitCheck: { display: 'grid', placeItems: 'center', flex: '0 0 19px', width: 19, height: 19, borderRadius: '50%', color: '#FFFFFF', fontSize: 11, fontWeight: 900 },
   planName: { fontSize: 19 },
   planPrice: { fontSize: 23, fontWeight: 900, color: '#08745D' },
   planDescription: { fontSize: 13, lineHeight: 1.5, color: '#596560', flex: 1 },
   planChoose: { fontSize: 12, fontWeight: 800, color: '#08745D' },
-  mediaPreview: { width: '100%', maxHeight: 280, objectFit: 'contain', borderRadius: 12, background: '#10221D' },
-  eventVideo: { display: 'block', width: '100%', maxHeight: 420, background: '#10221D' },
+  mediaPreview: { display: 'block', width: '100%', maxWidth: '100%', height: 'auto', maxHeight: 280, aspectRatio: '16 / 9', objectFit: 'contain', borderRadius: 12, background: '#10221D', boxSizing: 'border-box' },
+  eventVideo: { display: 'block', width: '100%', maxWidth: '100%', height: 'auto', aspectRatio: '16 / 9', maxHeight: 420, objectFit: 'contain', background: '#10221D', boxSizing: 'border-box' },
   tab: { flex: 1, border: 0, borderRadius: 10, padding: '12px 14px', background: 'transparent', color: '#35534B', fontWeight: 800, cursor: 'pointer' },
   activeTab: { background: '#075B4E', color: '#FFFFFF', boxShadow: '0 3px 10px rgba(7,91,78,.18)' },
   feedSection: { background: '#FFFFFF', border: '1px solid #E5EBE8', borderRadius: 18, padding: 20, marginBottom: 20 },
