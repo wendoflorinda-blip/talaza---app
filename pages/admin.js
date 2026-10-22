@@ -664,53 +664,172 @@ export default function Admin() {
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
   }
 
+  function getPaymentAreaLabel(request) {
+    const explicitArea = String(
+      request?.area ||
+      request?.area_name ||
+      request?.platform_area ||
+      request?.service_type ||
+      request?.payment_for ||
+      ''
+    ).toLowerCase();
+
+    if (request?.event_id || explicitArea.includes('evento')) return 'Eventos';
+    if (request?.job_post_id || request?.opportunity_id || explicitArea.includes('oportunidade') || explicitArea.includes('vaga')) return 'Oportunidades';
+    if (request?.business_id || explicitArea.includes('vitrine') || explicitArea.includes('hospedagem')) return 'Vitrine / Hospedagem';
+    return 'Área por identificar';
+  }
+
   async function reviewPayment(request, approved) {
     const rejectionReason = approved ? '' : window.prompt('Indique o motivo da recusa do comprovativo/pagamento:');
     if (!approved && (!rejectionReason || !rejectionReason.trim())) return;
     if (reviewingPaymentId) return;
+
     setReviewingPaymentId(request.id);
     const nextStatus = approved ? 'approved' : 'rejected';
-    const { data: updatedPayment, error } = await supabase
+    const reviewedAt = new Date().toISOString();
+
+    const { data: updatedPayment, error: paymentError } = await supabase
       .from('payment_submissions')
-      .update({ status: nextStatus, reviewed_at: new Date().toISOString(), notes: approved ? (request.notes || null) : rejectionReason.trim() })
+      .update({
+        status: nextStatus,
+        reviewed_at: reviewedAt,
+        notes: approved ? (request.notes || null) : rejectionReason.trim(),
+      })
       .eq('id', request.id)
       .select('id')
       .maybeSingle();
-    if (error) {
+
+    if (paymentError || !updatedPayment) {
       setReviewingPaymentId('');
-      alert('Não foi possível atualizar o pagamento. Confirme as políticas RLS de payment_submissions: ' + error.message);
+      alert('Não foi possível atualizar o pagamento. Confirme as políticas RLS de payment_submissions: ' + (paymentError?.message || 'Nenhuma linha foi alterada.'));
       return;
     }
-    if (!updatedPayment) {
-      setReviewingPaymentId('');
-      alert('O Supabase não confirmou a alteração do pagamento. A política RLS pode estar a bloquear a aprovação.');
-      return;
-    }
+
+    let activationMessage = '';
+    const areaLabel = getPaymentAreaLabel(request);
 
     if (approved && request.business_id && request.plan_id) {
       const [{ data: business, error: businessError }, { data: plan, error: planError }] = await Promise.all([
-        supabase.from('businesses').select('approval_status').eq('id', request.business_id).maybeSingle(),
-        supabase.from('plans').select('duration_days').eq('id', request.plan_id).maybeSingle()
+        supabase.from('businesses').select('id, owner_id, approval_status').eq('id', request.business_id).maybeSingle(),
+        supabase.from('plans').select('id, duration_days').eq('id', request.plan_id).maybeSingle(),
       ]);
+
       if (businessError || planError) {
-        alert('O pagamento foi aprovado, mas não foi possível verificar a ativação do perfil. Verifique o painel novamente.');
-      } else if (business?.approval_status === 'approved' && plan?.duration_days) {
-        const trialEndsAt = new Date(Date.now() + Number(plan.duration_days) * 86400000).toISOString();
-        const { error: activationError } = await supabase.from('businesses').update({
-          is_active: true,
-          plan_id: request.plan_id,
-          trial_ends_at: trialEndsAt
-        }).eq('id', request.business_id);
-        if (activationError) alert('Pagamento aprovado, mas a ativação falhou: ' + activationError.message);
+        activationMessage = ' O pagamento foi aprovado, mas não foi possível confirmar o negócio e o plano; verifique os registos.';
+      } else if (!business || !plan) {
+        activationMessage = ' O pagamento foi aprovado, mas o negócio ou plano não foi encontrado; a hospedagem não foi ativada.';
+      } else if (business.approval_status !== 'approved') {
+        activationMessage = ' O pagamento foi aprovado. O perfil ainda precisa de aprovação administrativa antes de ficar ativo na Vitrine.';
+      } else {
+        const durationDays = Number(plan.duration_days) || 0;
+        if (durationDays <= 0) {
+          activationMessage = ' O pagamento foi aprovado, mas a duração do plano não está configurada; a hospedagem não foi ativada.';
+        } else {
+          const now = new Date();
+          const expiresAt = new Date(now.getTime() + durationDays * 86400000).toISOString();
+          const { data: existingSubscription, error: readSubscriptionError } = await supabase
+            .from('business_subscriptions')
+            .select('id')
+            .eq('business_id', request.business_id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (readSubscriptionError) {
+            activationMessage = ' O pagamento foi aprovado, mas não foi possível consultar a hospedagem: ' + readSubscriptionError.message;
+          } else {
+            const subscriptionData = {
+              business_id: request.business_id,
+              plan_id: request.plan_id,
+              starts_at: now.toISOString(),
+              status: 'active',
+              expires_at: expiresAt,
+            };
+            const subscriptionResult = existingSubscription?.id
+              ? await supabase.from('business_subscriptions').update(subscriptionData).eq('id', existingSubscription.id).select('id').maybeSingle()
+              : await supabase.from('business_subscriptions').insert(subscriptionData).select('id').maybeSingle();
+
+            if (subscriptionResult.error || !subscriptionResult.data) {
+              activationMessage = ' O pagamento foi aprovado, mas a hospedagem não foi ativada: ' + (subscriptionResult.error?.message || 'O Supabase não confirmou o registo.');
+            } else {
+              const { error: activeError } = await supabase.from('businesses').update({ is_active: true }).eq('id', request.business_id);
+              if (activeError) activationMessage = ' A hospedagem foi registada, mas não foi possível ativar o perfil: ' + activeError.message;
+              else activationMessage = ' A hospedagem da Vitrine está ativa até ' + new Date(expiresAt).toLocaleDateString('pt-AO') + '.';
+            }
+          }
+        }
       }
-    } else if (!approved && request.business_id) {
-      await supabase.from('businesses').update({ is_active: false }).eq('id', request.business_id);
     }
 
-    await notifyUser(request.user_id, approved ? 'Pagamento aprovado — Talaza' : 'Comprovativo recusado — Talaza', approved ? 'O seu pagamento foi aprovado. A equipa Talaza está a atualizar a hospedagem do seu perfil.' : 'O comprovativo do seu pagamento foi recusado. Motivo: ' + rejectionReason.trim() + ' Pode corrigir e enviar novamente.', 'payment_review');
+    if (approved && request.event_id) {
+      const { data: event, error: eventReadError } = await supabase
+        .from('events')
+        .select('id, user_id, admin_approved')
+        .eq('id', request.event_id)
+        .maybeSingle();
+
+      if (eventReadError || !event) {
+        activationMessage += ' O pagamento foi aprovado, mas o evento associado não foi encontrado.';
+      } else {
+        const eventPatch = { payment_status: 'approved' };
+        if (event.admin_approved === true) eventPatch.status = 'published';
+        const { error: eventUpdateError } = await supabase.from('events').update(eventPatch).eq('id', event.id);
+        if (eventUpdateError) activationMessage += ' O pagamento foi aprovado, mas não foi possível atualizar o evento: ' + eventUpdateError.message;
+        else {
+          activationMessage += event.admin_approved === true
+            ? ' O evento foi publicado após confirmação do pagamento.'
+            : ' O pagamento está confirmado; o evento ainda precisa de aprovação administrativa.';
+          await notifyUser(event.user_id || request.user_id, 'Pagamento de evento aprovado — Talaza', event.admin_approved === true ? 'O pagamento foi confirmado e o evento foi publicado.' : 'O pagamento foi confirmado. O evento ainda aguarda aprovação administrativa.', 'payment_review');
+        }
+      }
+    }
+
+    const opportunityId = request.job_post_id || request.opportunity_id || null;
+    if (approved && opportunityId) {
+      const { data: opportunity, error: opportunityReadError } = await supabase
+        .from('job_posts')
+        .select('id, user_id, admin_approved')
+        .eq('id', opportunityId)
+        .maybeSingle();
+
+      if (opportunityReadError || !opportunity) {
+        activationMessage += ' O pagamento foi aprovado, mas a oportunidade associada não foi encontrada.';
+      } else {
+        const opportunityPatch = { payment_status: 'approved' };
+        if (opportunity.admin_approved === true) {
+          opportunityPatch.status = 'published';
+          opportunityPatch.is_active = true;
+        }
+        const { error: opportunityUpdateError } = await supabase.from('job_posts').update(opportunityPatch).eq('id', opportunity.id);
+        if (opportunityUpdateError) {
+          activationMessage += ' O pagamento foi aprovado, mas não foi possível atualizar a oportunidade: ' + opportunityUpdateError.message;
+        } else {
+          activationMessage += opportunity.admin_approved === true
+            ? ' A oportunidade foi publicada após confirmação do pagamento.'
+            : ' O pagamento está confirmado; a oportunidade ainda precisa de aprovação administrativa.';
+          await notifyUser(opportunity.user_id || request.user_id, 'Pagamento de oportunidade aprovado — Talaza', opportunity.admin_approved === true ? 'O pagamento foi confirmado e a oportunidade foi publicada.' : 'O pagamento foi confirmado. A oportunidade ainda aguarda aprovação administrativa.', 'payment_review');
+        }
+      }
+    }
+
+    if (!approved && request.business_id) {
+      const { error: deactivateError } = await supabase.from('businesses').update({ is_active: false }).eq('id', request.business_id);
+      if (deactivateError) console.error('O comprovativo foi recusado, mas não foi possível desativar o perfil:', deactivateError.message);
+    }
+
+    const notificationTitle = approved ? 'Pagamento aprovado — Talaza' : 'Comprovativo recusado — Talaza';
+    const notificationBody = approved
+      ? 'O seu pagamento para ' + areaLabel + ' foi aprovado.' + activationMessage
+      : 'O comprovativo do seu pagamento para ' + areaLabel + ' foi recusado. Motivo: ' + rejectionReason.trim() + ' Pode corrigir e enviar novamente.';
+    await notifyUser(request.user_id, notificationTitle, notificationBody, 'payment_review');
+
     await loadSubscriptionRequests();
     await loadBusinesses();
+    await loadEvents();
+    await loadJobPosts();
     setReviewingPaymentId('');
+    alert(approved ? 'Pagamento aprovado.' + activationMessage : 'Pagamento recusado e motivo enviado nas notificações.');
   }
 
   async function refreshAdminData() {
@@ -1038,8 +1157,8 @@ export default function Admin() {
         <section id="pagamentos" style={{ marginTop: 42 }}>
           <div style={styles.titleRow}>
             <div>
-              <h2 style={styles.title}>Pagamentos e hospedagens</h2>
-              <p style={styles.description}>Confirme os comprovativos antes de ativar um perfil. A aprovação do perfil, sozinha, não ativa a hospedagem.</p>
+              <h2 style={styles.title}>Pagamentos de todas as áreas</h2>
+              <p style={styles.description}>Analise os comprovativos da Vitrine/Hospedagem, Eventos e Oportunidades. A publicação só acontece quando os requisitos administrativos e de pagamento estiverem cumpridos.</p>
             </div>
             <div style={styles.counter}>{subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending').length} pagamentos pendentes</div>
           </div>
@@ -1047,7 +1166,7 @@ export default function Admin() {
             <div style={styles.empty}>
               <div style={styles.emptyIcon}>◇</div>
               <h2>Sem pedidos de pagamento</h2>
-              <p>Os pedidos de hospedagem e comprovativos aparecerão aqui quando forem enviados.</p>
+              <p>Os comprovativos enviados para as áreas pagas da Talaza aparecerão aqui quando forem registados.</p>
             </div>
           ) : (
             <div style={styles.list}>
@@ -1057,8 +1176,8 @@ export default function Admin() {
                   <div style={styles.cardTop}>
                     <div style={styles.logoPlaceholder}>₭</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={styles.businessName}>{businessNames[request.business_id] || 'Pedido de hospedagem'}</h3>
-                      <div style={styles.meta}>Negócio: {businessNames[request.business_id] || 'A carregar nome…'} · Plano: {planNames[request.plan_id] || 'A carregar plano…'}</div>
+                      <h3 style={styles.businessName}>{businessNames[request.business_id] || (request.event_id ? 'Pagamento de evento' : (request.job_post_id || request.opportunity_id) ? 'Pagamento de oportunidade' : getPaymentAreaLabel(request))}</h3>
+                      <div style={styles.meta}>Área: {getPaymentAreaLabel(request)} · {request.business_id ? 'Negócio: ' + (businessNames[request.business_id] || 'A carregar nome…') + ' · ' : ''}Plano: {planNames[request.plan_id] || 'A carregar plano…'}</div>
                     </div>
                     <span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span>
                   </div>
