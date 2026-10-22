@@ -68,6 +68,15 @@ export default function Eventos() {
   const [feedNotice, setFeedNotice] = useState('');
 
   useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('talaza_history_events');
+      if (saved) setHistoryItems(JSON.parse(saved));
+    } catch {
+      setHistoryItems([]);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!router.isReady) return;
 
     let cancelled = false;
@@ -244,7 +253,35 @@ export default function Eventos() {
     loadEvents();
   }, [router.isReady, loading, provinceId, countryId, user?.id]);
 
+  function trackEventAction(item) {
+    if (!item?.id) return;
+    setHistoryItems(previous => {
+      const next = [{
+        id: item.id,
+        title: item.title,
+        event_type: item.event_type,
+        image_url: item.image_url || null,
+        at: new Date().toISOString()
+      }, ...previous.filter(entry => entry.id !== item.id)].slice(0, 100);
+      try {
+        sessionStorage.setItem('talaza_history_events', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    setEvents(previous => {
+      const selected = previous.find(event => event.id === item.id);
+      if (!selected) return previous;
+      return [...previous.filter(event => event.id !== item.id), selected];
+    });
+  }
+
+  const visibleEvents = selectedCategory === 'Todas'
+    ? events
+    : events.filter(event => (event.event_type || 'Geral') === selectedCategory);
+
   async function toggleLike(eventId) {
+    const selected = events.find(item => item.id === eventId);
+    if (selected) trackEventAction(selected);
     if (!user) {
       setFeedError('Inicia sessão na Talaza para gostar de um evento.');
       return;
