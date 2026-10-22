@@ -1148,6 +1148,37 @@ export default function Admin() {
         <section id="eventos" style={{ marginTop: 42 }}>
           <div style={styles.titleRow}><div><h2 style={styles.title}>Eventos</h2><p style={styles.description}>Analise os eventos submetidos, consulte os detalhes e aprove ou recuse com um motivo.</p></div><div style={styles.counter}>{events.filter(item => ['pending_payment', 'pending', 'pending_review'].includes(String(item.status || '').toLowerCase())).length} por analisar · {events.length} total</div></div>
           {events.length === 0 ? <div style={styles.empty}><h3>Sem eventos registados</h3><p>Os eventos enviados aparecerão aqui.</p></div> : <div style={styles.list}>{events.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>EV</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || 'Evento sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · Pagamento: {item.payment_status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || 'Sem descrição.'}</p>{item.image_url && <p><a href={item.image_url} target="_blank" rel="noreferrer">Ver imagem do evento ↗</a></p>}<p><strong>Local:</strong> {item.location || '—'}</p><p><strong>Responsável:</strong> {profiles.find(profile => profile.id === item.user_id)?.name || 'Nome não disponível'}</p><p><strong>ID interno:</strong> {item.user_id || '—'}</p></div>{!item.admin_approved && !['published','approved','rejected','cancelled','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateEvent(item, false)}>Recusar evento</button><button type="button" style={styles.approve} onClick={() => moderateEvent(item, true)}>Aprovar evento</button></div>}</article>)}</div>}
+          <div style={{ marginTop: 30 }}>
+            <h3 style={{ ...styles.title, fontSize: 21 }}>Comprovativos de pagamento dos eventos</h3>
+            <p style={styles.description}>Só aparecem aqui os pagamentos de eventos com comprovativo enviado. A aprovação do evento e a confirmação do pagamento são decisões separadas.</p>
+            {subscriptionRequests.filter(request => request.event_id).length === 0
+              ? <div style={styles.empty}><h3>Sem comprovativos de eventos</h3><p>Quando alguém selecionar um plano e enviar o comprovativo, o pedido aparecerá aqui.</p></div>
+              : <div style={styles.list}>{subscriptionRequests.filter(request => request.event_id).map(request => {
+                  const event = events.find(item => item.id === request.event_id);
+                  const pending = String(request.status || '').toLowerCase() === 'pending' || String(request.status || '').toLowerCase() === 'submitted';
+                  const paths = getPaymentProofPaths(request);
+                  return <article key={request.id} style={styles.card}>
+                    <div style={styles.cardTop}>
+                      <div style={styles.logoPlaceholder}>₭</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h3 style={styles.businessName}>{event?.title || 'Evento associado'}</h3>
+                        <div style={styles.meta}>Responsável: {profiles.find(profile => profile.id === (event?.user_id || request.user_id))?.name || 'Nome não disponível'} · Plano: {planNames[request.plan_id] || 'Plano de evento'} · {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : ''}</div>
+                      </div>
+                      <span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span>
+                    </div>
+                    <div style={styles.details}>
+                      <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : '—'}</p>
+                      {paths.image && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem do comprovativo ↗</button></p>}
+                      {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir comprovativo PDF ↗</button></p>}
+                      {!paths.image && !paths.file && <p style={{ color: '#9B3A28' }}>Este pedido não contém um ficheiro de comprovativo válido.</p>}
+                    </div>
+                    {pending && paths.image || pending && paths.file ? <div style={styles.actions}>
+                      <button type="button" disabled={reviewingPaymentId === request.id} style={styles.reject} onClick={() => reviewPayment(request, false)}>Rejeitar pagamento</button>
+                      <button type="button" disabled={reviewingPaymentId === request.id} style={styles.approve} onClick={() => reviewPayment(request, true)}>Confirmar pagamento</button>
+                    </div> : null}
+                  </article>;
+                })}</div>}
+          </div>
         </section>
 
         <section id="oportunidades" style={{ marginTop: 42 }}>
