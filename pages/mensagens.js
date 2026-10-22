@@ -5,6 +5,19 @@ import { supabase } from '../lib/supabaseClient';
 
 const C = { green:'#08745F', dark:'#06483D', purple:'#64358B', gold:'#D8A319', ink:'#182722', muted:'#66736F', bg:'#F2F4F1', line:'#DDE5E0', white:'#FFFFFF' };
 const safe = value => Array.isArray(value) ? value[0] : value;
+
+function renderMessageText(value) {
+  const text = String(value || '');
+  const parts = text.split(/(https?:\/\/[^\s<>"']+)/gi);
+  return parts.map((part, index) => {
+    if (/^https?:\/\//i.test(part)) {
+      const href = part.replace(/[),.!?;:]+$/, '');
+      const trailing = part.slice(href.length);
+      return <span key={index}><a href={href} target="_blank" rel="noopener noreferrer nofollow" style={{color:'#64358B',textDecoration:'underline',overflowWrap:'anywhere'}}>{href}</a>{trailing}</span>;
+    }
+    return <span key={index}>{part}</span>;
+  });
+}
 const sourceNames = ['Vitrine','Contratar','Comunidade Talaza','Oportunidades','Eventos','Ebooks','Outro'];
 
 export default function Mensagens() {
@@ -503,7 +516,7 @@ export default function Mensagens() {
     <section style={S.chat} aria-label="Mensagens da conversa">
       {!activeId ? <div style={S.emptyChat}>Escolha uma conversa para ver mensagens e enviar texto, ficheiros ou áudio.</div> : messages.length===0 ? <div style={S.emptyChat}>Esta conversa começou agora. Envie a primeira mensagem.</div> : messages.map(item=><div key={item.id} style={{...S.messageRow,justifyContent:item.sender_id===user?.id?'flex-end':'flex-start'}}>
         <div style={{...S.bubble,background:item.sender_id===user?.id?'#E0F4E8':'#FFFFFF',borderRadius:item.sender_id===user?.id?'15px 15px 4px 15px':'15px 15px 15px 4px'}}>
-          {item.body && <div style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{item.body}</div>}
+          {item.body && <div style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{renderMessageText(item.body)}</div>}
           {item.storage_path && <div style={{marginTop:item.body?8:0}}>
             {item.message_type==='audio' && item.attachment_url ? <audio controls src={item.attachment_url} style={{maxWidth:'100%'}}/> : item.message_type==='image' && item.attachment_url ? <a href={item.attachment_url} target="_blank" rel="noreferrer"><img src={item.attachment_url} alt={item.attachment_name || 'Imagem enviada'} style={{maxWidth:220,maxHeight:220,objectFit:'contain',borderRadius:10}}/></a> : <button type="button" onClick={()=>openAttachment(item)} style={S.fileLink}>📎 {item.attachment_name || 'Abrir ficheiro'}</button>}
           </div>}
