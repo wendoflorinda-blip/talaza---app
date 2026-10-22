@@ -616,14 +616,6 @@ export default function Seller() {
             >
               Painel do negócio
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-              <Link href="/mensagens?box=explore" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 12px', borderRadius: 10, background: '#FFFFFF', color: '#075B4E', textDecoration: 'none', fontSize: 13, fontWeight: 800 }}>
-                ✉ Mensagens do Explorar
-              </Link>
-              <Link href="/mensagens?box=store" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 12px', borderRadius: 10, background: '#E6A900', color: '#18352F', textDecoration: 'none', fontSize: 13, fontWeight: 800 }}>
-                ▣ Mensagens da minha loja
-              </Link>
-            </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -637,6 +629,30 @@ export default function Seller() {
           </div>
         </div>
       </header>
+
+      <nav
+        aria-label="Caixas de mensagens"
+        style={{
+          position: 'sticky',
+          top: 78,
+          zIndex: 9,
+          background: '#F3F7F4',
+          borderBottom: '1px solid #D6E4DD',
+          padding: '10px 18px',
+          boxShadow: '0 5px 14px rgba(0,60,48,.06)'
+        }}
+      >
+        <div style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+          <Link href="/mensagens?box=explore" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, boxSizing: 'border-box', padding: '10px 12px', borderRadius: 12, background: '#FFFFFF', border: '1px solid #C9DAD2', color: '#075B4E', textDecoration: 'none', fontSize: 13, fontWeight: 850, textAlign: 'center' }}>
+            <span aria-hidden="true">✉</span>
+            <span>Mensagens do Explorar Talaza</span>
+          </Link>
+          <Link href="/mensagens?box=store" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, boxSizing: 'border-box', padding: '10px 12px', borderRadius: 12, background: '#E6A900', border: '1px solid #D09A00', color: '#18352F', textDecoration: 'none', fontSize: 13, fontWeight: 850, textAlign: 'center' }}>
+            <span aria-hidden="true">▣</span>
+            <span>Mensagens da minha loja</span>
+          </Link>
+        </div>
+      </nav>
 
       <input id="talaza-logo-upload" type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) uploadBrandAsset(file, 'logo_url'); }} />
       <input id="talaza-cover-upload" type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) uploadBrandAsset(file, 'cover_url'); }} />
