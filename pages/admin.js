@@ -52,6 +52,10 @@ export default function Admin() {
   const [officialSaving, setOfficialSaving] = useState(false);
   const [officialBackgroundColor, setOfficialBackgroundColor] = useState('#173B35');
   const [officialBackgroundImage, setOfficialBackgroundImage] = useState('');
+  const [officialBackgroundGradient, setOfficialBackgroundGradient] = useState('linear-gradient(135deg, #173B35 0%, #64358B 55%, #D8A319 100%)');
+  const [officialImageUploading, setOfficialImageUploading] = useState(false);
+  const [deletingPaymentId, setDeletingPaymentId] = useState('');
+  const [deletingSupportId, setDeletingSupportId] = useState('');
   const [officialTextColor, setOfficialTextColor] = useState('#FFFFFF');
   const [officialFontFamily, setOfficialFontFamily] = useState('Georgia');
   const [officialDuration, setOfficialDuration] = useState(30);
@@ -523,6 +527,27 @@ export default function Admin() {
     alert(approved ? 'Oportunidade aprovada e publicada gratuitamente.' : 'Oportunidade recusada e motivo enviado nas notificações.');
   }
 
+  async function uploadOfficialBackground(file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('Escolha um ficheiro de imagem.'); return; }
+    if (file.size > 8 * 1024 * 1024) { alert('A imagem deve ter no máximo 8 MB.'); return; }
+    setOfficialImageUploading(true);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData?.user) throw new Error('A sessão expirou. Entre novamente.');
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = 'community-backgrounds/' + authData.user.id + '/' + Date.now() + '.' + ext;
+      const { error: uploadError } = await supabase.storage.from('business-media').upload(path, file, { upsert: false, contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from('business-media').getPublicUrl(path);
+      if (!data?.publicUrl) throw new Error('O Supabase não devolveu o endereço da imagem.');
+      setOfficialBackgroundImage(data.publicUrl);
+      alert('Imagem carregada. Confirma a pré-visualização antes de publicar.');
+    } catch (error) {
+      alert('Não foi possível carregar a imagem: ' + (error.message || 'erro desconhecido'));
+    } finally { setOfficialImageUploading(false); }
+  }
+
   async function publishOfficialCommunityContent() {
     if (officialSaving) return;
     if (officialKind === 'weekly_question' && !officialBody.trim()) {
@@ -553,6 +578,7 @@ export default function Admin() {
           image_url: null,
           is_active: true,
           background_color: officialBackgroundColor,
+          background_gradient: officialBackgroundGradient,
           background_image_url: officialBackgroundImage.trim() || null,
           text_color: officialTextColor,
           font_family: officialFontFamily,
@@ -615,6 +641,7 @@ export default function Admin() {
             duration_days: officialDuration,
             is_active: true,
             background_color: officialBackgroundColor,
+            background_gradient: officialBackgroundGradient,
             background_image_url: officialBackgroundImage.trim() || null,
             text_color: officialTextColor,
             font_family: officialFontFamily,
@@ -642,7 +669,7 @@ export default function Admin() {
   async function loadProfiles() {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name')
+      .select('id, name, account_type')
       .order('name', { ascending: true });
 
     if (error) {
@@ -666,12 +693,15 @@ export default function Admin() {
     }
 
     setSendingNotification(true);
-    const { error } = await supabase.from('notifications').insert({
-      user_id: notificationAudience === 'all' ? null : notificationUserId,
+    const recipients = notificationAudience === 'user'
+      ? profiles.filter(profile => profile.id === notificationUserId)
+      : profiles.filter(profile => notificationAudience === 'all' || (notificationAudience === 'sellers' && ['seller','vendedor','business'].includes(String(profile.account_type || '').toLowerCase())) || (notificationAudience === 'explorers' && !['seller','vendedor','business'].includes(String(profile.account_type || '').toLowerCase())));
+    const { error } = recipients.length ? await supabase.from('notifications').insert(recipients.map(profile => ({
+      user_id: profile.id,
       title: notificationTitle.trim(),
-      body: notificationBody.trim(),
-      type: notificationAudience === 'all' ? 'general' : 'individual',
-    });
+      content: notificationBody.trim(),
+      type: notificationAudience === 'user' ? 'individual' : notificationAudience === 'sellers' ? 'sellers' : notificationAudience === 'explorers' ? 'explorers' : 'general',
+    }))) : { error: new Error('Não existem destinatários para este filtro.') };
     setSendingNotification(false);
 
     if (error) {
@@ -684,6 +714,34 @@ export default function Admin() {
     alert(notificationAudience === 'all'
       ? 'Notificação geral enviada. Ficará visível nas notificações dos utilizadores autenticados.'
       : 'Notificação enviada ao utilizador selecionado.');
+  }
+
+  async function deleteSupportMessage(item) {
+    if (!window.confirm('Eliminar esta mensagem de suporte? Esta ação não pode ser desfeita.')) return;
+    setDeletingSupportId(item.id);
+    const { error } = await supabase.from('support_messages').delete().eq('id', item.id);
+    setDeletingSupportId('');
+    if (error) { alert('Não foi possível eliminar a mensagem: ' + error.message); return; }
+    await loadSupportMessages();
+  }
+
+  async function deletePaymentProof(request) {
+    if (!window.confirm('Eliminar este registo de comprovativo da lista administrativa? O pagamento não será apagado do histórico contabilístico.')) return;
+    setDeletingPaymentId(request.id);
+    try {
+      const paths = getPaymentProofPaths(request);
+      const storagePaths = [paths.image, paths.file].filter(Boolean).filter(path => !/^https?:\/\//i.test(path));
+      if (storagePaths.length) {
+        const { error: storageError } = await supabase.storage.from('payment-proofs').remove(storagePaths);
+        if (storageError) throw storageError;
+      }
+      const { error } = await supabase.from('payment_submissions').delete().eq('id', request.id);
+      if (error) throw error;
+      await loadSubscriptionRequests();
+      alert('Comprovativo eliminado.');
+    } catch (error) {
+      alert('Não foi possível eliminar o comprovativo: ' + (error.message || 'erro desconhecido') + '. Confirma as permissões administrativas no Supabase.');
+    } finally { setDeletingPaymentId(''); }
   }
 
   async function markSupportReviewed(item) {
@@ -1246,9 +1304,20 @@ export default function Admin() {
               <div><label style={styles.label}>Cor das letras</label><input aria-label="Cor das letras" type="color" value={officialTextColor} onChange={event=>setOfficialTextColor(event.target.value)} style={{ ...styles.input, height:46, padding:4 }} /></div>
               <div><label style={styles.label}>Tipo de letra</label><select value={officialFontFamily} onChange={event=>setOfficialFontFamily(event.target.value)} style={styles.input}><option value="Georgia">Georgia — elegante</option><option value="Arial">Arial — simples</option><option value="Verdana">Verdana — legível</option><option value="Trebuchet MS">Trebuchet MS — moderno</option><option value="Times New Roman">Times New Roman — clássico</option><option value="system-ui">Sistema — contemporâneo</option></select></div>
             </div>
-            <label style={styles.label}>Fundo externo (URL de imagem, opcional)</label>
-            <input type="url" value={officialBackgroundImage} onChange={event=>setOfficialBackgroundImage(event.target.value)} placeholder="https://... imagem de fundo" style={styles.input} />
-            <div style={{ marginTop:12, padding:16, minHeight:officialKind==='motivation'?180:110, aspectRatio:officialKind==='motivation'?'16 / 9':undefined, borderRadius:14, color:officialTextColor, fontFamily:officialFontFamily, backgroundColor:officialBackgroundColor, backgroundImage:officialBackgroundImage.trim()? 'linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.15)),url('+officialBackgroundImage.trim()+')':undefined, backgroundSize:'cover', backgroundPosition:'center', display:'flex', flexDirection:'column', justifyContent:'center', textAlign:'center', overflow:'hidden' }}>
+            <label style={styles.label}>Fundo externo (carregar imagem)</label>
+            <input type="file" accept="image/*" disabled={officialImageUploading} onChange={event => { uploadOfficialBackground(event.target.files?.[0]); event.target.value = ''; }} style={styles.input} />
+            <p style={styles.meta}>{officialImageUploading ? 'A carregar imagem…' : 'Escolhe uma imagem da galeria/disco (máximo 8 MB). Também podes colar um URL abaixo.'}</p>
+            <input type="url" value={officialBackgroundImage} onChange={event=>setOfficialBackgroundImage(event.target.value)} placeholder="Ou cola aqui o URL da imagem" style={styles.input} />
+            <label style={styles.label}>Fundo em degradê</label>
+            <select value={officialBackgroundGradient} onChange={event => setOfficialBackgroundGradient(event.target.value)} style={styles.input}>
+              <option value="linear-gradient(135deg, #173B35 0%, #64358B 55%, #D8A319 100%)">Talaza — verde, roxo e dourado</option>
+              <option value="linear-gradient(135deg, #075B4E 0%, #18A999 100%)">Verde oceano</option>
+              <option value="linear-gradient(135deg, #64358B 0%, #C06C84 100%)">Roxo e rosa</option>
+              <option value="linear-gradient(135deg, #1D3557 0%, #457B9D 50%, #A8DADC 100%)">Azul profundo</option>
+              <option value="linear-gradient(135deg, #7F4F24 0%, #DDA15E 55%, #FEFAE0 100%)">Terra e areia</option>
+              <option value="linear-gradient(135deg, #232526 0%, #414345 100%)">Grafite</option>
+            </select>
+            <div style={{ marginTop:12, padding:16, minHeight:officialKind==='motivation'?180:110, aspectRatio:officialKind==='motivation'?'16 / 9':undefined, borderRadius:14, color:officialTextColor, fontFamily:officialFontFamily, backgroundColor:officialBackgroundColor, backgroundImage:officialBackgroundImage.trim()? 'linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.15)),url('+officialBackgroundImage.trim()+')':officialBackgroundGradient, backgroundSize:'cover', backgroundPosition:'center', display:'flex', flexDirection:'column', justifyContent:'center', textAlign:'center', overflow:'hidden' }}>
               <strong style={{ fontSize:officialKind==='motivation'?22:18 }}>{officialTitle || (officialKind==='theme'?'Tema do mês':officialKind==='weekly_question'?'Título da semana':'A sua frase motivacional')}</strong>
               {officialKind==='weekly_question' && <span style={{ marginTop:8, fontSize:14 }}>{officialBody || 'A descrição da semana aparecerá aqui.'}</span>}
             </div>
@@ -1378,9 +1447,10 @@ export default function Admin() {
                       );
                     })()}
                   </div>
-                  {pending && <div style={styles.actions}>
-                    <button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>
-                    <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Confirmar pagamento'}</button>
+                  <div style={styles.actions}>
+                    {pending && <><button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>
+                    <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Confirmar pagamento'}</button></>}
+                    <button type="button" disabled={deletingPaymentId === request.id} style={styles.reject} onClick={() => deletePaymentProof(request)}>{deletingPaymentId === request.id ? 'A eliminar…' : 'Eliminar comprovativo'}</button>
                   </div>}
                 </article>;
               })}
@@ -1410,7 +1480,7 @@ export default function Admin() {
                   <span style={String(item.status || 'pending') === 'pending' ? styles.pending : styles.paymentStatus}>{item.status || 'pending'}</span>
                 </div>
                 <div style={styles.details}><p style={{ whiteSpace: 'pre-wrap' }}>{item.message}</p><p><strong>ID do utilizador:</strong> {item.user_id}</p></div>
-                {String(item.status || 'pending') === 'pending' && <div style={styles.actions}><button type="button" style={styles.approve} onClick={() => markSupportReviewed(item)}>Marcar como analisada</button></div>}
+                <div style={styles.actions}>{String(item.status || 'pending') === 'pending' && <button type="button" style={styles.approve} onClick={() => markSupportReviewed(item)}>Marcar como analisada</button>}<button type="button" disabled={deletingSupportId === item.id} style={styles.reject} onClick={() => deleteSupportMessage(item)}>{deletingSupportId === item.id ? 'A eliminar…' : 'Eliminar mensagem'}</button></div>
               </article>
             ))}</div>
           )}
@@ -1426,7 +1496,9 @@ export default function Admin() {
           <form onSubmit={sendAdminNotification} style={styles.card}>
             <label style={styles.formLabel} htmlFor="notification-audience">Destinatários</label>
             <select id="notification-audience" value={notificationAudience} onChange={event => setNotificationAudience(event.target.value)} style={styles.formInput}>
-              <option value="all">Todos os utilizadores (geral)</option>
+              <option value="all">Todos os utilizadores</option>
+              <option value="explorers">Exploradores normais</option>
+              <option value="sellers">Vendedores</option>
               <option value="user">Uma pessoa específica</option>
             </select>
             {notificationAudience === 'user' && <>
