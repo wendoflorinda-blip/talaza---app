@@ -179,7 +179,7 @@ export default function Eventos() {
         expires_at: null, status: 'pending_payment', payment_status: 'pending', admin_approved: false
       }).select('id').single();
       if (insertError) throw insertError;
-      await router.push({ pathname: '/Pagamento', query: { plan: planId, event: created.id, country: countryId, province: provinceId } });
+      await router.push({ pathname: '/PagamentoEvento', query: { plan: planId, event: created.id, country: countryId, province: provinceId } });
     } catch (e) {
       if (uploadedPath) {
         const { error: cleanupError } = await supabase.storage.from(IMAGE_BUCKET).remove([uploadedPath]);
