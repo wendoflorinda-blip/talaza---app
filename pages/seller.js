@@ -13,6 +13,8 @@ export default function Seller() {
 
   const [user, setUser] = useState(null);
   const [business, setBusiness] = useState(null);
+  const [unreadExploreCount, setUnreadExploreCount] = useState(0);
+  const [unreadStoreCount, setUnreadStoreCount] = useState(0);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editName, setEditName] = useState('');
@@ -49,6 +51,85 @@ export default function Seller() {
 
     loadBusiness();
   }, [router.isReady, country, province]);
+
+  // Atualiza os contadores dos botões de mensagens sem precisar abrir a caixa.
+  useEffect(() => {
+    if (!router.isReady) return undefined;
+    let cancelled = false;
+
+    async function refreshUnreadCounts() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUser = session?.user;
+        if (!currentUser) return;
+
+        const [{ data: memberships, error: membershipsError }, { data: ownedBusinesses, error: businessesError }] = await Promise.all([
+          supabase.from('conversation_participants').select('conversation_id').eq('user_id', currentUser.id),
+          supabase.from('businesses').select('id').eq('owner_id', currentUser.id)
+        ]);
+        if (membershipsError) throw membershipsError;
+        if (businessesError) throw businessesError;
+
+        const ids = [...new Set((memberships || []).map(row => row.conversation_id).filter(Boolean))];
+        if (!ids.length) {
+          if (!cancelled) {
+            setUnreadExploreCount(0);
+            setUnreadStoreCount(0);
+          }
+          return;
+        }
+
+        const [{ data: conversations, error: conversationsError }, { data: latestRows, error: messagesError }] = await Promise.all([
+          supabase.from('conversations').select('id,source_id').in('id', ids),
+          supabase.from('talaza_messages').select('conversation_id,sender_id,created_at').in('conversation_id', ids).order('created_at', { ascending: false })
+        ]);
+        if (conversationsError) throw conversationsError;
+        if (messagesError) throw messagesError;
+
+        let readMap = {};
+        try {
+          readMap = JSON.parse(window.localStorage.getItem('talaza_read') || '{}') || {};
+        } catch (_) {
+          readMap = {};
+        }
+
+        const latestByConversation = {};
+        (latestRows || []).forEach(message => {
+          if (!latestByConversation[message.conversation_id]) latestByConversation[message.conversation_id] = message;
+        });
+        const ownBusinessIds = new Set((ownedBusinesses || []).map(item => String(item.id)));
+        const conversationById = new Map((conversations || []).map(item => [item.id, item]));
+        let exploreCount = 0;
+        let storeCount = 0;
+
+        ids.forEach(id => {
+          const last = latestByConversation[id];
+          if (!last || last.sender_id === currentUser.id) return;
+          const readAt = readMap[id];
+          if (readAt && new Date(last.created_at).getTime() <= new Date(readAt).getTime()) return;
+
+          const conversation = conversationById.get(id);
+          const belongsToStore = Boolean(conversation?.source_id) && ownBusinessIds.has(String(conversation.source_id));
+          if (belongsToStore) storeCount += 1;
+          else exploreCount += 1;
+        });
+
+        if (!cancelled) {
+          setUnreadExploreCount(exploreCount);
+          setUnreadStoreCount(storeCount);
+        }
+      } catch (countError) {
+        console.warn('Não foi possível atualizar os avisos de mensagens não lidas:', countError);
+      }
+    }
+
+    refreshUnreadCounts();
+    const intervalId = window.setInterval(refreshUnreadCounts, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [router.isReady]);
 
   // mensagens (guardado / erro) desaparecem sozinhas
   useEffect(() => {
@@ -643,13 +724,15 @@ export default function Seller() {
         }}
       >
         <div style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-          <Link href="/mensagens?box=explore" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, boxSizing: 'border-box', padding: '10px 12px', borderRadius: 12, background: '#FFFFFF', border: '1px solid #C9DAD2', color: '#075B4E', textDecoration: 'none', fontSize: 13, fontWeight: 850, textAlign: 'center' }}>
+          <Link href="/mensagens?box=explore" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, boxSizing: 'border-box', padding: '10px 38px 10px 12px', borderRadius: 12, background: '#F2EAF9', border: '1px solid #D9C6E9', color: '#64358B', textDecoration: 'none', fontSize: 13, fontWeight: 850, textAlign: 'center' }}>
             <span aria-hidden="true">✉</span>
             <span>Mensagens do Explorar Talaza</span>
+            {unreadExploreCount > 0 && <span aria-label={unreadExploreCount + ' conversas não lidas'} style={{ position: 'absolute', top: -7, right: -5, minWidth: 23, height: 23, padding: '0 6px', borderRadius: 999, boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#D8A319', color: '#30200A', border: '2px solid #FFFFFF', fontSize: 12, fontWeight: 900 }}>{unreadExploreCount}</span>}
           </Link>
-          <Link href="/mensagens?box=store" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, boxSizing: 'border-box', padding: '10px 12px', borderRadius: 12, background: '#E6A900', border: '1px solid #D09A00', color: '#18352F', textDecoration: 'none', fontSize: 13, fontWeight: 850, textAlign: 'center' }}>
+          <Link href="/mensagens?box=store" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, boxSizing: 'border-box', padding: '10px 38px 10px 12px', borderRadius: 12, background: '#F2EAF9', border: '1px solid #D9C6E9', color: '#64358B', textDecoration: 'none', fontSize: 13, fontWeight: 850, textAlign: 'center' }}>
             <span aria-hidden="true">▣</span>
             <span>Mensagens da minha loja</span>
+            {unreadStoreCount > 0 && <span aria-label={unreadStoreCount + ' conversas não lidas'} style={{ position: 'absolute', top: -7, right: -5, minWidth: 23, height: 23, padding: '0 6px', borderRadius: 999, boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#D8A319', color: '#30200A', border: '2px solid #FFFFFF', fontSize: 12, fontWeight: 900 }}>{unreadStoreCount}</span>}
           </Link>
         </div>
       </nav>
