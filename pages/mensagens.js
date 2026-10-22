@@ -485,12 +485,17 @@ export default function Mensagens() {
         <div style={S.emptyIcon}>✉</div><h2>Ainda não tem conversas</h2>
         <p>A área de escrita fica disponível em baixo. Para enviar, escolha primeiro a pessoa: abra o perfil de um negócio ou utilizador e toque em “Enviar mensagem”.</p>
         <button type="button" onClick={()=>router.push('/explore')} style={S.primaryButton}>Explorar a Talaza</button>
-      </div> : conversations.map(item => <button type="button" key={item.id} onClick={()=>openConversation(item)} style={{...S.conversationRow,background:item.isUnread?'#F2EAF9':'transparent',borderLeft:item.isUnread?'4px solid #64358B':'4px solid transparent',fontWeight:item.isUnread?800:400,opacity:item.isUnread?1:0.85}}>
-        {item.peerPhoto ? <img src={item.peerPhoto} alt="" style={S.avatarPhoto}/> : <div style={{...S.avatar,background:item.isUnread?'#E6D6F2':'#F2EAF9',color:C.purple}}>{(item.peerName || 'T').slice(0,1).toUpperCase()}</div>}
-        <span style={S.conversationInfo}><strong style={{fontSize:14,fontWeight:item.isUnread?800:400,color:item.isUnread?'#4D236F':'#43354F'}}>{item.peerName}</strong><small style={{fontSize:11,color:'#76558F',fontWeight:650,fontFamily:'Arial,Helvetica,sans-serif'}}>{item.sourceLabel || item.source || 'Talaza'} · abrir conversa</small></span>
-        {item.isUnread && <span style={{display:'inline-flex',alignItems:'center',gap:6,marginLeft:'auto',color:'#64358B',fontSize:11,fontWeight:850,whiteSpace:'nowrap'}}><span style={{width:8,height:8,borderRadius:'50%',background:'#D8A319',display:'inline-block'}}/><span style={{background:'#64358B',color:'#fff',borderRadius:999,minWidth:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',padding:'0 5px',boxSizing:'border-box'}}>1</span></span>}
-        <span style={S.chevron}>›</span>
-      </button>)}
+      </div> : conversations.map(item => {
+        const last = lastMessages[item.id];
+        const lastReadAt = readMap[item.id];
+        const isUnread = item.isUnread || Boolean(last && last.sender_id !== user?.id && (!lastReadAt || new Date(last.created_at).getTime() > new Date(lastReadAt).getTime()));
+        return <button type="button" key={item.id} onClick={()=>openConversation(item)} style={{...S.conversationRow,background:isUnread?'#F2EAF9':'transparent',borderLeft:isUnread?'4px solid #64358B':'4px solid transparent',fontWeight:isUnread?800:400,opacity:isUnread?1:0.85}}>
+          {item.peerPhoto ? <img src={item.peerPhoto} alt="" style={S.avatarPhoto}/> : <div style={{...S.avatar,background:isUnread?'#E6D6F2':'#F2EAF9',color:C.purple}}>{(item.peerName || 'T').slice(0,1).toUpperCase()}</div>}
+          <span style={S.conversationInfo}><strong style={{fontSize:14,fontWeight:isUnread?800:400,color:isUnread?'#4D236F':'#43354F'}}>{item.peerName}</strong><small style={{fontSize:11,color:'#76558F',fontWeight:650,fontFamily:'Arial,Helvetica,sans-serif'}}>{item.sourceLabel || item.source || 'Talaza'} · abrir conversa</small></span>
+          {isUnread && <span style={{display:'inline-flex',alignItems:'center',gap:6,marginLeft:'auto',color:'#64358B',fontSize:11,fontWeight:850,whiteSpace:'nowrap'}}><span style={{width:8,height:8,borderRadius:'50%',background:'#D8A319',display:'inline-block'}}/><span style={{background:'#64358B',color:'#fff',borderRadius:999,minWidth:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',padding:'0 5px',boxSizing:'border-box'}}>1</span></span>}
+          <span style={S.chevron}>›</span>
+        </button>;
+      })}
     </section> : null}
     <section style={S.chat} aria-label="Mensagens da conversa">
       {!activeId ? <div style={S.emptyChat}>Escolha uma conversa para ver mensagens e enviar texto, ficheiros ou áudio.</div> : messages.length===0 ? <div style={S.emptyChat}>Esta conversa começou agora. Envie a primeira mensagem.</div> : messages.map(item=><div key={item.id} style={{...S.messageRow,justifyContent:item.sender_id===user?.id?'flex-end':'flex-start'}}>
