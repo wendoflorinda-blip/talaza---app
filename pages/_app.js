@@ -7,6 +7,7 @@ const DOCK_ROUTES = [
   '/category',
   '/subcategory',
   '/businesses',
+  '/seller',
   '/mensagens',
   '/perfil',
 ];
