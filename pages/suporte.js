@@ -56,7 +56,7 @@ export default function SuporteTalaza() {
         <textarea id="support-message" value={message} onChange={e=>setMessage(e.target.value)} maxLength={5000} rows={7} required placeholder="Explica como podemos ajudar…" style={{ width:'100%', boxSizing:'border-box', border:'1px solid #D8E2DC', borderRadius:11, padding:13, resize:'vertical', fontSize:15, lineHeight:1.5 }} />
         {error && <p role="alert" style={{ color:'#A52F3B', background:'#FFF0F0', borderRadius:10, padding:12 }}>{error}</p>}
         {notice && <p role="status" style={{ color:'#075B4E', background:'#E8F3F0', borderRadius:10, padding:12 }}>{notice}</p>}
-        <button disabled={sending} type="submit" style={{ marginTop:16, width:'100%', border:0, borderRadius:12, padding:14, background:'linear-gradient(135deg,#075B4E,#64358B)', color:'#fff', fontWeight:900, cursor:'pointer', opacity:sending?.7:1 }}>{sending ? 'A enviar…' : 'Enviar mensagem ao suporte'}</button>
+        <button disabled={sending} type="submit" style={{ marginTop:16, width:'100%', border:0, borderRadius:12, padding:14, background:'linear-gradient(135deg,#075B4E,#64358B)', color:'#fff', fontWeight:900, cursor:'pointer', opacity: sending ? 0.7 : 1 }}>{sending ? 'A enviar…' : 'Enviar mensagem ao suporte'}</button>
       </form>
     </div>
   </main>;
