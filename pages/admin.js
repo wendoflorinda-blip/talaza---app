@@ -1078,7 +1078,7 @@ export default function Admin() {
 
           <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '0 0 28px' }}>
             {[
-              ['vendedores', 'Vendedores'], ['pagamentos', 'Pagamentos e hospedagem'], ['eventos', 'Eventos'], ['oportunidades', 'Oportunidades'], ['conteudo-oficial', 'Motivação e tema do mês'], ['comunidade', 'Comunidade Talaza'], ['notificacoes', 'Notificações'], ['suporte', 'Suporte Talaza']
+              ['vendedores', 'Vendedores'], ['pagamentos', 'Pagamentos e hospedagem'], ['eventos', 'Eventos'], ['oportunidades', 'Oportunidades'], ['conteudo-oficial', 'Motivação e tema do mês'], ['comunidade', 'Comunidade Talaza'], ['notificacoes', 'Notificações'], ['suporte', 'Suporte Talaza'], ['denuncias', 'Denúncias da Comunidade Talaza']
             ].map(([key, label]) => <button key={key} type="button" onClick={() => setActiveAdminSection(key)} aria-pressed={activeAdminSection === key} style={{ padding: '10px 13px', borderRadius: 9, border: activeAdminSection === key ? '2px solid #075B4E' : '1px solid #D5E4DF', background: activeAdminSection === key ? '#075B4E' : '#E4F0ED', color: activeAdminSection === key ? '#FFFFFF' : '#075B4E', fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>{label}</button>)}
           </nav>
           <div style={styles.counter}>
@@ -1486,11 +1486,11 @@ export default function Admin() {
           )}
         </section>
 
-        <section style={{ marginTop: 0, display: activeAdminSection === 'notificacoes' ? 'block' : 'none' }}>
+        <section id="notificacoes" style={{ marginTop: 0, display: activeAdminSection === 'notificacoes' ? 'block' : 'none' }}>
           <div style={styles.titleRow}>
             <div>
-              <h2 style={styles.title}>Notificações do Suporte Talaza</h2>
-              <p style={styles.description}>Envie um aviso a todos os utilizadores ou uma mensagem privada para uma pessoa específica. As notificações ficam na área “Notificações” da conta.</p>
+              <h2 style={styles.title}>Notificações Talaza</h2>
+              <p style={styles.description}>Envie notificações aos exploradores, vendedores, todos os utilizadores ou a uma pessoa específica. As notificações ficam na área “Notificações” da conta.</p>
             </div>
           </div>
           <form onSubmit={sendAdminNotification} style={styles.card}>
@@ -1516,7 +1516,7 @@ export default function Admin() {
           </form>
         </section>
 
-        <section style={{ marginTop: 42 }}>
+        <section id="denuncias" style={{ marginTop: 0, display: activeAdminSection === 'denuncias' ? 'block' : 'none' }}>
           <div style={styles.titleRow}>
             <div>
               <h2 style={styles.title}>Denúncias da Comunidade Talaza</h2>
