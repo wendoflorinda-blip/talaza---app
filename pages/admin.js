@@ -352,9 +352,22 @@ export default function Admin() {
     const reason = approved ? '' : window.prompt('Indique o motivo da recusa do evento:');
     if (!approved && (!reason || !reason.trim())) return;
     const alreadyPaid = ['approved', 'paid', 'completed'].includes(String(event.payment_status || '').toLowerCase());
+    let expiry = null;
+    if (approved && alreadyPaid) {
+      const { data: plan, error: planError } = await supabase.from('plans')
+        .select('duration_days,plan_type,area,is_active').eq('id', event.plan_id).maybeSingle();
+      if (planError || !plan || plan.is_active !== true ||
+          String(plan.plan_type || '').trim().toLowerCase() !== 'publicação ativa' ||
+          String(plan.area || '').trim().toLowerCase() !== 'eventos área' ||
+          Number(plan.duration_days) <= 0) {
+        alert('O evento não pode ser publicado: confirme o plano de publicação ativo e a sua duração.');
+        return;
+      }
+      expiry = new Date(Date.now() + Number(plan.duration_days) * 86400000).toISOString();
+    }
     const patch = approved
-      ? { status: alreadyPaid ? 'published' : 'pending_payment', admin_approved: true }
-      : { status: 'rejected', admin_approved: false };
+      ? { status: alreadyPaid ? 'published' : 'pending_payment', admin_approved: true, expires_at: expiry }
+      : { status: 'rejected', admin_approved: false, expires_at: null };
     const { data, error } = await supabase.from('events').update(patch).eq('id', event.id).select('id, user_id').maybeSingle();
     if (error || !data) { alert('Não foi possível atualizar o evento: ' + (error?.message || 'Nenhuma linha foi alterada.')); return; }
     await notifyUser(data.user_id || event.user_id, approved ? 'Evento aprovado pela Talaza' : 'Evento recusado pela Talaza', approved ? (alreadyPaid ? 'O seu evento foi aprovado e publicado.' : 'O seu evento foi aprovado na análise administrativa. Para ficar visível, ainda precisa de confirmação do pagamento.') : 'O seu evento não foi aprovado. Motivo: ' + reason.trim(), 'event_review');
@@ -512,6 +525,31 @@ export default function Admin() {
       return;
     }
 
+    if (approved && request.event_id && request.plan_id) {
+      const [{ data: eventItem, error: eventError }, { data: eventPlan, error: eventPlanError }] = await Promise.all([
+        supabase.from('events').select('id,user_id,admin_approved,status,payment_status').eq('id', request.event_id).maybeSingle(),
+        supabase.from('plans').select('duration_days,plan_type,area,is_active').eq('id', request.plan_id).maybeSingle()
+      ]);
+      if (eventError || eventPlanError || !eventItem || !eventPlan ||
+          eventPlan.is_active !== true ||
+          String(eventPlan.plan_type || '').trim().toLowerCase() !== 'publicação ativa' ||
+          String(eventPlan.area || '').trim().toLowerCase() !== 'eventos área') {
+        alert('O comprovativo foi marcado como aprovado, mas não foi possível confirmar o evento e o plano. Verifique o registo antes de publicar.');
+      } else {
+        const canPublish = eventItem.admin_approved === true;
+        const expiry = new Date(Date.now() + Number(eventPlan.duration_days || 0) * 86400000).toISOString();
+        const { error: eventUpdateError } = await supabase.from('events').update({
+          payment_status: 'paid',
+          status: canPublish && Number(eventPlan.duration_days) > 0 ? 'published' : 'pending_payment',
+          expires_at: canPublish && Number(eventPlan.duration_days) > 0 ? expiry : null
+        }).eq('id', request.event_id);
+        if (eventUpdateError) alert('Pagamento aprovado, mas a atualização do evento falhou: ' + eventUpdateError.message);
+      }
+    } else if (!approved && request.event_id) {
+      const { error: eventPaymentError } = await supabase.from('events').update({ payment_status: 'rejected', status: 'pending_payment' }).eq('id', request.event_id).eq('user_id', request.user_id);
+      if (eventPaymentError) console.error('Não foi possível atualizar o estado do evento recusado:', eventPaymentError.message);
+    }
+
     if (approved && request.business_id && request.plan_id) {
       const [{ data: business, error: businessError }, { data: plan, error: planError }] = await Promise.all([
         supabase.from('businesses').select('approval_status').eq('id', request.business_id).maybeSingle(),
@@ -532,7 +570,7 @@ export default function Admin() {
       await supabase.from('businesses').update({ is_active: false }).eq('id', request.business_id);
     }
 
-    await notifyUser(request.user_id, approved ? 'Pagamento aprovado — Talaza' : 'Comprovativo recusado — Talaza', approved ? 'O seu pagamento foi aprovado. A equipa Talaza está a atualizar a hospedagem do seu perfil.' : 'O comprovativo do seu pagamento foi recusado. Motivo: ' + rejectionReason.trim() + ' Pode corrigir e enviar novamente.', 'payment_review');
+    await notifyUser(request.user_id, approved ? 'Pagamento aprovado — Talaza' : 'Comprovativo recusado — Talaza', approved ? (request.event_id ? 'O pagamento do seu evento foi aprovado. Se o evento também estiver aprovado pela equipa, ficará visível durante o prazo do plano.' : 'O seu pagamento foi aprovado. A equipa Talaza está a atualizar a hospedagem do seu perfil.') : 'O comprovativo do seu pagamento foi recusado. Motivo: ' + rejectionReason.trim() + ' Pode corrigir e enviar novamente.', 'payment_review');
     await loadSubscriptionRequests();
     await loadBusinesses();
     setReviewingPaymentId('');
