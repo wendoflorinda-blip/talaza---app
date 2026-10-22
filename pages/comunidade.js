@@ -345,7 +345,7 @@ export default function Comunidade() {
       if (area === 'motivation') {
         const { data, error } = await supabase
           .from('community_motivation')
-          .select('id, created_at, title, content, image_url')
+          .select('id, created_at, title, content, image_url, background_color, background_image_url, text_color, font_family, aspect_ratio')
           .eq('is_active', true)
           .order('created_at', { ascending: false });
 
@@ -363,7 +363,7 @@ export default function Comunidade() {
         const now = new Date().toISOString();
         const { data, error } = await supabase
           .from('community_monthly_themes')
-          .select('id, created_at, month_title, month_description, week_title, week_number, starts_at, ends_at')
+          .select('id, created_at, month_title, month_description, week_title, week_description, week_number, starts_at, ends_at, background_color, background_image_url, text_color, font_family')
           .eq('is_active', true)
           .lte('starts_at', now)
           .gt('ends_at', now)
@@ -1374,33 +1374,30 @@ export default function Comunidade() {
               officialContent.length === 0 ? (
                 <Panel><p style={{ color: C.muted, margin: 0 }}>Ainda não foi publicada uma motivação oficial.</p></Panel>
               ) : officialContent.map((item) => (
-                <Panel key={item.id} style={{ marginBottom: 12 }}>
-                  <h3 style={{ color: C.dark, margin: '0 0 8px', fontSize: 17 }}>{item.title}</h3>
-                  <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, margin: 0 }}>{item.content}</p>
-                  {item.image_url ? <img src={item.image_url} alt="Imagem da motivação oficial" style={{ width: '100%', maxHeight: 360, objectFit: 'cover', borderRadius: 14, marginTop: 12 }} /> : null}
-                  <small style={{ display: 'block', color: C.faint, marginTop: 12 }}>{new Date(item.created_at).toLocaleDateString('pt-PT')}</small>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid ' + C.line, marginTop: 12, paddingTop: 12 }}>
-                    <button type="button" onClick={() => toggleOfficialLike(item, 'motivation')} style={{ ...buttonStyle, background: officialInteractions[item.id]?.liked ? C.purpleSoft : C.bg, color: officialInteractions[item.id]?.liked ? C.purple : C.ink, border: '1px solid ' + C.line }}>{officialInteractions[item.id]?.liked ? '♥ Gostaste' : '♡ Gostar'} · {officialInteractions[item.id]?.likes || 0}</button>
-                    <button type="button" onClick={() => setOpenComments((prev) => ({ ...prev, [item.id]: !prev[item.id] }))} style={{ ...buttonStyle, background: C.bg, color: C.ink, border: '1px solid ' + C.line }}>💬 Comentar · {(officialInteractions[item.id]?.comments || []).length}</button>
+                <Panel key={item.id} style={{ marginBottom: 12, padding: 0, overflow: 'hidden', aspectRatio: '16 / 9', minHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.text_color || '#FFFFFF', fontFamily: item.font_family || 'Georgia', backgroundColor: item.background_color || '#173B35', backgroundImage: item.background_image_url ? 'linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,.12)),url(' + item.background_image_url + ')' : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                  <div style={{ width: '100%', height: '100%', minHeight: 180, boxSizing: 'border-box', padding: 'clamp(16px,4vw,32px)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 12 }}>
+                    <h3 style={{ margin: 0, fontSize: 'clamp(18px,3vw,30px)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>{item.title || item.content}</h3>
+                    <small style={{ opacity: .85 }}>{new Date(item.created_at).toLocaleDateString('pt-PT')}</small>
                   </div>
-                  {openComments[item.id] ? <div style={{ marginTop: 12 }}>
-                    {(officialInteractions[item.id]?.comments || []).map((comment) => <div key={comment.id} style={{ background: C.bg, borderRadius: 12, padding: 10, marginBottom: 8 }}><p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5, fontSize: 13 }}>{comment.content}</p><small style={{ color: C.faint }}>{new Date(comment.created_at).toLocaleDateString('pt-PT')}</small></div>)}
-                    <textarea value={officialCommentDrafts[item.id] || ''} onChange={(event) => setOfficialCommentDrafts((prev) => ({ ...prev, [item.id]: event.target.value }))} rows={2} maxLength={2000} placeholder="Escreva o seu comentário…" style={{ width: '100%', padding: 11, border: '1px solid ' + C.line, borderRadius: 12, resize: 'vertical' }} />
-                    <button type="button" onClick={() => submitOfficialComment(item, 'motivation')} style={{ ...buttonStyle, marginTop: 8, background: C.green, color: C.white }}>Enviar comentário</button>
-                  </div> : null}
+                  <div style={{ position: 'absolute', marginTop: 155, alignSelf: 'flex-end', padding: 8 }}>
+                    <button type="button" onClick={() => toggleOfficialLike(item, 'motivation')} style={{ ...buttonStyle, background: officialInteractions[item.id]?.liked ? C.purpleSoft : 'rgba(255,255,255,.92)', color: officialInteractions[item.id]?.liked ? C.purple : C.ink, border: '1px solid rgba(255,255,255,.6)' }}>{officialInteractions[item.id]?.liked ? '♥ Gostaste' : '♡ Gostar'} · {officialInteractions[item.id]?.likes || 0}</button>
+                  </div>
                 </Panel>
               ))
             ) : (
               officialContent.length === 0 ? (
                 <Panel><p style={{ color: C.muted, margin: 0 }}>Ainda não há um tema oficial publicado pela administração.</p></Panel>
               ) : officialContent.map((item) => (
-                <Panel key={item.id} style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 12, color: C.purple, fontWeight: 800, marginBottom: 7 }}>TEMA DO MÊS</div>
-                  <h3 style={{ color: C.dark, margin: '0 0 8px', fontSize: 18 }}>{item.month_title}</h3>
-                  {item.month_description ? <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, margin: '0 0 12px' }}>{item.month_description}</p> : null}
-                  <div style={{ borderTop: '1px solid ' + C.line, marginTop: 14, paddingTop: 12 }}>
-                    <div style={{ fontSize: 12, color: C.green, fontWeight: 800, marginBottom: 7 }}>TÍTULO DA SEMANA · SEMANA {item.week_number}</div>
-                    <h3 style={{ color: C.dark, margin: 0, fontSize: 16 }}>{item.week_title}</h3>
+                <Panel key={item.id} style={{ marginBottom: 12, overflow: 'hidden', padding: 0 }}>
+                  <div style={{ padding: 'clamp(18px,4vw,28px)', color: item.text_color || '#FFFFFF', fontFamily: item.font_family || 'Georgia', backgroundColor: item.background_color || '#173B35', backgroundImage: item.background_image_url ? 'linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,.12)),url(' + item.background_image_url + ')' : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8, opacity: .9 }}>TEMA DO MÊS</div>
+                    <h3 style={{ margin: 0, fontSize: 22, lineHeight: 1.3 }}>{item.month_title}</h3>
+                  </div>
+                  <div style={{ padding: '16px clamp(14px,3vw,24px) 22px' }}>
+                  <div style={{ borderBottom: '1px solid ' + C.line, paddingBottom: 14 }}>
+                    <div style={{ fontSize: 12, color: C.green, fontWeight: 800, marginBottom: 7 }}>TEMA DA SEMANA · SEMANA {item.week_number}</div>
+                    <h3 style={{ color: C.dark, margin: '0 0 8px', fontSize: 18 }}>{item.week_title}</h3>
+                    {item.week_description ? <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, margin: 0, color: C.ink }}>{item.week_description}</p> : null}
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid ' + C.line, marginTop: 12, paddingTop: 12 }}>
                     <button type="button" onClick={() => toggleOfficialLike(item, 'theme')} style={{ ...buttonStyle, background: officialInteractions[item.id]?.liked ? C.purpleSoft : C.bg, color: officialInteractions[item.id]?.liked ? C.purple : C.ink, border: '1px solid ' + C.line }}>{officialInteractions[item.id]?.liked ? '♥ Gostaste' : '♡ Gostar'} · {officialInteractions[item.id]?.likes || 0}</button>
@@ -1736,6 +1733,7 @@ export default function Comunidade() {
                   >
                     Publicação válida até{' '}
                     {new Date(post.expires_at).toLocaleDateString('pt-PT')}
+                  </div>
                   </div>
                 </Panel>
               ))
