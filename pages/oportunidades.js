@@ -290,13 +290,13 @@ export default function Oportunidades() {
     const query = new URLSearchParams();
     query.set('plan', OPPORTUNITY_PLAN_ID);
     query.set('subscription', 'opportunities');
-    if (country) query.set('country_id', country);
-    if (province) query.set('province_id', province);
-    query.set('returnTo', '/oportunidades' + (country || province ? '?' + new URLSearchParams({
-      ...(country ? { country } : {}),
-      ...(province ? { province } : {})
+    if (country) query.set('country_id', String(country));
+    if (province) query.set('province_id', String(province));
+    query.set('returnTo', '/oportunidades' + ((country || province) ? '?' + new URLSearchParams({
+      ...(country ? { country: String(country) } : {}),
+      ...(province ? { province: String(province) } : {}),
     }).toString() : ''));
-    router.push(`/Pagamento?${query.toString()}`);
+    router.push('/Pagamento?' + query.toString());
   }
 
   const exploreUrl = `/explore?country=${encodeURIComponent(
