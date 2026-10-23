@@ -1117,11 +1117,20 @@ export default function Admin() {
             </p>
           </div>
 
-          <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '0 0 28px' }}>
+          <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', gap: 10, margin: '0 -4px 10px', padding: '8px 4px 14px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
             {[
-              ['vendedores', 'Vendedores'], ['pagamentos', 'Pagamentos e hospedagem'], ['eventos', 'Eventos'], ['oportunidades', 'Oportunidades'], ['conteudo-oficial', 'Motivação e tema do mês'], ['comunidade', 'Comunidade Talaza'], ['notificacoes', 'Notificações'], ['suporte', 'Suporte Talaza'], ['denuncias', 'Denúncias da Comunidade Talaza']
-            ].map(([key, label]) => <button key={key} type="button" onClick={() => setActiveAdminSection(key)} aria-pressed={activeAdminSection === key} style={{ padding: '10px 13px', borderRadius: 9, border: activeAdminSection === key ? '2px solid #075B4E' : '1px solid #D5E4DF', background: activeAdminSection === key ? '#075B4E' : '#E4F0ED', color: activeAdminSection === key ? '#FFFFFF' : '#075B4E', fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>{label}</button>)}
+              ['vendedores', 'Vendedores', businesses.length],
+              ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && (item.business_id || item.event_id || item.job_post_id)).length],
+              ['eventos', 'Eventos', events.filter(item => String(item.status || '').toLowerCase() === 'pending_payment').length],
+              ['oportunidades', 'Oportunidades', jobPosts.filter(item => !['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase())).length],
+              ['comunidade', 'Comunidade Talaza', communityPosts.filter(item => String(item.moderation_status || 'pending').toLowerCase() === 'pending').length],
+              ['suporte', 'Suporte Talaza', supportMessages.filter(item => String(item.status || 'pending').toLowerCase() === 'pending').length],
+              ['notificacoes', 'Notificações', adminNotifications.length],
+              ['denuncias', 'Denúncias da Comunidade', communityReports.filter(item => String(item.status || 'pending').toLowerCase() === 'pending').length],
+              ['conteudo-oficial', 'Motivação e tema do mês', officialArchive.length]
+            ].map(([key, label, count]) => <button key={key} type="button" onClick={() => setActiveAdminSection(key)} aria-pressed={activeAdminSection === key} style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 10, padding: '13px 18px', borderRadius: 999, border: activeAdminSection === key ? '3px solid #D8A319' : '1px solid #D5E4DF', background: activeAdminSection === key ? '#075B4E' : '#E4F0ED', color: activeAdminSection === key ? '#FFFFFF' : '#075B4E', fontWeight: 800, cursor: 'pointer', fontSize: 14, whiteSpace: 'nowrap', scrollSnapAlign: 'start', boxShadow: activeAdminSection === key ? '0 0 0 2px rgba(216,163,25,.18)' : 'none' }}>{label}{Number(count) > 0 && <span style={{ minWidth: 25, height: 25, padding: '0 7px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, background: activeAdminSection === key ? '#D8A319' : '#FFF0B8', color: '#075B4E', fontWeight: 900 }}>{count}</span>}</button>)}
           </nav>
+          <p style={{ margin: '0 0 24px', color: '#64756F', fontSize: 13, textAlign: 'center' }}>→ Deslize para ver mais áreas</p>
           <div style={styles.counter}>
             {businesses.length} pendente
             {businesses.length !== 1 ? 's' : ''}
