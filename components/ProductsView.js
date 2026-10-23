@@ -38,18 +38,18 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         <div className="hint">Desliza e vê outro negócio ›</div>
         <div className="slide">{items.map((item) => <article key={item.id}>
           <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : 'Sem preço'}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
-          <button type="button" className="im r11" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><img src={item.image_url} alt={item.name || 'Produto'} loading="lazy" /></button>
+          <button type="button" className="im r11" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>
           <div className="cap"><span className="dash">–</span><span><b>{item.name || 'Imagem'}</b>{item.description ? ' · ' + item.description : ''}</span></div>
         </article>)}{showNextCard && <div className="next">Próximo negócio<small>Continue a deslizar</small></div>}</div>
       </>}
       {items.length > 0 && current === 'normal' && <div className="grid">{items.map((item) => <div className="cell" key={item.id}>
-        <button type="button" className="open" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><img src={item.image_url} alt={item.name || 'Produto'} loading="lazy" /></button>
+        <button type="button" className="open" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>
         {item.price !== null && item.price !== undefined && item.price !== '' && <span className="tag">{formatKz(item.price)}</span>}
         {editable && <button type="button" className="more abs" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}
       </div>)}</div>}
       {openItem && <div className="veu" onClick={(event) => { if (event.target === event.currentTarget) setOpen(null); }}>
         <div className="sheet" role="dialog" aria-modal="true" aria-label={openItem.name || 'Produto'}>
-          <img className="big" src={openItem.image_url} alt={openItem.name || 'Produto'} />
+          <Media item={openItem} className="big" alt={openItem.name || 'Produto'} />
           <div className="bigprice">{openItem.price ? formatKz(openItem.price) : 'Sem preço'}</div>
           <h3>{openItem.name || 'Sem nome'}</h3><p>{openItem.description || 'Sem descrição'}</p>
           <div className="acts"><button type="button" className="close" onClick={() => setOpen(null)}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}>Enviar mensagem</button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
