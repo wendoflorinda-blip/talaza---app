@@ -131,40 +131,71 @@ export default function Eventos() {
           profile = data;
         }
 
-        const resolvedCountry = firstValue(
-          router.query.country_id,
-          router.query.country,
-          storedCountry,
-          profile?.country_id
-        );
+        const normalizeParam = (value) =>
+          Array.isArray(value) ? value[0] : value;
+        const isUuid = (value) =>
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
 
-        const resolvedProvince = firstValue(
-          router.query.province_id,
-          router.query.province,
-          storedProvince,
-          profile?.province_id
-        );
+        const countryCandidate = String(
+          normalizeParam(firstValue(
+            router.query.country_id,
+            router.query.country,
+            storedCountry,
+            profile?.country_id
+          )) || ''
+        ).trim();
+
+        let resolvedCountry = '';
+        if (countryCandidate) {
+          let countryQuery = supabase.from('countries').select('id, name');
+          countryQuery = isUuid(countryCandidate)
+            ? countryQuery.eq('id', countryCandidate)
+            : countryQuery.ilike('name', countryCandidate);
+          const { data: countryRow } = await countryQuery.maybeSingle();
+          resolvedCountry = countryRow?.id || '';
+        }
+
+        const provinceCandidate = String(
+          normalizeParam(firstValue(
+            router.query.province_id,
+            router.query.province,
+            storedProvince,
+            profile?.province_id
+          )) || ''
+        ).trim();
+
+        let provinceRow = null;
+        if (provinceCandidate) {
+          let provinceQuery = supabase
+            .from('provinces')
+            .select('id, name, country_id');
+          provinceQuery = isUuid(provinceCandidate)
+            ? provinceQuery.eq('id', provinceCandidate)
+            : provinceQuery.ilike('name', provinceCandidate);
+          if (resolvedCountry) provinceQuery = provinceQuery.eq('country_id', resolvedCountry);
+          const { data } = await provinceQuery.maybeSingle();
+          provinceRow = data || null;
+        }
 
         if (cancelled) return;
 
-        setCountryId(resolvedCountry || '');
-        setProvinceId(resolvedProvince || '');
+        // A província escolhida na navegação tem prioridade. Nunca usar um nome
+        // ou um ID não resolvido como se fosse um ID válido no filtro da Vitrine.
+        const finalCountryId = provinceRow?.country_id || resolvedCountry;
+        const finalProvinceId = provinceRow?.id || '';
 
-        if (resolvedProvince) {
-          const { data: province } = await supabase
-            .from('provinces')
-            .select('id, name')
-            .eq('id', resolvedProvince)
-            .maybeSingle();
+        setCountryId(finalCountryId || '');
+        setProvinceId(finalProvinceId);
+        setProvinceName(provinceRow?.name || '');
 
-          if (!cancelled) {
-            setProvinceName(
-              province?.name ||
-              (typeof router.query.province === 'string'
-                ? router.query.province
-                : '')
-            );
-          }
+        if (provinceCandidate && !provinceRow) {
+          setFeedError(
+            'Não foi possível identificar a província escolhida. Volta à Vitrine, seleciona a província e abre Eventos novamente.'
+          );
+        } else if (!finalProvinceId) {
+          setFeedError(
+            'Seleciona uma província na Vitrine antes de consultar ou publicar eventos.'
+          );
         }
 
         const { data: planRows, error: planError } =
@@ -207,8 +238,31 @@ export default function Eventos() {
     setFeedLoading(true);
     setFeedError('');
     try {
-      let query = supabase.from('events').select('id,user_id,country_id,province_id,title,description,event_type,image_url,video_url,location,starts_at,expires_at,status,payment_status,admin_approved,created_at').eq('status', 'published').eq('payment_status', 'paid').eq('admin_approved', true).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(60);
-      if (provinceId) query = query.eq('province_id', provinceId);
+      // Não consultar eventos sem uma província válida: isso evita misturar anúncios
+      // de Benguela, Huambo, Kwanza Sul ou qualquer outra província.
+      if (!provinceId) {
+        setEvents([]);
+        setLikesByEvent({});
+        setLikedByMe({});
+        setCommentsByEvent({});
+        setFeedError(
+          'Não foi possível identificar a província ativa. Volta à Vitrine, escolhe a província e abre a área Eventos.'
+        );
+        setFeedLoading(false);
+        return;
+      }
+
+      let query = supabase
+        .from('events')
+        .select('id,user_id,country_id,province_id,title,description,event_type,image_url,video_url,location,starts_at,expires_at,status,payment_status,admin_approved,created_at')
+        .eq('province_id', provinceId)
+        .eq('status', 'published')
+        .eq('payment_status', 'paid')
+        .eq('admin_approved', true)
+        .not('expires_at', 'is', null)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(60);
       if (countryId) query = query.eq('country_id', countryId);
       const { data, error: eventsError } = await query;
       if (eventsError) throw eventsError;
