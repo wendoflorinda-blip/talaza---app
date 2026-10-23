@@ -16,16 +16,16 @@ const PLAN_DETAILS = {
 
 function categoryTheme(type) {
   const palette = [
-    { color: '#08745F', soft: '#E3F4ED' },
-    { color: '#64358B', soft: '#F0E7F7' },
-    { color: '#A77912', soft: '#FBF2D7' },
-    { color: '#2167A5', soft: '#E5F1FC' },
-    { color: '#B33B5A', soft: '#FCE9EF' },
-    { color: '#0C7C86', soft: '#E1F5F6' },
-    { color: '#5C6B24', soft: '#F0F4DD' },
-    { color: '#9A4F16', soft: '#FCEBDD' },
-    { color: '#5146A5', soft: '#EEECFF' },
-    { color: '#47606A', soft: '#E8F0F2' }
+    { color: '#176B57', soft: '#EAF3EF' },
+    { color: '#354A5F', soft: '#EDF1F5' },
+    { color: '#946B24', soft: '#F5F0E4' },
+    { color: '#365F86', soft: '#EAF0F6' },
+    { color: '#8B4651', soft: '#F5ECEE' },
+    { color: '#2E6870', soft: '#E9F2F2' },
+    { color: '#5A6741', soft: '#EFF1E9' },
+    { color: '#925D3B', soft: '#F5EEE8' },
+    { color: '#54527C', soft: '#EFEEF4' },
+    { color: '#52636A', soft: '#EDF1F2' }
   ];
   const index = Math.max(0, EVENT_TYPES.indexOf(type || 'Geral'));
   return palette[index % palette.length];
@@ -272,6 +272,20 @@ export default function Eventos() {
       const { data, error: eventsError } = await query;
       if (eventsError) throw eventsError;
       let rows = data || [];
+      const requestedEventId = typeof router.query.eventId === 'string' ? router.query.eventId : '';
+      if (requestedEventId && !rows.some(row => row.id === requestedEventId)) {
+        const { data: requestedEvent, error: requestedEventError } = await supabase
+          .from('events')
+          .select('id,user_id,country_id,province_id,title,description,event_type,image_url,video_url,location,starts_at,expires_at,status,payment_status,admin_approved,created_at')
+          .eq('id', requestedEventId)
+          .eq('status', 'published')
+          .eq('payment_status', 'paid')
+          .eq('admin_approved', true)
+          .gt('expires_at', new Date().toISOString())
+          .maybeSingle();
+        if (requestedEventError) throw requestedEventError;
+        if (requestedEvent) rows = [requestedEvent, ...rows];
+      }
       // A ordem é personalizada nesta sessão: eventos já consultados descem para o fim.
       const seenIds = historyItems.map(item => item.id);
       rows = [...rows].sort((a, b) => {
@@ -327,6 +341,7 @@ export default function Eventos() {
         id: item.id,
         title: item.title,
         event_type: item.event_type,
+        province_id: item.province_id || null,
         image_url: item.image_url || null,
         at: new Date().toISOString()
       }, ...previous.filter(entry => entry.id !== item.id)].slice(0, 100);
@@ -600,7 +615,7 @@ export default function Eventos() {
             {!feedLoading && events.length > 0 && visibleEvents.length === 0 && <div style={styles.notice}>Ainda não há eventos nesta categoria. Escolhe outra categoria ou «Todas».</div>}
             <div style={styles.eventList}>
               {visibleEvents.map(item => (
-                <article id={'evento-' + item.id} key={item.id} style={{ ...styles.eventCard, borderColor: categoryTheme(item.event_type).color + '45', background: '#F5EEFC', boxShadow: '0 5px 18px rgba(78,44,105,.08)' }} onClick={() => trackEventAction(item)}>
+                <article id={'evento-' + item.id} key={item.id} style={{ ...styles.eventCard, borderColor: categoryTheme(item.event_type).color + '45', background: '#FFFFFF', boxShadow: '0 6px 22px rgba(24,39,34,.07)' }} onClick={() => trackEventAction(item)}>
                   {(item.video_url || item.image_url) && <div style={styles.eventMedia}>
                     {item.video_url
                       ? <video src={item.video_url} controls playsInline preload="metadata" poster={item.image_url || undefined} style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} />
@@ -759,20 +774,20 @@ const styles = {
   activeTab: { background: '#075B4E', color: '#FFFFFF', boxShadow: '0 3px 10px rgba(7,91,78,.18)' },
   feedSection: { background: '#FFFFFF', border: '1px solid #E5EBE8', borderRadius: 18, padding: 20, marginBottom: 20 },
   eventList: { display: 'grid', gap: 18, marginTop: 18 },
-  eventCard: { border: '1px solid #E1D4EF', borderRadius: 20, overflow: 'hidden', background: '#F5EEFC', marginBottom: 4 },
+  eventCard: { border: '1px solid #E3E8E5', borderRadius: 16, overflow: 'hidden', background: '#FFFFFF', marginBottom: 4 },
   eventMedia: { display: 'block', width: '100%', aspectRatio: '1 / 1', maxHeight: 680, overflow: 'hidden', background: '#10221D', boxSizing: 'border-box' },
   eventImage: { display: 'block', width: '100%', height: '100%', aspectRatio: '1 / 1', objectFit: 'cover', background: '#10221D' },
-  eventBody: { padding: 18, background: '#F5EEFC' },
+  eventBody: { padding: 18, background: '#FFFFFF' },
   eventMeta: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, color: '#687772', fontSize: 12, lineHeight: 1.5 },
-  startDate: { display: 'flex', flexDirection: 'column', gap: 5, padding: '12px 14px', borderRadius: 12, margin: '12px 0', background: '#EDE1F8', color: '#4C2A68', fontSize: 14, lineHeight: 1.5 },
+  startDate: { display: 'flex', flexDirection: 'column', gap: 5, padding: '12px 14px', borderRadius: 10, margin: '12px 0', background: '#F7F5EF', border: '1px solid #E9E3D4', color: '#5C4B2D', fontSize: 14, lineHeight: 1.5 },
   eventCategoryBadge: { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '6px 10px', fontSize: 11, fontWeight: 900 },
   eventLocation: { color: '#687772', fontSize: 12 },
   eventTitle: { margin: '6px 0 8px', fontSize: 22, color: '#12332D' },
   eventDescription: { whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: '8px 0 14px', color: '#344C45' },
   eventActions: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', alignItems: 'stretch', gap: 7, margin: '14px 0', width: '100%', boxSizing: 'border-box' },
-  actionButton: { border: '1px solid #D9C9E9', borderRadius: 999, padding: '11px 5px', background: '#FFFFFF', color: '#64358B', fontWeight: 800, fontSize: 12, lineHeight: 1.25, whiteSpace: 'normal', overflowWrap: 'anywhere', textAlign: 'center', width: '100%', minWidth: 0, minHeight: 42, boxSizing: 'border-box', cursor: 'pointer', boxShadow: '0 2px 5px rgba(67,40,91,.05)' },
+  actionButton: { border: '1px solid #DCE4DF', borderRadius: 10, padding: '11px 5px', background: '#FFFFFF', color: '#35564A', fontWeight: 800, fontSize: 12, lineHeight: 1.25, whiteSpace: 'normal', overflowWrap: 'anywhere', textAlign: 'center', width: '100%', minWidth: 0, minHeight: 42, boxSizing: 'border-box', cursor: 'pointer', boxShadow: '0 2px 5px rgba(67,40,91,.05)' },
   likedButton: { background: '#FFF0F0', borderColor: '#F3C4C4', color: '#B42332' },
-  messageButton: { border: 0, borderRadius: 999, padding: '11px 5px', background: '#64358B', color: '#FFFFFF', fontWeight: 800, fontSize: 12, lineHeight: 1.25, whiteSpace: 'normal', overflowWrap: 'anywhere', textAlign: 'center', width: '100%', minWidth: 0, minHeight: 42, boxSizing: 'border-box', cursor: 'pointer', boxShadow: '0 3px 9px rgba(100,53,139,.2)' },
+  messageButton: { border: 0, borderRadius: 10, padding: '11px 5px', background: '#176B57', color: '#FFFFFF', fontWeight: 800, fontSize: 12, lineHeight: 1.25, whiteSpace: 'normal', overflowWrap: 'anywhere', textAlign: 'center', width: '100%', minWidth: 0, minHeight: 42, boxSizing: 'border-box', cursor: 'pointer', boxShadow: '0 3px 9px rgba(100,53,139,.2)' },
   comments: { marginTop: 16, borderTop: '1px solid #E8EEEB', paddingTop: 14 },
   comment: { marginTop: 10, padding: 12, background: '#F7F9F8', borderRadius: 10 },
   commentText: { margin: '0 0 5px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' },
