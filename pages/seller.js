@@ -449,6 +449,7 @@ export default function Seller() {
 
   async function saveMainImage(slot, file) {
     await runGallery(async () => {
+      if (file.type.startsWith('video/')) throw new Error('As três imagens principais aceitam apenas imagens. Adicione vídeos na galeria do painel.');
       const { url, path } = await uploadGalleryFile(file, true);
       const { error: insertError } = await supabase
         .from('business_images')
@@ -499,7 +500,7 @@ export default function Seller() {
       }
       await removeStored(item.storage_path);
       await loadImages(business.id);
-      setNotice('Imagem atualizada.');
+      setNotice(mediaType === 'video' ? 'Vídeo atualizado.' : 'Imagem atualizada.');
     });
   }
 
@@ -515,7 +516,7 @@ export default function Seller() {
       if (!deleted?.length) throw new Error('Sem permissão para remover esta imagem.');
       await removeStored(item.storage_path);
       await loadImages(business.id);
-      setNotice('Imagem removida.');
+      setNotice(item.media_type === 'video' || item.video_url ? 'Vídeo removido.' : 'Imagem removida.');
     });
   }
 
