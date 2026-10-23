@@ -3,7 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
-import ProductsView, { VIEW_MODES } from '../../components/ProductsView';
+import ProductsView from '../../components/ProductsView';
 
 const MODE_LABELS = {
   vertical: 'Vertical',
@@ -173,10 +173,7 @@ export default function BusinessPublicProfile() {
               <div className="productsHeading">
                 <div><span className="eyebrow">GALERIA DO NEGÓCIO</span><h2>Conteúdo do negócio</h2><p>Escolhe Todos, Imagens ou Vídeos e, abaixo, a forma de visualização.</p></div>
               </div>
-              <div className="modeChoices" role="group" aria-label="Modo de visualização dos produtos">
-                {VIEW_MODES.map((mode) => <button key={mode} type="button" className={viewMode === mode ? 'modeButton active' : 'modeButton'} onClick={() => setViewMode(mode)} aria-pressed={viewMode === mode}>{MODE_LABELS[mode]}</button>)}
-              </div>
-              <ProductsView items={panelImages} mode={viewMode} editable={false} businessName={business.name} businessId={business.id} sellerId={business.owner_id} />
+              <ProductsView items={panelImages} mode={viewMode} onModeChange={setViewMode} editable={false} businessName={business.name} businessId={business.id} sellerId={business.owner_id} />
             </section>
             <p className="publicNotice">Este é o perfil público do negócio. As alterações só podem ser feitas pelo vendedor no seu painel.</p>
           </div>
