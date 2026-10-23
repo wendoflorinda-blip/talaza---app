@@ -340,6 +340,23 @@ export default function Eventos() {
     });
   }
 
+  useEffect(() => {
+    if (!router.isReady || loading || !router.query.eventId) return;
+    const eventId = String(router.query.eventId);
+    setView('browse');
+    setSelectedCategory('Todas');
+    const timer = setTimeout(() => {
+      const target = document.getElementById('evento-' + eventId);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        target.style.outline = '3px solid #B7791F';
+        target.style.outlineOffset = '4px';
+        setTimeout(() => { target.style.outline = ''; target.style.outlineOffset = ''; }, 2800);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [router.isReady, loading, router.query.eventId, events.length]);
+
   const visibleEvents = selectedCategory === 'Todas'
     ? events
     : events.filter(event => (event.event_type || 'Geral') === selectedCategory);
@@ -569,9 +586,9 @@ export default function Eventos() {
           <section style={styles.feedSection}>
             <div style={styles.feedHeading}>
               <div><h2 style={styles.sectionTitle}>Eventos aprovados</h2><p style={styles.muted}>Explora por categoria ou descobre todos os eventos disponíveis.</p></div>
-              <button type="button" onClick={() => setShowHistory(value => !value)} style={styles.historyButton}>◷ Ver histórico ({historyItems.length})</button>
+              <button type="button" onClick={() => router.push('/historico?type=eventos')} style={styles.historyButton}>◷ Ver histórico ({historyItems.length})</button>
             </div>
-            {showHistory && <div style={styles.historyPanel}><strong>Eventos que consultaste nesta sessão</strong>{historyItems.length === 0 ? <p style={styles.muted}>Ainda não consultaste nenhum evento. Ao gostar, comentar ou contactar o organizador, ele aparece aqui.</p> : historyItems.map(entry => <button key={entry.id} type="button" onClick={() => { setSelectedCategory('Todas'); setShowHistory(false); const selected = events.find(event => event.id === entry.id); if (selected) trackEventAction(selected); }} style={styles.historyItem}>{entry.image_url ? <img src={entry.image_url} alt="" style={styles.historyThumb} /> : <span style={styles.historyThumbFallback}>▣</span>}<span><strong>{entry.title}</strong><small>{entry.event_type}</small></span></button>)}</div>}
+            
             <div style={styles.categoryChips} aria-label="Filtrar eventos por categoria">
               {['Todas', ...EVENT_TYPES].map(category => { const theme = category === 'Todas' ? { color: '#FFFFFF', soft: '#075B4E' } : categoryTheme(category); const active = selectedCategory === category; return <button key={category} type="button" onClick={() => setSelectedCategory(category)} style={{ ...styles.categoryChip, color: active ? '#FFFFFF' : theme.color, background: active ? theme.color : theme.soft, borderColor: theme.color + '55', boxShadow: active ? '0 4px 12px ' + theme.color + '35' : 'none' }}>{category}</button>; })}
             </div>
@@ -583,7 +600,7 @@ export default function Eventos() {
             {!feedLoading && events.length > 0 && visibleEvents.length === 0 && <div style={styles.notice}>Ainda não há eventos nesta categoria. Escolhe outra categoria ou «Todas».</div>}
             <div style={styles.eventList}>
               {visibleEvents.map(item => (
-                <article key={item.id} style={{ ...styles.eventCard, borderColor: categoryTheme(item.event_type).color + '45', background: '#F5EEFC', boxShadow: '0 5px 18px rgba(78,44,105,.08)' }} onClick={() => trackEventAction(item)}>
+                <article id={'evento-' + item.id} key={item.id} style={{ ...styles.eventCard, borderColor: categoryTheme(item.event_type).color + '45', background: '#F5EEFC', boxShadow: '0 5px 18px rgba(78,44,105,.08)' }} onClick={() => trackEventAction(item)}>
                   {(item.video_url || item.image_url) && <div style={styles.eventMedia}>
                     {item.video_url
                       ? <video src={item.video_url} controls playsInline preload="metadata" poster={item.image_url || undefined} style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} />
