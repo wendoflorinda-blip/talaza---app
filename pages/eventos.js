@@ -16,16 +16,16 @@ const PLAN_DETAILS = {
 
 function categoryTheme(type) {
   const palette = [
-    { color: '#176B57', soft: '#EAF3EF' },
-    { color: '#354A5F', soft: '#EDF1F5' },
-    { color: '#946B24', soft: '#F5F0E4' },
-    { color: '#365F86', soft: '#EAF0F6' },
-    { color: '#8B4651', soft: '#F5ECEE' },
-    { color: '#2E6870', soft: '#E9F2F2' },
-    { color: '#5A6741', soft: '#EFF1E9' },
-    { color: '#925D3B', soft: '#F5EEE8' },
-    { color: '#54527C', soft: '#EFEEF4' },
-    { color: '#52636A', soft: '#EDF1F2' }
+    { color: '#126E75', soft: '#E4F2F2' },
+    { color: '#17365D', soft: '#E9EEF5' },
+    { color: '#B47A36', soft: '#F7F0E5' },
+    { color: '#C66B35', soft: '#FBEEE5' },
+    { color: '#7251A3', soft: '#F0EBF8' },
+    { color: '#2F6F8F', soft: '#E8F1F7' },
+    { color: '#8A5A44', soft: '#F5ECE7' },
+    { color: '#9A7A28', soft: '#F7F2E3' },
+    { color: '#27645B', soft: '#E7F1ED' },
+    { color: '#48586A', soft: '#ECF0F4' }
   ];
   const index = Math.max(0, EVENT_TYPES.indexOf(type || 'Geral'));
   return palette[index % palette.length];
