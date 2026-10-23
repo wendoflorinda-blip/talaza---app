@@ -1,4 +1,4 @@
- import { useEffect, useState } from 'react';
+ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
@@ -43,9 +43,30 @@ export default function Admin() {
   const [communityReports, setCommunityReports] = useState([]);
   const [communityPosts, setCommunityPosts] = useState([]);
   const [supportMessages, setSupportMessages] = useState([]);
+  const [supportFilter, setSupportFilter] = useState('all');
+  const [reportFilter, setReportFilter] = useState('pending');
+  const [adminNotifications, setAdminNotifications] = useState([]);
+  const [notificationHistoryFilter, setNotificationHistoryFilter] = useState('all');
+  const [deletingNotificationId, setDeletingNotificationId] = useState('');
   const [profiles, setProfiles] = useState([]);
   const [events, setEvents] = useState([]);
   const [jobPosts, setJobPosts] = useState([]);
+  const [officialKind, setOfficialKind] = useState('motivation');
+  const [officialTitle, setOfficialTitle] = useState('');
+  const [officialBody, setOfficialBody] = useState('');
+  const [officialSaving, setOfficialSaving] = useState(false);
+  const [officialBackgroundColor, setOfficialBackgroundColor] = useState('#173B35');
+  const [officialBackgroundImage, setOfficialBackgroundImage] = useState('');
+  const [officialBackgroundGradient, setOfficialBackgroundGradient] = useState('linear-gradient(135deg, #173B35 0%, #64358B 55%, #D8A319 100%)');
+  const [officialImageUploading, setOfficialImageUploading] = useState(false);
+  const officialImageInputRef = useRef(null);
+  const [deletingPaymentId, setDeletingPaymentId] = useState('');
+  const [deletingSupportId, setDeletingSupportId] = useState('');
+  const [officialTextColor, setOfficialTextColor] = useState('#FFFFFF');
+  const [officialFontFamily, setOfficialFontFamily] = useState('Georgia');
+  const [officialDuration, setOfficialDuration] = useState(30);
+  const [activeAdminSection, setActiveAdminSection] = useState('vendedores');
+  const [officialArchive, setOfficialArchive] = useState([]);
   const [notificationAudience, setNotificationAudience] = useState('all');
   const [notificationUserId, setNotificationUserId] = useState('');
   const [notificationTitle, setNotificationTitle] = useState('');
@@ -128,9 +149,11 @@ export default function Admin() {
     await loadCommunityReports();
     await loadPendingCommunityPosts();
     await loadSupportMessages();
+    await loadAdminNotifications();
     await loadProfiles();
     await loadEvents();
     await loadJobPosts();
+    await loadOfficialArchive();
 
     setLoading(false);
   }
@@ -174,7 +197,29 @@ export default function Admin() {
       return;
     }
 
-    setBusinesses(data || []);
+    // Só entra na fila de aprovação quando o perfil está completo e existe comprovativo de plano.
+    const { data: proofRows, error: proofError } = await supabase
+      .from('payment_submissions')
+      .select('business_id, plan_id, proof_url, status')
+      .not('proof_url', 'is', null);
+    if (proofError) {
+      console.error('Erro ao validar comprovativos dos negócios:', proofError);
+      setMessage('Não foi possível validar os comprovativos dos vendedores: ' + proofError.message);
+      setBusinesses([]);
+      return;
+    }
+    const readyBusinessIds = new Set((proofRows || [])
+      .filter((payment) => payment.business_id && payment.plan_id && String(payment.proof_url || '').trim())
+      .map((payment) => payment.business_id));
+    setBusinesses((data || []).filter((business) =>
+      business.name?.trim() &&
+      business.description?.trim() &&
+      business.country_id &&
+      business.province_id &&
+      business.category_id &&
+      business.subcategory_id &&
+      readyBusinessIds.has(business.id)
+    ));
   }
 
   async function loadSubscriptionRequests() {
@@ -188,7 +233,8 @@ export default function Admin() {
       setSubscriptionRequests([]);
       return;
     }
-    const requests = data || [];
+    // Comprovativos sem ficheiro não entram em nenhuma fila de aprovação.
+    const requests = (data || []).filter((item) => String(item.proof_url || '').trim() && (item.business_id || item.event_id));
     setSubscriptionRequests(requests);
 
     const businessIds = [...new Set(requests.map(item => item.business_id).filter(Boolean))];
@@ -221,16 +267,23 @@ export default function Admin() {
   }
 
   async function updateBusiness(id, status) {
-    const businessForReview = businesses.find(item => item.id === id);
-    const rejectionReason = status === 'rejected' ? window.prompt('Indique o motivo da recusa do cadastro do vendedor:') : '';
+    const businessForReview = businesses.find((item) => item.id === id);
+    const rejectionReason = status === 'rejected'
+      ? window.prompt('Indique o motivo da recusa do cadastro do vendedor:')
+      : '';
+
     if (status === 'rejected' && (!rejectionReason || !rejectionReason.trim())) return;
-    let isPaid = false;
+
+    let approvedPayment = null;
+    let planDuration = 0;
     let endDate = null;
 
+    // A aprovação comercial e a hospedagem são coisas diferentes:
+    // o perfil só fica ativo se existir um pagamento aprovado com plano válido.
     if (status === 'approved') {
       const { data: payment, error: paymentError } = await supabase
         .from('payment_submissions')
-        .select('plan_id, status')
+        .select('id, plan_id, status')
         .eq('business_id', id)
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
@@ -254,35 +307,98 @@ export default function Admin() {
           return;
         }
 
-        if (plan?.duration_days) {
-          isPaid = true;
-          endDate = new Date(Date.now() + Number(plan.duration_days) * 86400000).toISOString();
+        planDuration = Number(plan?.duration_days) || 0;
+        if (planDuration > 0) {
+          approvedPayment = payment;
+          endDate = new Date(Date.now() + planDuration * 86400000).toISOString();
         }
       }
     }
 
-    const updates = { approval_status: status, is_active: isPaid };
-    if (isPaid && endDate) {
-      updates.trial_ends_at = endDate;
-      const { data: paidRequest } = await supabase.from('payment_submissions').select('plan_id').eq('business_id', id).eq('status', 'approved').order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (paidRequest?.plan_id) updates.plan_id = paidRequest.plan_id;
+    // Não escrever trial_ends_at em businesses: essa coluna não existe.
+    // O período de hospedagem fica registado em business_subscriptions.
+    if (status === 'approved' && approvedPayment && endDate) {
+      const { data: existingSubscription, error: subscriptionReadError } = await supabase
+        .from('business_subscriptions')
+        .select('id')
+        .eq('business_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (subscriptionReadError) {
+        alert('Não foi possível consultar a hospedagem atual: ' + subscriptionReadError.message);
+        return;
+      }
+
+      const subscription = {
+        business_id: id,
+        plan_id: approvedPayment.plan_id,
+        starts_at: new Date().toISOString(),
+        status: 'active',
+        expires_at: endDate,
+      };
+
+      const subscriptionResult = existingSubscription?.id
+        ? await supabase
+            .from('business_subscriptions')
+            .update(subscription)
+            .eq('id', existingSubscription.id)
+            .select('id')
+            .maybeSingle()
+        : await supabase
+            .from('business_subscriptions')
+            .insert(subscription)
+            .select('id')
+            .maybeSingle();
+
+      if (subscriptionResult.error || !subscriptionResult.data) {
+        alert('O pagamento está aprovado, mas não foi possível registar a hospedagem em business_subscriptions: ' + (subscriptionResult.error?.message || 'Nenhuma linha foi alterada.'));
+        return;
+      }
     }
+
+    const isPaid = status === 'approved' && Boolean(approvedPayment && endDate);
+    const updates = {
+      approval_status: status,
+      is_active: isPaid,
+    };
+
     const { data: updatedBusiness, error } = await supabase
       .from('businesses')
       .update(updates)
       .eq('id', id)
       .select('id')
       .maybeSingle();
+
     if (error) {
       alert('Não foi possível aprovar/recusar o negócio. Verifique as permissões RLS de businesses: ' + error.message);
       return;
     }
+
     if (!updatedBusiness) {
-      alert('O Supabase não confirmou a alteração do negócio. A política RLS pode estar a bloquear a aprovação.');
+      alert('O Supabase não confirmou a alteração do negócio. Confirme a política RLS administrativa de businesses.');
       return;
     }
-    if (businessForReview?.owner_id) await notifyUser(businessForReview.owner_id, status === 'approved' ? 'Perfil Talaza aprovado' : 'Cadastro de vendedor recusado', status === 'approved' ? 'O seu perfil foi validado pela equipa Talaza. A visibilidade depende da hospedagem/plano ativo.' : 'O seu cadastro de vendedor foi recusado. Motivo: ' + rejectionReason.trim(), 'seller_review');
+
+    if (businessForReview?.owner_id) {
+      const approvedWithHosting = status === 'approved' && isPaid;
+      await notifyUser(
+        businessForReview.owner_id,
+        status === 'approved' ? 'Perfil Talaza analisado' : 'Cadastro de vendedor recusado',
+        status === 'approved'
+          ? (approvedWithHosting
+              ? 'O seu perfil foi aprovado e a hospedagem está ativa até ' + new Date(endDate).toLocaleDateString('pt-PT') + '.'
+              : 'O seu perfil foi aprovado na análise, mas ainda não tem um pagamento aprovado com plano válido. Por isso, não ficará visível na Vitrine até a hospedagem ser confirmada.')
+          : 'O seu cadastro de vendedor foi recusado. Motivo: ' + rejectionReason.trim(),
+        'seller_review'
+      );
+    }
+
     await loadBusinesses();
+    alert(status === 'approved'
+      ? (isPaid ? 'Perfil aprovado e hospedagem ativada.' : 'Perfil aprovado na análise, mas permanece inativo até existir uma hospedagem paga válida.')
+      : 'Cadastro recusado.');
   }
 
   async function loadCommunityReports() {
@@ -315,6 +431,21 @@ export default function Admin() {
     setCommunityPosts(data || []);
   }
 
+  async function loadOfficialArchive() {
+    const [motivationResult, themeResult] = await Promise.all([
+      supabase.from('community_motivation').select('id, title, created_at, duration_days, expires_at, is_active').order('created_at', { ascending: false }),
+      supabase.from('community_monthly_themes').select('id, month_title, created_at, duration_days, starts_at, ends_at, is_active').order('created_at', { ascending: false }),
+    ]);
+    if (motivationResult.error || themeResult.error) {
+      console.error('Não foi possível carregar o histórico editorial:', motivationResult.error || themeResult.error);
+      return;
+    }
+    setOfficialArchive([
+      ...(motivationResult.data || []).map(item => ({ ...item, archiveType: 'Motivação', archiveTitle: item.title, archiveExpiresAt: item.expires_at })),
+      ...(themeResult.data || []).map(item => ({ ...item, archiveType: 'Tema do mês', archiveTitle: item.month_title, archiveExpiresAt: item.ends_at })),
+    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+  }
+
   async function loadSupportMessages() {
     const { data, error } = await supabase
       .from('support_messages')
@@ -330,16 +461,49 @@ export default function Admin() {
     setSupportMessages(data || []);
   }
 
+  async function loadAdminNotifications() {
+    const { data, error } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(200);
+    if (error) { console.error('Erro ao carregar notificações administrativas:', error); setAdminNotifications([]); setMessage('Não foi possível carregar o histórico de notificações: ' + error.message); return; }
+    setAdminNotifications(data || []);
+  }
+
   async function loadEvents() {
-    const { data, error } = await supabase.from('events').select('*').order('created_at', { ascending: false });
-    if (error) { console.error('Erro ao carregar eventos:', error); setMessage('Não foi possível carregar eventos: ' + error.message); setEvents([]); return; }
-    setEvents(data || []);
+    const [{ data, error }, { data: proofs, error: proofError }] = await Promise.all([
+      supabase.from('events').select('*').order('created_at', { ascending: false }),
+      supabase.from('payment_submissions').select('event_id, plan_id, proof_url').not('proof_url', 'is', null),
+    ]);
+    if (error || proofError) {
+      const issue = error || proofError;
+      console.error('Erro ao carregar eventos/comprovativos:', issue);
+      setMessage('Não foi possível carregar eventos completos e os seus comprovativos: ' + issue.message);
+      setEvents([]);
+      return;
+    }
+    const paidEventIds = new Set((proofs || []).filter((item) => item.event_id && item.plan_id && String(item.proof_url || '').trim()).map((item) => item.event_id));
+    setEvents((data || []).filter((item) =>
+      item.title?.trim() &&
+      item.description?.trim() &&
+      item.event_type?.trim() &&
+      item.country_id &&
+      item.province_id &&
+      item.location?.trim() &&
+      item.starts_at &&
+      (item.image_url || item.video_url) &&
+      paidEventIds.has(item.id)
+    ));
   }
 
   async function loadJobPosts() {
     const { data, error } = await supabase.from('job_posts').select('*').order('created_at', { ascending: false });
     if (error) { console.error('Erro ao carregar oportunidades:', error); setMessage('Não foi possível carregar oportunidades: ' + error.message); setJobPosts([]); return; }
-    setJobPosts(data || []);
+    // Contratar é gratuito: uma oportunidade só entra na fila quando o formulário essencial está completo.
+    setJobPosts((data || []).filter((item) =>
+      item.user_id &&
+      item.country_id &&
+      item.province_id &&
+      item.title?.trim() &&
+      item.description?.trim()
+    ));
   }
 
   async function notifyUser(userId, title, body, type = 'admin_review') {
@@ -365,18 +529,160 @@ export default function Admin() {
   async function moderateJob(post, approved) {
     const reason = approved ? '' : window.prompt('Indique o motivo da recusa da oportunidade:');
     if (!approved && (!reason || !reason.trim())) return;
-    const patch = approved ? { status: 'published', is_active: true } : { status: 'rejected', is_active: false };
+    // Publicar uma vaga em Contratar é gratuito. O plano pago pertence a quem consulta Oportunidades.
+    const patch = approved
+      ? { status: 'published', is_active: true, admin_approved: true }
+      : { status: 'rejected', is_active: false, admin_approved: false };
     const { data, error } = await supabase.from('job_posts').update(patch).eq('id', post.id).select('id, user_id').maybeSingle();
     if (error || !data) { alert('Não foi possível atualizar a oportunidade: ' + (error?.message || 'Nenhuma linha foi alterada.')); return; }
-    await notifyUser(data.user_id || post.user_id, approved ? 'Oportunidade aprovada' : 'Oportunidade recusada', approved ? 'A sua oportunidade foi aprovada pela Talaza.' : 'A sua oportunidade foi recusada. Motivo: ' + reason.trim(), 'opportunity_review');
+    await notifyUser(data.user_id || post.user_id, approved ? 'Oportunidade aprovada pela Talaza' : 'Oportunidade recusada', approved ? 'A sua oportunidade foi aprovada e publicada gratuitamente em Contratar. A consulta na área Oportunidades continua reservada a quem tem plano ativo na sua província principal.' : 'A sua oportunidade foi recusada. Motivo: ' + reason.trim(), 'opportunity_review');
     await loadJobPosts();
-    alert(approved ? 'Oportunidade aprovada.' : 'Oportunidade recusada e motivo enviado nas notificações.');
+    alert(approved ? 'Oportunidade aprovada e publicada gratuitamente.' : 'Oportunidade recusada e motivo enviado nas notificações.');
   }
 
+  async function uploadOfficialBackground(file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('Escolha um ficheiro de imagem.'); return; }
+    if (file.size > 8 * 1024 * 1024) { alert('A imagem deve ter no máximo 8 MB.'); return; }
+    setOfficialImageUploading(true);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData?.user) throw new Error('A sessão expirou. Entre novamente.');
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = 'community-backgrounds/' + authData.user.id + '/' + Date.now() + '.' + ext;
+      const { error: uploadError } = await supabase.storage.from('business-media').upload(path, file, { upsert: false, contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from('business-media').getPublicUrl(path);
+      if (!data?.publicUrl) throw new Error('O Supabase não devolveu o endereço da imagem.');
+      setOfficialBackgroundImage(data.publicUrl);
+      alert('Imagem carregada. Confirma a pré-visualização antes de publicar.');
+    } catch (error) {
+      alert('Não foi possível carregar a imagem: ' + (error.message || 'erro desconhecido'));
+    } finally { setOfficialImageUploading(false); }
+  }
+
+  async function publishOfficialCommunityContent() {
+    if (officialSaving) return;
+    if (officialKind === 'weekly_question' && !officialBody.trim()) {
+      alert('Escreve a descrição da semana.');
+      return;
+    }
+    if (!officialTitle.trim()) {
+      alert('Preenche o título antes de publicar.');
+      return;
+    }
+
+    setOfficialSaving(true);
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      const adminId = authData?.user?.id;
+      if (authError || !adminId) {
+        alert('A sessão administrativa expirou. Entra novamente.');
+        return;
+      }
+
+      const expiresAt = new Date(Date.now() + officialDuration * 24 * 60 * 60 * 1000).toISOString();
+
+      if (officialKind === 'motivation') {
+        const { error } = await supabase.from('community_motivation').insert({
+          admin_id: adminId,
+          title: officialTitle.trim(),
+          content: officialTitle.trim(),
+          image_url: null,
+          is_active: true,
+          background_color: officialBackgroundColor,
+          background_gradient: officialBackgroundGradient,
+          background_image_url: officialBackgroundImage.trim() || null,
+          text_color: officialTextColor,
+          font_family: officialFontFamily,
+          aspect_ratio: '16:9',
+          duration_days: officialDuration,
+          expires_at: expiresAt,
+        });
+        if (error) {
+          alert('Não foi possível guardar a motivação em community_motivation: ' + error.message + '. Vamos configurar a política RLS desta tabela a seguir.');
+          return;
+        }
+      } else {
+        const now = new Date();
+        const { data: activeTheme, error: activeError } = await supabase
+          .from('community_monthly_themes')
+          .select('id, month_title, week_title, week_description, week_number, starts_at, ends_at')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (activeError) {
+          alert('Não foi possível consultar o tema atual: ' + activeError.message);
+          return;
+        }
+
+        const weekNumber = Math.ceil((((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7);
+
+        if (officialKind === 'weekly_question') {
+          if (!activeTheme) {
+            alert('Publica primeiro o tema do mês. Depois poderás definir o título da semana dentro desse tema.');
+            return;
+          }
+
+          const { error } = await supabase
+            .from('community_monthly_themes')
+            .update({
+              week_title: officialTitle.trim(),
+              week_description: officialBody.trim(),
+              week_number: weekNumber,
+            })
+            .eq('id', activeTheme.id);
+
+          if (error) {
+            alert('Não foi possível atualizar o título da semana: ' + error.message + '. Vamos configurar a política RLS administrativa a seguir.');
+            return;
+          }
+        } else {
+          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          const { error } = await supabase.from('community_monthly_themes').insert({
+            admin_id: adminId,
+            month_title: officialTitle.trim(),
+            month_description: null,
+            week_title: 'Título da semana por definir',
+            week_description: null,
+            week_number: weekNumber,
+            starts_at: now.toISOString(),
+            ends_at: expiresAt,
+            duration_days: officialDuration,
+            is_active: true,
+            background_color: officialBackgroundColor,
+            background_gradient: officialBackgroundGradient,
+            background_image_url: officialBackgroundImage.trim() || null,
+            text_color: officialTextColor,
+            font_family: officialFontFamily,
+          });
+
+          if (error) {
+            alert('Não foi possível guardar o tema em community_monthly_themes: ' + error.message + '. Vamos configurar a política RLS desta tabela a seguir.');
+            return;
+          }
+        }
+      }
+
+      await loadOfficialArchive();
+      setOfficialTitle('');
+      setOfficialBody('');
+      alert(officialKind === 'motivation'
+        ? 'Motivação Talaza guardada na tabela oficial.'
+        : officialKind === 'theme'
+          ? 'Tema do mês guardado na tabela oficial.'
+          : 'Título da semana atualizado na tabela oficial.');
+    } finally {
+      setOfficialSaving(false);
+    }
+  }
   async function loadProfiles() {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name')
+      .select('id, name, account_type')
       .order('name', { ascending: true });
 
     if (error) {
@@ -394,18 +700,23 @@ export default function Admin() {
       alert('Preencha o título e a mensagem da notificação.');
       return;
     }
-    if (notificationAudience === 'user' && !notificationUserId) {
+    if (['user', 'seller_user'].includes(notificationAudience) && !notificationUserId) {
       alert('Escolha o utilizador que vai receber a notificação.');
       return;
     }
 
     setSendingNotification(true);
-    const { error } = await supabase.from('notifications').insert({
-      user_id: notificationAudience === 'all' ? null : notificationUserId,
+    const sellerRoles = ['seller', 'vendedor', 'business'];
+    const isSeller = profile => sellerRoles.includes(String(profile.account_type || '').toLowerCase());
+    const recipients = ['user', 'seller_user'].includes(notificationAudience)
+      ? profiles.filter(profile => profile.id === notificationUserId && (notificationAudience !== 'seller_user' || isSeller(profile)))
+      : profiles.filter(profile => notificationAudience === 'all' || (notificationAudience === 'sellers' && isSeller(profile)) || (notificationAudience === 'explorers' && !isSeller(profile)));
+    const { error } = recipients.length ? await supabase.from('notifications').insert(recipients.map(profile => ({
+      user_id: profile.id,
       title: notificationTitle.trim(),
-      body: notificationBody.trim(),
-      type: notificationAudience === 'all' ? 'general' : 'individual',
-    });
+      content: notificationBody.trim(),
+      type: ['user', 'seller_user'].includes(notificationAudience) ? 'individual' : notificationAudience === 'sellers' ? 'sellers' : notificationAudience === 'explorers' ? 'explorers' : 'general',
+    }))) : { error: new Error('Não existem destinatários para este filtro.') };
     setSendingNotification(false);
 
     if (error) {
@@ -415,9 +726,62 @@ export default function Admin() {
 
     setNotificationTitle('');
     setNotificationBody('');
-    alert(notificationAudience === 'all'
-      ? 'Notificação geral enviada. Ficará visível nas notificações dos utilizadores autenticados.'
-      : 'Notificação enviada ao utilizador selecionado.');
+    await loadAdminNotifications();
+    alert(notificationAudience === 'all' ? 'Notificação geral enviada aos utilizadores autenticados.' : notificationAudience === 'seller_user' ? 'Notificação enviada ao vendedor selecionado.' : notificationAudience === 'user' ? 'Notificação enviada ao utilizador selecionado.' : 'Notificação enviada ao grupo selecionado.');
+  }
+
+  async function editSupportMessage(item) {
+    const nextMessage = window.prompt('Editar mensagem de suporte:', item.message || '');
+    if (nextMessage === null || !nextMessage.trim()) return;
+    const { error } = await supabase.from('support_messages').update({ message: nextMessage.trim() }).eq('id', item.id);
+    if (error) { alert('Não foi possível editar a mensagem: ' + error.message); return; }
+    await loadSupportMessages();
+  }
+
+  async function copyText(value) {
+    try { if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(String(value || '')); else { const helper = document.createElement('textarea'); helper.value = String(value || ''); helper.style.position = 'fixed'; helper.style.opacity = '0'; document.body.appendChild(helper); helper.select(); const copied = document.execCommand('copy'); helper.remove(); if (!copied) throw new Error('Cópia não suportada pelo navegador.'); } alert('Conteúdo copiado.'); }
+    catch (error) { alert('Não foi possível copiar o conteúdo: ' + error.message); }
+  }
+
+  async function editAdminNotification(item) {
+    const nextTitle = window.prompt('Editar título da notificação:', item.title || ''); if (nextTitle === null || !nextTitle.trim()) return;
+    const nextBody = window.prompt('Editar mensagem da notificação:', item.content || item.body || ''); if (nextBody === null || !nextBody.trim()) return;
+    const { error } = await supabase.from('notifications').update({ title: nextTitle.trim(), content: nextBody.trim() }).eq('id', item.id);
+    if (error) { alert('Não foi possível editar a notificação: ' + error.message); return; } await loadAdminNotifications();
+  }
+
+  async function deleteAdminNotification(item) {
+    if (!window.confirm('Eliminar esta notificação? Esta ação não pode ser desfeita.')) return;
+    setDeletingNotificationId(item.id); const { error } = await supabase.from('notifications').delete().eq('id', item.id); setDeletingNotificationId('');
+    if (error) { alert('Não foi possível eliminar a notificação: ' + error.message); return; } await loadAdminNotifications();
+  }
+
+  async function deleteSupportMessage(item) {
+    if (!window.confirm('Eliminar esta mensagem de suporte? Esta ação não pode ser desfeita.')) return;
+    setDeletingSupportId(item.id);
+    const { error } = await supabase.from('support_messages').delete().eq('id', item.id);
+    setDeletingSupportId('');
+    if (error) { alert('Não foi possível eliminar a mensagem: ' + error.message); return; }
+    await loadSupportMessages();
+  }
+
+  async function deletePaymentProof(request) {
+    if (!window.confirm('Eliminar este registo de comprovativo da lista administrativa? O pagamento não será apagado do histórico contabilístico.')) return;
+    setDeletingPaymentId(request.id);
+    try {
+      const paths = getPaymentProofPaths(request);
+      const storagePaths = [paths.image, paths.file].filter(Boolean).filter(path => !/^https?:\/\//i.test(path));
+      if (storagePaths.length) {
+        const { error: storageError } = await supabase.storage.from('payment-proofs').remove(storagePaths);
+        if (storageError) throw storageError;
+      }
+      const { error } = await supabase.from('payment_submissions').delete().eq('id', request.id);
+      if (error) throw error;
+      await loadSubscriptionRequests();
+      alert('Comprovativo eliminado.');
+    } catch (error) {
+      alert('Não foi possível eliminar o comprovativo: ' + (error.message || 'erro desconhecido') + '. Confirma as permissões administrativas no Supabase.');
+    } finally { setDeletingPaymentId(''); }
   }
 
   async function markSupportReviewed(item) {
@@ -489,83 +853,172 @@ export default function Admin() {
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
   }
 
+  function getPaymentAreaLabel(request) {
+    const explicitArea = String(
+      request?.area ||
+      request?.area_name ||
+      request?.platform_area ||
+      request?.service_type ||
+      request?.payment_for ||
+      ''
+    ).toLowerCase();
+
+    if (request?.event_id || explicitArea.includes('evento')) return 'Eventos';
+    if (request?.job_post_id || request?.opportunity_id || explicitArea.includes('oportunidade') || explicitArea.includes('vaga')) return 'Oportunidades';
+    if (request?.business_id || explicitArea.includes('vitrine') || explicitArea.includes('hospedagem')) return 'Vitrine / Hospedagem';
+    return 'Área por identificar';
+  }
+
   async function reviewPayment(request, approved) {
     const rejectionReason = approved ? '' : window.prompt('Indique o motivo da recusa do comprovativo/pagamento:');
     if (!approved && (!rejectionReason || !rejectionReason.trim())) return;
     if (reviewingPaymentId) return;
+
     setReviewingPaymentId(request.id);
     const nextStatus = approved ? 'approved' : 'rejected';
-    const { data: updatedPayment, error } = await supabase
+    const reviewedAt = new Date().toISOString();
+
+    const { data: updatedPayment, error: paymentError } = await supabase
       .from('payment_submissions')
-      .update({ status: nextStatus, reviewed_at: new Date().toISOString(), notes: approved ? (request.notes || null) : rejectionReason.trim() })
+      .update({
+        status: nextStatus,
+        reviewed_at: reviewedAt,
+        notes: approved ? (request.notes || null) : rejectionReason.trim(),
+      })
       .eq('id', request.id)
       .select('id')
       .maybeSingle();
-    if (error) {
+
+    if (paymentError || !updatedPayment) {
       setReviewingPaymentId('');
-      alert('Não foi possível atualizar o pagamento. Confirme as políticas RLS de payment_submissions: ' + error.message);
-      return;
-    }
-    if (!updatedPayment) {
-      setReviewingPaymentId('');
-      alert('O Supabase não confirmou a alteração do pagamento. A política RLS pode estar a bloquear a aprovação.');
+      alert('Não foi possível atualizar o pagamento. Confirme as políticas RLS de payment_submissions: ' + (paymentError?.message || 'Nenhuma linha foi alterada.'));
       return;
     }
 
-    if (request.event_id && request.plan_id) {
-      const [{ data: eventRecord, error: eventError }, { data: eventPlan, error: eventPlanError }] = await Promise.all([
-        supabase.from('events').select('id,user_id,admin_approved,status').eq('id', request.event_id).maybeSingle(),
-        supabase.from('plans').select('duration_days,plan_type,area,is_active').eq('id', request.plan_id).maybeSingle()
-      ]);
-      if (eventError || eventPlanError || !eventRecord || !eventPlan) {
-        alert('O pagamento foi analisado, mas não foi possível confirmar o evento e o plano. Verifique o registo antes de ativar.');
-      } else if (
-        approved &&
-        eventPlan.is_active === true &&
-        String(eventPlan.plan_type || '').trim().toLowerCase() === 'publicação ativa' &&
-        String(eventPlan.area || '').trim().toLowerCase() === 'eventos área' &&
-        Number(eventPlan.duration_days) > 0
-      ) {
-        const expiresAt = new Date(Date.now() + Number(eventPlan.duration_days) * 86400000).toISOString();
-        const patch = {
-          payment_status: 'paid',
-          status: eventRecord.admin_approved ? 'published' : 'pending_review',
-          expires_at: expiresAt
-        };
-        const { error: activationError } = await supabase.from('events').update(patch).eq('id', request.event_id);
-        if (activationError) alert('Pagamento aprovado, mas não foi possível atualizar o evento: ' + activationError.message);
-      } else if (!approved) {
-        const { error: resetError } = await supabase.from('events').update({
-          payment_status: 'pending',
-          status: 'pending_payment',
-          expires_at: null
-        }).eq('id', request.event_id);
-        if (resetError) alert('O pagamento foi recusado, mas não foi possível atualizar o estado do evento: ' + resetError.message);
-      }
-    } else if (approved && request.business_id && request.plan_id) {
+    let activationMessage = '';
+    const areaLabel = getPaymentAreaLabel(request);
+
+    if (approved && request.business_id && request.plan_id) {
       const [{ data: business, error: businessError }, { data: plan, error: planError }] = await Promise.all([
-        supabase.from('businesses').select('approval_status').eq('id', request.business_id).maybeSingle(),
-        supabase.from('plans').select('duration_days').eq('id', request.plan_id).maybeSingle()
+        supabase.from('businesses').select('id, owner_id, approval_status').eq('id', request.business_id).maybeSingle(),
+        supabase.from('plans').select('id, duration_days').eq('id', request.plan_id).maybeSingle(),
       ]);
+
       if (businessError || planError) {
-        alert('O pagamento foi aprovado, mas não foi possível verificar a ativação do perfil. Verifique o painel novamente.');
-      } else if (business?.approval_status === 'approved' && plan?.duration_days) {
-        const trialEndsAt = new Date(Date.now() + Number(plan.duration_days) * 86400000).toISOString();
-        const { error: activationError } = await supabase.from('businesses').update({
-          is_active: true,
-          plan_id: request.plan_id,
-          trial_ends_at: trialEndsAt
-        }).eq('id', request.business_id);
-        if (activationError) alert('Pagamento aprovado, mas a ativação falhou: ' + activationError.message);
+        activationMessage = ' O pagamento foi aprovado, mas não foi possível confirmar o negócio e o plano; verifique os registos.';
+      } else if (!business || !plan) {
+        activationMessage = ' O pagamento foi aprovado, mas o negócio ou plano não foi encontrado; a hospedagem não foi ativada.';
+      } else if (business.approval_status !== 'approved') {
+        activationMessage = ' O pagamento foi aprovado. O perfil ainda precisa de aprovação administrativa antes de ficar ativo na Vitrine.';
+      } else {
+        const durationDays = Number(plan.duration_days) || 0;
+        if (durationDays <= 0) {
+          activationMessage = ' O pagamento foi aprovado, mas a duração do plano não está configurada; a hospedagem não foi ativada.';
+        } else {
+          const now = new Date();
+          const expiresAt = new Date(now.getTime() + durationDays * 86400000).toISOString();
+          const { data: existingSubscription, error: readSubscriptionError } = await supabase
+            .from('business_subscriptions')
+            .select('id')
+            .eq('business_id', request.business_id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (readSubscriptionError) {
+            activationMessage = ' O pagamento foi aprovado, mas não foi possível consultar a hospedagem: ' + readSubscriptionError.message;
+          } else {
+            const subscriptionData = {
+              business_id: request.business_id,
+              plan_id: request.plan_id,
+              starts_at: now.toISOString(),
+              status: 'active',
+              expires_at: expiresAt,
+            };
+            const subscriptionResult = existingSubscription?.id
+              ? await supabase.from('business_subscriptions').update(subscriptionData).eq('id', existingSubscription.id).select('id').maybeSingle()
+              : await supabase.from('business_subscriptions').insert(subscriptionData).select('id').maybeSingle();
+
+            if (subscriptionResult.error || !subscriptionResult.data) {
+              activationMessage = ' O pagamento foi aprovado, mas a hospedagem não foi ativada: ' + (subscriptionResult.error?.message || 'O Supabase não confirmou o registo.');
+            } else {
+              const { error: activeError } = await supabase.from('businesses').update({ is_active: true }).eq('id', request.business_id);
+              if (activeError) activationMessage = ' A hospedagem foi registada, mas não foi possível ativar o perfil: ' + activeError.message;
+              else activationMessage = ' A hospedagem da Vitrine está ativa até ' + new Date(expiresAt).toLocaleDateString('pt-AO') + '.';
+            }
+          }
+        }
       }
-    } else if (!approved && request.business_id) {
-      await supabase.from('businesses').update({ is_active: false }).eq('id', request.business_id);
     }
 
-    await notifyUser(request.user_id, approved ? 'Pagamento aprovado — Talaza' : 'Comprovativo recusado — Talaza', approved ? (request.event_id ? 'O pagamento do seu anúncio de evento foi aprovado. A publicação ficará visível depois de aprovada pela equipa Talaza.' : 'O seu pagamento foi aprovado. A equipa Talaza está a atualizar a hospedagem do seu perfil.') : 'O comprovativo do seu pagamento foi recusado. Motivo: ' + rejectionReason.trim() + ' Pode corrigir e enviar novamente.', 'payment_review');
+    if (approved && request.event_id) {
+      const { data: event, error: eventReadError } = await supabase
+        .from('events')
+        .select('id, user_id, admin_approved')
+        .eq('id', request.event_id)
+        .maybeSingle();
+
+      if (eventReadError || !event) {
+        activationMessage += ' O pagamento foi aprovado, mas o evento associado não foi encontrado.';
+      } else {
+        const eventPatch = { payment_status: 'paid' };
+        if (event.admin_approved === true) eventPatch.status = 'published';
+        const { error: eventUpdateError } = await supabase.from('events').update(eventPatch).eq('id', event.id);
+        if (eventUpdateError) activationMessage += ' O pagamento foi aprovado, mas não foi possível atualizar o evento: ' + eventUpdateError.message;
+        else {
+          activationMessage += event.admin_approved === true
+            ? ' O evento foi publicado após confirmação do pagamento.'
+            : ' O pagamento está confirmado; o evento ainda precisa de aprovação administrativa.';
+          await notifyUser(event.user_id || request.user_id, 'Pagamento de evento aprovado — Talaza', event.admin_approved === true ? 'O pagamento foi confirmado e o evento foi publicado.' : 'O pagamento foi confirmado. O evento ainda aguarda aprovação administrativa.', 'payment_review');
+        }
+      }
+    }
+
+    const opportunityId = request.job_post_id || request.opportunity_id || null;
+    if (approved && opportunityId) {
+      const { data: opportunity, error: opportunityReadError } = await supabase
+        .from('job_posts')
+        .select('id, user_id, admin_approved')
+        .eq('id', opportunityId)
+        .maybeSingle();
+
+      if (opportunityReadError || !opportunity) {
+        activationMessage += ' O pagamento foi aprovado, mas a oportunidade associada não foi encontrada.';
+      } else {
+        const opportunityPatch = { payment_status: 'approved' };
+        if (opportunity.admin_approved === true) {
+          opportunityPatch.status = 'published';
+          opportunityPatch.is_active = true;
+        }
+        const { error: opportunityUpdateError } = await supabase.from('job_posts').update(opportunityPatch).eq('id', opportunity.id);
+        if (opportunityUpdateError) {
+          activationMessage += ' O pagamento foi aprovado, mas não foi possível atualizar a oportunidade: ' + opportunityUpdateError.message;
+        } else {
+          activationMessage += opportunity.admin_approved === true
+            ? ' A oportunidade foi publicada após confirmação do pagamento.'
+            : ' O pagamento está confirmado; a oportunidade ainda precisa de aprovação administrativa.';
+          await notifyUser(opportunity.user_id || request.user_id, 'Pagamento de oportunidade aprovado — Talaza', opportunity.admin_approved === true ? 'O pagamento foi confirmado e a oportunidade foi publicada.' : 'O pagamento foi confirmado. A oportunidade ainda aguarda aprovação administrativa.', 'payment_review');
+        }
+      }
+    }
+
+    if (!approved && request.business_id) {
+      const { error: deactivateError } = await supabase.from('businesses').update({ is_active: false }).eq('id', request.business_id);
+      if (deactivateError) console.error('O comprovativo foi recusado, mas não foi possível desativar o perfil:', deactivateError.message);
+    }
+
+    const notificationTitle = approved ? 'Pagamento aprovado — Talaza' : 'Comprovativo recusado — Talaza';
+    const notificationBody = approved
+      ? 'O seu pagamento para ' + areaLabel + ' foi aprovado.' + activationMessage
+      : 'O comprovativo do seu pagamento para ' + areaLabel + ' foi recusado. Motivo: ' + rejectionReason.trim() + ' Pode corrigir e enviar novamente.';
+    await notifyUser(request.user_id, notificationTitle, notificationBody, 'payment_review');
+
     await loadSubscriptionRequests();
     await loadBusinesses();
+    await loadEvents();
+    await loadJobPosts();
     setReviewingPaymentId('');
+    alert(approved ? 'Pagamento aprovado.' + activationMessage : 'Pagamento recusado e motivo enviado nas notificações.');
   }
 
   async function refreshAdminData() {
@@ -577,6 +1030,7 @@ export default function Admin() {
       loadCommunityReports(),
       loadPendingCommunityPosts(),
       loadSupportMessages(),
+      loadAdminNotifications(),
       loadProfiles(),
       loadEvents(),
       loadJobPosts(),
@@ -663,17 +1117,27 @@ export default function Admin() {
             </p>
           </div>
 
-          <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '0 0 28px' }}>
+          <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', gap: 10, margin: '0 -4px 10px', padding: '8px 4px 14px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
             {[
-              ['#vendedores', 'Vendedores'], ['#pagamentos', 'Pagamentos e hospedagens'], ['#eventos', 'Eventos'], ['#oportunidades', 'Oportunidades'], ['#comunidade', 'Comunidade Talaza'], ['#suporte', 'Suporte Talaza']
-            ].map(([href, label]) => <a key={href} href={href} style={{ padding: '10px 13px', borderRadius: 9, background: '#E4F0ED', color: '#075B4E', fontWeight: 800, textDecoration: 'none', fontSize: 13 }}>{label}</a>)}
+              ['vendedores', 'Vendedores', businesses.length],
+              ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && (item.business_id || item.event_id || item.job_post_id)).length],
+              ['eventos', 'Eventos', events.filter(item => String(item.status || '').toLowerCase() === 'pending_payment').length],
+              ['oportunidades', 'Oportunidades', jobPosts.filter(item => !['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase())).length],
+              ['comunidade', 'Comunidade Talaza', communityPosts.filter(item => String(item.moderation_status || 'pending').toLowerCase() === 'pending').length],
+              ['suporte', 'Suporte Talaza', supportMessages.filter(item => String(item.status || 'pending').toLowerCase() === 'pending').length],
+              ['notificacoes', 'Notificações', adminNotifications.length],
+              ['denuncias', 'Denúncias da Comunidade', communityReports.filter(item => String(item.status || 'pending').toLowerCase() === 'pending').length],
+              ['conteudo-oficial', 'Motivação e tema do mês', officialArchive.length]
+            ].map(([key, label, count]) => <button key={key} type="button" onClick={() => setActiveAdminSection(key)} aria-pressed={activeAdminSection === key} style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 10, padding: '13px 18px', borderRadius: 999, border: activeAdminSection === key ? '3px solid #D8A319' : '1px solid #D5E4DF', background: activeAdminSection === key ? '#075B4E' : '#E4F0ED', color: activeAdminSection === key ? '#FFFFFF' : '#075B4E', fontWeight: 800, cursor: 'pointer', fontSize: 14, whiteSpace: 'nowrap', scrollSnapAlign: 'start', boxShadow: activeAdminSection === key ? '0 0 0 2px rgba(216,163,25,.18)' : 'none' }}>{label}{Number(count) > 0 && <span style={{ minWidth: 25, height: 25, padding: '0 7px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, background: activeAdminSection === key ? '#D8A319' : '#FFF0B8', color: '#075B4E', fontWeight: 900 }}>{count}</span>}</button>)}
           </nav>
+          <p style={{ margin: '0 0 24px', color: '#64756F', fontSize: 13, textAlign: 'center' }}>→ Deslize para ver mais áreas</p>
           <div style={styles.counter}>
             {businesses.length} pendente
             {businesses.length !== 1 ? 's' : ''}
           </div>
         </div>
 
+        <div style={{ display: activeAdminSection === 'vendedores' ? 'block' : 'none' }}>
         {message && (
           <div style={styles.errorBox}>
             {message}
@@ -734,6 +1198,14 @@ export default function Admin() {
 
                 <div style={styles.details}>
 
+                  <p>
+                    <strong>Responsável:</strong>{' '}
+                    {profiles.find(profile => profile.id === business.owner_id)?.name || 'Nome não disponível'}
+                  </p>
+                  <p>
+                    <strong>ID interno do responsável:</strong>{' '}
+                    {business.owner_id || '—'}
+                  </p>
                   <p>
                     <strong>Localização:</strong>{' '}
                     {business.countries?.name || '-'}
@@ -816,17 +1288,105 @@ export default function Admin() {
           </div>
         )}
 
-        <section id="eventos" style={{ marginTop: 42 }}>
+        </div>
+
+        <section id="eventos" style={{ marginTop: 0, display: activeAdminSection === 'eventos' ? 'block' : 'none' }}>
           <div style={styles.titleRow}><div><h2 style={styles.title}>Eventos</h2><p style={styles.description}>Analise os eventos submetidos, consulte os detalhes e aprove ou recuse com um motivo.</p></div><div style={styles.counter}>{events.filter(item => ['pending_payment', 'pending', 'pending_review'].includes(String(item.status || '').toLowerCase())).length} por analisar · {events.length} total</div></div>
-          {events.length === 0 ? <div style={styles.empty}><h3>Sem eventos registados</h3><p>Os eventos enviados aparecerão aqui.</p></div> : <div style={styles.list}>{events.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>EV</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || 'Evento sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · Pagamento: {item.payment_status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || 'Sem descrição.'}</p>{item.image_url && <p><a href={item.image_url} target="_blank" rel="noreferrer">Ver imagem do evento ↗</a></p>}<p><strong>Local:</strong> {item.location || '—'}</p><p><strong>Responsável:</strong> {item.user_id || '—'}</p></div>{!item.admin_approved && !['published','approved','rejected','cancelled','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateEvent(item, false)}>Recusar evento</button><button type="button" style={styles.approve} onClick={() => moderateEvent(item, true)}>Aprovar evento</button></div>}</article>)}</div>}
+          {events.length === 0 ? <div style={styles.empty}><h3>Sem eventos registados</h3><p>Os eventos enviados aparecerão aqui.</p></div> : <div style={styles.list}>{events.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>EV</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || 'Evento sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · Pagamento: {item.payment_status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || 'Sem descrição.'}</p>{item.image_url && <p><a href={item.image_url} target="_blank" rel="noreferrer">Ver imagem do evento ↗</a></p>}<p><strong>Local:</strong> {item.location || '—'}</p><p><strong>Responsável:</strong> {profiles.find(profile => profile.id === item.user_id)?.name || 'Nome não disponível'}</p><p><strong>ID interno:</strong> {item.user_id || '—'}</p></div>{!item.admin_approved && !['published','approved','rejected','cancelled','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateEvent(item, false)}>Recusar evento</button><button type="button" style={styles.approve} onClick={() => moderateEvent(item, true)}>Aprovar evento</button></div>}</article>)}</div>}
+          <div style={{ marginTop: 30 }}>
+            <h3 style={{ ...styles.title, fontSize: 21 }}>Comprovativos de pagamento dos eventos</h3>
+            <p style={styles.description}>Só aparecem aqui os pagamentos de eventos com comprovativo enviado. A aprovação do evento e a confirmação do pagamento são decisões separadas.</p>
+            {subscriptionRequests.filter(request => request.event_id).length === 0
+              ? <div style={styles.empty}><h3>Sem comprovativos de eventos</h3><p>Quando alguém selecionar um plano e enviar o comprovativo, o pedido aparecerá aqui.</p></div>
+              : <div style={styles.list}>{subscriptionRequests.filter(request => request.event_id).map(request => {
+                  const event = events.find(item => item.id === request.event_id);
+                  const pending = String(request.status || '').toLowerCase() === 'pending' || String(request.status || '').toLowerCase() === 'submitted';
+                  const paths = getPaymentProofPaths(request);
+                  return <article key={request.id} style={styles.card}>
+                    <div style={styles.cardTop}>
+                      <div style={styles.logoPlaceholder}>₭</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h3 style={styles.businessName}>{event?.title || 'Evento associado'}</h3>
+                        <div style={styles.meta}>Responsável: {profiles.find(profile => profile.id === (event?.user_id || request.user_id))?.name || 'Nome não disponível'} · Plano: {planNames[request.plan_id] || 'Plano de evento'} · {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : ''}</div>
+                      </div>
+                      <span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span>
+                    </div>
+                    <div style={styles.details}>
+                      <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : '—'}</p>
+                      {paths.image && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem do comprovativo ↗</button></p>}
+                      {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir comprovativo PDF ↗</button></p>}
+                      {!paths.image && !paths.file && <p style={{ color: '#9B3A28' }}>Este pedido não contém um ficheiro de comprovativo válido.</p>}
+                    </div>
+                    {pending && paths.image || pending && paths.file ? <div style={styles.actions}>
+                      <button type="button" disabled={reviewingPaymentId === request.id} style={styles.reject} onClick={() => reviewPayment(request, false)}>Rejeitar pagamento</button>
+                      <button type="button" disabled={reviewingPaymentId === request.id} style={styles.approve} onClick={() => reviewPayment(request, true)}>Confirmar pagamento</button>
+                    </div> : null}
+                  </article>;
+                })}</div>}
+          </div>
         </section>
 
-        <section id="oportunidades" style={{ marginTop: 42 }}>
+        <section id="oportunidades" style={{ marginTop: 0, display: activeAdminSection === 'oportunidades' ? 'block' : 'none' }}>
           <div style={styles.titleRow}><div><h2 style={styles.title}>Oportunidades</h2><p style={styles.description}>Revise as oportunidades/vagas publicadas e envie o motivo ao responsável se houver recusa.</p></div><div style={styles.counter}>{jobPosts.filter(item => !['rejected','closed','expired'].includes(String(item.status || '').toLowerCase())).length} por analisar · {jobPosts.length} total</div></div>
-          {jobPosts.length === 0 ? <div style={styles.empty}><h3>Sem oportunidades registadas</h3><p>As oportunidades enviadas aparecerão aqui.</p></div> : <div style={styles.list}>{jobPosts.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>OP</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || item.position || 'Oportunidade sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || item.details || 'Sem descrição.'}</p><p><strong>Província:</strong> {item.province_id || '—'} · <strong>Responsável:</strong> {item.user_id || item.employer_id || '—'}</p></div>{!['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateJob(item, false)}>Recusar oportunidade</button><button type="button" style={styles.approve} onClick={() => moderateJob(item, true)}>Aprovar oportunidade</button></div>}</article>)}</div>}
+          {jobPosts.length === 0 ? <div style={styles.empty}><h3>Sem oportunidades registadas</h3><p>As oportunidades enviadas aparecerão aqui.</p></div> : <div style={styles.list}>{jobPosts.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>OP</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || item.position || 'Oportunidade sem título'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}><p>{item.description || item.details || 'Sem descrição.'}</p><p><strong>Província:</strong> {item.province_id || '—'}</p><p><strong>Responsável:</strong> {profiles.find(profile => profile.id === (item.user_id || item.employer_id))?.name || 'Nome não disponível'}</p><p><strong>ID interno:</strong> {item.user_id || item.employer_id || '—'}</p></div>{!['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateJob(item, false)}>Recusar oportunidade</button><button type="button" style={styles.approve} onClick={() => moderateJob(item, true)}>Aprovar oportunidade</button></div>}</article>)}</div>}
         </section>
 
-        <section id="comunidade" style={{ marginTop: 42 }}>
+        <section id="conteudo-oficial" style={{ marginTop: 0, display: activeAdminSection === 'conteudo-oficial' ? 'block' : 'none' }}>
+          <div style={styles.titleRow}><div><h2 style={styles.title}>Comunidade Terapêutica — Motivação e Tema do Mês</h2><p style={styles.description}>Publica e gere apenas a Motivação Talaza, o Tema do Mês e a descrição do Tema da Semana.</p></div></div>
+          <div style={styles.card}>
+            <label style={styles.label}>Tipo de conteúdo</label>
+            <select value={officialKind} onChange={event => setOfficialKind(event.target.value)} style={styles.input}>
+              <option value="motivation">Motivação</option><option value="theme">Tema do mês</option><option value="weekly_question">Título da semana</option>
+            </select>
+            <label style={styles.label}>Duração da motivação / tema</label>
+            <select value={officialDuration} onChange={event => setOfficialDuration(Number(event.target.value))} style={styles.input}>
+              <option value={7}>7 dias</option><option value={15}>15 dias</option><option value={30}>30 dias</option>
+            </select>
+            <p style={styles.meta}>Quando a duração terminar, o conteúdo deixa de aparecer ao público, mas permanece guardado no histórico para consulta e reutilização futura.</p>
+            <label style={styles.label}>Título / tema</label>
+            <input value={officialTitle} onChange={event => setOfficialTitle(event.target.value)} placeholder={officialKind === 'motivation' ? 'Ex.: A força de recomeçar' : officialKind === 'theme' ? 'Ex.: O valor de recomeçar' : 'Ex.: O que aprendeste esta semana?'} style={styles.input} />
+            {officialKind !== 'theme' && <>
+              <label style={styles.label}>{officialKind === 'weekly_question' ? 'Descrição da semana' : 'Frase motivacional'}</label>
+              <textarea value={officialBody} onChange={event => setOfficialBody(event.target.value)} placeholder={officialKind === 'weekly_question' ? 'Escreve a descrição e a orientação da semana.' : 'Escreve a frase motivacional que será apresentada num cartão 16:9.'} rows={officialKind === 'motivation' ? 3 : 5} style={styles.input} />
+            </>}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))', gap:12, marginTop:14 }}>
+              <div><label style={styles.label}>Cor do fundo</label><input aria-label="Cor do fundo" type="color" value={officialBackgroundColor} onChange={event=>setOfficialBackgroundColor(event.target.value)} style={{ ...styles.input, height:46, padding:4 }} /></div>
+              <div><label style={styles.label}>Cor das letras</label><input aria-label="Cor das letras" type="color" value={officialTextColor} onChange={event=>setOfficialTextColor(event.target.value)} style={{ ...styles.input, height:46, padding:4 }} /></div>
+              <div><label style={styles.label}>Tipo de letra</label><select value={officialFontFamily} onChange={event=>setOfficialFontFamily(event.target.value)} style={styles.input}><option value="Georgia">Georgia — elegante</option><option value="Arial">Arial — simples</option><option value="Verdana">Verdana — legível</option><option value="Trebuchet MS">Trebuchet MS — moderno</option><option value="Times New Roman">Times New Roman — clássico</option><option value="system-ui">Sistema — contemporâneo</option></select></div>
+            </div>
+            <label style={styles.label}>Imagem de fundo externa</label>
+            <input ref={officialImageInputRef} type="file" accept="image/*" disabled={officialImageUploading} onChange={event => { const selectedFile = event.target.files?.[0]; if (selectedFile) uploadOfficialBackground(selectedFile); event.target.value = ''; }} style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }} />
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}><button type="button" disabled={officialImageUploading} onClick={() => officialImageInputRef.current?.click()} style={{ ...styles.approve, background: 'linear-gradient(135deg, #075B4E 0%, #64358B 58%, #D8A319 100%)', opacity: officialImageUploading ? .65 : 1 }}>{officialImageUploading ? 'A carregar imagem…' : 'Escolher imagem da galeria'}</button>{officialBackgroundImage && <button type="button" onClick={() => setOfficialBackgroundImage('')} style={styles.reject}>Remover imagem</button>}</div>
+            <p style={styles.meta}>{officialImageUploading ? 'A carregar imagem…' : 'Seleciona uma imagem do computador/galeria (máximo 8 MB) ou cola um URL abaixo.'}</p>
+            <input type="url" value={officialBackgroundImage} onChange={event=>setOfficialBackgroundImage(event.target.value)} placeholder="Ou cola aqui o URL da imagem" style={styles.input} />
+            <label style={styles.label}>Fundo em degradê</label>
+            <select value={officialBackgroundGradient} onChange={event => setOfficialBackgroundGradient(event.target.value)} style={styles.input}>
+              <option value="linear-gradient(135deg, #173B35 0%, #64358B 55%, #D8A319 100%)">Talaza — verde, roxo e dourado</option>
+              <option value="linear-gradient(135deg, #075B4E 0%, #18A999 100%)">Verde oceano</option>
+              <option value="linear-gradient(135deg, #64358B 0%, #C06C84 100%)">Roxo e rosa</option>
+              <option value="linear-gradient(135deg, #1D3557 0%, #457B9D 50%, #A8DADC 100%)">Azul profundo</option>
+              <option value="linear-gradient(135deg, #7F4F24 0%, #DDA15E 55%, #FEFAE0 100%)">Terra e areia</option>
+              <option value="linear-gradient(135deg, #232526 0%, #414345 100%)">Grafite</option>
+            </select>
+            <div style={{ marginTop:12, padding:16, minHeight:officialKind==='motivation'?180:110, aspectRatio:officialKind==='motivation'?'16 / 9':undefined, borderRadius:14, color:officialTextColor, fontFamily:officialFontFamily, backgroundColor:officialBackgroundColor, backgroundImage:officialBackgroundImage.trim()? 'linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.15)),url('+officialBackgroundImage.trim()+')':officialBackgroundGradient, backgroundSize:'cover', backgroundPosition:'center', display:'flex', flexDirection:'column', justifyContent:'center', textAlign:'center', overflow:'hidden' }}>
+              <strong style={{ fontSize:officialKind==='motivation'?22:18 }}>{officialTitle || (officialKind==='theme'?'Tema do mês':officialKind==='weekly_question'?'Título da semana':'A sua frase motivacional')}</strong>
+              {officialKind==='weekly_question' && <span style={{ marginTop:8, fontSize:14 }}>{officialBody || 'A descrição da semana aparecerá aqui.'}</span>}
+            </div>
+            <div style={styles.actions}><button type="button" disabled={officialSaving} style={styles.approve} onClick={publishOfficialCommunityContent}>{officialSaving ? 'A publicar…' : 'Publicar conteúdo oficial'}</button></div>
+            <p style={styles.meta}>Motivação e temas ficam guardados nas tabelas oficiais, mesmo depois de expirarem. A expiração apenas os retira da apresentação pública.</p>
+            <div style={{ marginTop: 22 }}>
+              <h3 style={{ ...styles.title, fontSize: 20 }}>Histórico de motivações e temas</h3>
+              {officialArchive.length === 0 ? <div style={styles.empty}><p>Ainda não existem conteúdos guardados.</p></div> : <div style={styles.list}>{officialArchive.map(item => {
+                const expired = item.archiveExpiresAt && new Date(item.archiveExpiresAt) <= new Date();
+                return <article key={item.archiveType + item.id} style={styles.card}>
+                  <div style={styles.cardTop}><div style={styles.logoPlaceholder}>{item.archiveType === 'Motivação' ? 'M' : 'T'}</div><div style={{ flex: 1 }}><h4 style={styles.businessName}>{item.archiveTitle || 'Sem título'}</h4><div style={styles.meta}>{item.archiveType} · {item.duration_days || 30} dias · Publicado: {new Date(item.created_at).toLocaleDateString('pt-AO')}</div></div><span style={expired ? styles.paymentStatus : styles.pending}>{expired ? 'Arquivado' : 'Ativo'}</span></div>
+                </article>;
+              })}</div>}
+            </div>
+          </div>
+        </section>
+
+        <section id="comunidade" style={{ marginTop: 0, display: activeAdminSection === 'comunidade' ? 'block' : 'none' }}>
           <div style={styles.titleRow}>
             <div>
               <h2 style={styles.title}>Aprovação da Comunidade Talaza</h2>
@@ -874,30 +1434,30 @@ export default function Admin() {
           )}
         </section>
 
-        <section id="pagamentos" style={{ marginTop: 42 }}>
+        <section id="pagamentos" style={{ marginTop: 0, display: activeAdminSection === 'pagamentos' ? 'block' : 'none' }}>
           <div style={styles.titleRow}>
             <div>
-              <h2 style={styles.title}>Pagamentos e hospedagens</h2>
-              <p style={styles.description}>Confirme os comprovativos antes de ativar um perfil. A aprovação do perfil, sozinha, não ativa a hospedagem.</p>
+              <h2 style={styles.title}>Pagamentos e hospedagem da Vitrine</h2>
+              <p style={styles.description}>Esta secção mostra apenas os comprovativos com ficheiro enviados para a hospedagem dos negócios. Os pagamentos de eventos ficam em Eventos; as publicações gratuitas ficam em Oportunidades.</p>
             </div>
-            <div style={styles.counter}>{subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending').length} pagamentos pendentes</div>
+            <div style={styles.counter}>{subscriptionRequests.filter(item => item.business_id && String(item.status || '').toLowerCase() === 'pending').length} pagamentos de hospedagem pendentes</div>
           </div>
-          {subscriptionRequests.length === 0 ? (
+          {subscriptionRequests.filter(item => item.business_id).length === 0 ? (
             <div style={styles.empty}>
               <div style={styles.emptyIcon}>◇</div>
               <h2>Sem pedidos de pagamento</h2>
-              <p>Os pedidos de hospedagem e comprovativos aparecerão aqui quando forem enviados.</p>
+              <p>Os comprovativos enviados para as áreas pagas da Talaza aparecerão aqui quando forem registados.</p>
             </div>
           ) : (
             <div style={styles.list}>
-              {subscriptionRequests.map(request => {
+              {subscriptionRequests.filter(item => item.business_id).map(request => {
                 const pending = String(request.status || '').toLowerCase() === 'pending';
                 return <article key={request.id} style={styles.card}>
                   <div style={styles.cardTop}>
                     <div style={styles.logoPlaceholder}>₭</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={styles.businessName}>{businessNames[request.business_id] || 'Pedido de hospedagem'}</h3>
-                      <div style={styles.meta}>Negócio: {businessNames[request.business_id] || 'A carregar nome…'} · Plano: {planNames[request.plan_id] || 'A carregar plano…'}</div>
+                      <h3 style={styles.businessName}>{businessNames[request.business_id] || (request.event_id ? 'Pagamento de evento' : (request.job_post_id || request.opportunity_id) ? 'Pagamento de oportunidade' : getPaymentAreaLabel(request))}</h3>
+                      <div style={styles.meta}>Área: {getPaymentAreaLabel(request)} · {request.business_id ? 'Negócio: ' + (businessNames[request.business_id] || 'A carregar nome…') + ' · ' : ''}Plano: {planNames[request.plan_id] || 'A carregar plano…'}</div>
                     </div>
                     <span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span>
                   </div>
@@ -938,17 +1498,18 @@ export default function Admin() {
                       );
                     })()}
                   </div>
-                  {pending && <div style={styles.actions}>
-                    <button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>
-                    <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Confirmar pagamento'}</button>
-                  </div>}
+                  <div style={styles.actions}>
+                    {pending && <><button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>
+                    <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Confirmar pagamento'}</button></>}
+                    <button type="button" disabled={deletingPaymentId === request.id} style={styles.reject} onClick={() => deletePaymentProof(request)}>{deletingPaymentId === request.id ? 'A eliminar…' : 'Eliminar comprovativo'}</button>
+                  </div>
                 </article>;
               })}
             </div>
           )}
         </section>
 
-        <section id="suporte" style={{ marginTop: 42 }}>
+        <section id="suporte" style={{ marginTop: 0, display: activeAdminSection === 'suporte' ? 'block' : 'none' }}>
           <div style={styles.titleRow}>
             <div>
               <h2 style={styles.title}>Suporte Talaza — mensagens recebidas</h2>
@@ -956,10 +1517,11 @@ export default function Admin() {
             </div>
             <div style={styles.counter}>{supportMessages.filter(item => String(item.status || 'pending') === 'pending').length} por analisar</div>
           </div>
-          {supportMessages.length === 0 ? (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>{[['all','Todas'],['pending','Por analisar'],['reviewed','Analisadas']].map(([value,label]) => <button key={value} type="button" onClick={() => setSupportFilter(value)} style={{ padding: '9px 13px', borderRadius: 999, border: supportFilter === value ? '1px solid #64358B' : '1px solid #DDE5E0', background: supportFilter === value ? 'linear-gradient(135deg,#075B4E,#64358B)' : '#FFFFFF', color: supportFilter === value ? '#FFFFFF' : '#244A42', fontWeight: 800, cursor: 'pointer' }}>{label}</button>)}</div>
+           {supportMessages.filter(item => supportFilter === 'all' || String(item.status || 'pending').toLowerCase() === supportFilter).length === 0 ? (
             <div style={styles.empty}><div style={styles.emptyIcon}>✉</div><h2>Sem mensagens recebidas</h2><p>As mensagens enviadas pelos utilizadores aparecerão aqui.</p></div>
           ) : (
-            <div style={styles.list}>{supportMessages.map(item => (
+            <div style={styles.list}>{supportMessages.filter(item => supportFilter === 'all' || String(item.status || 'pending').toLowerCase() === supportFilter).map(item => (
               <article key={item.id} style={styles.card}>
                 <div style={styles.cardTop}>
                   <div style={styles.logoPlaceholder}>✉</div>
@@ -970,30 +1532,33 @@ export default function Admin() {
                   <span style={String(item.status || 'pending') === 'pending' ? styles.pending : styles.paymentStatus}>{item.status || 'pending'}</span>
                 </div>
                 <div style={styles.details}><p style={{ whiteSpace: 'pre-wrap' }}>{item.message}</p><p><strong>ID do utilizador:</strong> {item.user_id}</p></div>
-                {String(item.status || 'pending') === 'pending' && <div style={styles.actions}><button type="button" style={styles.approve} onClick={() => markSupportReviewed(item)}>Marcar como analisada</button></div>}
+                <div style={styles.actions}><button type="button" style={styles.proofLink} onClick={() => copyText(item.message || '')}>Copiar</button><button type="button" style={styles.button} onClick={() => editSupportMessage(item)}>Editar</button>{String(item.status || 'pending') === 'pending' && <button type="button" style={styles.approve} onClick={() => markSupportReviewed(item)}>Marcar como analisada</button>}<button type="button" disabled={deletingSupportId === item.id} style={styles.reject} onClick={() => deleteSupportMessage(item)}>{deletingSupportId === item.id ? 'A eliminar…' : 'Eliminar mensagem'}</button></div>
               </article>
             ))}</div>
           )}
         </section>
 
-        <section style={{ marginTop: 42 }}>
+        <section id="notificacoes" style={{ marginTop: 0, display: activeAdminSection === 'notificacoes' ? 'block' : 'none' }}>
           <div style={styles.titleRow}>
             <div>
-              <h2 style={styles.title}>Notificações do Suporte Talaza</h2>
-              <p style={styles.description}>Envie um aviso a todos os utilizadores ou uma mensagem privada para uma pessoa específica. As notificações ficam na área “Notificações” da conta.</p>
+              <h2 style={styles.title}>Notificações Talaza</h2>
+              <p style={styles.description}>Envie notificações aos exploradores, vendedores, todos os utilizadores ou a uma pessoa específica. As notificações ficam na área “Notificações” da conta.</p>
             </div>
           </div>
           <form onSubmit={sendAdminNotification} style={styles.card}>
             <label style={styles.formLabel} htmlFor="notification-audience">Destinatários</label>
             <select id="notification-audience" value={notificationAudience} onChange={event => setNotificationAudience(event.target.value)} style={styles.formInput}>
-              <option value="all">Todos os utilizadores (geral)</option>
+              <option value="all">Todos os utilizadores</option>
+              <option value="explorers">Exploradores normais</option>
+              <option value="sellers">Todos os vendedores</option>
+              <option value="seller_user">Um vendedor específico</option>
               <option value="user">Uma pessoa específica</option>
             </select>
-            {notificationAudience === 'user' && <>
-              <label style={styles.formLabel} htmlFor="notification-user">Escolher utilizador</label>
+            {['user', 'seller_user'].includes(notificationAudience) && <>
+              <label style={styles.formLabel} htmlFor="notification-user">{notificationAudience === 'seller_user' ? 'Escolher vendedor' : 'Escolher utilizador'}</label>
               <select id="notification-user" value={notificationUserId} onChange={event => setNotificationUserId(event.target.value)} style={styles.formInput} required>
-                <option value="">Selecione um utilizador</option>
-                {profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.name || 'Utilizador'} · {profile.id.slice(0, 8)}</option>)}
+                <option value="">{notificationAudience === 'seller_user' ? 'Selecione um vendedor' : 'Selecione um utilizador'}</option>
+                {profiles.filter(profile => notificationAudience !== 'seller_user' || ['seller','vendedor','business'].includes(String(profile.account_type || '').toLowerCase())).map(profile => <option key={profile.id} value={profile.id}>{profile.name || 'Utilizador'} · {profile.id.slice(0, 8)}</option>)}
               </select>
             </>}
             <label style={styles.formLabel} htmlFor="notification-title">Título</label>
@@ -1002,9 +1567,23 @@ export default function Admin() {
             <textarea id="notification-body" value={notificationBody} onChange={event => setNotificationBody(event.target.value)} rows={5} maxLength={5000} required style={{ ...styles.formInput, resize: 'vertical' }} placeholder="Escreva a mensagem que será mostrada na área de notificações." />
             <div style={styles.actions}><button type="submit" disabled={sendingNotification} style={{ ...styles.approve, opacity: sendingNotification ? .7 : 1 }}>{sendingNotification ? 'A enviar…' : 'Enviar notificação'}</button></div>
           </form>
+          <div style={{ ...styles.titleRow, marginTop: 26, marginBottom: 12 }}>
+            <div><h3 style={{ ...styles.title, fontSize: 20 }}>Histórico de notificações</h3><p style={styles.description}>Edite, copie ou elimine uma notificação já enviada.</p></div>
+            <span style={styles.counter}>{adminNotifications.length} recentes</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+            {[[ 'all', 'Todas' ], [ 'general', 'Todos' ], [ 'explorers', 'Exploradores' ], [ 'sellers', 'Vendedores' ], [ 'individual', 'Individuais' ], [ 'support', 'Suporte Talaza' ]].map(([value,label]) => <button key={value} type="button" onClick={() => setNotificationHistoryFilter(value)} style={{ padding: '9px 13px', borderRadius: 999, border: notificationHistoryFilter === value ? '1px solid #64358B' : '1px solid #DDE5E0', background: notificationHistoryFilter === value ? 'linear-gradient(135deg,#075B4E,#64358B)' : '#FFFFFF', color: notificationHistoryFilter === value ? '#FFFFFF' : '#244A42', fontWeight: 800, cursor: 'pointer' }}>{label}</button>)}
+          </div>
+          {adminNotifications.filter(item => notificationHistoryFilter === 'all' || String(item.type || 'general').toLowerCase() === notificationHistoryFilter).length === 0
+            ? <div style={styles.empty}><p>Não existem notificações nesta categoria.</p></div>
+            : <div style={styles.list}>{adminNotifications.filter(item => notificationHistoryFilter === 'all' || String(item.type || 'general').toLowerCase() === notificationHistoryFilter).map(item => <article key={item.id} style={{ ...styles.card, borderLeft: '5px solid #64358B', background: 'linear-gradient(135deg,#FFFFFF 0%,#F7F2FC 100%)' }}>
+              <div style={styles.cardTop}><div style={{ ...styles.logoPlaceholder, background: 'linear-gradient(135deg,#075B4E,#64358B)', color: '#FFFFFF' }}>N</div><div style={{ flex: 1, minWidth: 0 }}><h4 style={styles.businessName}>{item.title || 'Notificação Talaza'}</h4><div style={styles.meta}>{item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : 'Data indisponível'} · {item.type || 'general'} · {item.user_id ? 'Destinatário: ' + String(item.user_id).slice(0,8) : 'Sem destinatário'}</div></div></div>
+              <div style={styles.details}><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{item.content || item.body || ''}</p></div>
+              <div style={{ ...styles.actions, flexWrap: 'wrap' }}><button type="button" style={styles.proofLink} onClick={() => copyText((item.title || '') + '\n' + (item.content || item.body || ''))}>Copiar</button><button type="button" style={styles.button} onClick={() => editAdminNotification(item)}>Editar</button><button type="button" disabled={deletingNotificationId === item.id} style={styles.reject} onClick={() => deleteAdminNotification(item)}>{deletingNotificationId === item.id ? 'A eliminar…' : 'Eliminar'}</button></div>
+            </article>)}</div>}
         </section>
 
-        <section style={{ marginTop: 42 }}>
+        <section id="denuncias" style={{ marginTop: 0, display: activeAdminSection === 'denuncias' ? 'block' : 'none' }}>
           <div style={styles.titleRow}>
             <div>
               <h2 style={styles.title}>Denúncias da Comunidade Talaza</h2>
@@ -1012,8 +1591,9 @@ export default function Admin() {
             </div>
             <div style={styles.counter}>{communityReports.filter(report => String(report.status || 'pending').toLowerCase() === 'pending').length} por analisar</div>
           </div>
-          {communityReports.length === 0 ? <div style={styles.empty}><div style={styles.emptyIcon}>✓</div><h2>Sem denúncias pendentes</h2><p>Quando os utilizadores denunciarem publicações da comunidade, os registos aparecerão aqui.</p></div> :
-            <div style={styles.list}>{communityReports.map(report => {
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>{[['pending','Por analisar'],['reviewed','Revistas'],['rejected','Rejeitadas'],['all','Todas']].map(([value,label]) => <button key={value} type="button" onClick={() => setReportFilter(value)} style={{ padding: '9px 13px', borderRadius: 999, border: reportFilter === value ? '1px solid #64358B' : '1px solid #DDE5E0', background: reportFilter === value ? 'linear-gradient(135deg,#075B4E,#64358B)' : '#FFFFFF', color: reportFilter === value ? '#FFFFFF' : '#244A42', fontWeight: 800, cursor: 'pointer' }}>{label}</button>)}</div>
+          {communityReports.filter(report => reportFilter === 'all' || String(report.status || 'pending').toLowerCase() === reportFilter).length === 0 ? <div style={styles.empty}><div style={styles.emptyIcon}>✓</div><h2>Sem denúncias pendentes</h2><p>Quando os utilizadores denunciarem publicações da comunidade, os registos aparecerão aqui.</p></div> :
+            <div style={styles.list}>{communityReports.filter(report => reportFilter === 'all' || String(report.status || 'pending').toLowerCase() === reportFilter).map(report => {
               const pending = String(report.status || 'pending').toLowerCase() === 'pending';
               return <article key={report.id} style={styles.card}>
                 <div style={styles.cardTop}>
@@ -1277,6 +1857,28 @@ const styles = {
     margin: '0 auto 15px',
     fontSize: 22,
     fontWeight: 800,
+  },
+
+  label: {
+    display: 'block',
+    marginTop: 14,
+    marginBottom: 7,
+    color: '#244A42',
+    fontSize: 13,
+    fontWeight: 700,
+  },
+
+  input: {
+    display: 'block',
+    width: '100%',
+    boxSizing: 'border-box',
+    border: '1px solid #D5DFDB',
+    background: '#FFFFFF',
+    color: '#12332D',
+    borderRadius: 9,
+    padding: '11px 12px',
+    marginBottom: 10,
+    font: 'inherit',
   },
 
   error: {
