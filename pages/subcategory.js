@@ -73,11 +73,40 @@ export default function Subcategory() {
   const [error, setError] = useState('');
   const [historyItems, setHistoryItems] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [savedBusinessIds, setSavedBusinessIds] = useState([]);
+  const [savingBusinessId, setSavingBusinessId] = useState('');
+  const [saveNotice, setSaveNotice] = useState('');
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   const historyStorageKey = 'talaza_history_subcategory_' + String(id || '') + '_' + String(province || 'all');
 
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [premiumIndex, setPremiumIndex] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    supabase.auth.getUser().then(({ data }) => { if (alive) setCurrentUserId(data?.user?.id || null); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  async function toggleSavedBusiness(business) {
+    if (!currentUserId) { setSaveNotice('Inicia sessão na Talaza para guardar este perfil.'); return; }
+    setSavingBusinessId(business.id); setSaveNotice('');
+    try {
+      if (savedBusinessIds.includes(business.id)) {
+        const { error: deleteError } = await supabase.from('saved_businesses').delete().eq('user_id', currentUserId).eq('business_id', business.id);
+        if (deleteError) throw deleteError;
+        setSavedBusinessIds(prev => prev.filter(value => value !== business.id));
+        setSaveNotice('Perfil removido dos guardados.');
+      } else {
+        const { error: insertError } = await supabase.from('saved_businesses').insert({ user_id: currentUserId, business_id: business.id });
+        if (insertError && insertError.code !== '23505') throw insertError;
+        setSavedBusinessIds(prev => prev.includes(business.id) ? prev : [...prev, business.id]);
+        setSaveNotice('Perfil guardado. Poderás consultar os teus guardados na área de notificações quando ela for configurada.');
+      }
+    } catch (err) { setSaveNotice(err?.message || 'Não foi possível guardar este perfil.'); }
+    finally { setSavingBusinessId(''); }
+  }
 
   useEffect(() => {
     if (!router.isReady || !id) return;
@@ -184,6 +213,11 @@ export default function Subcategory() {
         if (cancelled) return;
 
         setBusinesses(businessData || []);
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData?.user?.id) {
+          const { data: savedRows, error: savedError } = await supabase.from('saved_businesses').select('business_id').eq('user_id', authData.user.id);
+          if (!savedError && !cancelled) { setCurrentUserId(authData.user.id); setSavedBusinessIds((savedRows || []).map(row => row.business_id)); }
+        }
 
         // Carrega separadamente as três imagens principais de cada negócio.
         // A falha da galeria não impede a apresentação dos cartões.
@@ -675,6 +709,7 @@ export default function Subcategory() {
                                 </span>
                               )}
                               <Link className="profileButton" href={makeBusinessHref(business.id, country, province, id)} onClick={() => trackBusinessAction(business)}>Ver perfil</Link>
+                              <button type="button" className={'saveButton' + (savedBusinessIds.includes(business.id) ? ' saved' : '')} disabled={savingBusinessId === business.id} onClick={() => toggleSavedBusiness(business)}>{savingBusinessId === business.id ? 'A guardar…' : savedBusinessIds.includes(business.id) ? '✓ Guardado' : '☆ Guardar'}</button>
                             </div>
                           </div>
                         </article>
@@ -687,6 +722,7 @@ export default function Subcategory() {
           )}
         </section>
 
+        {saveNotice && <div role="status" className="saveNotice">{saveNotice}<button type="button" onClick={() => setSaveNotice('')} aria-label="Fechar aviso">×</button></div>}
         <footer className="footer">
           <span>Talaza</span>
           <span>Descobre. Compara. Encontra.</span>
