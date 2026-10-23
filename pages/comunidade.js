@@ -1736,7 +1736,6 @@ export default function Comunidade() {
                     Publicação válida até{' '}
                     {new Date(post.expires_at).toLocaleDateString('pt-PT')}
                   </div>
-                  </div>
                 </Panel>
               ))
             )}
