@@ -1600,7 +1600,7 @@ export default function Admin() {
                   <div style={styles.logoPlaceholder}>⚑</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <h3 style={styles.businessName}>Denúncia #{String(report.id).slice(0,8)}</h3>
-                    <div style={styles.meta}>Publicação: {report.post_id || '—'} · Utilizador: {report.reporter_id || '—'}</div>
+                    <div style={styles.meta}>Enviado por: {profiles.find(profile => profile.id === report.reporter_id)?.name || 'Utilizador Talaza'} · {report.created_at ? new Date(report.created_at).toLocaleString('pt-AO') : 'Data não disponível'}</div>
                   </div>
                   <span style={pending ? styles.pending : styles.paymentStatus}>{report.status || 'pending'}</span>
                 </div>
