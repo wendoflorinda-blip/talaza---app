@@ -70,7 +70,7 @@ export default function BusinessPublicProfile() {
 
         const { data: imageData, error: imageError } = await supabase
           .from('business_images')
-          .select('id, business_id, kind, slot, image_url, storage_path, name, description, price, created_at')
+          .select('id, business_id, kind, slot, image_url, video_url, media_type, storage_path, name, description, price, created_at')
           .eq('business_id', businessData.id)
           .order('slot', { ascending: true });
 
