@@ -82,7 +82,7 @@ export default function Subcategory() {
   useEffect(() => {
     if (!router.isReady || !id) return;
     try {
-      const saved = sessionStorage.getItem(historyStorageKey);
+      const saved = localStorage.getItem(historyStorageKey);
       setHistoryItems(saved ? JSON.parse(saved) : []);
     } catch {
       setHistoryItems([]);
@@ -90,7 +90,7 @@ export default function Subcategory() {
   }, [router.isReady, id, province]);
 
   function clearSubcategoryHistory() {
-    try { sessionStorage.removeItem(historyStorageKey); } catch {}
+    try { localStorage.removeItem(historyStorageKey); } catch {}
     setHistoryItems([]);
     setShowHistory(false);
   }
@@ -106,7 +106,7 @@ export default function Subcategory() {
         at: new Date().toISOString(),
         href: makeBusinessHref(business.id, country, province, id)
       }, ...previous.filter(item => item.id !== business.id)].slice(0, 100);
-      try { sessionStorage.setItem(historyStorageKey, JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(historyStorageKey, JSON.stringify(next)); } catch {}
       return next;
     });
   }
@@ -365,7 +365,7 @@ export default function Subcategory() {
           </Link>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <button type="button" onClick={() => setShowHistory(value => !value)} style={{ border: '1px solid #D7C3EA', background: '#F0E7F7', color: '#64358B', borderRadius: 10, padding: '9px 12px', fontWeight: 800, cursor: 'pointer', fontSize: 12 }}>◷ Ver histórico ({historyItems.length})</button>
+            <button type="button" onClick={() => router.push({ pathname: '/historico', query: { type: 'subcategory', key: historyStorageKey, returnTo: router.asPath } })} style={{ border: '1px solid #D7C3EA', background: '#F0E7F7', color: '#64358B', borderRadius: 10, padding: '9px 12px', fontWeight: 800, cursor: 'pointer', fontSize: 12 }}>◷ Ver histórico ({historyItems.length})</button>
             <Link href={getBackHref()} className="backLink" onClick={clearSubcategoryHistory}>← Voltar às subcategorias</Link>
           </div>
         </header>
@@ -391,10 +391,7 @@ export default function Subcategory() {
           )}
         </section>
 
-        {showHistory && <section style={{ margin: '14px 0', padding: 16, border: '1px solid #D7C3EA', borderRadius: 16, background: '#FBF8FE' }}>
-          <strong>Negócios que consultaste nesta subcategoria</strong>
-          {historyItems.length === 0 ? <p style={{ color: '#66736F', marginBottom: 0 }}>Ainda não abriste nenhum perfil nesta área. Quando clicares em «Ver perfil» ou «Enviar mensagem», o negócio ficará aqui nesta sessão.</p> : <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>{historyItems.map(item => <Link key={item.id} href={item.href || makeBusinessHref(item.id, country, province, id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, border: '1px solid #EAE1F2', borderRadius: 10, background: '#FFFFFF', color: '#26352F', textDecoration: 'none' }}>{item.logo_url || item.cover_url ? <img src={item.logo_url || item.cover_url} alt="" style={{ width: 42, height: 42, borderRadius: 8, objectFit: 'cover' }} /> : <span style={{ width: 42, height: 42, display: 'grid', placeItems: 'center', borderRadius: 8, background: '#F0E7F7', color: '#64358B' }}>▣</span>}<strong>{item.name}</strong></Link>)}</div>}
-        </section>}
+        
 
         <section className="content">
           {!country || !province ? (
