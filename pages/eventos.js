@@ -86,6 +86,10 @@ export default function Eventos() {
   const [feedNotice, setFeedNotice] = useState('');
 
   useEffect(() => {
+    try { const saved = JSON.parse(localStorage.getItem('talaza_event_history') || '[]'); if (Array.isArray(saved)) setHistoryItems(saved.slice(0, 100)); } catch { /* histórico opcional */ }
+  }, []);
+
+  useEffect(() => {
     if (!router.isReady) return;
 
     let cancelled = false;
@@ -326,6 +330,7 @@ export default function Eventos() {
         image_url: item.image_url || null,
         at: new Date().toISOString()
       }, ...previous.filter(entry => entry.id !== item.id)].slice(0, 100);
+      try { localStorage.setItem('talaza_event_history', JSON.stringify(next)); } catch { /* mantém histórico da sessão */ }
       return next;
     });
     setEvents(previous => {
@@ -568,7 +573,7 @@ export default function Eventos() {
             </div>
             {showHistory && <div style={styles.historyPanel}><strong>Eventos que consultaste nesta sessão</strong>{historyItems.length === 0 ? <p style={styles.muted}>Ainda não consultaste nenhum evento. Ao gostar, comentar ou contactar o organizador, ele aparece aqui.</p> : historyItems.map(entry => <button key={entry.id} type="button" onClick={() => { setSelectedCategory('Todas'); setShowHistory(false); const selected = events.find(event => event.id === entry.id); if (selected) trackEventAction(selected); }} style={styles.historyItem}>{entry.image_url ? <img src={entry.image_url} alt="" style={styles.historyThumb} /> : <span style={styles.historyThumbFallback}>▣</span>}<span><strong>{entry.title}</strong><small>{entry.event_type}</small></span></button>)}</div>}
             <div style={styles.categoryChips} aria-label="Filtrar eventos por categoria">
-              {['Todas', ...EVENT_TYPES].map(category => <button key={category} type="button" onClick={() => setSelectedCategory(category)} style={{ ...styles.categoryChip, ...(selectedCategory === category ? styles.categoryChipActive : {}) }}>{category}</button>)}
+              {['Todas', ...EVENT_TYPES].map(category => { const theme = category === 'Todas' ? { color: '#FFFFFF', soft: '#075B4E' } : categoryTheme(category); const active = selectedCategory === category; return <button key={category} type="button" onClick={() => setSelectedCategory(category)} style={{ ...styles.categoryChip, color: active ? '#FFFFFF' : theme.color, background: active ? theme.color : theme.soft, borderColor: theme.color + '55', boxShadow: active ? '0 4px 12px ' + theme.color + '35' : 'none' }}>{category}</button>; })}
             </div>
             <p style={styles.muted}>Descobre o que está a acontecer na tua província. Podes gostar, comentar e falar com o organizador através das mensagens internas da Talaza.</p>
             {feedError && <div style={styles.error}>{feedError}</div>}
@@ -578,7 +583,7 @@ export default function Eventos() {
             {!feedLoading && events.length > 0 && visibleEvents.length === 0 && <div style={styles.notice}>Ainda não há eventos nesta categoria. Escolhe outra categoria ou «Todas».</div>}
             <div style={styles.eventList}>
               {visibleEvents.map(item => (
-                <article key={item.id} style={styles.eventCard} onClick={() => trackEventAction(item)}>
+                <article key={item.id} style={{ ...styles.eventCard, borderColor: categoryTheme(item.event_type).color + '45', background: '#F5EEFC', boxShadow: '0 5px 18px rgba(78,44,105,.08)' }} onClick={() => trackEventAction(item)}>
                   {(item.video_url || item.image_url) && <div style={styles.eventMedia}>
                     {item.video_url
                       ? <video src={item.video_url} controls playsInline preload="metadata" poster={item.image_url || undefined} style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} />
@@ -588,17 +593,15 @@ export default function Eventos() {
                     <div style={styles.eventMeta}><span style={{ ...styles.eventCategoryBadge, color: categoryTheme(item.event_type).color, background: categoryTheme(item.event_type).soft }}>{item.event_type || 'Geral'}</span>{item.location ? <span style={styles.eventLocation}>📍 {item.location}</span> : null}</div>
                     <h3 style={styles.eventTitle}>{item.title}</h3>
                     <p style={styles.eventDescription}>{item.description}</p>
-                    {item.starts_at && <p style={styles.eventMeta}>📅 {new Date(item.starts_at).toLocaleString('pt-AO')}</p>}
+                    <div style={styles.startDate}><strong>📅 Data de início</strong><span>{item.starts_at ? new Date(item.starts_at).toLocaleString('pt-AO', { dateStyle: 'full', timeStyle: 'short' }) : 'Data de início não indicada pelo organizador'}</span></div>
                     <div style={styles.eventActions}>
                       <button type="button" disabled={interactionBusy === 'like:' + item.id} onClick={() => toggleLike(item.id)} style={{ ...styles.actionButton, ...(likedByMe[item.id] ? styles.likedButton : {}) }}>
                         {likedByMe[item.id] ? '♥ Gostaste' : '♡ Gostar'} · {likesByEvent[item.id] || 0}
                       </button>
-                      {user && item.user_id !== user.id && <button type="button" onClick={(event) => { event.stopPropagation(); trackEventAction(item); router.push({ pathname: '/mensagens', query: { to: item.user_id, source: 'Eventos', sourceId: item.id } }); }} style={styles.messageButton}>Enviar mensagem</button>}
+                      <button type="button" aria-expanded={Boolean(commentsOpen[item.id])} onClick={(event) => { event.stopPropagation(); setCommentsOpen(previous => ({ ...previous, [item.id]: !previous[item.id] })); trackEventAction(item); }} style={styles.actionButton}>💬 Comentar · {(commentsByEvent[item.id] || []).length}</button>
+                      {user && item.user_id !== user.id && <button type="button" onClick={(event) => { event.stopPropagation(); trackEventAction(item); router.push({ pathname: '/mensagens', query: { to: item.user_id, source: 'Eventos', sourceId: item.id } }); }} style={styles.messageButton}>✉ Enviar mensagem</button>}
                     </div>
-                    <div style={styles.comments}>
-                      <button type="button" aria-expanded={Boolean(commentsOpen[item.id])} onClick={() => setCommentsOpen(previous => ({ ...previous, [item.id]: !previous[item.id] }))} style={styles.actionButton}>
-                        💬 Comentários · {(commentsByEvent[item.id] || []).length} {commentsOpen[item.id] ? '−' : '+'}
-                      </button>
+                    {commentsOpen[item.id] && <div style={styles.comments}>
                       {commentsOpen[item.id] && (
                         <div style={{ marginTop: 12 }}>
                           {(commentsByEvent[item.id] || []).length === 0 ? <p style={styles.muted}>Ainda não há comentários. Sê a primeira pessoa a comentar.</p> : (commentsByEvent[item.id] || []).map(comment => (
@@ -741,19 +744,20 @@ const styles = {
   activeTab: { background: '#075B4E', color: '#FFFFFF', boxShadow: '0 3px 10px rgba(7,91,78,.18)' },
   feedSection: { background: '#FFFFFF', border: '1px solid #E5EBE8', borderRadius: 18, padding: 20, marginBottom: 20 },
   eventList: { display: 'grid', gap: 18, marginTop: 18 },
-  eventCard: { border: '1px solid #E4EAE7', borderRadius: 16, overflow: 'hidden', background: '#FFFFFF' },
+  eventCard: { border: '1px solid #E1D4EF', borderRadius: 20, overflow: 'hidden', background: '#F5EEFC', marginBottom: 4 },
   eventMedia: { display: 'block', width: '100%', aspectRatio: '1 / 1', maxHeight: 680, overflow: 'hidden', background: '#10221D', boxSizing: 'border-box' },
   eventImage: { display: 'block', width: '100%', height: '100%', aspectRatio: '1 / 1', objectFit: 'cover', background: '#10221D' },
-  eventBody: { padding: 18 },
+  eventBody: { padding: 18, background: '#F5EEFC' },
   eventMeta: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, color: '#687772', fontSize: 12, lineHeight: 1.5 },
+  startDate: { display: 'flex', flexDirection: 'column', gap: 5, padding: '12px 14px', borderRadius: 12, margin: '12px 0', background: '#EDE1F8', color: '#4C2A68', fontSize: 14, lineHeight: 1.5 },
   eventCategoryBadge: { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '6px 10px', fontSize: 11, fontWeight: 900 },
   eventLocation: { color: '#687772', fontSize: 12 },
   eventTitle: { margin: '6px 0 8px', fontSize: 22, color: '#12332D' },
   eventDescription: { whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: '8px 0 14px', color: '#344C45' },
-  eventActions: { display: 'flex', flexWrap: 'wrap', gap: 10, margin: '14px 0' },
-  actionButton: { border: '1px solid #D6E3DD', borderRadius: 10, padding: '9px 13px', background: '#FFFFFF', color: '#075B4E', fontWeight: 800, cursor: 'pointer' },
+  eventActions: { display: 'flex', flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: '14px 0' },
+  actionButton: { border: '1px solid #D9C9E9', borderRadius: 999, padding: '10px 14px', background: '#FFFFFF', color: '#64358B', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 5px rgba(67,40,91,.05)' },
   likedButton: { background: '#FFF0F0', borderColor: '#F3C4C4', color: '#B42332' },
-  messageButton: { border: 0, borderRadius: 10, padding: '10px 14px', background: '#075B4E', color: '#FFFFFF', fontWeight: 800, cursor: 'pointer' },
+  messageButton: { border: 0, borderRadius: 999, padding: '11px 15px', background: '#64358B', color: '#FFFFFF', fontWeight: 800, cursor: 'pointer', boxShadow: '0 3px 9px rgba(100,53,139,.2)' },
   comments: { marginTop: 16, borderTop: '1px solid #E8EEEB', paddingTop: 14 },
   comment: { marginTop: 10, padding: 12, background: '#F7F9F8', borderRadius: 10 },
   commentText: { margin: '0 0 5px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' },
