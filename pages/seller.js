@@ -378,7 +378,7 @@ export default function Seller() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = multiple === 'video' ? 'video/mp4,video/webm,video/quicktime' : multiple === 'media' ? 'image/*,video/mp4,video/webm,video/quicktime' : 'image/*';
-    input.multiple = multiple === true;
+    input.multiple = multiple === true || multiple === 'media';
     input.onchange = () => {
       const files = Array.from(input.files || []);
       if (files.length) onFiles(files);
