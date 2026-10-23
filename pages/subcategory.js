@@ -952,7 +952,9 @@ export default function Subcategory() {
           border-radius: 10px;
           background: ${COLORS.purpleSoft};
           color: ${COLORS.purple};
-          font-size: 12px;
+          font-size: 11px;
+          line-height: 1.2;
+          overflow-wrap: anywhere;
           font-weight: 800;
           cursor: pointer;
         }
@@ -1259,14 +1261,15 @@ export default function Subcategory() {
           text-align: center;
         }
 
-        .businessActions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .businessActions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; align-items: stretch; }
 
-        .messageButton, .profileButton {
+        .messageButton, .profileButton, .saveButton {
           display: flex;
           align-items: center;
           justify-content: center;
-          min-height: 38px;
-          padding: 9px 8px;
+          min-height: 40px;
+          min-width: 0;
+          padding: 8px 5px;
           box-sizing: border-box;
           border-radius: 11px;
           font-size: 12px;
@@ -1276,10 +1279,13 @@ export default function Subcategory() {
           transition: filter .15s;
         }
 
-        .messageButton { border: 1px solid #D9CBEA; background: #F2EDF8; color: #7656A6; }
-        .profileButton { border: 1px solid #075B4E; background: #075B4E; color: white; }
+        .messageButton { border: 1px solid #D8C9EB; background: #F4EFF9; color: #70519A; }
+        .profileButton { border: 1px solid #176B57; background: #176B57; color: #FFFFFF; }
+        .saveButton { width: 100%; border: 1px solid #D8B85A; border-radius: 11px; background: #FFF8E6; color: #765817; cursor: pointer; font-size: 11px; line-height: 1.2; font-weight: 800; padding: 8px 5px; overflow-wrap: anywhere; }
+        .saveButton.saved { background: #E7F2EC; border-color: #83B7A0; color: #176B57; }
+        .saveButton:disabled { opacity: .6; cursor: wait; }
         .disabledButton { opacity: .55; cursor: not-allowed; }
-        .messageButton:hover, .profileButton:hover { filter: brightness(.96); }
+        .messageButton:hover, .profileButton:hover, .saveButton:hover { filter: brightness(.97); }
 
         .message,
         .notice {
