@@ -482,7 +482,7 @@ export default function Seller() {
         if (done > 0) await loadImages(business.id);
       }
       setNotice(
-        done + (done === 1 ? ' imagem adicionada.' : ' imagens adicionadas.') +
+        done + (done === 1 ? ' ficheiro adicionado.' : ' ficheiros adicionados.') +
           (files.length > 10 ? ' Só as primeiras 10 foram adicionadas de uma vez.' : '')
       );
     });
@@ -974,7 +974,7 @@ export default function Seller() {
                 {sheetItem.kind === 'panel' && (
                   <button type="button" className="op" onClick={() => openText(sheetItem)}>Editar nome e descrição</button>
                 )}
-                <button type="button" className="op" onClick={() => { const item = sheetItem; setSheet(null); pickImages(false, (files) => replaceImage(item, files[0])); }}>Trocar imagem</button>
+                <button type="button" className="op" onClick={() => { const item = sheetItem; setSheet(null); pickImages('media', (files) => replaceImage(item, files[0])); }}>Trocar imagem/vídeo</button>
                 <button type="button" className="op perigo" onClick={() => { const item = sheetItem; setSheet(null); removeImage(item); }}>Remover</button>
               </>
             )}
