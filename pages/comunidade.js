@@ -1379,13 +1379,21 @@ export default function Comunidade() {
               officialContent.length === 0 ? (
                 <Panel><p style={{ color: C.muted, margin: 0 }}>Ainda não foi publicada uma motivação oficial.</p></Panel>
               ) : officialContent.map((item) => (
-                <Panel key={item.id} style={{ marginBottom: 12, padding: 0, overflow: 'hidden', aspectRatio: '16 / 9', minHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.text_color || '#FFFFFF', fontFamily: item.font_family || 'Georgia', backgroundColor: item.background_color || '#173B35', backgroundImage: item.background_image_url ? 'linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,.12)),url(' + item.background_image_url + ')' : (item.background_gradient || undefined), backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                <Panel key={item.id} style={{ marginBottom: 16, padding: 0, overflow: 'hidden', aspectRatio: item.aspect_ratio === '9:16' ? '9 / 16' : '9 / 16', width: '100%', maxWidth: 480, marginLeft: 'auto', marginRight: 'auto', minHeight: 420, display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'space-between', color: item.text_color || '#FFFFFF', fontFamily: item.font_family || 'Georgia', backgroundColor: item.background_color || '#173B35', backgroundImage: item.background_image_url ? 'linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,.12)),url(' + item.background_image_url + ')' : (item.background_gradient || undefined), backgroundSize: 'cover', backgroundPosition: 'center' }}>
                   <div style={{ width: '100%', height: '100%', minHeight: 180, boxSizing: 'border-box', padding: 'clamp(16px,4vw,32px)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 12 }}>
-                    <h3 style={{ margin: 0, fontSize: 'clamp(18px,3vw,30px)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>{item.title || item.content}</h3>
-                    <small style={{ opacity: .85 }}>{new Date(item.created_at).toLocaleDateString('pt-PT')}</small>
+                    <h3 style={{ margin: 0, fontSize: 'clamp(22px,4.5vw,36px)', lineHeight: 1.3, overflowWrap: 'anywhere' }}>{item.title || item.content}</h3>
+                    <small style={{ opacity: .9 }}>{new Date(item.created_at).toLocaleDateString('pt-AO')}</small>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-                    <button type="button" onClick={() => toggleOfficialLike(item, 'motivation')} style={{ ...buttonStyle, background: officialInteractions[item.id]?.liked ? C.purpleSoft : 'rgba(255,255,255,.92)', color: officialInteractions[item.id]?.liked ? C.purple : C.ink, border: '1px solid rgba(255,255,255,.6)' }}>{officialInteractions[item.id]?.liked ? '♥ Gostaste' : '♡ Gostar'} · {officialInteractions[item.id]?.likes || 0}</button>
+                  <div style={{ padding: '0 clamp(16px,4vw,28px) 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                      <button type="button" onClick={() => toggleOfficialLike(item, 'motivation')} style={{ ...buttonStyle, background: officialInteractions[item.id]?.liked ? C.purpleSoft : 'rgba(255,255,255,.92)', color: officialInteractions[item.id]?.liked ? C.purple : C.ink, border: '1px solid rgba(255,255,255,.6)' }}>{officialInteractions[item.id]?.liked ? '♥ Gostaste' : '♡ Gostar'} · {officialInteractions[item.id]?.likes || 0}</button>
+                      <button type="button" onClick={() => setOpenComments((prev) => ({ ...prev, [item.id]: !prev[item.id] }))} style={{ ...buttonStyle, background: 'rgba(255,255,255,.92)', color: C.ink, border: '1px solid rgba(255,255,255,.6)' }}>💬 Comentar · {(officialInteractions[item.id]?.comments || []).length}</button>
+                    </div>
+                    {openComments[item.id] ? <div style={{ background: 'rgba(255,255,255,.95)', color: C.ink, padding: 12, borderRadius: 12 }}>
+                      {(officialInteractions[item.id]?.comments || []).map((comment) => <div key={comment.id} style={{ padding: '8px 0', borderBottom: '1px solid ' + C.line }}><p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{comment.content}</p><small style={{ color: C.faint }}>{new Date(comment.created_at).toLocaleDateString('pt-AO')}</small></div>)}
+                      <textarea value={officialCommentDrafts[item.id] || ''} onChange={(event) => setOfficialCommentDrafts((prev) => ({ ...prev, [item.id]: event.target.value }))} rows={2} maxLength={2000} placeholder="Escreva o seu comentário…" style={{ width: '100%', marginTop: 10, padding: 11, border: '1px solid ' + C.line, borderRadius: 10, resize: 'vertical', boxSizing: 'border-box' }} />
+                      <button type="button" onClick={() => submitOfficialComment(item, 'motivation')} style={{ ...buttonStyle, marginTop: 8, background: C.green, color: C.white }}>Enviar comentário</button>
+                    </div> : null}
                   </div>
                 </Panel>
               ))
@@ -1396,12 +1404,13 @@ export default function Comunidade() {
                 <Panel key={item.id} style={{ marginBottom: 12, overflow: 'hidden', padding: 0 }}>
                   <div style={{ padding: 'clamp(18px,4vw,28px)', color: item.text_color || '#FFFFFF', fontFamily: item.font_family || 'Georgia', backgroundColor: item.background_color || '#173B35', backgroundImage: item.background_image_url ? 'linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,.12)),url(' + item.background_image_url + ')' : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
                     <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8, opacity: .9 }}>TEMA DO MÊS</div>
-                    <h3 style={{ margin: 0, fontSize: 22, lineHeight: 1.3 }}>{item.month_title}</h3>
+                    <h3 style={{ margin: 0, fontSize: 'clamp(30px,6vw,48px)', lineHeight: 1.12, fontWeight: 900, letterSpacing: '-.03em', overflowWrap: 'anywhere' }}>{item.month_title}</h3>
                   </div>
                   <div style={{ padding: '16px clamp(14px,3vw,24px) 22px' }}>
                   <div style={{ borderBottom: '1px solid ' + C.line, paddingBottom: 14 }}>
                     <div style={{ fontSize: 12, color: C.green, fontWeight: 800, marginBottom: 7 }}>TEMA DA SEMANA · SEMANA {item.week_number}</div>
-                    <h3 style={{ color: C.dark, margin: '0 0 8px', fontSize: 18 }}>{item.week_title}</h3>
+                    <h3 style={{ color: C.dark, margin: '0 0 8px', fontSize: 23, lineHeight: 1.25 }}>{item.week_title}</h3>
+                    {item.month_description ? <p style={{ color: C.muted, lineHeight: 1.6, margin: '0 0 12px' }}>{item.month_description}</p> : null}
                     {item.week_description ? <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, margin: 0, color: C.ink }}>{item.week_description}</p> : null}
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid ' + C.line, marginTop: 12, paddingTop: 12 }}>
