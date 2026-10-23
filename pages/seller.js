@@ -377,8 +377,8 @@ export default function Seller() {
   function pickImages(multiple, onFiles) {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
-    input.multiple = multiple;
+    input.accept = multiple === 'video' ? 'video/mp4,video/webm,video/quicktime' : multiple === 'media' ? 'image/*,video/mp4,video/webm,video/quicktime' : 'image/*';
+    input.multiple = multiple === true;
     input.onchange = () => {
       const files = Array.from(input.files || []);
       if (files.length) onFiles(files);
@@ -408,18 +408,27 @@ export default function Seller() {
   }
 
   async function uploadGalleryFile(file, square) {
-    if (!file.type.startsWith('image/')) throw new Error('Escolha um ficheiro de imagem válido.');
+    if (file.type.startsWith('video/')) {
+      if (square) throw new Error('Os vídeos são adicionados na galeria de painel, não nas três imagens principais.');
+      if (!['video/mp4','video/webm','video/quicktime'].includes(file.type)) throw new Error('Use um vídeo MP4, WEBM ou MOV.');
+      if (file.size > 100 * 1024 * 1024) throw new Error('O vídeo deve ter no máximo 100 MB.');
+      const ext = file.type === 'video/quicktime' ? 'mov' : file.type === 'video/webm' ? 'webm' : 'mp4';
+      const path = business.id + '/gallery-video-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      const { error: uploadError } = await supabase.storage.from('business-media').upload(path, file, { contentType: file.type, cacheControl: '3600', upsert: false });
+      if (uploadError) throw uploadError;
+      const url = supabase.storage.from('business-media').getPublicUrl(path).data?.publicUrl;
+      if (!url) throw new Error('Não foi possível obter o endereço público do vídeo.');
+      return { url, path, mediaType: 'video' };
+    }
+    if (!file.type.startsWith('image/')) throw new Error('Escolha uma imagem ou vídeo válido.');
     if (file.size > 15 * 1024 * 1024) throw new Error('A imagem deve ter no máximo 15 MB.');
     const blob = await prepareImage(file, square ? { square: true, size: 600 } : { max: 1200 });
-    const path =
-      business.id + '/gallery-' + (square ? 'main' : 'panel') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.jpg';
-    const { error: uploadError } = await supabase.storage
-      .from('business-media')
-      .upload(path, blob, { contentType: 'image/jpeg', cacheControl: '3600', upsert: false });
+    const path = business.id + '/gallery-' + (square ? 'main' : 'panel') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.jpg';
+    const { error: uploadError } = await supabase.storage.from('business-media').upload(path, blob, { contentType: 'image/jpeg', cacheControl: '3600', upsert: false });
     if (uploadError) throw uploadError;
     const url = supabase.storage.from('business-media').getPublicUrl(path).data?.publicUrl;
     if (!url) throw new Error('Não foi possível obter o endereço público da imagem.');
-    return { url, path };
+    return { url, path, mediaType: 'image' };
   }
 
   async function removeStored(path) {
@@ -459,10 +468,10 @@ export default function Seller() {
       let done = 0;
       try {
         for (const file of batch) {
-          const { url, path } = await uploadGalleryFile(file, false);
+          const { url, path, mediaType } = await uploadGalleryFile(file, false);
           const { error: insertError } = await supabase
             .from('business_images')
-            .insert({ business_id: business.id, kind: 'panel', image_url: url, storage_path: path });
+            .insert({ business_id: business.id, kind: 'panel', image_url: mediaType === 'video' ? null : url, video_url: mediaType === 'video' ? url : null, media_type: mediaType || 'image', storage_path: path });
           if (insertError) {
             await removeStored(path);
             throw insertError;
@@ -481,9 +490,9 @@ export default function Seller() {
 
   async function replaceImage(item, file) {
     await runGallery(async () => {
-      const { url, path } = await uploadGalleryFile(file, item.kind === 'main');
+      const { url, path, mediaType } = await uploadGalleryFile(file, item.kind === 'main');
       try {
-        await updateRow(item.id, { image_url: url, storage_path: path });
+        await updateRow(item.id, { image_url: mediaType === 'video' ? null : url, video_url: mediaType === 'video' ? url : null, media_type: mediaType || 'image', storage_path: path });
       } catch (replaceError) {
         await removeStored(path);
         throw replaceError;
@@ -835,7 +844,7 @@ export default function Seller() {
             <h2>Imagens principais</h2>
             <span className="gal-count">{mainCount}/3</span>
           </div>
-          <p className="gal-sub">3 lugares · formato 600×600 px</p>
+          <p className="gal-sub">3 lugares · formato 600×600 px (apenas imagens)</p>
           {galleryError && <div role="alert" className="gal-alert">{galleryError}</div>}
           <div className="mains">
             {mainImages.map((item, slot) =>
@@ -879,7 +888,7 @@ export default function Seller() {
           <div className="gal-head">
             <h2>Imagens de painel</h2>
             <span className="gal-count">{panelImages.length}</span>
-            <button type="button" className="gal-add" disabled={locked} onClick={() => pickImages(true, addPanelImages)}>+ Adicionar</button>
+            <button type="button" className="gal-add" disabled={locked} onClick={() => pickImages('media', addPanelImages)}>+ Adicionar imagens/vídeos</button>
           </div>
           <div className="gal-rot">Escolha como quer ver seus produtos do painel:</div>
           <ProductsView
