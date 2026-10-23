@@ -30,7 +30,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
       {items.length > 0 && current === 'vertical' && <div className="vert">
         {items.map((item) => <article key={item.id}>
           <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : 'Sem preço'}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
-          <button type="button" className="im r916" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>
+          {isVideo(item) ? <div className="im r916"><Media item={item} alt={item.name || 'Vídeo'} /></div> : <button type="button" className="im r916" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
           <div className="cap"><span className="dash">–</span><span><b>{item.name || 'Imagem'}</b>{item.description ? ' · ' + item.description : ''}</span></div>
         </article>)}
       </div>}
@@ -38,12 +38,12 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         <div className="hint">Desliza e vê outro negócio ›</div>
         <div className="slide">{items.map((item) => <article key={item.id}>
           <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : 'Sem preço'}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
-          <button type="button" className="im r11" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>
+          {isVideo(item) ? <div className="im r11"><Media item={item} alt={item.name || 'Vídeo'} /></div> : <button type="button" className="im r11" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
           <div className="cap"><span className="dash">–</span><span><b>{item.name || 'Imagem'}</b>{item.description ? ' · ' + item.description : ''}</span></div>
         </article>)}{showNextCard && <div className="next">Próximo negócio<small>Continue a deslizar</small></div>}</div>
       </>}
       {items.length > 0 && current === 'normal' && <div className="grid">{items.map((item) => <div className="cell" key={item.id}>
-        <button type="button" className="open" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>
+        {isVideo(item) ? <div className="open"><Media item={item} alt={item.name || 'Vídeo'} /></div> : <button type="button" className="open" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
         {item.price !== null && item.price !== undefined && item.price !== '' && <span className="tag">{formatKz(item.price)}</span>}
         {editable && <button type="button" className="more abs" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}
       </div>)}</div>}
