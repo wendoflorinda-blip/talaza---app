@@ -180,6 +180,21 @@ export default function Explore() {
   const [categoryError, setCategoryError] = useState('');
   const [businessError, setBusinessError] = useState('');
   const [selectedArea, setSelectedArea] = useState('');
+  const [mainHistoryCount, setMainHistoryCount] = useState(0);
+
+  useEffect(() => {
+    try { const saved = JSON.parse(localStorage.getItem('talaza_history_main') || '[]'); setMainHistoryCount(Array.isArray(saved) ? saved.length : 0); } catch { setMainHistoryCount(0); }
+  }, []);
+
+  function trackMainBusiness(business) {
+    if (!business?.id) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem('talaza_history_main') || '[]');
+      const next = [{ id: business.id, name: business.name, logo_url: business.logo_url || null, cover_url: business.cover_url || null, href: '/businesses/' + business.id + (Object.keys(exploreQuery).length ? '?' + new URLSearchParams(exploreQuery).toString() : ''), at: new Date().toISOString() }, ...(Array.isArray(saved) ? saved.filter(item => item.id !== business.id) : [])].slice(0, 100);
+      localStorage.setItem('talaza_history_main', JSON.stringify(next));
+      setMainHistoryCount(next.length);
+    } catch {}
+  }
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -374,6 +389,7 @@ export default function Explore() {
             </span>
           </Link>
 
+          <Link href={{ pathname: '/historico', query: { type: 'vitrine', key: 'talaza_history_main', returnTo: router.asPath } }} className="history-link">◷ Histórico ({mainHistoryCount})</Link>
           <TalazaMenu
             country={country}
             province={province}
@@ -532,6 +548,7 @@ export default function Explore() {
                         query: exploreQuery,
                       }}
                       className="business-card"
+                      onClick={() => trackMainBusiness(business)}
                     >
                       {business.logo_url ? (
                         <img src={business.logo_url} alt={business.name} />
@@ -570,6 +587,7 @@ export default function Explore() {
       </div>
 
       <style jsx>{`
+        .history-link { border: 1px solid #D7E2DC; border-radius: 10px; padding: 9px 11px; color: #145B49; background: #FFFFFF; font-size: 12px; font-weight: 800; text-decoration: none; white-space: nowrap; }
         .explore-page {
           min-height: 100vh;
           background: ${C.canvas};
