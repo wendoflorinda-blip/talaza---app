@@ -666,9 +666,13 @@ export default function Comunidade() {
     const ids = items.map((item) => item.id);
     const [likesResult, commentsResult] = await Promise.all([
       supabase.from('community_official_likes').select('id, official_id, user_id').eq('official_type', kind).in('official_id', ids),
-      supabase.from('community_comments').select('id, official_type, official_id, user_id, content, created_at').eq('official_type', kind).in('official_id', ids).order('created_at', { ascending: true }),
+      supabase.from('community_official_comments').select('id, official_type, official_id, user_id, content, created_at').eq('official_type', kind).in('official_id', ids).order('created_at', { ascending: true }),
     ]);
-    if (likesResult.error || commentsResult.error) { setMessage('As publicações oficiais foram carregadas, mas não foi possível ler os gostos ou comentários. Confirma as políticas de community_likes e community_comments.'); setOfficialInteractions({}); return; }
+    if (likesResult.error || commentsResult.error) {
+      setMessage('Não foi possível carregar os gostos ou comentários oficiais: ' + (likesResult.error?.message || commentsResult.error?.message || 'erro de acesso'));
+      setOfficialInteractions({});
+      return;
+    }
     const next = {};
     items.forEach((item) => {
       const likes = (likesResult.data || []).filter((like) => like.official_id === item.id);
@@ -695,7 +699,7 @@ export default function Comunidade() {
     if (!user) { router.push('/login?redirect=' + encodeURIComponent(router.asPath)); return; }
     const draft = (officialCommentDrafts[item.id] || '').trim();
     if (draft.length < 2) { setMessage('Escreva um comentário com pelo menos 2 caracteres.'); return; }
-    const { data, error } = await supabase.from('community_comments').insert({ post_id: null, official_type: kind, official_id: item.id, user_id: user.id, content: draft, status: 'published' }).select('id, official_type, official_id, user_id, content, created_at').single();
+    const { data, error } = await supabase.from('community_official_comments').insert({ official_type: kind, official_id: item.id, user_id: user.id, content: draft }).select('id, official_type, official_id, user_id, content, created_at').single();
     if (error) { setMessage('Não foi possível publicar o comentário: ' + error.message); return; }
     setOfficialInteractions((previous) => ({ ...previous, [item.id]: { ...(previous[item.id] || {}), comments: [...((previous[item.id] || {}).comments || []), data] } }));
     setOfficialCommentDrafts((previous) => ({ ...previous, [item.id]: '' })); setMessage('');
