@@ -171,7 +171,7 @@ export default function BusinessPublicProfile() {
 
             <section className="productsCard">
               <div className="productsHeading">
-                <div><span className="eyebrow">GALERIA DO NEGÓCIO</span><h2>Produtos e imagens</h2><p>Consulta os produtos e escolhe a forma de visualização.</p></div>
+                <div><span className="eyebrow">GALERIA DO NEGÓCIO</span><h2>Conteúdo do negócio</h2><p>Escolhe Todos, Imagens ou Vídeos e, abaixo, a forma de visualização.</p></div>
               </div>
               <div className="modeChoices" role="group" aria-label="Modo de visualização dos produtos">
                 {VIEW_MODES.map((mode) => <button key={mode} type="button" className={viewMode === mode ? 'modeButton active' : 'modeButton'} onClick={() => setViewMode(mode)} aria-pressed={viewMode === mode}>{MODE_LABELS[mode]}</button>)}
