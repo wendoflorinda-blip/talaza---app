@@ -287,19 +287,6 @@ export default function Oportunidades() {
     });
   }
 
-  function openWhatsApp(number) {
-    if (!number) return;
-
-    const cleanNumber = number.replace(/[^\d]/g, '');
-
-    if (!cleanNumber) return;
-
-    window.open(
-      `https://wa.me/${cleanNumber}`,
-      '_blank',
-      'noopener,noreferrer'
-    );
-  }
 
   function goToPlan() {
     const query = new URLSearchParams();
@@ -678,22 +665,6 @@ export default function Oportunidades() {
                           </span>
 
                           <div style={styles.actions}>
-                            {opportunity.whatsapp && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  openWhatsApp(
-                                    opportunity.whatsapp
-                                  )
-                                }
-                                style={
-                                  styles.whatsappButton
-                                }
-                              >
-                                WhatsApp
-                              </button>
-                            )}
-
                             <Link
                               href={`/oportunidade/${opportunity.id}?country=${encodeURIComponent(
                                 country || ''
