@@ -886,11 +886,11 @@ export default function Seller() {
         {/* IMAGENS DE PAINEL · 3 modos */}
         <section id="galeria-painel" className="gal-sec">
           <div className="gal-head">
-            <h2>Imagens de painel</h2>
+            <h2>Conteúdo do painel</h2>
             <span className="gal-count">{panelImages.length}</span>
             <button type="button" className="gal-add" disabled={locked} onClick={() => pickImages('media', addPanelImages)}>+ Adicionar imagens/vídeos</button>
           </div>
-          <div className="gal-rot">Escolha como quer ver seus produtos do painel:</div>
+          <div className="gal-rot">Escolha Todos, Imagens ou Vídeos; depois seleccione a forma de visualização.</div>
           <ProductsView
             items={panelImages}
             mode={viewMode}
