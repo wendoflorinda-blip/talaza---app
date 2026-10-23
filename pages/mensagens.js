@@ -244,6 +244,19 @@ export default function Mensagens() {
             const requestedSource = safe(router.query.source) || 'Vitrine';
             const source = sourceNames.includes(requestedSource) ? requestedSource : 'Vitrine';
             const createdSourceId = safe(router.query.sourceId) || null;
+            let conversationProvinceId = currentProfile.province_id;
+            if (source === 'Eventos' && createdSourceId) {
+              const { data:sourceEvent, error:sourceEventError } = await supabase
+                .from('events').select('id,user_id,province_id,status,payment_status,admin_approved')
+                .eq('id',createdSourceId).maybeSingle();
+              if (sourceEventError || !sourceEvent || String(sourceEvent.user_id) !== String(targetId)) {
+                throw new Error('Não foi possível confirmar que este evento pertence à pessoa que vais contactar.');
+              }
+              if (sourceEvent.status !== 'published' || sourceEvent.payment_status !== 'paid' || sourceEvent.admin_approved !== true) {
+                throw new Error('Este evento não está publicado e aprovado para receber mensagens.');
+              }
+              conversationProvinceId = sourceEvent.province_id;
+            }
             const { data:myMemberships, error:myMembershipError } = await supabase.from('conversation_participants')
               .select('conversation_id').eq('user_id',currentUser.id);
             if (myMembershipError) throw myMembershipError;
@@ -278,13 +291,13 @@ export default function Mensagens() {
               const createdId = crypto.randomUUID();
               const createdAt = new Date().toISOString();
               const { error:createError } = await supabase.from('conversations')
-                .insert({id:createdId,created_by:currentUser.id,province_id:currentProfile.province_id,source,source_id:createdSourceId});
+                .insert({id:createdId,created_by:currentUser.id,province_id:conversationProvinceId,source,source_id:createdSourceId});
               if (createError) throw createError;
               const created = {
                 id:createdId,
                 source,
                 source_id:createdSourceId,
-                province_id:currentProfile.province_id,
+                province_id:conversationProvinceId,
                 created_at:createdAt,
                 updated_at:createdAt
               };
