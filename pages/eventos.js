@@ -599,7 +599,7 @@ export default function Eventos() {
                         {likedByMe[item.id] ? '♥ Gostaste' : '♡ Gostar'} · {likesByEvent[item.id] || 0}
                       </button>
                       <button type="button" aria-expanded={Boolean(commentsOpen[item.id])} onClick={(event) => { event.stopPropagation(); setCommentsOpen(previous => ({ ...previous, [item.id]: !previous[item.id] })); trackEventAction(item); }} style={styles.actionButton}>💬 Comentar · {(commentsByEvent[item.id] || []).length}</button>
-                      {user && item.user_id !== user.id && <button type="button" onClick={(event) => { event.stopPropagation(); trackEventAction(item); router.push({ pathname: '/mensagens', query: { to: item.user_id, source: 'Eventos', sourceId: item.id } }); }} style={styles.messageButton}>✉ Enviar mensagem</button>}
+                      <button type="button" onClick={(event) => { event.stopPropagation(); trackEventAction(item); if (!user) { router.push('/login'); return; } if (item.user_id === user.id) { setFeedNotice('Este é o teu anúncio. Para receber mensagens, consulta a tua área de mensagens.'); return; } router.push({ pathname: '/mensagens', query: { to: item.user_id, source: 'Eventos', sourceId: item.id } }); }} style={styles.messageButton}>✉ Mensagem</button>
                     </div>
                     {commentsOpen[item.id] && <div style={styles.comments}>
                       <div style={{ marginTop: 12 }}>
@@ -712,7 +712,7 @@ const styles = {
   historyItem: { display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: 8, border: '1px solid #EAE1F2', borderRadius: 10, background: '#FFFFFF', cursor: 'pointer', color: '#26352F' },
   historyThumb: { width: 42, height: 42, objectFit: 'cover', borderRadius: 8, flexShrink: 0 },
   historyThumbFallback: { width: 42, height: 42, display: 'grid', placeItems: 'center', borderRadius: 8, background: '#F0E7F7', color: '#64358B' },
-  categoryChips: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 },
+  categoryChips: { display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 14, alignItems: 'center' },
   categoryChip: { border: '1px solid #D8E3DD', borderRadius: 999, padding: '8px 12px', background: '#FFFFFF', color: '#35534B', fontWeight: 700, fontSize: 12, cursor: 'pointer' },
   categoryChipActive: { borderColor: '#075B4E', background: '#075B4E', color: '#FFFFFF' },
   stepsIndicator: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: '8px 0 24px' },
@@ -752,10 +752,10 @@ const styles = {
   eventLocation: { color: '#687772', fontSize: 12 },
   eventTitle: { margin: '6px 0 8px', fontSize: 22, color: '#12332D' },
   eventDescription: { whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: '8px 0 14px', color: '#344C45' },
-  eventActions: { display: 'flex', flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: '14px 0' },
-  actionButton: { border: '1px solid #D9C9E9', borderRadius: 999, padding: '10px 14px', background: '#FFFFFF', color: '#64358B', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 5px rgba(67,40,91,.05)' },
+  eventActions: { display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', flexWrap: 'nowrap', gap: 6, margin: '14px 0', width: '100%' },
+  actionButton: { border: '1px solid #D9C9E9', borderRadius: 999, padding: '9px 10px', background: '#FFFFFF', color: '#64358B', fontWeight: 800, fontSize: 12, lineHeight: 1.2, whiteSpace: 'nowrap', flex: '0 1 auto', minWidth: 0, cursor: 'pointer', boxShadow: '0 2px 5px rgba(67,40,91,.05)' },
   likedButton: { background: '#FFF0F0', borderColor: '#F3C4C4', color: '#B42332' },
-  messageButton: { border: 0, borderRadius: 999, padding: '11px 15px', background: '#64358B', color: '#FFFFFF', fontWeight: 800, cursor: 'pointer', boxShadow: '0 3px 9px rgba(100,53,139,.2)' },
+  messageButton: { border: 0, borderRadius: 999, padding: '10px 10px', background: '#64358B', color: '#FFFFFF', fontWeight: 800, fontSize: 12, lineHeight: 1.2, whiteSpace: 'nowrap', flex: '0 1 auto', minWidth: 0, cursor: 'pointer', boxShadow: '0 3px 9px rgba(100,53,139,.2)' },
   comments: { marginTop: 16, borderTop: '1px solid #E8EEEB', paddingTop: 14 },
   comment: { marginTop: 10, padding: 12, background: '#F7F9F8', borderRadius: 10 },
   commentText: { margin: '0 0 5px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' },
