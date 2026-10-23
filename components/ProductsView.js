@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { formatKz } from '../lib/imageTools';
 
@@ -12,37 +12,41 @@ const MODES = [
 
 export default function ProductsView({ items = [], mode = 'normal', onModeChange, editable = false, onEdit, businessName = '', businessId = '', sellerId = '', showNextCard = true }) {
   const [open, setOpen] = useState(null);
+  const [mediaFilter, setMediaFilter] = useState('all');
   const router = useRouter();
   const current = VIEW_MODES.includes(mode) ? mode : 'normal';
-  const openItem = open ? items.find((item) => item.id === open) : null;
+  const visibleItems = useMemo(() => items.filter((item) => mediaFilter === 'all' || (mediaFilter === 'video' ? (item?.media_type === 'video' || Boolean(item?.video_url)) : !(item?.media_type === 'video' || Boolean(item?.video_url)))), [items, mediaFilter]);
+  const openItem = open ? visibleItems.find((item) => item.id === open) : null;
   const isVideo = (item) => item?.media_type === 'video' || Boolean(item?.video_url); 
   const mediaUrl = (item) => isVideo(item) ? item.video_url : item.image_url;
   const Media = ({ item, alt = 'Produto', className = '' }) => isVideo(item) ? <video className={className} src={mediaUrl(item)} controls playsInline preload="metadata" aria-label={alt} /> : <img className={className} src={mediaUrl(item)} alt={alt} loading="lazy" />;
 
   return (
     <div className="pv">
+      <div className="mediaFilters" role="group" aria-label="Filtrar conteúdo por tipo">{[{id:'all',label:'Todos'},{id:'image',label:'Imagens'},{id:'video',label:'Vídeos'}].map((item) => <button type="button" key={item.id} className={'filter' + (mediaFilter === item.id ? ' selected' : '')} aria-pressed={mediaFilter === item.id} onClick={() => { setMediaFilter(item.id); setOpen(null); }}>{item.label}</button>)}</div>
       {onModeChange && <div className="modes" role="group" aria-label="Como quer ver os produtos do painel">
         {MODES.map((item) => <button key={item.id} type="button" className={'mode' + (current === item.id ? ' on' : '')} aria-pressed={current === item.id} onClick={() => onModeChange(item.id)}>
           <b>{item.title}</b><small>{item.hint}</small><span className="ck" aria-hidden="true">✓</span>
         </button>)}
       </div>}
       {!items.length && <div className="empty">Ainda não há imagens ou vídeos no painel.</div>}
-      {items.length > 0 && current === 'vertical' && <div className="vert">
-        {items.map((item) => <article key={item.id}>
+      {items.length > 0 && !visibleItems.length && <div className="empty">Ainda não há {mediaFilter === 'video' ? 'vídeos' : 'imagens'} neste perfil.</div>}
+      {visibleItems.length > 0 && current === 'vertical' && <div className="vert">
+        {visibleItems.map((item) => <article key={item.id}>
           <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : 'Sem preço'}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
           {isVideo(item) ? <div className="im r916"><Media item={item} alt={item.name || 'Vídeo'} /></div> : <button type="button" className="im r916" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
           <div className="cap"><span className="dash">–</span><span><b>{item.name || 'Imagem'}</b>{item.description ? ' · ' + item.description : ''}</span></div>
         </article>)}
       </div>}
-      {items.length > 0 && current === 'deslize' && <>
+      {visibleItems.length > 0 && current === 'deslize' && <>
         <div className="hint">Desliza e vê outro negócio ›</div>
-        <div className="slide">{items.map((item) => <article key={item.id}>
+        <div className="slide">{visibleItems.map((item) => <article key={item.id}>
           <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : 'Sem preço'}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
           {isVideo(item) ? <div className="im r11"><Media item={item} alt={item.name || 'Vídeo'} /></div> : <button type="button" className="im r11" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
           <div className="cap"><span className="dash">–</span><span><b>{item.name || 'Imagem'}</b>{item.description ? ' · ' + item.description : ''}</span></div>
         </article>)}{showNextCard && <div className="next">Próximo negócio<small>Continue a deslizar</small></div>}</div>
       </>}
-      {items.length > 0 && current === 'normal' && <div className="grid">{items.map((item) => <div className="cell" key={item.id}>
+      {visibleItems.length > 0 && current === 'normal' && <div className="grid">{visibleItems.map((item) => <div className="cell" key={item.id}>
         {isVideo(item) ? <div className="open"><Media item={item} alt={item.name || 'Vídeo'} /></div> : <button type="button" className="open" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
         {item.price !== null && item.price !== undefined && item.price !== '' && <span className="tag">{formatKz(item.price)}</span>}
         {editable && <button type="button" className="more abs" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}
@@ -52,11 +56,12 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
           <Media item={openItem} className="big" alt={openItem.name || 'Produto'} />
           <div className="bigprice">{openItem.price ? formatKz(openItem.price) : 'Sem preço'}</div>
           <h3>{openItem.name || 'Sem nome'}</h3><p>{openItem.description || 'Sem descrição'}</p>
-          <div className="acts"><button type="button" className="close" onClick={() => setOpen(null)}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}>Enviar mensagem</button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
+          <div className="acts"><a className="download" href={mediaUrl(openItem)} download={((openItem.name || (isVideo(openItem) ? 'video' : 'imagem')).replace(/[^a-z0-9-_ ]/gi, '').trim() || (isVideo(openItem) ? 'video' : 'imagem')) + (isVideo(openItem) ? '.mp4' : '.jpg')} target="_blank" rel="noreferrer">Transferir {isVideo(openItem) ? 'vídeo' : 'imagem'}</a><button type="button" className="close" onClick={() => setOpen(null)}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}>Enviar mensagem</button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
         </div>
       </div>}
       <style jsx>{`
         .pv button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+        .mediaFilters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:10px}.filter{padding:10px 7px!important;border:1px solid #D9E3DF!important;border-radius:10px!important;background:#fff!important;color:#36564B!important;font-weight:800!important;font-size:12px!important}.filter.selected{background:#0F6E5C!important;border-color:#0F6E5C!important;color:#fff!important}
         .modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px}
         .mode{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-align:left;padding:11px 9px!important;border-radius:13px;border:2px solid #DBE4E0!important;background:#F8FAF9!important;min-height:80px;color:#075B4E}
         .mode b{font-size:13px;line-height:1.1}.mode small{color:#5A6A64;font-size:10.5px;line-height:1.2}
@@ -68,7 +73,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         .cap{display:flex;gap:8px;margin-top:7px;font-size:13px;line-height:1.4;color:#14201C}.dash{color:#075B4E;font-weight:800}.vert{display:grid;gap:20px}
         .hint{font-size:13px;font-weight:700;color:#075B4E;margin-bottom:8px}.slide{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:4px}.slide article,.next{flex:0 0 84%;scroll-snap-align:center}.next{aspect-ratio:1/1;border-radius:14px;background:linear-gradient(135deg,#075B4E,#075B4E);color:#fff;display:grid;place-items:center;text-align:center;font-weight:700;padding:20px}.next small{display:block;font-weight:400;opacity:.85;margin-top:4px}
         .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.cell{position:relative;aspect-ratio:1/1;border-radius:7px;overflow:hidden;background:#E8F2EE}.open{display:block;width:100%;height:100%}.open img,.open video{width:100%;height:100%;object-fit:cover;display:block}.tag{position:absolute;left:4px;bottom:4px;background:rgba(15,22,20,.74);color:#fff;font-weight:800;font-size:10px;padding:2px 6px;border-radius:999px}
-        .veu{position:fixed;inset:0;background:rgba(10,20,17,.55);z-index:120;display:flex;align-items:flex-end;justify-content:center}.sheet{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}.sheet .big{width:100%;max-height:52vh;object-fit:contain;background:#E8F2EE;border-radius:14px;display:block;margin:0 0 10px;height:auto}.sheet video.big{width:100%;}.bigprice{font-weight:800;color:#075B4E;font-size:18px}.sheet h3{margin:2px 0;font-size:17px;color:#14201C}.sheet p{margin:2px 0 12px;font-size:13px;color:#5A6A64;line-height:1.5;white-space:pre-wrap}.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.acts .close,.acts .wa{padding:13px;border-radius:11px;font-weight:700;text-align:center;text-decoration:none}.acts .close{background:#E9EEEC;color:#14201C}.acts .internalMessage{background:#075B4E;color:#fff;border:0;cursor:pointer}.acts .unavailableMessage{background:#EDF1EF;color:#7A8983;display:grid;place-items:center;padding:13px;border-radius:11px;font-size:12px;text-align:center}
+        .veu{position:fixed;inset:0;background:rgba(10,20,17,.55);z-index:120;display:flex;align-items:flex-end;justify-content:center}.sheet{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}.sheet .big{width:100%;max-height:52vh;object-fit:contain;background:#E8F2EE;border-radius:14px;display:block;margin:0 0 10px;height:auto}.sheet video.big{width:100%;}.bigprice{font-weight:800;color:#075B4E;font-size:18px}.sheet h3{margin:2px 0;font-size:17px;color:#14201C}.sheet p{margin:2px 0 12px;font-size:13px;color:#5A6A64;line-height:1.5;white-space:pre-wrap}.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.acts .close,.acts .wa,.acts .download{padding:13px;border-radius:11px;font-weight:700;text-align:center;text-decoration:none}.acts .download{background:#DCEFE8;color:#075B4E;text-decoration:none;text-align:center;font-weight:800;border-radius:11px}.acts .close{background:#E9EEEC;color:#14201C}.acts .internalMessage{background:#075B4E;color:#fff;border:0;cursor:pointer}.acts .unavailableMessage{background:#EDF1EF;color:#7A8983;display:grid;place-items:center;padding:13px;border-radius:11px;font-size:12px;text-align:center}
       `}</style>
     </div>
   );
