@@ -1409,6 +1409,7 @@ export default function Comunidade() {
                     <textarea value={officialCommentDrafts[item.id] || ''} onChange={(event) => setOfficialCommentDrafts((prev) => ({ ...prev, [item.id]: event.target.value }))} rows={2} maxLength={2000} placeholder="Escreva o seu comentário…" style={{ width: '100%', padding: 11, border: '1px solid ' + C.line, borderRadius: 12, resize: 'vertical' }} />
                     <button type="button" onClick={() => submitOfficialComment(item, 'theme')} style={{ ...buttonStyle, marginTop: 8, background: C.green, color: C.white }}>Enviar comentário</button>
                   </div> : null}
+                  </div>
                 </Panel>
               ))
             )}
