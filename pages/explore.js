@@ -389,7 +389,6 @@ export default function Explore() {
             </span>
           </Link>
 
-          <Link href={{ pathname: '/historico', query: { type: 'vitrine', key: 'talaza_history_main', returnTo: router.asPath } }} className="history-link">◷ Histórico ({mainHistoryCount})</Link>
           <TalazaMenu
             country={country}
             province={province}
@@ -515,7 +514,8 @@ export default function Explore() {
           <div className="section-heading">
             <div>
               <span className="section-kicker">VITRINE LOCAL</span>
-              <h2>Destaques Premium da região</h2>
+              <Link href={{ pathname: '/historico', query: { type: 'vitrine', key: 'talaza_history_main', returnTo: router.asPath } }} className="history-link">◷ Histórico ({mainHistoryCount})</Link>
+          <h2>Destaques Premium da região</h2>
             </div>
             {provinceName && <span className="section-location">{provinceName}</span>}
           </div>
@@ -587,7 +587,7 @@ export default function Explore() {
       </div>
 
       <style jsx>{`
-        .history-link { border: 1px solid #D7E2DC; border-radius: 10px; padding: 9px 11px; color: #145B49; background: #FFFFFF; font-size: 12px; font-weight: 800; text-decoration: none; white-space: nowrap; }
+        .history-link { display:inline-flex; border:1px solid #D7E2DC; border-radius:10px; padding:9px 11px; color:#145B49; background:#FFFFFF; font-size:12px; font-weight:800; text-decoration:none; white-space:nowrap; margin:0 0 12px; }
         .explore-page {
           min-height: 100vh;
           background: ${C.canvas};
