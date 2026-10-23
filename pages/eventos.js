@@ -79,6 +79,7 @@ export default function Eventos() {
   const [likedByMe, setLikedByMe] = useState({});
   const [commentsByEvent, setCommentsByEvent] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
+  const [commentsOpen, setCommentsOpen] = useState({});
   const [feedLoading, setFeedLoading] = useState(false);
   const [interactionBusy, setInteractionBusy] = useState('');
   const [feedError, setFeedError] = useState('');
@@ -595,17 +596,23 @@ export default function Eventos() {
                       {user && item.user_id !== user.id && <button type="button" onClick={(event) => { event.stopPropagation(); trackEventAction(item); router.push({ pathname: '/mensagens', query: { to: item.user_id, source: 'Eventos', sourceId: item.id } }); }} style={styles.messageButton}>Enviar mensagem</button>}
                     </div>
                     <div style={styles.comments}>
-                      <strong>Comentários ({(commentsByEvent[item.id] || []).length})</strong>
-                      {(commentsByEvent[item.id] || []).map(comment => (
-                        <div key={comment.id} style={styles.comment}>
-                          <p style={styles.commentText}>{comment.content}</p>
-                          <span style={styles.eventMeta}>{new Date(comment.created_at).toLocaleString('pt-AO')}</span>
+                      <button type="button" aria-expanded={Boolean(commentsOpen[item.id])} onClick={() => setCommentsOpen(previous => ({ ...previous, [item.id]: !previous[item.id] }))} style={styles.actionButton}>
+                        💬 Comentários · {(commentsByEvent[item.id] || []).length} {commentsOpen[item.id] ? '−' : '+'}
+                      </button>
+                      {commentsOpen[item.id] && (
+                        <div style={{ marginTop: 12 }}>
+                          {(commentsByEvent[item.id] || []).length === 0 ? <p style={styles.muted}>Ainda não há comentários. Sê a primeira pessoa a comentar.</p> : (commentsByEvent[item.id] || []).map(comment => (
+                            <div key={comment.id} style={styles.comment}>
+                              <p style={styles.commentText}>{comment.content}</p>
+                              <span style={styles.eventMeta}>{new Date(comment.created_at).toLocaleString('pt-AO')}</span>
+                            </div>
+                          ))}
+                          <form onSubmit={(e) => { e.preventDefault(); submitComment(item.id); }} style={styles.commentForm}>
+                            <input aria-label="Escrever comentário" maxLength={2000} value={commentDrafts[item.id] || ''} onChange={e => setCommentDrafts(previous => ({ ...previous, [item.id]: e.target.value }))} placeholder={user ? 'Escreve um comentário...' : 'Inicia sessão para comentar'} style={styles.commentInput} />
+                            <button type="submit" disabled={!user || interactionBusy === 'comment:' + item.id || !String(commentDrafts[item.id] || '').trim()} style={styles.messageButton}>{interactionBusy === 'comment:' + item.id ? 'A enviar…' : 'Enviar comentário'}</button>
+                          </form>
                         </div>
-                      ))}
-                      <form onSubmit={(e) => { e.preventDefault(); submitComment(item.id); }} style={styles.commentForm}>
-                        <input aria-label="Escrever comentário" maxLength={2000} value={commentDrafts[item.id] || ''} onChange={e => setCommentDrafts(previous => ({ ...previous, [item.id]: e.target.value }))} placeholder={user ? 'Escreve um comentário...' : 'Inicia sessão para comentar'} style={styles.commentInput} />
-                        <button type="submit" disabled={!user || interactionBusy === 'comment:' + item.id || !String(commentDrafts[item.id] || '').trim()} style={styles.messageButton}>{interactionBusy === 'comment:' + item.id ? 'A enviar…' : 'Comentar'}</button>
-                      </form>
+                      )}
                     </div>
                   </div>
                 </article>
@@ -728,15 +735,15 @@ const styles = {
   planPrice: { fontSize: 23, fontWeight: 900, color: '#08745D' },
   planDescription: { fontSize: 13, lineHeight: 1.5, color: '#596560', flex: 1 },
   planChoose: { fontSize: 12, fontWeight: 800, color: '#08745D' },
-  mediaPreview: { display: 'block', width: '100%', maxWidth: '100%', height: 'auto', maxHeight: 280, aspectRatio: '16 / 9', objectFit: 'contain', borderRadius: 12, background: '#10221D', boxSizing: 'border-box' },
-  eventVideo: { display: 'block', width: '100%', maxWidth: '100%', height: 'auto', aspectRatio: '16 / 9', maxHeight: 420, objectFit: 'contain', background: '#10221D', boxSizing: 'border-box' },
+  mediaPreview: { display: 'block', width: '100%', maxWidth: '100%', height: 'auto', maxHeight: 520, aspectRatio: '1 / 1', objectFit: 'cover', borderRadius: 12, background: '#10221D', boxSizing: 'border-box' },
+  eventVideo: { display: 'block', width: '100%', maxWidth: '100%', height: 'auto', aspectRatio: '1 / 1', maxHeight: 560, objectFit: 'contain', background: '#10221D', boxSizing: 'border-box' },
   tab: { flex: 1, border: 0, borderRadius: 10, padding: '12px 14px', background: 'transparent', color: '#35534B', fontWeight: 800, cursor: 'pointer' },
   activeTab: { background: '#075B4E', color: '#FFFFFF', boxShadow: '0 3px 10px rgba(7,91,78,.18)' },
   feedSection: { background: '#FFFFFF', border: '1px solid #E5EBE8', borderRadius: 18, padding: 20, marginBottom: 20 },
   eventList: { display: 'grid', gap: 18, marginTop: 18 },
   eventCard: { border: '1px solid #E4EAE7', borderRadius: 16, overflow: 'hidden', background: '#FFFFFF' },
-  eventMedia: { display: 'block', width: '100%', aspectRatio: '16 / 9', maxHeight: 460, overflow: 'hidden', background: '#10221D', boxSizing: 'border-box' },
-  eventImage: { display: 'block', width: '100%', height: '100%', aspectRatio: '16 / 9', objectFit: 'cover', background: '#10221D' },
+  eventMedia: { display: 'block', width: '100%', aspectRatio: '1 / 1', maxHeight: 680, overflow: 'hidden', background: '#10221D', boxSizing: 'border-box' },
+  eventImage: { display: 'block', width: '100%', height: '100%', aspectRatio: '1 / 1', objectFit: 'cover', background: '#10221D' },
   eventBody: { padding: 18 },
   eventMeta: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, color: '#687772', fontSize: 12, lineHeight: 1.5 },
   eventCategoryBadge: { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '6px 10px', fontSize: 11, fontWeight: 900 },
