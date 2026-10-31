@@ -3,7 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
-import ProductsView from '../../components/ProductsView';
+import ProductsView, { VIEW_MODES } from '../../components/ProductsView';
 
 const MODE_LABELS = {
   vertical: 'Vertical',
