@@ -31,6 +31,10 @@ export default function Perfil() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('dados');
+  const [savedBusinesses, setSavedBusinesses] = useState([]);
+  const [provinceEvents, setProvinceEvents] = useState([]);
+  const [loadingSections, setLoadingSections] = useState(false);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -50,6 +54,18 @@ export default function Perfil() {
       if (profileError) throw profileError;
       setProfile(data || null);
       setShowEmail(data?.show_email === true);
+      if (data?.province_id) {
+        setLoadingSections(true);
+        const [savedResult, eventsResult] = await Promise.all([
+          supabase.from('saved_businesses').select('id,created_at,businesses(id,name,description,logo_url,cover_url,province_id,municipality)').eq('user_id', current.id).order('created_at', { ascending:false }),
+          supabase.from('events').select('id,title,description,image_url,video_url,location,starts_at,expires_at,province_id').eq('province_id', data.province_id).eq('status','published').eq('payment_status','paid').eq('admin_approved',true).gt('expires_at',new Date().toISOString()).order('starts_at',{ascending:true})
+        ]);
+        if (savedResult.error) console.warn('Não foi possível carregar os perfis guardados:', savedResult.error);
+        else setSavedBusinesses((savedResult.data || []).filter(row => row.businesses));
+        if (eventsResult.error) console.warn('Não foi possível carregar os eventos da província principal:', eventsResult.error);
+        else setProvinceEvents(eventsResult.data || []);
+        setLoadingSections(false);
+      }
       if (data) {
         setFullName(data.name || data.full_name || current.user_metadata?.full_name || current.user_metadata?.name || '');
         setProvinceId(data.province_id || '');
@@ -314,11 +330,69 @@ export default function Perfil() {
         {!editing && error && <div role="alert" style={S.error}>{error}</div>}
         {!editing && notice && <div role="status" style={S.notice}>{notice}</div>}
       </section>
+
+      <nav aria-label="Secções do perfil" style={S.tabs}>
+        {[
+          ['dados','♙','Dados'],
+          ['guardados','▱','Guardados'],
+          ['destaque','☆','Em destaque'],
+          ['eventos','▣','Eventos'],
+          ['parasi','✧','Para si']
+        ].map(([id,icon,label]) => (
+          <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab===id?'page':undefined}
+            style={{...S.tab,borderBottom:activeTab===id?'3px solid '+C.gold:'3px solid transparent',color:activeTab===id?C.dark:C.muted}}>
+            <span style={{fontSize:23,lineHeight:1.1}}>{icon}</span><strong>{label}</strong>
+          </button>
+        ))}
+      </nav>
+
+      {activeTab !== 'dados' && (
+        <section style={S.sectionPanel}>
+          {activeTab === 'guardados' && <>
+            <h2 style={S.sectionTitle}>Perfis guardados</h2>
+            <p style={S.sectionIntro}>Os negócios que guardar na Vitrine ficam reunidos aqui, só para si.</p>
+            {loadingSections ? <p style={S.empty}>A carregar os seus guardados…</p> : savedBusinesses.length ? <div style={S.savedGrid}>
+              {savedBusinesses.map(row => { const business=row.businesses; return <article key={row.id} style={S.savedCard}>
+                {business.cover_url || business.logo_url ? <img src={business.cover_url || business.logo_url} alt="" style={S.savedImage}/> : <div style={S.savedImagePlaceholder}>T</div>}
+                <div style={{padding:14}}><strong>{business.name || 'Negócio Talaza'}</strong><p style={S.cardDescription}>{business.description || 'Conheça este negócio na Vitrine Talaza.'}</p>
+                <Link href={'/businesses/'+business.id} style={S.openBusiness}>Ver perfil</Link></div>
+              </article>; })}
+            </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>▱</span><strong>Ainda não guardou nenhum perfil</strong><p>Quando tocar em Guardar num negócio da Vitrine, ele aparecerá aqui.</p><Link href="/explore" style={S.openBusiness}>Explorar negócios</Link></div>}
+          </>}
+          {activeTab === 'eventos' && <>
+            <h2 style={S.sectionTitle}>Eventos da sua província</h2>
+            <p style={S.sectionIntro}>Aqui aparecem apenas eventos publicados, pagos e aprovados na sua província principal: {provinceName}.</p>
+            {loadingSections ? <p style={S.empty}>A carregar eventos…</p> : provinceEvents.length ? <div style={S.savedGrid}>
+              {provinceEvents.map(event => <article key={event.id} style={S.savedCard}>
+                {event.image_url ? <img src={event.image_url} alt="" style={S.savedImage}/> : <div style={S.savedImagePlaceholder}>✦</div>}
+                <div style={{padding:14}}><strong>{event.title}</strong><p style={S.cardDescription}>{event.description || event.location || 'Evento na sua província'}</p>
+                {event.starts_at && <small style={{color:C.muted}}>Início: {new Date(event.starts_at).toLocaleString('pt-PT')}</small>}</div>
+              </article>)}
+            </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>▣</span><strong>Ainda não há eventos publicados</strong><p>Quando houver eventos ativos e aprovados em {provinceName}, serão apresentados aqui.</p></div>}
+          </>}
+          {activeTab === 'destaque' && <div style={S.emptyCard}><span style={S.emptyIcon}>☆</span><strong>Em destaque</strong><p>Esta área ficará preparada para os conteúdos e negócios com destaque premium, depois de ativarmos os respetivos planos.</p></div>}
+          {activeTab === 'parasi' && <div style={S.emptyCard}><span style={S.emptyIcon}>✧</span><strong>Recomendado para si</strong><p>Mais à frente, esta área apresentará recomendações personalizadas. Os destaques pagos terão identificação própria e só aparecerão enquanto estiverem ativos.</p></div>}
+        </section>
+      )}
     </main>
   );
 }
 
 const S = {
+  tabs:{maxWidth:700,margin:'20px auto 0',display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',background:C.bg,borderBottom:'1px solid '+C.line},
+  tab:{minWidth:0,minHeight:76,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:7,border:0,background:'transparent',fontSize:12,cursor:'pointer',padding:'8px 3px'},
+  sectionPanel:{maxWidth:700,margin:'22px auto',padding:'22px',border:'1px solid '+C.line,borderRadius:22,background:C.white,boxShadow:'0 12px 34px rgba(20,50,43,.045)'},
+  sectionTitle:{margin:'0 0 7px',fontSize:20,color:C.dark},
+  sectionIntro:{margin:'0 0 18px',fontSize:13,lineHeight:1.6,color:C.muted},
+  savedGrid:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))',gap:14},
+  savedCard:{overflow:'hidden',border:'1px solid '+C.line,borderRadius:16,background:C.white},
+  savedImage:{width:'100%',height:132,objectFit:'cover',display:'block',background:'#F0EEE8'},
+  savedImagePlaceholder:{width:'100%',height:132,display:'grid',placeItems:'center',background:'linear-gradient(135deg,#E8E2D2,#F5F1E8)',color:C.dark,fontSize:35,fontWeight:900},
+  cardDescription:{fontSize:12,lineHeight:1.5,color:C.muted,minHeight:36},
+  openBusiness:{display:'inline-flex',marginTop:7,padding:'9px 14px',borderRadius:10,background:C.gold,color:C.dark,fontWeight:800,fontSize:12},
+  emptyCard:{minHeight:210,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',padding:22,border:'1px dashed #D8DED9',borderRadius:17,background:'#FBFCFA'},
+  emptyIcon:{fontSize:34,color:C.gold,marginBottom:10},
+  empty:{padding:20,textAlign:'center',color:C.muted,fontSize:13},
   page:{minHeight:'100vh',background:C.bg,paddingBottom:40,color:C.ink},
   center:{minHeight:'100vh',display:'grid',placeItems:'center',color:C.green,fontWeight:800},
   header:{minHeight:66,padding:'10px 18px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,background:C.dark,color:C.white},
