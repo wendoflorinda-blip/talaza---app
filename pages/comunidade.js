@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
+import CommentThread from '../components/CommentThread';
 
 const C = {
   green: '#0F6E5C',
@@ -287,7 +288,7 @@ export default function Comunidade() {
 
             supabase
               .from('community_comments')
-              .select('id, post_id, user_id, content, created_at')
+              .select('id, post_id, user_id, content, created_at, parent_id')
               .in('post_id', ids)
               .eq('status', 'published')
               .order('created_at', { ascending: true }),
@@ -633,8 +634,9 @@ export default function Comunidade() {
         user_id: user.id,
         content: draft,
         status: 'published',
+        parent_id: null,
       })
-      .select('id, post_id, user_id, content, created_at')
+      .select('id, post_id, user_id, content, created_at, parent_id')
       .single();
 
     if (error) {
@@ -1662,45 +1664,7 @@ export default function Comunidade() {
                         Comentários
                       </strong>
 
-                      {(extras[post.id]?.comments || []).length === 0 ? (
-                        <p
-                          style={{
-                            color: C.muted,
-                            fontSize: 12,
-                            margin: '0 0 10px',
-                          }}
-                        >
-                          Ainda não há comentários. Pode iniciar a conversa
-                          com respeito.
-                        </p>
-                      ) : (
-                        (extras[post.id]?.comments || []).map((comment) => (
-                          <div
-                            key={comment.id}
-                            style={{
-                              padding: '9px 0',
-                              borderBottom: `1px solid ${C.line}`,
-                            }}
-                          >
-                            <p
-                              style={{
-                                margin: 0,
-                                fontSize: 13,
-                                lineHeight: 1.5,
-                                whiteSpace: 'pre-wrap',
-                              }}
-                            >
-                              {comment.content}
-                            </p>
-
-                            <small style={{ color: C.faint }}>
-                              {new Date(comment.created_at).toLocaleString(
-                                'pt-PT'
-                              )}
-                            </small>
-                          </div>
-                        ))
-                      )}
+                      <CommentThread type="community" targetId={post.id} comments={extras[post.id]?.comments || []} userId={user?.id} onRefresh={loadFeed} />
 
                       <textarea
                         value={commentDrafts[post.id] || ''}
