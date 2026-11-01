@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
+import CommentThread from '../components/CommentThread';
 
 const BUCKET = 'event-images';
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -306,7 +307,7 @@ export default function Eventos() {
       const ids = rows.map(row => row.id);
       const [{ data: likes, error: likesError }, { data: comments, error: commentsError }] = await Promise.all([
         supabase.from('event_likes').select('event_id,user_id').in('event_id', ids),
-        supabase.from('event_comments').select('id,event_id,user_id,content,created_at').in('event_id', ids).eq('status', 'published').order('created_at', { ascending: true })
+        supabase.from('event_comments').select('id,event_id,user_id,content,created_at,parent_id').in('event_id', ids).eq('status', 'published').order('created_at', { ascending: true })
       ]);
       if (likesError) throw likesError;
       if (commentsError) throw commentsError;
@@ -415,7 +416,7 @@ export default function Eventos() {
     setFeedError('');
     setFeedNotice('');
     try {
-      const { error: insertError } = await supabase.from('event_comments').insert({ event_id: eventId, user_id: user.id, content, status: 'published' });
+      const { error: insertError } = await supabase.from('event_comments').insert({ event_id: eventId, user_id: user.id, content, status: 'published', parent_id: null });
       if (insertError) throw insertError;
       setCommentDrafts(previous => ({ ...previous, [eventId]: '' }));
       await loadEvents();
@@ -635,12 +636,7 @@ export default function Eventos() {
                     </div>
                     {commentsOpen[item.id] && <div style={styles.comments}>
                       <div style={{ marginTop: 12 }}>
-                        {(commentsByEvent[item.id] || []).length === 0 ? <p style={styles.muted}>Ainda não há comentários. Sê a primeira pessoa a comentar.</p> : (commentsByEvent[item.id] || []).map(comment => (
-                          <div key={comment.id} style={styles.comment}>
-                            <p style={styles.commentText}>{comment.content}</p>
-                            <span style={styles.eventMeta}>{new Date(comment.created_at).toLocaleString('pt-AO')}</span>
-                          </div>
-                        ))}
+                        <CommentThread type="event" targetId={item.id} comments={commentsByEvent[item.id] || []} userId={user?.id} onRefresh={loadEvents} />
                         <form onSubmit={(e) => { e.preventDefault(); submitComment(item.id); }} style={styles.commentForm}>
                           <input aria-label="Escrever comentário" maxLength={2000} value={commentDrafts[item.id] || ''} onChange={e => setCommentDrafts(previous => ({ ...previous, [item.id]: e.target.value }))} placeholder={user ? 'Escreve um comentário...' : 'Inicia sessão para comentar'} style={styles.commentInput} />
                           <button type="submit" disabled={!user || interactionBusy === 'comment:' + item.id || !String(commentDrafts[item.id] || '').trim()} style={styles.messageButton}>{interactionBusy === 'comment:' + item.id ? 'A enviar…' : 'Enviar comentário'}</button>
