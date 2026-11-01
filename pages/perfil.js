@@ -287,6 +287,22 @@ export default function Perfil() {
 
         {menuOpen && <div style={S.menuPopup}><button type="button" onClick={() => { setEditing((value) => !value); setMenuOpen(false); setError(''); setNotice(''); }} style={S.menuAction}>{editing ? 'Cancelar edição' : 'Editar perfil'}</button></div>}
 
+      <nav aria-label="Secções do perfil" style={S.tabs}>
+        {[
+          ['dados','♙','Dados'],
+          ['guardados','▱','Guardados'],
+          ['destaque','☆','Em destaque'],
+          ['eventos','▣','Eventos'],
+          ['parasi','✧','Para si']
+        ].map(([id,icon,label]) => (
+          <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab===id?'page':undefined}
+            style={{...S.tab,borderBottom:activeTab===id?'3px solid '+C.gold:'3px solid transparent',color:activeTab===id?C.dark:C.muted}}>
+            <span style={{fontSize:23,lineHeight:1.1}}>{icon}</span><strong>{label}</strong>
+          </button>
+        ))}
+      </nav>
+
+        {activeTab === 'dados' && (
         {!editing ? (
           <div style={S.details}>
             <div><span style={S.detailLabel}>Nome</span><strong>{profile?.name || profile?.full_name || user?.user_metadata?.full_name || 'Não definido'}</strong></div>
@@ -329,22 +345,11 @@ export default function Perfil() {
         )}
         {!editing && error && <div role="alert" style={S.error}>{error}</div>}
         {!editing && notice && <div role="status" style={S.notice}>{notice}</div>}
+        )}
+
       </section>
 
-      <nav aria-label="Secções do perfil" style={S.tabs}>
-        {[
-          ['dados','♙','Dados'],
-          ['guardados','▱','Guardados'],
-          ['destaque','☆','Em destaque'],
-          ['eventos','▣','Eventos'],
-          ['parasi','✧','Para si']
-        ].map(([id,icon,label]) => (
-          <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab===id?'page':undefined}
-            style={{...S.tab,borderBottom:activeTab===id?'3px solid '+C.gold:'3px solid transparent',color:activeTab===id?C.dark:C.muted}}>
-            <span style={{fontSize:23,lineHeight:1.1}}>{icon}</span><strong>{label}</strong>
-          </button>
-        ))}
-      </nav>
+
 
       {activeTab !== 'dados' && (
         <section style={S.sectionPanel}>
