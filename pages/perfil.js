@@ -31,7 +31,7 @@ export default function Perfil() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('dados');
+  const [activeTab, setActiveTab] = useState('inicio');
   const [savedBusinesses, setSavedBusinesses] = useState([]);
   const [provinceEvents, setProvinceEvents] = useState([]);
   const [loadingSections, setLoadingSections] = useState(false);
@@ -280,19 +280,22 @@ export default function Perfil() {
             <span style={S.photoBadge}>+</span>
           </button>
           <input ref={fileRef} type="file" accept="image/*" onChange={uploadProfilePhotoImmediately} hidden />
-          <span style={S.photoHelp}>{photoUploading ? 'A enviar fotografia…' : 'Toque no + para adicionar ou trocar a fotografia'}</span>
           <strong style={S.profileName}>{profile?.name || profile?.full_name || user?.user_metadata?.full_name || 'Perfil Talaza'}</strong>
-          <span style={S.caption}>Explorar Talaza</span>
+          <span style={S.caption}>{provinceName} · Comunidade Talaza</span>
         </div>
+        <div style={S.stats}>
+          <div style={S.stat}><strong>{savedBusinesses.length}</strong><span>Guardados</span></div>
+          <div style={S.stat}><strong>0</strong><span>Para si</span></div>
+          <div style={S.stat}><strong>{provinceEvents.length}</strong><span>Eventos</span></div>
+        </div>
+        <button type="button" onClick={() => {setActiveTab('dados');setEditing(true);setError('');setNotice('');}} style={S.editProfileButton}>✎　Editar perfil</button>
 
         {menuOpen && <div style={S.menuPopup}><button type="button" onClick={() => { setEditing((value) => !value); setMenuOpen(false); setError(''); setNotice(''); }} style={S.menuAction}>{editing ? 'Cancelar edição' : 'Editar perfil'}</button></div>}
 
       <nav aria-label="Secções do perfil" style={S.tabs}>
         {[
           ['dados','♙','Dados'],
-          ['guardados','▱','Guardados'],
-          ['destaque','☆','Em destaque'],
-          ['eventos','▣','Eventos'],
+          ['guardados','▱','Guardados'],          ['eventos','▣','Eventos'],
           ['parasi','✧','Para si']
         ].map(([id,icon,label]) => (
           <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab===id?'page':undefined}
@@ -303,6 +306,7 @@ export default function Perfil() {
       </nav>
 
         {activeTab === 'dados' && (
+        <>
         {!editing ? (
           <div style={S.details}>
             <div><span style={S.detailLabel}>Nome</span><strong>{profile?.name || profile?.full_name || user?.user_metadata?.full_name || 'Não definido'}</strong></div>
@@ -345,6 +349,7 @@ export default function Perfil() {
         )}
         {!editing && error && <div role="alert" style={S.error}>{error}</div>}
         {!editing && notice && <div role="status" style={S.notice}>{notice}</div>}
+        </>
         )}
 
       </section>
@@ -375,7 +380,6 @@ export default function Perfil() {
               </article>)}
             </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>▣</span><strong>Ainda não há eventos publicados</strong><p>Quando houver eventos ativos e aprovados em {provinceName}, serão apresentados aqui.</p></div>}
           </>}
-          {activeTab === 'destaque' && <div style={S.emptyCard}><span style={S.emptyIcon}>☆</span><strong>Em destaque</strong><p>Esta área ficará preparada para os conteúdos e negócios com destaque premium, depois de ativarmos os respetivos planos.</p></div>}
           {activeTab === 'parasi' && <div style={S.emptyCard}><span style={S.emptyIcon}>✧</span><strong>Recomendado para si</strong><p>Mais à frente, esta área apresentará recomendações personalizadas. Os destaques pagos terão identificação própria e só aparecerão enquanto estiverem ativos.</p></div>}
         </section>
       )}
@@ -384,7 +388,10 @@ export default function Perfil() {
 }
 
 const S = {
-  tabs:{maxWidth:700,margin:'20px auto 0',display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',background:C.bg,borderBottom:'1px solid '+C.line},
+  stats:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',margin:'22px 0',borderTop:'1px solid '+C.line,borderBottom:'1px solid '+C.line},
+  stat:{display:'flex',flexDirection:'column',alignItems:'center',gap:5,padding:'12px 3px',color:C.muted},
+  editProfileButton:{width:'100%',padding:'14px 18px',border:0,borderRadius:14,background:C.gold,color:C.dark,fontWeight:900,fontSize:15,cursor:'pointer'},
+  tabs:{maxWidth:700,margin:'20px auto 0',display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',background:C.bg,borderBottom:'1px solid '+C.line},
   tab:{minWidth:0,minHeight:76,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:7,border:0,background:'transparent',fontSize:12,cursor:'pointer',padding:'8px 3px'},
   sectionPanel:{maxWidth:700,margin:'22px auto',padding:'22px',border:'1px solid '+C.line,borderRadius:22,background:C.white,boxShadow:'0 12px 34px rgba(20,50,43,.045)'},
   sectionTitle:{margin:'0 0 7px',fontSize:20,color:C.dark},
@@ -416,7 +423,7 @@ const S = {
   visibilityToggle:{flex:'0 0 auto',minWidth:76,border:0,borderRadius:999,padding:'9px 12px',color:'#fff',fontWeight:800,cursor:'pointer'},
   passwordWrap:{position:'relative'},
   passwordToggle:{position:'absolute',right:8,top:7,bottom:7,border:0,borderRadius:8,padding:'0 10px',background:'#EEE8F5',color:C.purple,fontSize:12,fontWeight:800,cursor:'pointer'},
-  profileName:{marginTop:14,fontSize:18},
+  profileName:{marginTop:14,fontSize:21},
   caption:{marginTop:5,fontSize:12,color:C.muted},
   menuPopup:{display:'flex',justifyContent:'flex-end',marginBottom:14},
   menuAction:{padding:'10px 16px',border:'1px solid '+C.line,borderRadius:10,background:'#fff',color:C.purple,fontWeight:800,cursor:'pointer'},
