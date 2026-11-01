@@ -400,7 +400,29 @@ export default function Perfil() {
                   <strong>{event.title}</strong>
                   <p style={S.cardDescription}>{event.description || event.location || 'Evento na sua província'}</p>
                   {event.starts_at && <small style={{display:'block',marginBottom:10,color:C.muted}}>Início: {new Date(event.starts_at).toLocaleString('pt-PT')}</small>}
-                  {event.user_id && event.user_id !== user?.id && <button type="button" onClick={() => router.push({pathname:'/mensagens',query:{to:event.user_id,source:'Eventos',sourceId:event.id}})} style={S.eventMessageButton}>✉ Enviar mensagem</button>}
+                  {event.user_id ? (
+                    <button
+                      type="button"
+                      disabled={String(event.user_id) === String(user?.id)}
+                      onClick={() => router.push({
+                        pathname:'/mensagens',
+                        query:{
+                          to:String(event.user_id),
+                          source:'Eventos',
+                          sourceId:String(event.id),
+                          box:'explore',
+                          returnTo:'/perfil'
+                        }
+                      })}
+                      style={{...S.eventMessageButton,opacity:String(event.user_id) === String(user?.id) ? 0.55 : 1,cursor:String(event.user_id) === String(user?.id) ? 'not-allowed' : 'pointer'}}
+                    >
+                      ✉ Enviar mensagem ao organizador
+                    </button>
+                  ) : (
+                    <button type="button" disabled style={{...S.eventMessageButton,opacity:0.55,cursor:'not-allowed'}}>
+                      Mensagens indisponíveis
+                    </button>
+                  )}
                 </div>
               </article>)}
             </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>▣</span><strong>Ainda não há eventos publicados</strong><p>Quando houver eventos ativos e aprovados em {provinceName}, serão apresentados aqui.</p></div>}
@@ -419,7 +441,7 @@ const S = {
   tabs:{maxWidth:700,margin:'20px auto 0',display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',background:C.bg,borderBottom:'1px solid '+C.line},
   notificationBadge:{position:'absolute',top:-6,right:-6,minWidth:17,height:17,padding:'0 4px',borderRadius:999,background:'#C43C45',color:'#FFFFFF',fontSize:10,fontWeight:900,display:'grid',placeItems:'center',border:'2px solid '+C.dark},
   unreadBadge:{position:'absolute',top:-7,right:-13,minWidth:18,height:18,padding:'0 4px',borderRadius:999,background:'#C43C45',color:'#FFFFFF',fontSize:10,fontWeight:900,display:'grid',placeItems:'center',border:'2px solid '+C.bg},
-  eventMessageButton:{width:'100%',padding:'11px 14px',border:0,borderRadius:11,background:C.green,color:'#FFFFFF',fontSize:13,fontWeight:850,cursor:'pointer'},
+  eventMessageButton:{width:'100%',padding:'13px 16px',border:0,borderRadius:12,background:C.green,color:'#FFFFFF',fontSize:14,fontWeight:900,cursor:'pointer',boxShadow:'0 4px 12px rgba(8,116,95,.16)'},
   tab:{minWidth:0,minHeight:76,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:7,border:0,background:'transparent',fontSize:12,cursor:'pointer',padding:'8px 3px'},
   sectionPanel:{maxWidth:700,margin:'22px auto',padding:'22px',border:'1px solid '+C.line,borderRadius:22,background:C.white,boxShadow:'0 12px 34px rgba(20,50,43,.045)'},
   sectionTitle:{margin:'0 0 7px',fontSize:20,color:C.dark},
