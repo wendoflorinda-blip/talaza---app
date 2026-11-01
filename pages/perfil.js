@@ -35,6 +35,7 @@ export default function Perfil() {
   const [savedBusinesses, setSavedBusinesses] = useState([]);
   const [provinceEvents, setProvinceEvents] = useState([]);
   const [loadingSections, setLoadingSections] = useState(false);
+  const [unreadEventCount, setUnreadEventCount] = useState(0);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -58,12 +59,19 @@ export default function Perfil() {
         setLoadingSections(true);
         const [savedResult, eventsResult] = await Promise.all([
           supabase.from('saved_businesses').select('id,created_at,businesses(id,name,description,logo_url,cover_url,province_id,municipality)').eq('user_id', current.id).order('created_at', { ascending:false }),
-          supabase.from('events').select('id,title,description,image_url,video_url,location,starts_at,expires_at,province_id').eq('province_id', data.province_id).eq('status','published').eq('payment_status','paid').eq('admin_approved',true).gt('expires_at',new Date().toISOString()).order('starts_at',{ascending:true})
+          supabase.from('events').select('id,user_id,title,description,image_url,video_url,location,starts_at,expires_at,province_id,created_at').eq('province_id', data.province_id).eq('status','published').eq('payment_status','paid').eq('admin_approved',true).gt('expires_at',new Date().toISOString()).order('starts_at',{ascending:true})
         ]);
         if (savedResult.error) console.warn('Não foi possível carregar os perfis guardados:', savedResult.error);
         else setSavedBusinesses((savedResult.data || []).filter(row => row.businesses));
         if (eventsResult.error) console.warn('Não foi possível carregar os eventos da província principal:', eventsResult.error);
-        else setProvinceEvents(eventsResult.data || []);
+        else {
+          const eventRows = eventsResult.data || [];
+          setProvinceEvents(eventRows);
+          try {
+            const seenAt = localStorage.getItem('talaza_events_seen_' + current.id) || '';
+            setUnreadEventCount(eventRows.filter(item => item.created_at && (!seenAt || new Date(item.created_at).getTime() > new Date(seenAt).getTime())).length);
+          } catch { setUnreadEventCount(0); }
+        }
         setLoadingSections(false);
       }
       if (data) {
@@ -298,9 +306,17 @@ export default function Perfil() {
           ['guardados','▱','Guardados'],          ['eventos','▣','Eventos'],
           ['parasi','✧','Para si']
         ].map(([id,icon,label]) => (
-          <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab===id?'page':undefined}
+          <button key={id} type="button" onClick={() => {
+            setActiveTab(id);
+            if (id === 'eventos' && user) {
+              try { localStorage.setItem('talaza_events_seen_' + user.id, new Date().toISOString()); } catch {}
+              setUnreadEventCount(0);
+            }
+          }} aria-current={activeTab===id?'page':undefined}
             style={{...S.tab,borderBottom:activeTab===id?'3px solid '+C.gold:'3px solid transparent',color:activeTab===id?C.dark:C.muted}}>
-            <span style={{fontSize:23,lineHeight:1.1}}>{icon}</span><strong>{label}</strong>
+            <span style={{position:'relative',fontSize:23,lineHeight:1.1}}>{icon}
+              {id === 'eventos' && unreadEventCount > 0 && <span style={S.unreadBadge}>{unreadEventCount > 9 ? '9+' : unreadEventCount}</span>}
+            </span><strong>{label}</strong>
           </button>
         ))}
       </nav>
@@ -374,9 +390,13 @@ export default function Perfil() {
             <p style={S.sectionIntro}>Aqui aparecem apenas eventos publicados, pagos e aprovados na sua província principal: {provinceName}.</p>
             {loadingSections ? <p style={S.empty}>A carregar eventos…</p> : provinceEvents.length ? <div style={S.savedGrid}>
               {provinceEvents.map(event => <article key={event.id} style={S.savedCard}>
-                {event.image_url ? <img src={event.image_url} alt="" style={S.savedImage}/> : <div style={S.savedImagePlaceholder}>✦</div>}
-                <div style={{padding:14}}><strong>{event.title}</strong><p style={S.cardDescription}>{event.description || event.location || 'Evento na sua província'}</p>
-                {event.starts_at && <small style={{color:C.muted}}>Início: {new Date(event.starts_at).toLocaleString('pt-PT')}</small>}</div>
+                {event.video_url ? <video src={event.video_url} controls playsInline preload="metadata" style={S.savedImage} /> : event.image_url ? <img src={event.image_url} alt={event.title || 'Imagem do evento'} style={S.savedImage}/> : <div style={S.savedImagePlaceholder}>✦</div>}
+                <div style={{padding:14}}>
+                  <strong>{event.title}</strong>
+                  <p style={S.cardDescription}>{event.description || event.location || 'Evento na sua província'}</p>
+                  {event.starts_at && <small style={{display:'block',marginBottom:10,color:C.muted}}>Início: {new Date(event.starts_at).toLocaleString('pt-PT')}</small>}
+                  {event.user_id && event.user_id !== user?.id && <button type="button" onClick={() => router.push({pathname:'/mensagens',query:{to:event.user_id,source:'Eventos',sourceId:event.id}})} style={S.eventMessageButton}>✉ Enviar mensagem</button>}
+                </div>
               </article>)}
             </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>▣</span><strong>Ainda não há eventos publicados</strong><p>Quando houver eventos ativos e aprovados em {provinceName}, serão apresentados aqui.</p></div>}
           </>}
@@ -392,6 +412,8 @@ const S = {
   stat:{display:'flex',flexDirection:'column',alignItems:'center',gap:5,padding:'12px 3px',color:C.muted},
   editProfileButton:{width:'100%',padding:'14px 18px',border:0,borderRadius:14,background:C.gold,color:C.dark,fontWeight:900,fontSize:15,cursor:'pointer'},
   tabs:{maxWidth:700,margin:'20px auto 0',display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',background:C.bg,borderBottom:'1px solid '+C.line},
+  unreadBadge:{position:'absolute',top:-7,right:-13,minWidth:18,height:18,padding:'0 4px',borderRadius:999,background:'#C43C45',color:'#FFFFFF',fontSize:10,fontWeight:900,display:'grid',placeItems:'center',border:'2px solid '+C.bg},
+  eventMessageButton:{width:'100%',padding:'11px 14px',border:0,borderRadius:11,background:C.green,color:'#FFFFFF',fontSize:13,fontWeight:850,cursor:'pointer'},
   tab:{minWidth:0,minHeight:76,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:7,border:0,background:'transparent',fontSize:12,cursor:'pointer',padding:'8px 3px'},
   sectionPanel:{maxWidth:700,margin:'22px auto',padding:'22px',border:'1px solid '+C.line,borderRadius:22,background:C.white,boxShadow:'0 12px 34px rgba(20,50,43,.045)'},
   sectionTitle:{margin:'0 0 7px',fontSize:20,color:C.dark},
