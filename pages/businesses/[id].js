@@ -204,10 +204,10 @@ export default function BusinessPublicProfile() {
         .mainImage{aspect-ratio:1/1;max-height:180px;overflow:hidden;border-radius:13px;background:#EDF3F0;box-shadow:0 3px 12px rgba(20,54,44,.07)}
         .mainImage img{display:block;width:100%;height:100%;object-fit:cover}
         .mainImage span{height:100%;display:grid;place-items:center;color:#8A9992;font-size:12px}
-        .topActions{display:flex;gap:10px;margin-top:14px}
-        .messagePanel{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;border:1px solid #DCE9E2;border-radius:17px;background:linear-gradient(120deg,#F5FAF7,#FFFFFF);box-shadow:0 5px 18px rgba(20,54,44,.04)}.messagePanel div{display:grid;gap:5px}.messagePanel strong{font-size:15px;color:#18382D}.messagePanel span{font-size:12px;line-height:1.5;color:#687970}
-        .messageButton,.disabledMessage,.primaryButton{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:11px 17px;border-radius:11px;text-decoration:none;font-size:13px;font-weight:800}
-        .messageButton,.primaryButton{background:#075B4E;color:#fff}
+        .topActions{display:flex;gap:10px;margin-top:16px}.topActions .messageButton{width:100%;max-width:420px;min-height:56px;font-size:16px}
+        .messagePanel{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;border:1px solid #DCE9E2;border-radius:17px;background:linear-gradient(120deg,#F5FAF7,#FFFFFF);box-shadow:0 5px 18px rgba(20,54,44,.04)}.messagePanel div{display:grid;gap:5px}.messagePanel .messageButton{min-width:230px;min-height:58px;font-size:15px}.messagePanel strong{font-size:15px;color:#18382D}.messagePanel span{font-size:12px;line-height:1.5;color:#687970}
+        .messageButton,.disabledMessage,.primaryButton{display:inline-flex;align-items:center;justify-content:center;min-height:54px;padding:13px 22px;border-radius:13px;text-decoration:none;font-size:15px;font-weight:900}
+        .messageButton,.primaryButton{background:linear-gradient(135deg,#08745F,#075B4E);color:#fff;border:2px solid #E7BD48;box-shadow:0 8px 20px rgba(7,91,78,.22);letter-spacing:.2px}
         .disabledMessage{background:#EDF1EF;color:#7A8983}
         .detailsCard,.productsCard{padding:20px}
         h2{font-size:20px;margin:0 0 15px}
@@ -227,7 +227,7 @@ export default function BusinessPublicProfile() {
         .stateCard{width:min(640px,calc(100% - 32px));box-sizing:border-box;margin:55px auto;padding:24px;line-height:1.6;color:#52635B}
         .stateCard h1{color:#17211F}
         .errorState{border-color:#F0D5D5}
-        @media(max-width:600px){.messagePanel{align-items:stretch;flex-direction:column}.messagePanel .messageButton{width:100%;box-sizing:border-box}.topbar{padding:13px 15px}.profileWrap{width:calc(100% - 20px);margin-top:12px;gap:12px}.identityBody{padding:0 14px 16px}.logo{width:78px;height:78px;margin-top:-39px}.detailsCard,.productsCard{padding:16px}.detailsGrid{grid-template-columns:1fr}.mainImages{gap:5px}.modeChoices{gap:5px}.modeButton{font-size:10px;padding:10px 4px}.cover{height:165px}.stateCard{margin-top:25px}}
+        @media(max-width:600px){.topActions .messageButton{max-width:none}.messagePanel{align-items:stretch;flex-direction:column}.messagePanel .messageButton{width:100%;box-sizing:border-box}.topbar{padding:13px 15px}.profileWrap{width:calc(100% - 20px);margin-top:12px;gap:12px}.identityBody{padding:0 14px 16px}.logo{width:78px;height:78px;margin-top:-39px}.detailsCard,.productsCard{padding:16px}.detailsGrid{grid-template-columns:1fr}.mainImages{gap:5px}.modeChoices{gap:5px}.modeButton{font-size:10px;padding:10px 4px}.cover{height:165px}.stateCard{margin-top:25px}}
       `}</style>
     </>
   );
