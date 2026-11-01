@@ -96,14 +96,14 @@ export default function BusinessPublicProfile() {
 
   const backHref = useMemo(() => {
     const requestedReturn = Array.isArray(router.query.returnTo) ? router.query.returnTo[0] : router.query.returnTo;
-    if (typeof requestedReturn === 'string' && requestedReturn.startsWith('/subcategory?')) return requestedReturn;
+    if (typeof requestedReturn === 'string' && requestedReturn.startsWith('/') && !requestedReturn.startsWith('//') && !requestedReturn.includes('\\')) return requestedReturn;
     const params = new URLSearchParams();
     if (country || business?.country_id) params.set('country', country || business.country_id);
     if (province || business?.province_id) params.set('province', province || business.province_id);
     return '/explore' + (params.toString() ? '?' + params.toString() : '');
   }, [router.query.returnTo, country, province, business]);
 
-  const backLabel = backHref.startsWith('/subcategory?') ? 'Voltar à subcategoria' : backHref.startsWith('/category?') ? 'Voltar às subcategorias' : 'Voltar à Vitrine';
+  const backLabel = backHref.startsWith('/perfil') ? 'Voltar aos guardados' : backHref.startsWith('/subcategory?') ? 'Voltar à subcategoria' : backHref.startsWith('/category?') ? 'Voltar às subcategorias' : 'Voltar à Vitrine';
 
   const contactNumber = business?.phone;
   const messageHref = business?.owner_id ? '/mensagens?to=' + encodeURIComponent(business.owner_id) + '&source=Vitrine&sourceId=' + encodeURIComponent(business.id) + '&returnTo=' + encodeURIComponent(backHref) : null;
@@ -149,7 +149,7 @@ export default function BusinessPublicProfile() {
                 </div>
                 {business.description && <p className="description">{business.description}</p>}
                 <div className="topActions">
-                  {messageHref ? <Link className="messageButton" href={messageHref}>Enviar mensagem dentro da Talaza</Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
+                  {messageHref ? <Link className="messageButton" href={messageHref} style={{backgroundColor:'#08745F',backgroundImage:'linear-gradient(135deg,#08745F,#075B4E)',color:'#FFFFFF',opacity:1}}>Enviar mensagem dentro da Talaza</Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
                   
                 </div>
               </div>
@@ -171,7 +171,7 @@ export default function BusinessPublicProfile() {
 
             <section className="messagePanel">
               <div><strong>Gostaste deste negócio?</strong><span>Fala diretamente com o vendedor através das mensagens da Talaza.</span></div>
-              {messageHref ? <Link className="messageButton" href={messageHref}>✉ Enviar mensagem</Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
+              {messageHref ? <Link className="messageButton" href={messageHref} style={{backgroundColor:'#08745F',backgroundImage:'linear-gradient(135deg,#08745F,#075B4E)',color:'#FFFFFF',opacity:1}}>✉ Enviar mensagem</Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
             </section>
 
             <section className="productsCard">
@@ -207,7 +207,7 @@ export default function BusinessPublicProfile() {
         .topActions{display:flex;gap:10px;margin-top:16px}.topActions .messageButton{width:100%;max-width:420px;min-height:56px;font-size:16px}
         .messagePanel{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;border:1px solid #DCE9E2;border-radius:17px;background:linear-gradient(120deg,#F5FAF7,#FFFFFF);box-shadow:0 5px 18px rgba(20,54,44,.04)}.messagePanel div{display:grid;gap:5px}.messagePanel .messageButton{min-width:230px;min-height:58px;font-size:15px}.messagePanel strong{font-size:15px;color:#18382D}.messagePanel span{font-size:12px;line-height:1.5;color:#687970}
         .messageButton,.disabledMessage,.primaryButton{display:inline-flex;align-items:center;justify-content:center;min-height:54px;padding:13px 22px;border-radius:13px;text-decoration:none;font-size:15px;font-weight:900}
-        .messageButton,.primaryButton{background:linear-gradient(135deg,#08745F,#075B4E);color:#fff;border:2px solid #E7BD48;box-shadow:0 8px 20px rgba(7,91,78,.22);letter-spacing:.2px}
+        .messageButton,.primaryButton{background:#08745F!important;background-image:linear-gradient(135deg,#08745F,#075B4E)!important;color:#fff!important;border:2px solid #E7BD48;box-shadow:0 8px 20px rgba(7,91,78,.22);letter-spacing:.2px;opacity:1!important;text-decoration:none!important}
         .disabledMessage{background:#EDF1EF;color:#7A8983}
         .detailsCard,.productsCard{padding:20px}
         h2{font-size:20px;margin:0 0 15px}
