@@ -169,6 +169,11 @@ export default function BusinessPublicProfile() {
               {!business.whatsapp && !business.phone && !business.email && !addressLine && !business.opening_hours && <p className="muted">O vendedor ainda não adicionou os contactos e a localização.</p>}
             </section>
 
+            <section className="messagePanel">
+              <div><strong>Gostaste deste negócio?</strong><span>Fala diretamente com o vendedor através das mensagens da Talaza.</span></div>
+              {messageHref ? <Link className="messageButton" href={messageHref}>✉ Enviar mensagem</Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
+            </section>
+
             <section className="productsCard">
               <div className="productsHeading">
                 <div><span className="eyebrow">GALERIA DO NEGÓCIO</span><h2>Conteúdo do negócio</h2><p>Escolhe Todos, Imagens ou Vídeos e, abaixo, a forma de visualização.</p></div>
@@ -185,7 +190,7 @@ export default function BusinessPublicProfile() {
         .brand{display:flex;align-items:center;gap:8px;text-decoration:none;color:#075B4E;font-size:17px;font-weight:900}
         .brandMark{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:#075B4E;color:#F0C84B}
         .backLink{color:#075B4E;text-decoration:none;font-size:12px;font-weight:800}
-        .profileWrap{width:min(980px,calc(100% - 28px));margin:16px auto 0;display:grid;gap:13px}
+        .profileWrap{width:min(920px,calc(100% - 28px));margin:16px auto 0;display:grid;gap:13px}
         .identityCard,.detailsCard,.productsCard,.stateCard{overflow:hidden;border:1px solid #E1E8E4;border-radius:19px;background:#fff;box-shadow:0 8px 25px rgba(20,54,44,.045)}
         .cover{height:clamp(145px,22vw,240px);background:linear-gradient(135deg,#DCECE6,#F0F5F2)}
         .cover img{width:100%;height:100%;display:block;object-fit:cover}
@@ -195,20 +200,21 @@ export default function BusinessPublicProfile() {
         .logo img{width:100%;height:100%;object-fit:cover}
         h1{font-size:clamp(22px,4vw,31px);line-height:1.2;margin:9px 0 7px;overflow-wrap:anywhere}
         .description{white-space:pre-wrap;color:#53635D;font-size:13px;line-height:1.55;margin:0 0 12px}
-        .mainImages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:12px 0}
-        .mainImage{aspect-ratio:1/1;overflow:hidden;border-radius:12px;background:#EDF3F0}
+        .mainImages{width:min(100%,570px);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px auto}
+        .mainImage{aspect-ratio:1/1;max-height:180px;overflow:hidden;border-radius:13px;background:#EDF3F0;box-shadow:0 3px 12px rgba(20,54,44,.07)}
         .mainImage img{display:block;width:100%;height:100%;object-fit:cover}
         .mainImage span{height:100%;display:grid;place-items:center;color:#8A9992;font-size:12px}
         .topActions{display:flex;gap:10px;margin-top:14px}
+        .messagePanel{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;border:1px solid #DCE9E2;border-radius:17px;background:linear-gradient(120deg,#F5FAF7,#FFFFFF);box-shadow:0 5px 18px rgba(20,54,44,.04)}.messagePanel div{display:grid;gap:5px}.messagePanel strong{font-size:15px;color:#18382D}.messagePanel span{font-size:12px;line-height:1.5;color:#687970}
         .messageButton,.disabledMessage,.primaryButton{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:11px 17px;border-radius:11px;text-decoration:none;font-size:13px;font-weight:800}
         .messageButton,.primaryButton{background:#075B4E;color:#fff}
         .disabledMessage{background:#EDF1EF;color:#7A8983}
-        .detailsCard,.productsCard{padding:18px}
+        .detailsCard,.productsCard{padding:20px}
         h2{font-size:20px;margin:0 0 15px}
-        .detailsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-        .detail{display:grid;gap:5px;min-width:0;padding:10px;border:1px solid #E6ECE9;border-radius:12px;background:#FAFCFB}
-        .detail span{font-size:11px;color:#75847D;font-weight:700}
-        .detail strong{font-size:13px;line-height:1.5;overflow-wrap:anywhere;font-weight:700}
+        .detailsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+        .detail{display:grid;grid-template-columns:30px minmax(0,1fr);grid-template-rows:auto auto;column-gap:10px;align-items:center;min-width:0;padding:13px 14px;border:1px solid #E4EBE7;border-radius:13px;background:linear-gradient(135deg,#FFFFFF,#F8FBF9)}
+        .detail span{grid-column:2;font-size:10px;letter-spacing:.45px;text-transform:uppercase;color:#718078;font-weight:850}
+        .detail strong{grid-column:2;font-size:13px;line-height:1.45;overflow-wrap:anywhere;font-weight:750;color:#20332B}
         .muted{color:#73827B;font-size:13px}
         .productsHeading{display:flex;justify-content:space-between;gap:15px}
         .eyebrow{font-size:10px;letter-spacing:1.5px;color:#0B7563;font-weight:900}
@@ -221,7 +227,7 @@ export default function BusinessPublicProfile() {
         .stateCard{width:min(640px,calc(100% - 32px));box-sizing:border-box;margin:55px auto;padding:24px;line-height:1.6;color:#52635B}
         .stateCard h1{color:#17211F}
         .errorState{border-color:#F0D5D5}
-        @media(max-width:600px){.topbar{padding:13px 15px}.profileWrap{width:calc(100% - 20px);margin-top:12px;gap:12px}.identityBody{padding:0 14px 16px}.logo{width:78px;height:78px;margin-top:-39px}.detailsCard,.productsCard{padding:16px}.detailsGrid{grid-template-columns:1fr}.mainImages{gap:5px}.modeChoices{gap:5px}.modeButton{font-size:10px;padding:10px 4px}.cover{height:165px}.stateCard{margin-top:25px}}
+        @media(max-width:600px){.messagePanel{align-items:stretch;flex-direction:column}.messagePanel .messageButton{width:100%;box-sizing:border-box}.topbar{padding:13px 15px}.profileWrap{width:calc(100% - 20px);margin-top:12px;gap:12px}.identityBody{padding:0 14px 16px}.logo{width:78px;height:78px;margin-top:-39px}.detailsCard,.productsCard{padding:16px}.detailsGrid{grid-template-columns:1fr}.mainImages{gap:5px}.modeChoices{gap:5px}.modeButton{font-size:10px;padding:10px 4px}.cover{height:165px}.stateCard{margin-top:25px}}
       `}</style>
     </>
   );
