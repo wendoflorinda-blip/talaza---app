@@ -25,8 +25,8 @@ export default function Notificacoes() {
       setUser(data.user);
       const { data: rows, error: queryError } = await supabase
         .from('notifications')
-        .select('id, title, body, type, created_at, user_id')
-        .or(`user_id.is.null,user_id.eq.${data.user.id}`)
+        .select('id, title, content, type, created_at, user_id, is_read')
+        .eq('user_id', data.user.id)
         .order('created_at', { ascending: false });
       if (!active) return;
       if (queryError) {
@@ -48,7 +48,7 @@ export default function Notificacoes() {
         <div style={{ flex: 1 }}>
           <div style={S.brand}>TALAZA</div>
           <h1 style={S.heading}>Notificações</h1>
-          <p style={S.subheading}>Avisos e mensagens da equipa Talaza.</p>
+          <p style={S.subheading}>Acompanha novidades, comentários e reações na tua atividade Talaza.</p>
         </div>
         <TalazaMenu />
       </header>
@@ -58,9 +58,9 @@ export default function Notificacoes() {
           items.length === 0 ? <div style={S.empty}><div style={S.icon}>♧</div><h2>Está tudo em dia</h2><p>Quando a Talaza enviar um aviso geral ou uma mensagem para si, ela aparecerá aqui.</p></div> :
           <div style={S.list}>{items.map(item => (
             <article key={item.id} style={S.card}>
-              <div style={S.cardTop}><span style={S.badge}>{item.type === 'general' || !item.user_id ? 'Aviso geral' : 'Mensagem privada'}</span><time style={S.date}>{item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</time></div>
+              <div style={S.cardTop}><span style={S.badge}>{item.type === 'general' ? 'Aviso geral' : 'Atividade Talaza'}</span><time style={S.date}>{item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</time></div>
               <h2 style={S.title}>{item.title}</h2>
-              <p style={S.body}>{item.body}</p>
+              <p style={S.body}>{item.content}</p>
             </article>
           ))}</div>
         }
