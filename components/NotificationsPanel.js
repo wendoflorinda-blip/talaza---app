@@ -183,7 +183,7 @@ export default function NotificationsPanel({ userId: suppliedUserId }) {
                 </span>
 
                 {notification.content && (
-                  <span>{notification.body}</span>
+                  <span>{notification.content}</span>
                 )}
 
                 <span className="talaza-notification-meta">
