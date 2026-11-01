@@ -36,6 +36,7 @@ export default function Perfil() {
   const [provinceEvents, setProvinceEvents] = useState([]);
   const [loadingSections, setLoadingSections] = useState(false);
   const [unreadEventCount, setUnreadEventCount] = useState(0);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -45,6 +46,9 @@ export default function Perfil() {
       if (authError || !current) { await router.replace('/login'); return; }
       setUser(current);
       setEmail(current.email || '');
+      const { count: unreadNotifications, error: notificationError } = await supabase.from('notifications').select('id', { count:'exact', head:true }).eq('user_id', current.id).eq('is_read', false);
+      if (notificationError) console.warn('Não foi possível carregar notificações pendentes:', notificationError);
+      else setUnreadNotificationCount(unreadNotifications || 0);
       const { data: ownedBusiness, error: ownedBusinessError } = await supabase.from('businesses').select('id').eq('owner_id', current.id).limit(1).maybeSingle();
       if (ownedBusinessError) console.warn('Não foi possível verificar o negócio associado:', ownedBusinessError);
       setHasBusiness(Boolean(ownedBusiness?.id));
@@ -276,6 +280,7 @@ export default function Perfil() {
         <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', justifyContent:'flex-end' }}>
           <Link href={{ pathname:'/explore', query:{ ...(profile?.country_id ? { country:profile.country_id } : {}), ...(profile?.province_id ? { province:profile.province_id } : {}) } }} style={{ color:'#64358B', textDecoration:'none', fontWeight:800, fontSize:12, padding:'8px 10px', border:'1px solid #D9C6E9', borderRadius:10, background:'#F7F1FB' }}>← Voltar à Vitrine</Link>
           <span style={S.headerText}>O meu perfil</span>
+          <button type="button" onClick={() => router.push('/notificacoes')} aria-label="Notificações" style={{...S.more,position:'relative'}}>♧{unreadNotificationCount > 0 && <span style={S.notificationBadge}>{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</span>}</button>
           <button type="button" onClick={() => setMenuOpen((value) => !value)} aria-label="Opções do perfil" style={S.more}>•••</button>
           <TalazaMenu country={profile?.country_id} province={profile?.province_id} countryName="" provinceName="" />
         </div>
@@ -412,6 +417,7 @@ const S = {
   stat:{display:'flex',flexDirection:'column',alignItems:'center',gap:5,padding:'12px 3px',color:C.muted},
   editProfileButton:{width:'100%',padding:'14px 18px',border:0,borderRadius:14,background:C.gold,color:C.dark,fontWeight:900,fontSize:15,cursor:'pointer'},
   tabs:{maxWidth:700,margin:'20px auto 0',display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',background:C.bg,borderBottom:'1px solid '+C.line},
+  notificationBadge:{position:'absolute',top:-6,right:-6,minWidth:17,height:17,padding:'0 4px',borderRadius:999,background:'#C43C45',color:'#FFFFFF',fontSize:10,fontWeight:900,display:'grid',placeItems:'center',border:'2px solid '+C.dark},
   unreadBadge:{position:'absolute',top:-7,right:-13,minWidth:18,height:18,padding:'0 4px',borderRadius:999,background:'#C43C45',color:'#FFFFFF',fontSize:10,fontWeight:900,display:'grid',placeItems:'center',border:'2px solid '+C.bg},
   eventMessageButton:{width:'100%',padding:'11px 14px',border:0,borderRadius:11,background:C.green,color:'#FFFFFF',fontSize:13,fontWeight:850,cursor:'pointer'},
   tab:{minWidth:0,minHeight:76,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:7,border:0,background:'transparent',fontSize:12,cursor:'pointer',padding:'8px 3px'},
