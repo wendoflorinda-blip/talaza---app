@@ -46,9 +46,9 @@ export default function NotificationsPanel({ userId: suppliedUserId }) {
     const { data, error: queryError } = await supabase
       .from('notifications')
       .select(
-        'id, created_at, user_id, type, title, body, is_read'
+        'id, created_at, user_id, type, title, content, is_read'
       )
-      .or(`user_id.is.null,user_id.eq.${userId}`)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -182,12 +182,12 @@ export default function NotificationsPanel({ userId: suppliedUserId }) {
                   {notification.title || 'Notificação Talaza'}
                 </span>
 
-                {notification.body && (
+                {notification.content && (
                   <span>{notification.body}</span>
                 )}
 
                 <span className="talaza-notification-meta">
-                  {notification.type === 'general' || !notification.user_id ? 'Aviso geral' : (notification.type || 'Mensagem privada')}
+                  {notification.type === 'general' ? 'Aviso geral' : (notification.type || 'Atividade Talaza')}
                   {notification.created_at
                     ? ` · ${new Date(
                         notification.created_at
