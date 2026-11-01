@@ -40,6 +40,12 @@ export default function Perfil() {
 
   useEffect(() => { loadProfile(); }, []);
 
+  useEffect(() => {
+    if (!router.isReady) return;
+    const requestedTab = Array.isArray(router.query.tab) ? router.query.tab[0] : router.query.tab;
+    if (['dados', 'guardados', 'eventos', 'parasi'].includes(requestedTab)) setActiveTab(requestedTab);
+  }, [router.isReady, router.query.tab]);
+
   async function loadProfile() {
     try {
       const { data: { user: current }, error: authError } = await supabase.auth.getUser();
@@ -386,7 +392,7 @@ export default function Perfil() {
               {savedBusinesses.map(row => { const business=row.businesses; return <article key={row.id} style={S.savedCard}>
                 {business.cover_url || business.logo_url ? <img src={business.cover_url || business.logo_url} alt="" style={S.savedImage}/> : <div style={S.savedImagePlaceholder}>T</div>}
                 <div style={{padding:14}}><strong>{business.name || 'Negócio Talaza'}</strong><p style={S.cardDescription}>{business.description || 'Conheça este negócio na Vitrine Talaza.'}</p>
-                <Link href={'/businesses/'+business.id} style={S.openBusiness}>Ver perfil</Link></div>
+                <Link href={{ pathname:'/businesses/'+business.id, query:{ returnTo:'/perfil?tab=guardados' } }} style={S.openBusiness}>Ver perfil</Link></div>
               </article>; })}
             </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>▱</span><strong>Ainda não guardou nenhum perfil</strong><p>Quando tocar em Guardar num negócio da Vitrine, ele aparecerá aqui.</p><Link href="/explore" style={S.openBusiness}>Explorar negócios</Link></div>}
           </>}
