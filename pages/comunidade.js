@@ -1664,7 +1664,7 @@ export default function Comunidade() {
                         Comentários
                       </strong>
 
-                      <CommentThread type="community" targetId={post.id} comments={extras[post.id]?.comments || []} userId={user?.id} onRefresh={loadFeed} />
+                      <CommentThread type="community" targetId={post.id} comments={extras[post.id]?.comments || []} userId={user?.id} onRefresh={loadPosts} />
 
                       <textarea
                         value={commentDrafts[post.id] || ''}
