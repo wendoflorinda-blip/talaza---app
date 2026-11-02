@@ -411,7 +411,9 @@ export default function Perfil() {
             {loadingSections ? <p style={S.empty}>A carregar os seus guardados…</p> : savedBusinesses.length ? <div style={S.savedGrid}>
               {savedBusinesses.map(row => { const business=row.businesses; return <article key={row.id} style={S.savedCard}>
                 {business.cover_url || business.logo_url ? <img src={business.cover_url || business.logo_url} alt="" style={S.savedImage}/> : <div style={S.savedImagePlaceholder}>T</div>}
-                <div style={{padding:14}}><strong>{business.name || 'Negócio Talaza'}</strong><p style={S.cardDescription}>{business.description || 'Conheça este negócio na Vitrine Talaza.'}</p>
+                <div style={{padding:14}}><strong>{business.name || 'Negócio Talaza'}</strong>
+                {!business.is_active && <span style={{display:'inline-flex',marginTop:7,padding:'5px 8px',borderRadius:999,background:'#FFF1C2',color:'#6B4A00',fontSize:10,fontWeight:800}}>Perfil inativo temporariamente</span>}
+                <p style={S.cardDescription}>{business.description || 'Conheça este negócio na Vitrine Talaza.'}</p>
                 <Link href={{ pathname:'/businesses/'+business.id, query:{ returnTo:'/perfil?tab=guardados' } }} style={S.openBusiness}>Ver perfil</Link></div>
               </article>; })}
             </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>▱</span><strong>Ainda não guardou nenhum perfil</strong><p>Quando tocar em Guardar num negócio da Vitrine, ele aparecerá aqui.</p><Link href="/explore" style={S.openBusiness}>Explorar negócios</Link></div>}
