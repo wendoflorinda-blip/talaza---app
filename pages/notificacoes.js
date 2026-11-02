@@ -33,6 +33,13 @@ export default function Notificacoes() {
         setError('Não foi possível carregar as notificações. Confirme se a tabela notifications e as políticas RLS foram configuradas.');
       } else {
         setItems(rows || []);
+        const unreadIds = (rows || []).filter(item => !item.is_read).map(item => item.id);
+        if (unreadIds.length) {
+          const { error: markError } = await supabase.from('notifications')
+            .update({ is_read: true }).in('id', unreadIds).eq('user_id', data.user.id);
+          if (markError) console.warn('Não foi possível marcar as notificações como lidas:', markError);
+          else setItems((rows || []).map(item => ({ ...item, is_read: true })));
+        }
       }
       setLoading(false);
     }
