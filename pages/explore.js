@@ -174,7 +174,7 @@ export default function Explore() {
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
   const [categories, setCategories] = useState([]);
-  const [businesses, setBusinesses] = useState([]);
+  const [businesses, setBusinesses] = useState([]);\n  const [premiumPromotions, setPremiumPromotions] = useState([]);\n  const [currentUserId, setCurrentUserId] = useState(null);\n  const [savedPromotionIds, setSavedPromotionIds] = useState([]);\n  const [savingPromotionId, setSavingPromotionId] = useState('');
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [loadingBusinesses, setLoadingBusinesses] = useState(false);
   const [categoryError, setCategoryError] = useState('');
@@ -310,6 +310,66 @@ export default function Explore() {
       cancelled = true;
     };
   }, [router.isReady, country, province]);
+
+  useEffect(() => {
+    if (!router.isReady || !country || !province) { setPremiumPromotions([]); return; }
+    let cancelled = false;
+    async function loadPremiumPromotions() {
+      setLoadingBusinesses(true);
+      setBusinessError('');
+      try {
+        const { data: rows, error: promotionError } = await supabase.from('premium_promotions')
+          .select('id,business_id,plan_id,media_url,media_type,description,expires_at,starts_at')
+          .eq('status','active').gt('expires_at',new Date().toISOString()).order('starts_at',{ascending:false});
+        if (promotionError) throw promotionError;
+        const promotionRows = rows || [];
+        const businessIds = [...new Set(promotionRows.map(item=>item.business_id))];
+        const planIds = [...new Set(promotionRows.map(item=>item.plan_id))];
+        const [businessResult, planResult, authResult] = await Promise.all([
+          businessIds.length ? supabase.from('businesses').select('id,name,owner_id,logo_url,country_id,province_id,subcategory_id').in('id',businessIds) : Promise.resolve({data:[],error:null}),
+          planIds.length ? supabase.from('plans').select('id,duration_days').in('id',planIds) : Promise.resolve({data:[],error:null}),
+          supabase.auth.getUser()
+        ]);
+        if (businessResult.error) throw businessResult.error;
+        const businessById = Object.fromEntries((businessResult.data||[]).map(item=>[item.id,item]));
+        const planById = Object.fromEntries((planResult.data||[]).map(item=>[item.id,item]));
+        const visible = promotionRows.filter(item => {
+          const b=businessById[item.business_id];
+          return b && String(b.country_id)===String(country) && String(b.province_id)===String(province);
+        }).map(item=>({...item,business:businessById[item.business_id],duration_days:planById[item.plan_id]?.duration_days||0}));
+        if (cancelled) return;
+        setPremiumPromotions(visible);
+        const uid=authResult.data?.user?.id||null;
+        setCurrentUserId(uid);
+        if(uid) {
+          const {data:savedRows,error:savedError}=await supabase.from('saved_premium_promotions').select('promotion_id').eq('user_id',uid);
+          if(!savedError && !cancelled) setSavedPromotionIds((savedRows||[]).map(row=>row.promotion_id));
+        }
+      } catch(err) {
+        console.error('Erro ao carregar Destaques Premium da Vitrine:',err);
+        if(!cancelled) { setPremiumPromotions([]); setBusinessError('Não foi possível carregar os Destaques Premium desta região.'); }
+      } finally { if(!cancelled) setLoadingBusinesses(false); }
+    }
+    loadPremiumPromotions();
+    return ()=>{cancelled=true;};
+  },[router.isReady,country,province]);
+
+  async function toggleSavedPromotion(promotion) {
+    if(!currentUserId) { router.push('/login'); return; }
+    setSavingPromotionId(promotion.id);
+    try {
+      if(savedPromotionIds.includes(promotion.id)) {
+        const {error}=await supabase.from('saved_premium_promotions').delete().eq('user_id',currentUserId).eq('promotion_id',promotion.id);
+        if(error) throw error;
+        setSavedPromotionIds(prev=>prev.filter(id=>id!==promotion.id));
+      } else {
+        const {error}=await supabase.from('saved_premium_promotions').insert({user_id:currentUserId,promotion_id:promotion.id});
+        if(error) throw error;
+        setSavedPromotionIds(prev=>[...prev,promotion.id]);
+      }
+    } catch(err) { setBusinessError(err.message||'Não foi possível guardar a publicação.'); }
+    finally { setSavingPromotionId(''); }
+  }
 
   async function handleAreaClick(area) {
     if (area.route) {
@@ -544,49 +604,26 @@ export default function Explore() {
                 <div className="error-card">{businessError}</div>
               )}
 
-              {!loadingBusinesses && !businessError && businesses.length > 0 && (
-                <div className="business-grid">
-                  {businesses.map((business) => (
-                    <Link
-                      key={business.id}
-                      href={{
-                        pathname: `/businesses/${business.id}`,
-                        query: exploreQuery,
-                      }}
-                      className="business-card"
-                      onClick={() => trackMainBusiness(business)}
-                    >
-                      {business.logo_url ? (
-                        <img src={business.logo_url} alt={business.name} />
-                      ) : (
-                        <div className="business-placeholder">
-                          {String(business.name || 'T')
-                            .normalize('NFC')
-                            .trim()
-                            .charAt(0)
-                            .toLocaleUpperCase('pt-AO')}
+              {!loadingBusinesses && !businessError && premiumPromotions.length > 0 && (
+                <div className="premium-post-grid">
+                  {premiumPromotions.map((item) => (
+                    <article key={item.id} className="premium-post-card">
+                      {item.media_type === 'video' ? <video src={item.media_url} controls playsInline /> : <img src={item.media_url} alt="Publicação Destaque Premium" />}
+                      <div className="premium-post-body">
+                        <span className="premium-post-label">✦ DESTAQUE PREMIUM</span>
+                        <h3>{item.business?.name || 'Negócio Talaza'}</h3>
+                        <p>{item.description}</p>
+                        <div className="premium-post-actions">
+                          <button type="button" onClick={()=>router.push({pathname:'/mensagens',query:{to:item.business?.owner_id,source:'Vitrine',sourceId:item.business_id,box:'explore'}})} disabled={!item.business?.owner_id}>Enviar mensagem</button>
+                          <Link href={{pathname:'/businesses/'+item.business_id,query:exploreQuery}}>Ver perfil</Link>
+                          {item.duration_days===30 && <button type="button" onClick={()=>toggleSavedPromotion(item)} disabled={savingPromotionId===item.id}>{savingPromotionId===item.id?'…':savedPromotionIds.includes(item.id)?'✓ Guardado':'☆ Guardar'}</button>}
                         </div>
-                      )}
-
-                      <h3>{business.name}</h3>
-
-                      {business.description && (
-                        <p>{business.description}</p>
-                      )}
-
-                      {(business.municipality || business.neighborhood) && (
-                        <span className="business-location">
-                          {[business.municipality, business.neighborhood]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </span>
-                      )}
-
-                      <span className="business-link">Ver perfil →</span>
-                    </Link>
+                      </div>
+                    </article>
                   ))}
                 </div>
               )}
+              {!loadingBusinesses && !businessError && premiumPromotions.length === 0 && <div className="empty-card"><p>Ainda não há publicações Destaque Premium ativas nesta região.</p></div>}
             </>
           )}
         </section>
@@ -707,7 +744,7 @@ export default function Explore() {
           font-size: 12px;
           line-height: 1.6;
         }
-        .categories-section, .businesses-section { margin-top: 36px; scroll-margin-top: 20px; }
+        .categories-section, .businesses-section { margin-top: 36px; scroll-margin-top: 20px; }\n        .premium-post-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:18px; }\n        .premium-post-card { overflow:hidden; border:1px solid #E3E8E4; border-radius:18px; background:#fff; box-shadow:0 10px 28px rgba(24,39,34,.07); }\n        .premium-post-card > img,.premium-post-card > video { display:block; width:100%; aspect-ratio:1/1; object-fit:cover; background:#111; }\n        .premium-post-body { padding:15px; } .premium-post-label { color:#9A7100; font-size:10px; font-weight:900; letter-spacing:1px; }\n        .premium-post-body h3 { margin:8px 0 5px; font-size:16px; } .premium-post-body p { color:#66736F; font-size:13px; line-height:1.55; }\n        .premium-post-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }\n        .premium-post-actions button,.premium-post-actions a { border:0; border-radius:9px; padding:9px 11px; background:#08745F; color:#fff; text-decoration:none; font-size:11px; font-weight:800; cursor:pointer; }\n        .premium-post-actions a { background:#F2EAF9; color:#3F1D60; }
         .section-heading {
           display: flex;
           align-items: flex-end;
