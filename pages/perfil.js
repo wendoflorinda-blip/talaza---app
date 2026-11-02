@@ -113,9 +113,10 @@ export default function Perfil() {
           const eventRows = eventsResult.data || [];
           setProvinceEvents(eventRows);
           try {
-            const seenAt = localStorage.getItem('talaza_events_seen_' + current.id) || '';
-            setUnreadEventCount(eventRows.filter(item => item.created_at && (!seenAt || new Date(item.created_at).getTime() > new Date(seenAt).getTime())).length);
-          } catch { setUnreadEventCount(0); }
+            const seenIds = JSON.parse(localStorage.getItem('talaza_events_seen_ids_' + current.id) || '[]');
+            const seenSet = new Set(Array.isArray(seenIds) ? seenIds.map(String) : []);
+            setUnreadEventCount(eventRows.filter(item => !seenSet.has(String(item.id))).length);
+          } catch { setUnreadEventCount(eventRows.length); }
         }
         setLoadingSections(false);
       }
@@ -357,7 +358,11 @@ export default function Perfil() {
           <button key={id} type="button" onClick={() => {
             setActiveTab(id);
             if (id === 'eventos' && user) {
-              try { localStorage.setItem('talaza_events_seen_' + user.id, new Date().toISOString()); } catch {}
+              try {
+                const seenIds = JSON.parse(localStorage.getItem('talaza_events_seen_ids_' + user.id) || '[]');
+                const nextSeen = [...new Set([...(Array.isArray(seenIds) ? seenIds.map(String) : []), ...provinceEvents.map(item => String(item.id))])];
+                localStorage.setItem('talaza_events_seen_ids_' + user.id, JSON.stringify(nextSeen));
+              } catch {}
               setUnreadEventCount(0);
             }
           }} aria-current={activeTab===id?'page':undefined}
