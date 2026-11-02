@@ -54,7 +54,7 @@ function makeBusinessHref(id, country, province, subcategoryId) {
 
 export default function Subcategory() {
   const router = useRouter();
-  const { id, country, province } = router.query;
+  const { id, country, province, homeCountry, homeProvince } = router.query;
 
   const [subcategory, setSubcategory] = useState(null);
   const [businesses, setBusinesses] = useState([]);
@@ -368,12 +368,16 @@ export default function Subcategory() {
       const params = new URLSearchParams();
       if (country) params.set('country', country);
       if (province) params.set('province', province);
+      if (homeCountry) params.set('homeCountry', homeCountry);
+      if (homeProvince) params.set('homeProvince', homeProvince);
       return `/explore${params.toString() ? `?${params.toString()}` : ''}`;
     }
 
     const params = new URLSearchParams({ id: String(categoryId) });
     if (country) params.set('country', String(country));
     if (province) params.set('province', String(province));
+    if (homeCountry) params.set('homeCountry', String(homeCountry));
+    if (homeProvince) params.set('homeProvince', String(homeProvince));
     return `/category?${params.toString()}`;
   }
 
