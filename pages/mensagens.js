@@ -287,6 +287,7 @@ export default function Mensagens() {
             }
             if (existing) {
               setActiveId(existing.id);
+              await refreshBusinessConversationStatus(existing);
               setActivePeer({
                 id:target.id,
                 name:existing.peerName || target.name || 'Utilizador Talaza',
@@ -346,6 +347,7 @@ export default function Mensagens() {
                 sourceLabel:contextParts.join(' · ')
               };
               setConversations(previous => [newConversation,...previous]);
+              setActiveBusinessInactive(false);
               setActiveId(created.id);
               setActivePeer({id:target.id,name:newConversation.peerName,photo:newConversation.peerPhoto,sourceLabel:newConversation.sourceLabel});
               router.replace({pathname:'/mensagens',query:{...(safe(router.query.box) ? {box:safe(router.query.box)} : {}),...(safe(router.query.returnTo) ? {returnTo:safe(router.query.returnTo)} : {}),conversation:created.id}},undefined,{shallow:true});
