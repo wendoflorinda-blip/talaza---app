@@ -392,8 +392,9 @@ export default function Pagamento() {
 
       submissionStage = 'guardar o pedido na tabela payment_submissions';
       const submission = {
-        business_id: business?.id || null,
+        business_id: premiumPromotion ? null : business?.id || null,
         event_id: eventRecord?.id || null,
+        premium_promotion_id: premiumPromotion?.id || null,
         job_post_id: null,
         plan_id: plan.id,
         user_id: session.user.id,
@@ -408,13 +409,13 @@ export default function Pagamento() {
       // As colunas separadas permitem abrir imagem e PDF no painel. Se a base de
       // dados ainda não recebeu a migração, tentamos o formato legado sem perder
       // os dois caminhos: ficam guardados juntos em proof_url como JSON.
-      let { error: insertError } = await supabase
+      let { data: insertedSubmission, error: insertError } = await supabase
         .from('payment_submissions')
         .insert({
           ...submission,
           proof_image_url: imagePath,
           proof_file_url: pdfPath,
-        });
+        }).select('id').single();
 
       const missingProofColumns = insertError && (
         /proof_image_url|proof_file_url/i.test(insertError.message || '') &&
@@ -430,11 +431,18 @@ export default function Pagamento() {
         };
         const retry = await supabase
           .from('payment_submissions')
-          .insert(legacySubmission);
+          .insert(legacySubmission).select('id').single();
+        insertedSubmission = retry.data;
         insertError = retry.error;
       }
 
       if (insertError) throw insertError;
+      if (premiumPromotion?.id && insertedSubmission?.id) {
+        const { error: promotionUpdateError } = await supabase.from('premium_promotions')
+          .update({ status: 'pending', payment_submission_id: insertedSubmission.id })
+          .eq('id', premiumPromotion.id).eq('user_id', session.user.id);
+        if (promotionUpdateError) console.warn('O comprovativo foi registado, mas não foi possível atualizar o estado da publicação:', promotionUpdateError);
+      }
 
       setDone(true);
       window.scrollTo(0, 0);
