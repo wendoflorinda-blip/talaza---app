@@ -61,43 +61,31 @@ export default function Login() {
 
       if (profileError) throw profileError;
 
-      const accountType = String(
-        profile?.account_type || profile?.user_type || profile?.role || ''
-      )
-        .trim()
-        .toLowerCase();
-
-      const isSellerAccount =
-        accountType.includes('vendedor') || accountType.includes('seller');
-
       /*
-       * Exploradores não precisam consultar businesses.
-       * A consulta é exclusiva de contas de vendedor e usa sempre o ID
-       * autenticado, respeitando a política RLS de propriedade.
+       * A mesma conta pode ter perfil de Explorador e também ser proprietária
+       * de um negócio. A propriedade do negócio tem prioridade no login:
+       * se existir negócio associado ao utilizador, abrir o painel de vendedor.
+       *
+       * A política RLS "Owners can view own businesses" permite esta consulta
+       * sem expor negócios de outros utilizadores.
        */
-      if (isSellerAccount) {
-        const { data: ownedBusiness, error: businessError } = await supabase
-          .from('businesses')
-          .select('id')
-          .eq('owner_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+      const { data: ownedBusiness, error: businessError } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-        if (businessError) {
-          console.error('Erro ao verificar o negócio do vendedor:', businessError);
-          throw new Error(
-            'A sessão foi iniciada, mas não foi possível verificar o seu negócio. Tente novamente.'
-          );
-        }
+      if (businessError) {
+        console.error('Erro ao verificar o negócio associado:', businessError);
+        throw new Error(
+          'A sessão foi iniciada, mas não foi possível verificar o seu negócio. Tente novamente.'
+        );
+      }
 
-        if (ownedBusiness?.id) {
-          await router.replace('/seller');
-          return;
-        }
-
-        // Conta de vendedor sem negócio associado: concluir o cadastro.
-        await router.replace('/post-business');
+      if (ownedBusiness?.id) {
+        await router.replace('/seller');
         return;
       }
 
