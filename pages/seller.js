@@ -792,6 +792,7 @@ export default function Seller() {
               countryName=""
               provinceName=""
               sellerPanelRoute="/seller"
+              currentArea="seller"
             />
           </div>
         </div>
