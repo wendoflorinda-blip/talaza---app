@@ -48,6 +48,15 @@ export default function BusinessPublicProfile() {
 
         if (businessError) throw businessError;
         if (!businessData) throw new Error('Este negócio não está disponível publicamente.');
+        const { data: hostingRows, error: hostingError } = await supabase.from('business_subscriptions')
+          .select('id,status,starts_at,expires_at,created_at')
+          .eq('business_id',businessData.id)
+          .order('starts_at',{ascending:false}).order('created_at',{ascending:false}).limit(1);
+        if (!hostingError) {
+          const currentSub=hostingRows?.[0];
+          const expiry=currentSub?.expires_at ? new Date(currentSub.expires_at) : null;
+          businessData.is_active=Boolean(businessData.is_active && currentSub && String(currentSub.status || '').trim().toLowerCase()==='active' && expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime()>Date.now());
+        }
         if (!businessData.is_active) {
           const { data: { user: viewer } } = await supabase.auth.getUser();
           if (!viewer) throw new Error('A hospedagem deste negócio expirou. Entre na sua conta e consulte os seus Guardados durante o período de tolerância.');
