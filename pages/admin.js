@@ -986,7 +986,6 @@ export default function Admin() {
         if (promotionUpdateError) activationMessage = ' O comprovativo foi recusado, mas não foi possível atualizar a publicação: ' + promotionUpdateError.message;
         else activationMessage = ' A publicação foi marcada como recusada. Poderá corrigir o pagamento e submeter novamente.';
       }
-      await notifyUser(promotion?.user_id || request.user_id, approved ? 'Destaque Premium aprovado — Talaza' : 'Destaque Premium recusado — Talaza', approved ? 'O pagamento foi confirmado.' + activationMessage : 'O comprovativo do Destaque Premium foi recusado. ' + activationMessage, 'premium_promotion');
     }
     if (approved && request.business_id && request.plan_id) {
       const [{ data: business, error: businessError }, { data: plan, error: planError }] = await Promise.all([
