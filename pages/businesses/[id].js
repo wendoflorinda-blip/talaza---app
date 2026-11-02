@@ -56,6 +56,8 @@ export default function BusinessPublicProfile() {
           const currentSub=hostingRows?.[0];
           const expiry=currentSub?.expires_at ? new Date(currentSub.expires_at) : null;
           businessData.is_active=Boolean(businessData.is_active && currentSub && String(currentSub.status || '').trim().toLowerCase()==='active' && expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime()>Date.now());
+        } else {
+          businessData.is_active=false;
         }
         if (!businessData.is_active) {
           const { data: { user: viewer } } = await supabase.auth.getUser();
