@@ -909,7 +909,7 @@ export default function Seller() {
             <strong style={{display:'block',marginBottom:9}}>Escolha um plano para renovar a hospedagem</strong>
             {renewalLoading ? <p>A carregar planos disponíveis…</p> : renewalPlans.length ? <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:10}}>
               {renewalPlans.map(plan=><div key={plan.id} style={{padding:12,border:'1px solid #E8D49A',borderRadius:12,background:'#FFFFFF'}}>
-                <strong style={{display:'block,fontSize:13}}>{plan.name}</strong>
+                <strong style={{display:'block',fontSize:13}}>{plan.name}</strong>
                 <p style={{fontSize:12,margin:'6px 0',color:'#705B25'}}>{plan.duration_days} dias · {formatKz(plan.price)}</p>
                 <Link href={{pathname:'/Pagamento',query:{plan:plan.id,business:business.id,renewal:'1'}}} style={{display:'inline-flex',padding:'9px 12px',borderRadius:9,background:'#075B4E',color:'#FFFFFF',fontWeight:800,fontSize:12,textDecoration:'none'}}>Escolher e renovar</Link>
               </div>)}
