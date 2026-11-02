@@ -29,7 +29,16 @@ function getInitial(name) {
 
 export default function Category() {
   const router = useRouter();
-  const { id, country, province } = router.query;
+  const { id, country, province, homeCountry, homeProvince } = router.query;
+  const exploreHref = {
+    pathname: '/explore',
+    query: {
+      ...(country ? { country } : {}),
+      ...(province ? { province } : {}),
+      ...(homeCountry ? { homeCountry } : {}),
+      ...(homeProvince ? { homeProvince } : {}),
+    },
+  };
 
   const [category, setCategory] = useState(null);
   const [subcategories, setSubcategories] = useState([]);
@@ -123,6 +132,8 @@ export default function Category() {
 
     if (country) params.set('country', country);
     if (province) params.set('province', province);
+    if (homeCountry) params.set('homeCountry', homeCountry);
+    if (homeProvince) params.set('homeProvince', homeProvince);
 
     return `/subcategory?${params.toString()}`;
   }
@@ -141,12 +152,12 @@ export default function Category() {
 
       <main className="page">
         <header className="topbar">
-          <Link href="/explore" className="brand">
+          <Link href={exploreHref} className="brand">
             <span className="brandMark">T</span>
             <span>talaza</span>
           </Link>
 
-          <Link href="/explore" className="backLink">
+          <Link href={exploreHref} className="backLink">
             ← Voltar à Vitrine
           </Link>
         </header>
