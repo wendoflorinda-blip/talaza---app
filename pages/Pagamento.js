@@ -186,6 +186,9 @@ export default function Pagamento() {
       eventId
         ? supabase.from('events').select('id,user_id,plan_id,title,country_id,province_id,status,payment_status,expires_at').eq('id', eventId).eq('user_id', session.user.id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
+      premiumPromotionId
+        ? supabase.from('premium_promotions').select('id,business_id,user_id,plan_id,status,description').eq('id', premiumPromotionId).eq('user_id', session.user.id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
     if (planResult.error || !planResult.data) {
@@ -217,7 +220,14 @@ export default function Pagamento() {
       setLoading(false);
       return;
     }
-    if (businessId) {
+    if (premiumPromotionId) {
+      const kind = String(planResult.data.plan_type || '').trim().toLowerCase();
+      if (kind !== 'destaque premium' || String(premiumResult.data.plan_id) !== String(planId) || premiumResult.data.status !== 'pending_payment') {
+        setError('O plano não corresponde à publicação ou esta já tem um pagamento em análise.');
+        setLoading(false);
+        return;
+      }
+    } else if (businessId) {
       const kind = String(planResult.data.plan_type || '').trim().toLowerCase();
       const planMatchesBusiness =
         kind === 'hospedagem' &&
