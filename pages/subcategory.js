@@ -258,9 +258,12 @@ export default function Subcategory() {
             .order('starts_at',{ascending:false});
           if(promoError) console.warn('Não foi possível carregar promoções da subcategoria:',promoError);
           const promoBusinessIds=[...new Set((promoRows||[]).map(item=>item.business_id))];
+          const {data:promoAuth}=await supabase.auth.getUser();
+          const promoUserId=promoAuth?.user?.id || currentUserId;
+          if(promoUserId) setCurrentUserId(promoUserId);
           const [promoBusinesses,promoSaved]=await Promise.all([
             promoBusinessIds.length ? supabase.from('businesses').select('id,name,owner_id,logo_url,province_id,country_id,subcategory_id').in('id',promoBusinessIds) : Promise.resolve({data:[],error:null}),
-            currentUserId ? supabase.from('saved_premium_promotions').select('promotion_id').eq('user_id',currentUserId) : Promise.resolve({data:[],error:null})
+            promoUserId ? supabase.from('saved_premium_promotions').select('promotion_id').eq('user_id',promoUserId) : Promise.resolve({data:[],error:null})
           ]);
           if(promoBusinesses.error) console.warn('Não foi possível carregar negócios dos destaques:',promoBusinesses.error);
           const businessMap=Object.fromEntries((promoBusinesses.data||[]).map(item=>[item.id,item]));
