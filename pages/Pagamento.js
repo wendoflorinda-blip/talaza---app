@@ -194,19 +194,6 @@ export default function Pagamento() {
       return;
     }
 
-    if (businessId) {
-      const kind = String(planResult.data.plan_type || '').trim().toLowerCase();
-      const planMatchesBusiness =
-        kind === 'hospedagem' &&
-        String(planResult.data.category_id || '') === String(businessResult.data.category_id || '') &&
-        (!planResult.data.subcategory_id || String(planResult.data.subcategory_id) === String(businessResult.data.subcategory_id || ''));
-      if (!planMatchesBusiness) {
-        setError('O plano escolhido não corresponde à categoria e subcategoria deste negócio. Volte ao painel do vendedor e escolha um plano de hospedagem disponível para o seu negócio.');
-        setLoading(false);
-        return;
-      }
-    }
-
     const subject = isOpportunitySubscription ? true : eventId ? eventResult.data : businessResult.data;
     if (eventId && (eventResult.error || !eventResult.data)) {
       setError('Não foi possível encontrar o evento desta conta.');
@@ -224,6 +211,19 @@ export default function Pagamento() {
       setLoading(false);
       return;
     }
+    if (businessId) {
+      const kind = String(planResult.data.plan_type || '').trim().toLowerCase();
+      const planMatchesBusiness =
+        kind === 'hospedagem' &&
+        String(planResult.data.category_id || '') === String(businessResult.data.category_id || '') &&
+        (!planResult.data.subcategory_id || String(planResult.data.subcategory_id) === String(businessResult.data.subcategory_id || ''));
+      if (!planMatchesBusiness) {
+        setError('O plano escolhido não corresponde à categoria e subcategoria deste negócio. Volte ao painel do vendedor e escolha um plano de hospedagem disponível para o seu negócio.');
+        setLoading(false);
+        return;
+      }
+    }
+
     if (eventId && (
       String(eventResult.data.plan_id) !== String(planId) ||
       eventResult.data.status !== 'pending_payment' ||
