@@ -33,6 +33,7 @@ export default function Perfil() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('inicio');
   const [savedBusinesses, setSavedBusinesses] = useState([]);
+  const [savedBusinessUpdates, setSavedBusinessUpdates] = useState([]);
   const [provinceEvents, setProvinceEvents] = useState([]);
   const [loadingSections, setLoadingSections] = useState(false);
   const [unreadEventCount, setUnreadEventCount] = useState(0);
@@ -43,7 +44,7 @@ export default function Perfil() {
   useEffect(() => {
     if (!router.isReady) return;
     const requestedTab = Array.isArray(router.query.tab) ? router.query.tab[0] : router.query.tab;
-    if (['dados', 'guardados', 'eventos', 'parasi'].includes(requestedTab)) setActiveTab(requestedTab);
+    if (['dados', 'guardados', 'novidades', 'eventos', 'parasi'].includes(requestedTab)) setActiveTab(requestedTab);
   }, [router.isReady, router.query.tab]);
 
   async function loadProfile() {
@@ -68,11 +69,28 @@ export default function Perfil() {
       if (data?.province_id) {
         setLoadingSections(true);
         const [savedResult, eventsResult] = await Promise.all([
-          supabase.from('saved_businesses').select('id,created_at,businesses(id,name,description,logo_url,cover_url,province_id,municipality)').eq('user_id', current.id).order('created_at', { ascending:false }),
+          supabase.from('saved_businesses').select('id,created_at,businesses(id,name,description,logo_url,cover_url,province_id,municipality,is_active,approval_status)').eq('user_id', current.id).order('created_at', { ascending:false }),
           supabase.from('events').select('id,user_id,title,description,image_url,video_url,location,starts_at,expires_at,province_id,created_at').eq('province_id', data.province_id).eq('status','published').eq('payment_status','paid').eq('admin_approved',true).gt('expires_at',new Date().toISOString()).order('starts_at',{ascending:true})
         ]);
         if (savedResult.error) console.warn('Não foi possível carregar os perfis guardados:', savedResult.error);
-        else setSavedBusinesses((savedResult.data || []).filter(row => row.businesses));
+        else {
+          const savedRows = (savedResult.data || []).filter(row => row.businesses);
+          setSavedBusinesses(savedRows);
+          const updateGroups = await Promise.all(savedRows.map(async row => {
+            const business = row.businesses;
+            if (!business?.is_active || business.approval_status !== 'approved') return [];
+            const { data: updates, error: updatesError } = await supabase.from('business_updates')
+              .select('id,business_id,media_path,media_type,created_at,expires_at')
+              .eq('business_id', business.id).gt('expires_at',new Date().toISOString())
+              .order('created_at',{ascending:false});
+            if (updatesError) { console.warn('Novidades indisponíveis:',updatesError); return []; }
+            return Promise.all((updates || []).map(async item => {
+              const { data: signed, error } = await supabase.storage.from('business-updates').createSignedUrl(item.media_path,3600);
+              return error ? null : {...item,signedUrl:signed?.signedUrl,businessName:business.name};
+            }));
+          }));
+          setSavedBusinessUpdates(updateGroups.flat().filter(Boolean).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)));
+        }
         if (eventsResult.error) console.warn('Não foi possível carregar os eventos da província principal:', eventsResult.error);
         else {
           const eventRows = eventsResult.data || [];
@@ -314,7 +332,9 @@ export default function Perfil() {
       <nav aria-label="Secções do perfil" style={S.tabs}>
         {[
           ['dados','♙','Dados'],
-          ['guardados','▱','Guardados'],          ['eventos','▣','Eventos'],
+          ['guardados','▱','Guardados'],
+          ['novidades','✦','Novidades'],
+          ['eventos','▣','Eventos'],
           ['parasi','✧','Para si']
         ].map(([id,icon,label]) => (
           <button key={id} type="button" onClick={() => {
@@ -396,6 +416,16 @@ export default function Perfil() {
               </article>; })}
             </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>▱</span><strong>Ainda não guardou nenhum perfil</strong><p>Quando tocar em Guardar num negócio da Vitrine, ele aparecerá aqui.</p><Link href="/explore" style={S.openBusiness}>Explorar negócios</Link></div>}
           </>}
+          {activeTab === 'novidades' && <>
+            <h2 style={S.sectionTitle}>Novidades dos seus negócios favoritos</h2>
+            <p style={S.sectionIntro}>Não perca as novidades dos seus negócios favoritos! Guarde os perfis dos negócios que mais lhe interessam e acompanhe as suas novas imagens, vídeos e atualizações nesta área. Sempre que publicarem uma novidade, poderá encontrá-la aqui. As atualizações são apresentadas apenas aos exploradores que guardaram o respetivo perfil.</p>
+            {loadingSections ? <p style={S.empty}>A carregar Novidades…</p> : savedBusinessUpdates.length ? <div style={S.savedGrid}>
+              {savedBusinessUpdates.map(item=><article key={item.id} style={S.savedCard}>
+                {item.media_type==='video' ? <video src={item.signedUrl} controls playsInline style={{width:'100%',height:260,objectFit:'cover',background:'#111'}}/> : <img src={item.signedUrl} alt="Novidade do negócio" style={{width:'100%',height:260,objectFit:'cover'}}/>}
+                <div style={{padding:14}}><strong>{item.businessName}</strong><p style={S.cardDescription}>Publicado em {new Date(item.created_at).toLocaleDateString('pt-PT')}</p><Link href={{pathname:'/businesses/'+item.business_id,query:{returnTo:'/perfil?tab=novidades'}}} style={S.openBusiness}>Ver perfil do negócio</Link></div>
+              </article>)}
+            </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>✦</span><strong>Ainda não há Novidades para si</strong><p>Guarde os perfis dos negócios que mais lhe interessam para acompanhar novas imagens, vídeos e atualizações. Só verá publicações dos negócios que guardou.</p><Link href="/explore" style={S.openBusiness}>Explorar negócios</Link></div>}
+          </>}
           {activeTab === 'eventos' && <>
             <h2 style={S.sectionTitle}>Eventos da sua província</h2>
             <p style={S.sectionIntro}>Aqui aparecem apenas eventos publicados, pagos e aprovados na sua província principal: {provinceName}.</p>
@@ -444,7 +474,7 @@ const S = {
   stats:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',margin:'22px 0',borderTop:'1px solid '+C.line,borderBottom:'1px solid '+C.line},
   stat:{display:'flex',flexDirection:'column',alignItems:'center',gap:5,padding:'12px 3px',color:C.muted},
   editProfileButton:{width:'100%',padding:'14px 18px',border:0,borderRadius:14,background:C.gold,color:C.dark,fontWeight:900,fontSize:15,cursor:'pointer'},
-  tabs:{maxWidth:700,margin:'20px auto 0',display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',background:C.bg,borderBottom:'1px solid '+C.line},
+  tabs:{maxWidth:700,margin:'20px auto 0',display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',background:C.bg,borderBottom:'1px solid '+C.line},
   notificationBadge:{position:'absolute',top:-6,right:-6,minWidth:17,height:17,padding:'0 4px',borderRadius:999,background:'#C43C45',color:'#FFFFFF',fontSize:10,fontWeight:900,display:'grid',placeItems:'center',border:'2px solid '+C.dark},
   unreadBadge:{position:'absolute',top:-7,right:-13,minWidth:18,height:18,padding:'0 4px',borderRadius:999,background:'#C43C45',color:'#FFFFFF',fontSize:10,fontWeight:900,display:'grid',placeItems:'center',border:'2px solid '+C.bg},
   eventMessageButton:{width:'100%',padding:'13px 16px',border:0,borderRadius:12,background:C.green,color:'#FFFFFF',fontSize:14,fontWeight:900,cursor:'pointer',boxShadow:'0 4px 12px rgba(8,116,95,.16)'},
