@@ -286,9 +286,11 @@ export default function Pagamento() {
           (
             eventId
               ? eventResult.data.status !== 'published'
-              : isOpportunitySubscription
-                ? true
-                : String(businessResult.data.approval_status || '').toLowerCase() !== 'approved'
+              : premiumPromotionId
+                ? premiumResult.data.status !== 'active'
+                : isOpportunitySubscription
+                  ? true
+                  : String(businessResult.data.approval_status || '').toLowerCase() !== 'approved'
           )
         )
       )
