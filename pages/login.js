@@ -183,7 +183,7 @@ export default function Login() {
 
       <main style={styles.page}>
         <div style={styles.container}>
-          <Link href="/start" style={styles.back}>
+          <Link href="/" style={styles.back}>
             ← Voltar
           </Link>
 
