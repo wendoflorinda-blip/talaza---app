@@ -69,10 +69,15 @@ export default function Login() {
        * A política RLS "Owners can view own businesses" permite esta consulta
        * sem expor negócios de outros utilizadores.
        */
-      // A verificação é feita por uma função privada que usa auth.uid().
-      // Assim, o login não depende de consultar diretamente a tabela businesses.
-      const { data: ownedBusinessId, error: businessError } =
-        await supabase.rpc('talaza_my_business_id');
+      // Consultar o negócio do utilizador autenticado, tal como no cadastro
+      // do vendedor. A política RLS deve permitir ao proprietário ver o seu registo.
+      const { data: ownedBusiness, error: businessError } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (businessError) {
         console.error('Erro ao verificar o negócio associado:', {
@@ -82,11 +87,11 @@ export default function Login() {
           hint: businessError.hint,
         });
         throw new Error(
-          'Não foi possível confirmar o seu perfil de negócio. Tente novamente.'
+          'Não foi possível confirmar o seu perfil de negócio. Verifique as permissões e tente novamente.'
         );
       }
 
-      if (ownedBusinessId) {
+      if (ownedBusiness?.id) {
         await router.replace('/seller');
         return;
       }
