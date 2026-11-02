@@ -175,7 +175,7 @@ export default function BusinessPublicProfile() {
                   <div className="publicUpdates">
                     <strong>Novidades</strong>
                     {businessUpdates.length ? businessUpdates.map(item => <div className="publicUpdate" key={item.id}>
-                      {item.media_type === 'video' ? <video src={item.signedUrl} controls playsInline preload="metadata" /> : <img src={item.signedUrl} alt="Novidade de " + business.name />}
+                      {item.media_type === 'video' ? <video src={item.signedUrl} controls playsInline preload="metadata" /> : <img src={item.signedUrl} alt={'Novidade de ' + business.name} />}
                       <small>{new Date(item.expires_at).toLocaleDateString('pt-PT')}</small>
                     </div>) : <span className="noUpdates">Sem novidades publicadas</span>}
                   </div>
