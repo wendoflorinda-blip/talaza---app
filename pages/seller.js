@@ -45,6 +45,9 @@ export default function Seller() {
   const [sheetPrice, setSheetPrice] = useState('');
   const [sheetName, setSheetName] = useState('');
   const [sheetDesc, setSheetDesc] = useState('');
+  const [businessUpdates, setBusinessUpdates] = useState([]);
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [updateError, setUpdateError] = useState('');
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -190,6 +193,7 @@ export default function Seller() {
     setEditNeighborhood(data.neighborhood || '');
     setViewMode(VIEW_MODES.includes(data.panel_view_mode) ? data.panel_view_mode : 'normal');
     await loadImages(data.id);
+    await loadBusinessUpdates(data.id);
 
     const { data: pendingRequest, error: pendingRequestError } = await supabase
       .from('payment_submissions')
@@ -220,6 +224,49 @@ export default function Seller() {
       setPendingPlan(null);
     }
     setLoading(false);
+  }
+
+  async function loadBusinessUpdates(businessId) {
+    const { data, error: updatesError } = await supabase.from('business_updates')
+      .select('id,media_path,media_type,created_at,expires_at')
+      .eq('business_id', businessId).gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending:false });
+    if (updatesError) { console.error(updatesError); setUpdateError('Não foi possível carregar as Novidades.'); return; }
+    const rows = await Promise.all((data || []).map(async item => {
+      const { data: signed, error } = await supabase.storage.from('business-updates').createSignedUrl(item.media_path, 3600);
+      return error ? null : { ...item, signedUrl:signed?.signedUrl };
+    }));
+    setBusinessUpdates(rows.filter(Boolean));
+  }
+
+  async function publishBusinessUpdate(file) {
+    if (!file || !business || updateBusy || subscriptionPending) return;
+    const isVideo = file.type.startsWith('video/');
+    if (isVideo && !['video/mp4','video/webm','video/quicktime'].includes(file.type)) { setUpdateError('Use vídeo MP4, WEBM ou MOV.'); return; }
+    if (!isVideo && !['image/jpeg','image/png','image/webp'].includes(file.type)) { setUpdateError('Use imagem JPG, PNG ou WebP.'); return; }
+    if (file.size > 100 * 1024 * 1024) { setUpdateError('O ficheiro deve ter no máximo 100 MB.'); return; }
+    const last = businessUpdates[0];
+    if (last && Date.now() - new Date(last.created_at).getTime() < 7 * 86400000) {
+      setUpdateError('Só poderá publicar outra Novidade quando completar 7 dias desde a última publicação.');
+      return;
+    }
+    setUpdateBusy(true); setUpdateError('');
+    try {
+      const ext = (file.name.split('.').pop() || (isVideo ? 'mp4' : 'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'');
+      const path = business.id + '/update-' + Date.now() + '.' + ext;
+      const { error: uploadError } = await supabase.storage.from('business-updates').upload(path,file,{upsert:false,contentType:file.type,cacheControl:'3600'});
+      if (uploadError) throw uploadError;
+      const { error: insertError } = await supabase.from('business_updates').insert({business_id:business.id,media_path:path,media_type:isVideo?'video':'image'});
+      if (insertError) {
+        await supabase.storage.from('business-updates').remove([path]);
+        throw insertError;
+      }
+      await loadBusinessUpdates(business.id);
+      setNotice('Novidade publicada. Os clientes que guardaram o seu perfil poderão vê-la durante 7 dias.');
+    } catch (err) {
+      console.error('Erro ao publicar Novidade:',err);
+      setUpdateError(err.message || 'Não foi possível publicar a Novidade.');
+    } finally { setUpdateBusy(false); }
   }
 
   async function saveEmailVisibility(nextValue) {
@@ -837,6 +884,25 @@ export default function Seller() {
             <span><strong>{showEmail ? 'Mostrar e-mail aos clientes' : 'Ocultar e-mail aos clientes'}</strong><br />{showEmail ? 'Os visitantes poderão ver o e-mail de contacto.' : 'Os visitantes não verão o e-mail de contacto.'}</span>
           </label>
           {emailVisibilitySaving && <p style={{ margin: '10px 0 0', fontSize: 12 }}>A guardar preferência…</p>}
+        </section>
+
+        <section style={{marginTop:18,padding:18,border:'1px solid #D9E8E1',borderRadius:16,background:'#FFFFFF'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+            <div><h2 style={{margin:'0 0 5px',color:'#075B4E'}}>Novidades</h2><p style={{margin:0,fontSize:12,color:'#65756E'}}>Publique uma imagem ou vídeo vertical (9:16). Cada publicação fica disponível durante 7 dias.</p></div>
+            <label style={{padding:'11px 15px',borderRadius:10,background:subscriptionPending?'#AAB4AF':'#075B4E',color:'#fff',fontWeight:800,fontSize:12,cursor:subscriptionPending?'not-allowed':'pointer'}}>
+              {updateBusy?'A publicar…':'＋ Publicar novidade'}
+              <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" disabled={subscriptionPending || updateBusy} hidden onChange={e=>{const f=e.target.files?.[0];e.target.value='';if(f)publishBusinessUpdate(f);}} />
+            </label>
+          </div>
+          <p style={{fontSize:12,lineHeight:1.6,color:'#64358B',margin:'12px 0'}}>Todo cliente que guardou o seu perfil verá esta publicação no seu painel de Novidades.</p>
+          {updateError && <p role="alert" style={{color:'#A52F3B',fontSize:12}}>{updateError}</p>}
+          {businessUpdates.length>0 && <div style={{display:'flex',gap:12,overflowX:'auto',padding:'5px 0'}}>
+            {businessUpdates.map(item=><div key={item.id} style={{flex:'0 0 120px',width:120}}>
+              {item.media_type==='video'?<video src={item.signedUrl} controls playsInline style={{width:120,aspectRatio:'9/16',objectFit:'cover',borderRadius:12,background:'#111'}}/>:<img src={item.signedUrl} alt="Novidade publicada" style={{width:120,aspectRatio:'9/16',objectFit:'cover',borderRadius:12}}/>}
+              <small style={{display:'block',marginTop:5,color:'#65756E'}}>Expira {new Date(item.expires_at).toLocaleDateString('pt-PT')}</small>
+            </div>)}
+          </div>}
+          {!businessUpdates.length && !updateError && <p style={{fontSize:12,color:'#8A9992',marginBottom:0}}>Ainda não publicou novidades.</p>}
         </section>
 
         {/* IMAGENS PRINCIPAIS · 3 lugares · 600x600 */}
