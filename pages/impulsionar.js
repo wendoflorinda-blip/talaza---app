@@ -34,7 +34,8 @@ export default function Impulsionar() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [pendingRequest, setPendingRequest] = useState(null);\n  const [promotions, setPromotions] = useState([]);
+  const [pendingRequest, setPendingRequest] = useState(null);
+  const [promotions, setPromotions] = useState([]);
   useEffect(() => { if (router.isReady) loadData(); }, [router.isReady]);
   async function loadData() {
     setLoading(true); setError('');
@@ -48,7 +49,12 @@ export default function Impulsionar() {
       setError(businessError ? 'Não foi possível carregar o seu negócio. Tente novamente.' : 'Não encontramos um negócio associado à sua conta.');
       setLoading(false); return;
     }
-    setBusiness(businessData);\n    const { data: promotionRows, error: promotionError } = await supabase.from('premium_promotions')\n      .select('id, plan_id, status, description, created_at, starts_at, expires_at, media_type, media_url')\n      .eq('business_id', businessData.id).order('created_at', { ascending: false });\n    if (promotionError) console.error('Erro ao carregar histórico de impulsionamentos:', promotionError);\n    setPromotions(promotionRows || []);
+    setBusiness(businessData);
+    const { data: promotionRows, error: promotionError } = await supabase.from('premium_promotions')
+      .select('id, plan_id, status, description, created_at, starts_at, expires_at, media_type, media_url')
+      .eq('business_id', businessData.id).order('created_at', { ascending: false });
+    if (promotionError) console.error('Erro ao carregar histórico de impulsionamentos:', promotionError);
+    setPromotions(promotionRows || []);
     const { data: pendingData, error: pendingError } = await supabase
       .from('payment_submissions')
       .select('id, plan_id, amount, created_at, status')
@@ -71,7 +77,11 @@ export default function Impulsionar() {
     }
     setPlans(data || []); setLoading(false);
   }
-  const premiumPlans = useMemo(() => plans.filter(plan =>\n    String(plan.plan_type || '').trim().toLocaleLowerCase('pt-AO') === 'destaque premium' &&\n    plan.is_active !== false\n  ).sort((a,b) => Number(a.duration_days || 0) - Number(b.duration_days || 0)), [plans]);\n  const hostingPlans = useMemo(() => {
+  const premiumPlans = useMemo(() => plans.filter(plan =>
+    String(plan.plan_type || '').trim().toLocaleLowerCase('pt-AO') === 'destaque premium' &&
+    plan.is_active !== false
+  ).sort((a,b) => Number(a.duration_days || 0) - Number(b.duration_days || 0)), [plans]);
+  const hostingPlans = useMemo(() => {
     if (!business) return [];
     return plans.filter(plan => {
       const type = String(plan.plan_type || plan.type || '').trim().toLocaleLowerCase('pt-AO');
