@@ -271,8 +271,7 @@ export default function Pagamento() {
               ? eventResult.data.status !== 'published'
               : isOpportunitySubscription
                 ? true
-                : (!businessResult.data.is_active ||
-                   String(businessResult.data.approval_status || '').toLowerCase() !== 'approved')
+                : String(businessResult.data.approval_status || '').toLowerCase() !== 'approved'
           )
         )
       )
