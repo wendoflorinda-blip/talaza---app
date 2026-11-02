@@ -90,7 +90,7 @@ export default function CriarImpulsionamento() {
     <div style={S.content}>
       {error && <div role="alert" style={S.error}>{error}</div>}
       {plan && business && <>
-        <section style={S.plan}><span style={S.eyebrow}>PLANO ESCOLHIDO</span><h1 style={S.title}>{plan.name}</h1><div style={S.price}>{new Intl.NumberFormat('pt-AO').format(Number(plan.price))} Kz</div><p style={S.muted}>{plan.duration_days} dias · {plan.area}</p><p style={S.muted}>Negócio: <b>{business.name}</b></p></section>
+        <section style={{...S.plan,background:Number(plan.duration_days)===30?'linear-gradient(135deg,#8D1E1E 0%,#D93620 48%,#F2A900 100%)':'linear-gradient(135deg,#061A40 0%,#123D78 48%,#8CCBFF 100%)',boxShadow:Number(plan.duration_days)===30?'0 18px 38px rgba(157,48,20,.22)':'0 18px 38px rgba(7,35,83,.22)'}}><span style={S.eyebrow}>✦ PLANO ESCOLHIDO · DESTAQUE PREMIUM</span><h1 style={S.title}>{plan.name}</h1><div style={S.price}>{new Intl.NumberFormat('pt-AO').format(Number(plan.price))} Kz</div><p style={{...S.muted,color:'rgba(255,255,255,.92)'}}>{plan.duration_days} dias · {plan.area}</p><p style={{...S.muted,color:'rgba(255,255,255,.92)'}}>Negócio: <b>{business.name}</b></p></section>
         <section style={S.card}>
           <h2 style={S.sectionTitle}>1. Escolha a imagem ou vídeo</h2>
           <p style={S.muted}>A publicação será apresentada nas áreas incluídas no plano depois da confirmação do pagamento.</p>
