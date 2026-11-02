@@ -222,7 +222,7 @@ export default function Pagamento() {
     }
     if (premiumPromotionId) {
       const kind = String(planResult.data.plan_type || '').trim().toLowerCase();
-      if (kind !== 'destaque premium' || String(premiumResult.data.plan_id) !== String(planId) || premiumResult.data.status !== 'pending_payment') {
+      if (kind !== 'destaque premium' || String(premiumResult.data.plan_id) !== String(planId) || !['pending_payment','pending'].includes(premiumResult.data.status)) {
         setError('O plano não corresponde à publicação ou esta já tem um pagamento em análise.');
         setLoading(false);
         return;
