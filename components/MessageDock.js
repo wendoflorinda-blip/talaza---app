@@ -7,6 +7,7 @@ export default function MessageDock() {
   const router = useRouter();
   const [msgCount, setMsgCount] = useState(0);
   const [notifCount, setNotifCount] = useState(0);
+  const [eventCount, setEventCount] = useState(0);
 
   const isActive = (href) => router.pathname === href || (href === '/perfil' && router.pathname.startsWith('/perfil'));
 
@@ -20,9 +21,27 @@ export default function MessageDock() {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError) throw authError;
         if (!user) {
-          if (!cancelled) setMsgCount(0);
+          if (!cancelled) { setMsgCount(0); setNotifCount(0); setEventCount(0); }
           return;
         }
+        const [{ count: unreadNotifications, error: notificationsError }, { data: profileRow, error: profileError }] = await Promise.all([
+          supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false),
+          supabase.from('profiles').select('province_id').eq('id', user.id).maybeSingle()
+        ]);
+        if (notificationsError) throw notificationsError;
+        if (profileError) throw profileError;
+        let unreadEvents = 0;
+        if (profileRow?.province_id) {
+          const { data: eventRows, error: eventsError } = await supabase.from('events')
+            .select('id').eq('province_id', profileRow.province_id).eq('status', 'published')
+            .eq('payment_status', 'paid').eq('admin_approved', true).gt('expires_at', new Date().toISOString());
+          if (eventsError) throw eventsError;
+          let seenIds = [];
+          try { seenIds = JSON.parse(window.localStorage.getItem('talaza_events_seen_ids_' + user.id) || '[]'); } catch (_) { seenIds = []; }
+          const seenSet = new Set(Array.isArray(seenIds) ? seenIds.map(String) : []);
+          unreadEvents = (eventRows || []).filter(item => !seenSet.has(String(item.id))).length;
+        }
+        if (!cancelled) { setNotifCount(unreadNotifications || 0); setEventCount(unreadEvents); }
 
         const { data: memberships, error: participantsError } = await supabase
           .from('conversation_participants')
@@ -99,7 +118,7 @@ export default function MessageDock() {
       display:'flex', justifyContent:'space-around', alignItems:'center', zIndex:9999
     }}>
       <Link href="/perfil" style={{textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', color: isActive('/perfil') ? '#64358B' : '#8A9A94', fontSize:13, fontWeight: isActive('/perfil') ? 700 : 500}}>
-        <span style={{fontSize:22}}>♙</span>Perfil
+        <div style={{position:'relative'}}><span style={{fontSize:22}}>♙</span>{badge(notifCount + eventCount)}</div>Perfil
       </Link>
 
       <Link href="/mensagens" style={{textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', color: isActive('/mensagens') ? '#0B3B2D' : '#8A9A94', fontSize:13, fontWeight: isActive('/mensagens') ? 700 : 500, position:'relative'}}>
