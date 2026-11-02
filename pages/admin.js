@@ -240,7 +240,7 @@ export default function Admin() {
 
     const promotionIds = [...new Set(requests.map(item => item.premium_promotion_id).filter(Boolean))];
     if (promotionIds.length) {
-      const { data: promotionRows, error: promotionError } = await supabase.from('premium_promotions').select('id,business_id,user_id,description,media_url,media_type,status,starts_at,expires_at').in('id', promotionIds);
+      const { data: promotionRows, error: promotionError } = await supabase.from('premium_promotions').select('id,business_id,user_id,description,media_url,media_type,status,starts_at,expires_at,businesses(name)').in('id', promotionIds);
       if (promotionError) console.error('Erro ao carregar publicações premium:', promotionError);
       else setPremiumPromotionDetails(Object.fromEntries((promotionRows || []).map(item => [item.id, item])));
     } else setPremiumPromotionDetails({});
@@ -1576,14 +1576,14 @@ export default function Admin() {
                     <div style={styles.logoPlaceholder}>₭</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <h3 style={styles.businessName}>{request.premium_promotion_id ? (premiumPromotionDetails[request.premium_promotion_id]?.description || 'Publicação Destaque Premium') : businessNames[request.business_id] || (request.event_id ? 'Pagamento de evento' : (request.job_post_id || request.opportunity_id) ? 'Pagamento de oportunidade' : getPaymentAreaLabel(request))}</h3>
-                      <div style={styles.meta}>Área: {getPaymentAreaLabel(request)} · {request.business_id ? 'Negócio: ' + (businessNames[request.business_id] || 'A carregar nome…') + ' · ' : request.premium_promotion_id ? 'Negócio: ' + (businessNames[premiumPromotionDetails[request.premium_promotion_id]?.business_id] || 'Publicação do vendedor') + ' · ' : ''}Plano: {planNames[request.plan_id] || 'A carregar plano…'}</div>
+                      <div style={styles.meta}>Área: {getPaymentAreaLabel(request)} · {request.business_id ? 'Negócio: ' + (businessNames[request.business_id] || 'A carregar nome…') + ' · ' : request.premium_promotion_id ? 'Negócio: ' + (premiumPromotionDetails[request.premium_promotion_id]?.businesses?.name || businessNames[premiumPromotionDetails[request.premium_promotion_id]?.business_id] || 'Publicação do vendedor') + ' · ' : ''}Plano: {planNames[request.plan_id] || 'A carregar plano…'}</div>
                     </div>
                     <span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span>
                   </div>
                   <div style={styles.details}>
                     <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
                     <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
-                    {request.premium_promotion_id && premiumPromotionDetails[request.premium_promotion_id]?.media_url && <p><a href={premiumPromotionDetails[request.premium_promotion_id].media_url} target="_blank" rel="noreferrer">Ver publicação enviada ↗</a></p>}
+                    {request.premium_promotion_id && premiumPromotionDetails[request.premium_promotion_id]?.media_url && <div style={{margin:'12px 0',padding:12,border:'1px solid #DCE6E1',borderRadius:12,background:'#FAFCFB'}}>{premiumPromotionDetails[request.premium_promotion_id].media_type==='video' ? <video src={premiumPromotionDetails[request.premium_promotion_id].media_url} controls playsInline style={{display:'block',width:'100%',maxWidth:360,maxHeight:320,background:'#111',borderRadius:8}}/> : <img src={premiumPromotionDetails[request.premium_promotion_id].media_url} alt="Publicação enviada para Destaque Premium" style={{display:'block',width:'100%',maxWidth:360,maxHeight:320,objectFit:'contain',borderRadius:8,background:'#fff'}}/>}<p><a href={premiumPromotionDetails[request.premium_promotion_id].media_url} target="_blank" rel="noreferrer">Abrir publicação em tamanho completo ↗</a></p></div>}
                     {(() => {
                       const paths = getPaymentProofPaths(request);
                       const imageUrl = paymentProofUrls[request.id + ':image'];
