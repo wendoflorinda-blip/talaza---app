@@ -74,7 +74,9 @@ export default function Perfil() {
         setLoadingSections(true);
         const [savedResult, eventsResult, premiumPlansResult, savedPromotionsResult] = await Promise.all([
           supabase.from('saved_businesses').select('id,created_at,businesses(id,name,description,logo_url,cover_url,province_id,municipality,is_active,approval_status)').eq('user_id', current.id).order('created_at', { ascending:false }),
-          supabase.from('events').select('id,user_id,title,description,image_url,video_url,location,starts_at,expires_at,province_id,created_at').eq('province_id', data.province_id).eq('status','published').eq('payment_status','paid').eq('admin_approved',true).gt('expires_at',new Date().toISOString()).order('starts_at',{ascending:true})
+          supabase.from('events').select('id,user_id,title,description,image_url,video_url,location,starts_at,expires_at,province_id,created_at').eq('province_id', data.province_id).eq('status','published').eq('payment_status','paid').eq('admin_approved',true).gt('expires_at',new Date().toISOString()).order('starts_at',{ascending:true}),
+          supabase.from('plans').select('id').eq('plan_type','Destaque Premium').eq('duration_days',30).eq('is_active',true),
+          supabase.from('saved_premium_promotions').select('id,created_at,premium_promotions(id,business_id,plan_id,description,media_url,media_type,status,expires_at,businesses(id,name,owner_id))').eq('user_id', current.id).order('created_at',{ascending:false})
         ]);
         if (!premiumPlansResult.error && (premiumPlansResult.data || []).length) {
           const premiumPlanIds = premiumPlansResult.data.map(item => item.id);
