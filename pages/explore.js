@@ -358,9 +358,15 @@ export default function Explore() {
     }
   }
 
+  // Preserva a localização principal do explorador separada da província
+  // temporariamente selecionada para explorar outras regiões.
+  const homeCountry = safeValue(router.query.homeCountry);
+  const homeProvince = safeValue(router.query.homeProvince);
   const exploreQuery = {
     ...(country ? { country } : {}),
     ...(province ? { province } : {}),
+    ...(homeCountry ? { homeCountry } : {}),
+    ...(homeProvince ? { homeProvince } : {}),
   };
 
   const locationLabel = [countryName, provinceName].filter(Boolean).join(' · ');
