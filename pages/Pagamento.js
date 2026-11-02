@@ -180,7 +180,7 @@ export default function Pagamento() {
     const [planResult, businessResult, eventResult] = await Promise.all([
       supabase.from('plans').select('*').eq('id', planId).maybeSingle(),
       businessId
-        ? supabase.from('businesses').select('id, name, country_id, province_id, is_active, approval_status').eq('id', businessId).eq('owner_id', session.user.id).maybeSingle()
+        ? supabase.from('businesses').select('id, name, country_id, province_id, category_id, subcategory_id, is_active, approval_status').eq('id', businessId).eq('owner_id', session.user.id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
       eventId
         ? supabase.from('events').select('id,user_id,plan_id,title,country_id,province_id,status,payment_status,expires_at').eq('id', eventId).eq('user_id', session.user.id).maybeSingle()
@@ -192,6 +192,19 @@ export default function Pagamento() {
       setError('Não foi possível encontrar este plano.');
       setLoading(false);
       return;
+    }
+
+    if (businessId) {
+      const kind = String(planResult.data.plan_type || '').trim().toLowerCase();
+      const planMatchesBusiness =
+        kind === 'hospedagem' &&
+        String(planResult.data.category_id || '') === String(businessResult.data.category_id || '') &&
+        (!planResult.data.subcategory_id || String(planResult.data.subcategory_id) === String(businessResult.data.subcategory_id || ''));
+      if (!planMatchesBusiness) {
+        setError('O plano escolhido não corresponde à categoria e subcategoria deste negócio. Volte ao painel do vendedor e escolha um plano de hospedagem disponível para o seu negócio.');
+        setLoading(false);
+        return;
+      }
     }
 
     const subject = isOpportunitySubscription ? true : eventId ? eventResult.data : businessResult.data;
