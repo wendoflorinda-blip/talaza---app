@@ -29,6 +29,7 @@ export default function Mensagens() {
   const [readMap,setReadMap] = useState({});
   const [ownedBusinessIds,setOwnedBusinessIds] = useState(new Set());
   const [activeId,setActiveId] = useState('');
+  const [activeBusinessInactive,setActiveBusinessInactive] = useState(false);
   const [activePeer,setActivePeer] = useState(null);
   const [messages,setMessages] = useState([]);
   const [message,setMessage] = useState('');
@@ -170,8 +171,16 @@ export default function Mensagens() {
     return enriched;
   }, [router.query.box]);
 
+  async function refreshBusinessConversationStatus(conversation) {
+    if (conversation?.source !== 'Vitrine' || !conversation?.source_id) { setActiveBusinessInactive(false); return; }
+    const { data: business, error: businessError } = await supabase.from('businesses')
+      .select('id,is_active').eq('id',conversation.source_id).maybeSingle();
+    setActiveBusinessInactive(Boolean(businessError || !business?.is_active));
+  }
+
   const openConversation = useCallback(async (conversation, peer) => {
     setActiveId(conversation.id);
+    await refreshBusinessConversationStatus(conversation);
     const readAt = new Date().toISOString();
     setReadMap(previous => {
       const next = { ...previous, [conversation.id]:readAt };
@@ -214,6 +223,7 @@ export default function Mensagens() {
         const found = rows.find(row => row.id === requestedId);
         if (found) {
           setActiveId(found.id);
+          await refreshBusinessConversationStatus(found);
           setActivePeer({id:found.peerId,name:found.peerName,photo:found.peerPhoto,sourceLabel:found.sourceLabel || found.source});
           await loadMessages(found.id);
         }
@@ -380,6 +390,7 @@ export default function Mensagens() {
     event?.preventDefault?.();
     if (!activeId) { setNotice('Para enviar uma mensagem, abra uma conversa existente ou toque em “Enviar mensagem” no perfil da pessoa/negócio. Assim a mensagem chega ao destinatário certo.'); return; }
     if (!user || (!message.trim() && !selectedFile) || sending) return;
+    if (activeBusinessInactive) { setError('A hospedagem deste negócio expirou. Pode consultar o histórico da conversa, mas não pode enviar novas mensagens até à renovação ser aprovada.'); return; }
     setSending(true); setError(''); setNotice('');
     try {
       let attachmentPath = null;
@@ -592,7 +603,7 @@ export default function Mensagens() {
       <div ref={endRef}/>
     </section>
     {activeId && selectedFile && <div style={S.filePreview}>📎 {selectedFile.name} <button type="button" onClick={()=>setSelectedFile(null)} style={S.removeFile}>Remover</button></div>}
-    {activeId && <form style={S.composer} onSubmit={sendMessage}>
+    {activeId && !activeBusinessInactive && <form style={S.composer} onSubmit={sendMessage}>
       <input ref={fileRef} type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={event=>{setSelectedFile(event.target.files?.[0] || null);if(event.target.files?.[0])setNotice('Ficheiro selecionado. Toque em Enviar para o partilhar.');event.target.value='';}} hidden />
       <button type="button" onClick={()=>fileRef.current?.click()} style={S.toolButton} title="Anexar ficheiro" aria-label="Anexar ficheiro">＋</button>
       <button type="button" onClick={toggleRecording} style={{...S.toolButton,color:recording?'#C62828':C.purple,background:recording?'#FFF0F0':'#F8F6FB'}} title={recording?'Terminar gravação':recordingSupported?'Gravar áudio':'Gravação indisponível; pode anexar áudio no botão +'} aria-label={recording?'Terminar gravação':'Gravar áudio'}>{recording?'■':'🎙'}</button>
@@ -600,7 +611,8 @@ export default function Mensagens() {
       <button type="submit" style={{...S.send,opacity:(message.trim()||selectedFile)&&activeId&&!sending?1:.5}} disabled={(!message.trim()&&!selectedFile)||!activeId||sending} aria-label="Enviar mensagem">{sending?'…':'➤'}</button>
     </form>}
     {!activeId && <div style={S.hint}>Abra uma conversa para ativar o envio de texto, ficheiros e áudio.</div>}
-    {activeId && <div style={S.hint}>Enter para enviar · Shift + Enter para nova linha</div>}
+    {activeId && !activeBusinessInactive && <div style={S.hint}>Enter para enviar · Shift + Enter para nova linha</div>}
+    {activeId && activeBusinessInactive && <div style={S.hint}>Mensagens desativadas temporariamente por expiração da hospedagem.</div>}
   </main>;
 }
 
