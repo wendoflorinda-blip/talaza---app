@@ -34,7 +34,7 @@ export default function Impulsionar() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [pendingRequest, setPendingRequest] = useState(null);
+  const [pendingRequest, setPendingRequest] = useState(null);\n  const [promotions, setPromotions] = useState([]);
   useEffect(() => { if (router.isReady) loadData(); }, [router.isReady]);
   async function loadData() {
     setLoading(true); setError('');
@@ -48,7 +48,7 @@ export default function Impulsionar() {
       setError(businessError ? 'Não foi possível carregar o seu negócio. Tente novamente.' : 'Não encontramos um negócio associado à sua conta.');
       setLoading(false); return;
     }
-    setBusiness(businessData);
+    setBusiness(businessData);\n    const { data: promotionRows, error: promotionError } = await supabase.from('premium_promotions')\n      .select('id, plan_id, status, description, created_at, starts_at, expires_at, media_type, media_url')\n      .eq('business_id', businessData.id).order('created_at', { ascending: false });\n    if (promotionError) console.error('Erro ao carregar histórico de impulsionamentos:', promotionError);\n    setPromotions(promotionRows || []);
     const { data: pendingData, error: pendingError } = await supabase
       .from('payment_submissions')
       .select('id, plan_id, amount, created_at, status')
@@ -71,7 +71,7 @@ export default function Impulsionar() {
     }
     setPlans(data || []); setLoading(false);
   }
-  const hostingPlans = useMemo(() => {
+  const premiumPlans = useMemo(() => plans.filter(plan =>\n    String(plan.plan_type || '').trim().toLocaleLowerCase('pt-AO') === 'destaque premium' &&\n    plan.is_active !== false\n  ).sort((a,b) => Number(a.duration_days || 0) - Number(b.duration_days || 0)), [plans]);\n  const hostingPlans = useMemo(() => {
     if (!business) return [];
     return plans.filter(plan => {
       const type = String(plan.plan_type || plan.type || '').trim().toLocaleLowerCase('pt-AO');
@@ -84,7 +84,7 @@ export default function Impulsionar() {
   if (loading) return <main style={S.center}>A carregar os planos da sua categoria…</main>;
   return <main style={S.page}>
     <header style={S.header}><div style={S.headerInner}>
-      <div><div style={S.brand}>TALAZA</div><div style={S.headerTitle}>Planos de hospedagem</div></div>
+      <div><div style={S.brand}>TALAZA</div><div style={S.headerTitle}>Impulsionar</div></div>
       <Link href={{ pathname: '/seller', query: { country: business?.country_id, province: business?.province_id } }} style={S.back}>← Painel</Link>
     </div></header>
     <div style={S.content}>
@@ -92,10 +92,45 @@ export default function Impulsionar() {
       {business && <>
         <section style={S.hero}>
           <span style={S.eyebrow}>O SEU NEGÓCIO</span>
-          <h1 style={S.heroTitle}>Escolha a hospedagem ideal</h1>
-          <p style={S.heroText}>Os planos apresentados correspondem à categoria do negócio <strong>{business.name}</strong>. Escolha um período para avançar para o pagamento por Multicaixa Express e enviar o comprovativo.</p>
+          <h1 style={S.heroTitle}>Dê mais alcance ao seu negócio</h1>
+          <p style={S.heroText}>Escolha um Destaque Premium para promover uma publicação do negócio <strong>{business.name}</strong>. A publicação só entra nas vitrines após a confirmação do pagamento.</p>
           <span style={S.status}>Estado do perfil: {business.is_active ? 'Ativo' : 'A aguardar ativação'}{business.approval_status ? ' · ' + business.approval_status : ''}</span>
         </section>
+        <section style={{ marginTop:25 }}>
+          <div style={{ marginBottom:16 }}>
+            <span style={{ ...S.eyebrow, color:COLORS.purple }}>DESTAQUES PREMIUM</span>
+            <h2 style={{ fontSize:25, margin:'8px 0', color:COLORS.ink }}>Escolha como quer aparecer na Talaza</h2>
+            <p style={{ color:COLORS.muted, fontSize:13, lineHeight:1.65, maxWidth:760 }}>Escolha o plano, carregue uma imagem ou vídeo, escreva a descrição e envie o comprovativo. O prazo começa apenas depois da aprovação do pagamento.</p>
+          </div>
+          {premiumPlans.length === 0 ? <section style={S.empty}><h3>Planos Premium em preparação</h3><p>Os planos de destaque ainda não estão disponíveis.</p></section> :
+            <section style={S.grid}>{premiumPlans.map((plan,index)=>{
+              const maximum = Number(plan.duration_days) === 30;
+              const theme = maximum ? THEMES[2] : THEMES[0];
+              const benefits = benefitsOf(plan);
+              return <article key={plan.id} style={{ ...S.card, borderColor:theme.border, background:theme.soft }}>
+                <div style={{ ...S.icon, background:theme.color, color:'#fff' }}>{maximum?'✦':'◈'}</div>
+                <div style={{ ...S.tag, color:theme.dark, background:'rgba(255,255,255,.72)' }}>DESTAQUE PREMIUM</div>
+                <h3 style={{ ...S.cardTitle, color:theme.dark }}>{titleOf(plan,index)}</h3>
+                <div style={{ ...S.price, color:theme.dark }}>{priceOf(plan)}</div>
+                <div style={S.duration}>◷ {plan.duration_days} dias de promoção</div>
+                <div style={S.benefitTitle}>Onde aparece e o que inclui</div>
+                {benefits.length ? <ul style={S.benefits}>{benefits.map((benefit,i)=><li key={i} style={{display:'flex',gap:10,alignItems:'flex-start',fontSize:13,lineHeight:1.55,color:COLORS.ink}}><span style={{...S.check,background:theme.color}}>✓</span><span>{benefit}</span></li>)}</ul> : <p style={S.noBenefits}>{plan.area}</p>}
+                <button type="button" onClick={()=>router.push({pathname:'/criar-impulsionamento',query:{plan:plan.id}})} style={{...S.cta,background:theme.color}}>Escolher este destaque <span>→</span></button>
+              </article>;
+            })}</section>}
+        </section>
+        <section style={{ marginTop:32 }}>
+          <h2 style={{ fontSize:21, color:COLORS.ink }}>As minhas publicações impulsionadas</h2>
+          {promotions.length===0 ? <div style={S.empty}><p>Ainda não tem publicações impulsionadas. Quando criar uma, poderá acompanhar aqui o estado do pedido e o período de promoção.</p></div> :
+            <div style={{ display:'grid', gap:12, marginTop:14 }}>{promotions.map(item=><article key={item.id} style={{display:'flex',gap:14,alignItems:'center',padding:14,background:'#fff',border:'1px solid '+COLORS.line,borderRadius:15}}>
+              {item.media_type==='video' ? <video src={item.media_url} muted style={{width:82,height:82,objectFit:'cover',borderRadius:10}}/> : <img src={item.media_url} alt="" style={{width:82,height:82,objectFit:'cover',borderRadius:10}}/>}
+              <div style={{minWidth:0,flex:1}}><strong style={{display:'block',color:COLORS.ink}}>{item.description}</strong><span style={{fontSize:12,color:COLORS.muted}}>Estado: {({pending_payment:'A aguardar comprovativo',pending:'Em análise',active:'Ativa',rejected:'Recusada',expired:'Expirada',cancelled:'Cancelada'})[item.status] || item.status}</span>{item.expires_at && <div style={{fontSize:11,color:COLORS.muted}}>Termina em {new Date(item.expires_at).toLocaleDateString('pt-AO')}</div>}</div>
+            </article>)}</div>}
+        </section>
+        <div style={{ marginTop:36, borderTop:'1px solid '+COLORS.line, paddingTop:25 }}>
+          <h2 style={{fontSize:20,color:COLORS.ink}}>Hospedagem da Vitrine</h2>
+          <p style={{fontSize:13,color:COLORS.muted}}>Os planos de hospedagem do seu negócio continuam disponíveis aqui, separados dos Destaques Premium.</p>
+        </div>
         {pendingRequest ? <section style={S.empty}><div style={S.emptyIcon}>✓</div><h2>Pagamento em verificação</h2><p>Já recebemos o comprovativo deste negócio. O plano escolhido está em verificação para ativação. Não é possível escolher outro plano até a equipa Talaza concluir a análise.</p><Link href={{ pathname: '/seller', query: { country: business.country_id, province: business.province_id } }} style={S.back}>Voltar ao painel</Link></section> : hostingPlans.length === 0 ? <section style={S.empty}><div style={S.emptyIcon}>♧</div><h2>Planos em preparação</h2><p>Não encontramos planos de hospedagem registados para esta categoria. Não vamos mostrar preços de outras categorias nem inventar valores.</p></section> :
         <section style={S.grid}>{hostingPlans.map((plan, index) => {
           const theme = THEMES[index % THEMES.length];
