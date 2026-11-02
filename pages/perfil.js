@@ -33,7 +33,7 @@ export default function Perfil() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('inicio');
   const [savedBusinesses, setSavedBusinesses] = useState([]);
-  const [savedBusinessUpdates, setSavedBusinessUpdates] = useState([]);
+  const [savedBusinessUpdates, setSavedBusinessUpdates] = useState([]);\n  const [premiumPromotions, setPremiumPromotions] = useState([]);\n  const [savedPremiumPromotions, setSavedPremiumPromotions] = useState([]);\n  const [savedPromotionIds, setSavedPromotionIds] = useState([]);\n  const [savingPromotionId, setSavingPromotionId] = useState('');
   const [provinceEvents, setProvinceEvents] = useState([]);
   const [loadingSections, setLoadingSections] = useState(false);
   const [unreadEventCount, setUnreadEventCount] = useState(0);
@@ -68,10 +68,26 @@ export default function Perfil() {
       setShowEmail(data?.show_email === true);
       if (data?.province_id) {
         setLoadingSections(true);
-        const [savedResult, eventsResult] = await Promise.all([
+        const [savedResult, eventsResult, premiumPlansResult, savedPromotionsResult] = await Promise.all([
           supabase.from('saved_businesses').select('id,created_at,businesses(id,name,description,logo_url,cover_url,province_id,municipality,is_active,approval_status)').eq('user_id', current.id).order('created_at', { ascending:false }),
           supabase.from('events').select('id,user_id,title,description,image_url,video_url,location,starts_at,expires_at,province_id,created_at').eq('province_id', data.province_id).eq('status','published').eq('payment_status','paid').eq('admin_approved',true).gt('expires_at',new Date().toISOString()).order('starts_at',{ascending:true})
         ]);
+        if (!premiumPlansResult.error && (premiumPlansResult.data || []).length) {
+          const premiumPlanIds = premiumPlansResult.data.map(item => item.id);
+          const { data: promotionRows, error: promotionError } = await supabase
+            .from('premium_promotions')
+            .select('id,business_id,plan_id,media_url,media_type,description,starts_at,expires_at,status,businesses(id,name,owner_id,logo_url,province_id)')
+            .in('plan_id', premiumPlanIds).eq('status','active').gt('expires_at',new Date().toISOString())
+            .order('starts_at',{ascending:false});
+          if (promotionError) console.warn('Não foi possível carregar destaques Para si:', promotionError);
+          else setPremiumPromotions((promotionRows || []).filter(item => item.businesses?.province_id === data.province_id));
+        } else setPremiumPromotions([]);
+        if (savedPromotionsResult.error) console.warn('Não foi possível carregar publicações guardadas:', savedPromotionsResult.error);
+        else {
+          const rows = (savedPromotionsResult.data || []).filter(row => row.premium_promotions);
+          setSavedPremiumPromotions(rows);
+          setSavedPromotionIds(rows.map(row => row.premium_promotions.id));
+        }
         if (savedResult.error) console.warn('Não foi possível carregar os perfis guardados:', savedResult.error);
         else {
           let savedRows = (savedResult.data || []).filter(row => row.businesses);
@@ -137,6 +153,26 @@ export default function Perfil() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function toggleSavedPromotion(promotion) {
+    if (!user?.id) { setNotice('Inicie sessão na Talaza para guardar esta publicação.'); return; }
+    setSavingPromotionId(promotion.id);
+    setNotice('');
+    try {
+      if (savedPromotionIds.includes(promotion.id)) {
+        const { error: removeError } = await supabase.from('saved_premium_promotions').delete().eq('user_id',user.id).eq('promotion_id',promotion.id);
+        if (removeError) throw removeError;
+        setSavedPromotionIds(prev=>prev.filter(id=>id!==promotion.id));
+        setSavedPremiumPromotions(prev=>prev.filter(row=>row.premium_promotions?.id!==promotion.id));
+      } else {
+        const { data, error: saveError } = await supabase.from('saved_premium_promotions').insert({user_id:user.id,promotion_id:promotion.id}).select('id,created_at').single();
+        if (saveError) throw saveError;
+        setSavedPromotionIds(prev=>[...prev,promotion.id]);
+        setSavedPremiumPromotions(prev=>[{...data,premium_promotions:promotion},...prev]);
+      }
+    } catch(err) { setNotice(err.message || 'Não foi possível guardar a publicação.'); }
+    finally { setSavingPromotionId(''); }
   }
 
   function choosePhoto(event) {
@@ -340,7 +376,7 @@ export default function Perfil() {
         </div>
         <div style={S.stats}>
           <div style={S.stat}><strong>{savedBusinesses.length}</strong><span>Guardados</span></div>
-          <div style={S.stat}><strong>0</strong><span>Para si</span></div>
+          <div style={S.stat}><strong>{premiumPromotions.length}</strong><span>Para si</span></div>
           <div style={S.stat}><strong>{provinceEvents.length}</strong><span>Eventos</span></div>
         </div>
         <button type="button" onClick={() => {setActiveTab('dados');setEditing(true);setError('');setNotice('');}} style={S.editProfileButton}>✎　Editar perfil</button>
@@ -429,7 +465,12 @@ export default function Perfil() {
         <section style={S.sectionPanel}>
           {activeTab === 'guardados' && <>
             <h2 style={S.sectionTitle}>Perfis guardados</h2>
-            <p style={S.sectionIntro}>Os negócios que guardar na Vitrine ficam reunidos aqui, só para si.</p>
+            <p style={S.sectionIntro}>Os negócios que guardar na Vitrine ficam reunidos aqui, só para si. As publicações que guardar também permanecem aqui, mesmo quando o destaque terminar.</p>
+            {savedPremiumPromotions.length > 0 && <><h3 style={{fontSize:16,color:C.dark,margin:'20px 0 12px'}}>Publicações guardadas</h3><div style={S.savedGrid}>{savedPremiumPromotions.map(row=>{const item=row.premium_promotions;return <article key={row.id} style={S.savedCard}>
+              {item.media_type==='video'?<video src={item.media_url} controls playsInline style={S.savedImage}/>:<img src={item.media_url} alt="Publicação guardada" style={S.savedImage}/>}
+              <div style={{padding:14}}><strong>{item.businesses?.name || 'Negócio Talaza'}</strong><p style={S.cardDescription}>{item.description}</p>{item.expires_at && new Date(item.expires_at)<new Date() && <small style={{display:'block',color:C.muted,marginBottom:8}}>Destaque terminado — publicação mantida nos seus Guardados</small>}<Link href={{pathname:'/businesses/'+item.business_id,query:{returnTo:'/perfil?tab=guardados'}}} style={S.openBusiness}>Ver perfil</Link></div>
+            </article>;})}</div></>}
+
             {loadingSections ? <p style={S.empty}>A carregar os seus guardados…</p> : savedBusinesses.length ? <div style={S.savedGrid}>
               {savedBusinesses.map(row => { const business=row.businesses; return <article key={row.id} style={S.savedCard}>
                 {business.cover_url || business.logo_url ? <img src={business.cover_url || business.logo_url} alt="" style={S.savedImage}/> : <div style={S.savedImagePlaceholder}>T</div>}
@@ -487,7 +528,24 @@ export default function Perfil() {
               </article>)}
             </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>▣</span><strong>Ainda não há eventos publicados</strong><p>Quando houver eventos ativos e aprovados em {provinceName}, serão apresentados aqui.</p></div>}
           </>}
-          {activeTab === 'parasi' && <div style={S.emptyCard}><span style={S.emptyIcon}>✧</span><strong>Recomendado para si</strong><p>Mais à frente, esta área apresentará recomendações personalizadas. Os destaques pagos terão identificação própria e só aparecerão enquanto estiverem ativos.</p></div>}
+          {activeTab === 'parasi' && <>
+            <h2 style={S.sectionTitle}>Destaques para si</h2>
+            <p style={S.sectionIntro}>Publicações promovidas por negócios da sua província. Estas publicações aparecem aqui enquanto o destaque estiver ativo.</p>
+            {loadingSections ? <p style={S.empty}>A carregar recomendações…</p> : premiumPromotions.length ? <div style={S.savedGrid}>
+              {premiumPromotions.map(item=><article key={item.id} style={S.savedCard}>
+                {item.media_type==='video'?<video src={item.media_url} controls playsInline style={S.savedImage}/>:<img src={item.media_url} alt="Destaque Premium" style={S.savedImage}/>}
+                <div style={{padding:14}}>
+                  <strong>{item.businesses?.name || 'Negócio Talaza'}</strong>
+                  <p style={S.cardDescription}>{item.description}</p>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:12}}>
+                    <button type="button" onClick={()=>router.push({pathname:'/mensagens',query:{to:item.businesses?.owner_id,source:'Para si',sourceId:item.business_id,box:'explore',returnTo:'/perfil?tab=parasi'}})} disabled={!item.businesses?.owner_id} style={S.eventMessageButton}>Enviar mensagem</button>
+                    <Link href={{pathname:'/businesses/'+item.business_id,query:{returnTo:'/perfil?tab=parasi'}}} style={S.openBusiness}>Ver perfil</Link>
+                    <button type="button" disabled={savingPromotionId===item.id} onClick={()=>toggleSavedPromotion(item)} style={S.openBusiness}>{savingPromotionId===item.id?'A guardar…':savedPromotionIds.includes(item.id)?'✓ Guardado':'☆ Guardar'}</button>
+                  </div>
+                </div>
+              </article>)}
+            </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>✧</span><strong>Ainda não há destaques para si</strong><p>Quando houver publicações Premium ativas na sua província, serão apresentadas aqui.</p></div>}
+          </>}
         </section>
       )}
     </main>
