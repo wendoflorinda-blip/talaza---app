@@ -9,7 +9,27 @@ const COLORS = {
   gold: '#D8A319', goldDark: '#5B4300', goldSoft: '#FFF5D6',
   ink: '#182722', muted: '#66736F', background: '#F7F6F3', line: '#E3E8E4', white: '#FFFFFF'
 };
-const THEMES = [
+const PREMIUM_THEMES = {
+  visibility: {
+    background: 'linear-gradient(145deg, #061A40 0%, #123D78 48%, #8CCBFF 100%)',
+    accent: '#FFFFFF',
+    muted: 'rgba(255,255,255,.88)',
+    button: '#FFFFFF',
+    buttonText: '#092A59',
+    shadow: '0 18px 38px rgba(7,35,83,.25)',
+    icon: '◈'
+  },
+  reach: {
+    background: 'linear-gradient(145deg, #8D1E1E 0%, #D93620 48%, #F2A900 100%)',
+    accent: '#FFFFFF',
+    muted: 'rgba(255,255,255,.92)',
+    button: '#FFFFFF',
+    buttonText: '#7D2117',
+    shadow: '0 18px 38px rgba(157,48,20,.25)',
+    icon: '✦'
+  }
+};
+const HOSTING_THEMES = [
   { name: 'Essencial', icon: '◈', color: COLORS.green, dark: COLORS.greenDark, soft: COLORS.greenSoft, border: '#B8E0D2' },
   { name: 'Prestígio', icon: '✦', color: COLORS.purple, dark: COLORS.purpleDark, soft: COLORS.purpleSoft, border: '#D7C3EA' },
   { name: 'Elite', icon: '♛', color: COLORS.gold, dark: COLORS.goldDark, soft: COLORS.goldSoft, border: '#EBD58C' }
@@ -115,17 +135,17 @@ export default function Impulsionar() {
           {premiumPlans.length === 0 ? <section style={S.empty}><h3>Planos Premium em preparação</h3><p>Os planos de destaque ainda não estão disponíveis.</p></section> :
             <section style={S.grid}>{premiumPlans.map((plan,index)=>{
               const maximum = Number(plan.duration_days) === 30;
-              const theme = maximum ? THEMES[2] : THEMES[0];
+              const theme = maximum ? PREMIUM_THEMES.reach : PREMIUM_THEMES.visibility;
               const benefits = benefitsOf(plan);
-              return <article key={plan.id} style={{ ...S.card, borderColor:theme.border, background:theme.soft }}>
-                <div style={{ ...S.icon, background:theme.color, color:'#fff' }}>{maximum?'✦':'◈'}</div>
-                <div style={{ ...S.tag, color:theme.dark, background:'rgba(255,255,255,.72)' }}>DESTAQUE PREMIUM</div>
-                <h3 style={{ ...S.cardTitle, color:theme.dark }}>{titleOf(plan,index)}</h3>
-                <div style={{ ...S.price, color:theme.dark }}>{priceOf(plan)}</div>
-                <div style={S.duration}>◷ {plan.duration_days} dias de promoção</div>
-                <div style={S.benefitTitle}>Onde aparece e o que inclui</div>
-                {benefits.length ? <ul style={S.benefits}>{benefits.map((benefit,i)=><li key={i} style={{display:'flex',gap:10,alignItems:'flex-start',fontSize:13,lineHeight:1.55,color:COLORS.ink}}><span style={{...S.check,background:theme.color}}>✓</span><span>{benefit}</span></li>)}</ul> : <p style={S.noBenefits}>{plan.area}</p>}
-                <button type="button" onClick={()=>router.push({pathname:'/criar-impulsionamento',query:{plan:plan.id}})} style={{...S.cta,background:theme.color}}>Escolher este destaque <span>→</span></button>
+              return <article key={plan.id} style={{ ...S.card, borderColor:'rgba(255,255,255,.42)', background:theme.background, color:theme.accent, boxShadow:theme.shadow }}>
+                <div style={{ ...S.icon, background:'rgba(255,255,255,.18)', color:'#fff', border:'1px solid rgba(255,255,255,.34)', boxShadow:'0 8px 22px rgba(0,0,0,.15)' }}>{theme.icon}</div>
+                <div style={{ ...S.tag, color:'#fff', background:'rgba(5,17,39,.28)', border:'1px solid rgba(255,255,255,.28)' }}>DESTAQUE PREMIUM · {maximum?'30 DIAS':'15 DIAS'}</div>
+                <h3 style={{ ...S.cardTitle, color:'#fff', textShadow:'0 2px 8px rgba(0,0,0,.22)' }}>{titleOf(plan,index)}</h3>
+                <div style={{ ...S.price, color:'#fff', textShadow:'0 2px 10px rgba(0,0,0,.25)' }}>{priceOf(plan)}</div>
+                <div style={{...S.duration,color:theme.muted}}>◷ {plan.duration_days} dias de promoção após aprovação</div>
+                <div style={{...S.benefitTitle,color:'#fff'}}>O que este destaque oferece</div>
+                {benefits.length ? <ul style={S.benefits}>{benefits.map((benefit,i)=><li key={i} style={{display:'flex',gap:10,alignItems:'flex-start',fontSize:13,lineHeight:1.6,color:'#fff',textShadow:'0 1px 4px rgba(0,0,0,.18)'}}><span style={{...S.check,background:'rgba(255,255,255,.22)',border:'1px solid rgba(255,255,255,.48)'}}>✓</span><span>{benefit}</span></li>)}</ul> : <p style={{...S.noBenefits,color:theme.muted}}>{plan.area}</p>}
+                <button type="button" onClick={()=>router.push({pathname:'/criar-impulsionamento',query:{plan:plan.id}})} style={{...S.cta,background:theme.button,color:theme.buttonText,boxShadow:'0 8px 20px rgba(0,0,0,.16)'}}>Escolher este destaque <span>→</span></button>
               </article>;
             })}</section>}
         </section>
@@ -143,7 +163,7 @@ export default function Impulsionar() {
         </div>
         {pendingRequest ? <section style={S.empty}><div style={S.emptyIcon}>✓</div><h2>Pagamento em verificação</h2><p>Já recebemos o comprovativo deste negócio. O plano escolhido está em verificação para ativação. Não é possível escolher outro plano até a equipa Talaza concluir a análise.</p><Link href={{ pathname: '/seller', query: { country: business.country_id, province: business.province_id } }} style={S.back}>Voltar ao painel</Link></section> : hostingPlans.length === 0 ? <section style={S.empty}><div style={S.emptyIcon}>♧</div><h2>Planos em preparação</h2><p>Não encontramos planos de hospedagem registados para esta categoria. Não vamos mostrar preços de outras categorias nem inventar valores.</p></section> :
         <section style={S.grid}>{hostingPlans.map((plan, index) => {
-          const theme = THEMES[index % THEMES.length];
+          const theme = HOSTING_THEMES[index % HOSTING_THEMES.length];
           const benefits = benefitsOf(plan);
           return <article key={plan.id} style={{ ...S.card, borderColor: theme.border, background: theme.soft }}>
             <div style={{ ...S.icon, background: theme.color, color: '#fff' }}>{theme.icon}</div>
