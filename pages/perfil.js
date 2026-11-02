@@ -74,7 +74,24 @@ export default function Perfil() {
         ]);
         if (savedResult.error) console.warn('Não foi possível carregar os perfis guardados:', savedResult.error);
         else {
-          const savedRows = (savedResult.data || []).filter(row => row.businesses);
+          let savedRows = (savedResult.data || []).filter(row => row.businesses);
+          const savedIds=savedRows.map(row=>row.businesses.id);
+          if (savedIds.length) {
+            const { data: subscriptionRows, error: subscriptionError } = await supabase.from('business_subscriptions')
+              .select('id,business_id,status,starts_at,expires_at,created_at')
+              .in('business_id',savedIds)
+              .order('starts_at',{ascending:false}).order('created_at',{ascending:false});
+            if (!subscriptionError) {
+              const latestByBusiness=new Map();
+              (subscriptionRows || []).forEach(sub=>{if(!latestByBusiness.has(sub.business_id)) latestByBusiness.set(sub.business_id,sub);});
+              savedRows=savedRows.map(row=>{
+                const sub=latestByBusiness.get(row.businesses.id);
+                const expiry=sub?.expires_at ? new Date(sub.expires_at) : null;
+                const hostingActive=Boolean(sub && String(sub.status || '').trim().toLowerCase()==='active' && expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime()>Date.now());
+                return {...row,businesses:{...row.businesses,is_active:Boolean(row.businesses.is_active && hostingActive)}};
+              });
+            }
+          }
           setSavedBusinesses(savedRows);
           const updateGroups = await Promise.all(savedRows.map(async row => {
             const business = row.businesses;
