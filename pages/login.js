@@ -61,31 +61,6 @@ export default function Login() {
 
       if (profileError) throw profileError;
 
-      /*
-       * A propriedade do negócio é verificada primeiro pelo ID autenticado
-       * do Supabase. Nunca associar contas através do número de telefone.
-       */
-      const { data: ownedBusiness, error: businessError } = await supabase
-        .from('businesses')
-        .select('id')
-        .eq('owner_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (businessError) {
-        console.error('Erro ao verificar o negócio do vendedor:', businessError);
-        throw new Error(
-          'A sessão foi iniciada, mas não foi possível verificar o seu negócio. Tente novamente. Se o problema continuar, confirme as permissões de leitura da tabela businesses no Supabase.'
-        );
-      }
-
-      if (ownedBusiness?.id) {
-        // Só abre o painel quando o negócio pertence ao utilizador autenticado.
-        await router.replace('/seller');
-        return;
-      }
-
       const accountType = String(
         profile?.account_type || profile?.user_type || profile?.role || ''
       )
@@ -95,9 +70,33 @@ export default function Login() {
       const isSellerAccount =
         accountType.includes('vendedor') || accountType.includes('seller');
 
+      /*
+       * Exploradores não precisam consultar businesses.
+       * A consulta é exclusiva de contas de vendedor e usa sempre o ID
+       * autenticado, respeitando a política RLS de propriedade.
+       */
       if (isSellerAccount) {
-        // A conta é de vendedor, mas ainda não há negócio ligado ao seu ID.
-        // Permitir concluir o cadastro em vez de abrir um painel vazio.
+        const { data: ownedBusiness, error: businessError } = await supabase
+          .from('businesses')
+          .select('id')
+          .eq('owner_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (businessError) {
+          console.error('Erro ao verificar o negócio do vendedor:', businessError);
+          throw new Error(
+            'A sessão foi iniciada, mas não foi possível verificar o seu negócio. Tente novamente.'
+          );
+        }
+
+        if (ownedBusiness?.id) {
+          await router.replace('/seller');
+          return;
+        }
+
+        // Conta de vendedor sem negócio associado: concluir o cadastro.
         await router.replace('/post-business');
         return;
       }
