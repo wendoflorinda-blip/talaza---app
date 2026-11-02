@@ -51,10 +51,13 @@ export default function BusinessPublicProfile() {
         if (!businessData.is_active) {
           const { data: { user: viewer } } = await supabase.auth.getUser();
           if (!viewer) throw new Error('A hospedagem deste negócio expirou. Entre na sua conta e consulte os seus Guardados durante o período de tolerância.');
-          const { data: savedRow, error: savedError } = await supabase.from('saved_businesses')
-            .select('id').eq('business_id', businessData.id).eq('user_id', viewer.id).maybeSingle();
+          const isOwner = String(businessData.owner_id) === String(viewer.id);
+          const { data: savedRow, error: savedError } = isOwner
+            ? { data:{id:'owner'}, error:null }
+            : await supabase.from('saved_businesses').select('id')
+                .eq('business_id', businessData.id).eq('user_id', viewer.id).maybeSingle();
           if (savedError || !savedRow) throw new Error('Este negócio está temporariamente inativo e só pode ser consultado pelos exploradores que já o guardaram.');
-          setIsSavedGraceProfile(true);
+          setIsSavedGraceProfile(!isOwner);
         }
 
         // A província e o país da URL devem corresponder ao negócio.
