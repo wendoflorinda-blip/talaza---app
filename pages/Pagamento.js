@@ -138,7 +138,8 @@ export default function Pagamento() {
   const [user, setUser] = useState(null);
   const [plan, setPlan] = useState(null);
   const [business, setBusiness] = useState(null);
-  const [eventRecord, setEventRecord] = useState(null);\n  const [premiumPromotion, setPremiumPromotion] = useState(null);
+  const [eventRecord, setEventRecord] = useState(null);
+  const [premiumPromotion, setPremiumPromotion] = useState(null);
 
   const [imageFile, setImageFile] = useState(null);
   const [imageThumb, setImageThumb] = useState('');
@@ -200,7 +201,12 @@ export default function Pagamento() {
       setLoading(false);
       return;
     }
-    if (premiumPromotionId && (premiumResult.error || !premiumResult.data)) {\n      setError('Não foi possível encontrar a publicação impulsionada desta conta.');\n      setLoading(false);\n      return;\n    }\n    if (businessId && (businessResult.error || !businessResult.data)) {
+    if (premiumPromotionId && (premiumResult.error || !premiumResult.data)) {
+      setError('Não foi possível encontrar a publicação impulsionada desta conta.');
+      setLoading(false);
+      return;
+    }
+    if (businessId && (businessResult.error || !businessResult.data)) {
       console.error(businessResult.error);
       setError('Não foi possível encontrar o seu negócio.');
       setLoading(false);
@@ -249,7 +255,8 @@ export default function Pagamento() {
 
     setPlan(planResult.data);
     setBusiness(businessResult.data);
-    setEventRecord(eventResult.data || null);\n    setPremiumPromotion(premiumResult.data || null);
+    setEventRecord(eventResult.data || null);
+    setPremiumPromotion(premiumResult.data || null);
 
     let pendingQuery = supabase
       .from('payment_submissions')
@@ -439,7 +446,9 @@ export default function Pagamento() {
 
   const safeReturnTo = typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null;
   const opportunityHref = safeReturnTo || { pathname: '/oportunidades', query: { ...(countryId ? { country: countryId } : {}), ...(provinceId ? { province: provinceId } : {}) } };
-  const panelHref = premiumPromotion\n    ? { pathname: '/impulsionar', query: business ? { business: business.id } : {} }\n    : isOpportunitySubscription
+  const panelHref = premiumPromotion
+    ? { pathname: '/impulsionar', query: business ? { business: business.id } : {} }
+    : isOpportunitySubscription
     ? opportunityHref
     : business
     ? {
