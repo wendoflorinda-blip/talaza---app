@@ -291,6 +291,7 @@ export default function TalazaMenu({
   countryName = '',
   provinceName = '',
   sellerPanelRoute = '',
+  currentArea = 'explore',
 }) {
   const router = useRouter();
 
@@ -440,6 +441,10 @@ export default function TalazaMenu({
   }
 
   function openSellerPanel() {
+    if (currentArea === 'seller') {
+      goHome();
+      return;
+    }
     closeMenu();
 
     if (sellerPanelRoute) {
@@ -747,7 +752,7 @@ export default function TalazaMenu({
                     icon="seller"
                     color={COLORS.purple}
                     bg={COLORS.purpleSoft}
-                    label={isSellerAccount ? 'Voltar ao painel de vendedor' : 'Criar perfil de negócio'}
+                    label={currentArea === 'seller' ? 'Voltar ao painel de Explorador' : (isSellerAccount ? 'Ir para o painel de vendedor' : 'Criar perfil de negócio')}
                     onClick={openSellerPanel}
                   />
 
