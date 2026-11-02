@@ -298,6 +298,14 @@ export default function Eventos() {
         return bi - ai;
       });
       setEvents(rows);
+      if (user?.id && rows.length) {
+        try {
+          const key = 'talaza_events_seen_ids_' + user.id;
+          const previous = JSON.parse(localStorage.getItem(key) || '[]');
+          const nextSeen = [...new Set([...(Array.isArray(previous) ? previous.map(String) : []), ...rows.map(item => String(item.id))])];
+          localStorage.setItem(key, JSON.stringify(nextSeen));
+        } catch (_) { /* a navegação continua mesmo sem armazenamento local */ }
+      }
       if (!rows.length) {
         setLikesByEvent({});
         setLikedByMe({});
