@@ -174,7 +174,11 @@ export default function Explore() {
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
   const [categories, setCategories] = useState([]);
-  const [businesses, setBusinesses] = useState([]);\n  const [premiumPromotions, setPremiumPromotions] = useState([]);\n  const [currentUserId, setCurrentUserId] = useState(null);\n  const [savedPromotionIds, setSavedPromotionIds] = useState([]);\n  const [savingPromotionId, setSavingPromotionId] = useState('');
+  const [businesses, setBusinesses] = useState([]);
+  const [premiumPromotions, setPremiumPromotions] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [savedPromotionIds, setSavedPromotionIds] = useState([]);
+  const [savingPromotionId, setSavingPromotionId] = useState('');
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [loadingBusinesses, setLoadingBusinesses] = useState(false);
   const [categoryError, setCategoryError] = useState('');
@@ -744,7 +748,15 @@ export default function Explore() {
           font-size: 12px;
           line-height: 1.6;
         }
-        .categories-section, .businesses-section { margin-top: 36px; scroll-margin-top: 20px; }\n        .premium-post-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:18px; }\n        .premium-post-card { overflow:hidden; border:1px solid #E3E8E4; border-radius:18px; background:#fff; box-shadow:0 10px 28px rgba(24,39,34,.07); }\n        .premium-post-card > img,.premium-post-card > video { display:block; width:100%; aspect-ratio:1/1; object-fit:cover; background:#111; }\n        .premium-post-body { padding:15px; } .premium-post-label { color:#9A7100; font-size:10px; font-weight:900; letter-spacing:1px; }\n        .premium-post-body h3 { margin:8px 0 5px; font-size:16px; } .premium-post-body p { color:#66736F; font-size:13px; line-height:1.55; }\n        .premium-post-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }\n        .premium-post-actions button,.premium-post-actions a { border:0; border-radius:9px; padding:9px 11px; background:#08745F; color:#fff; text-decoration:none; font-size:11px; font-weight:800; cursor:pointer; }\n        .premium-post-actions a { background:#F2EAF9; color:#3F1D60; }
+        .categories-section, .businesses-section { margin-top: 36px; scroll-margin-top: 20px; }
+        .premium-post-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:18px; }
+        .premium-post-card { overflow:hidden; border:1px solid #E3E8E4; border-radius:18px; background:#fff; box-shadow:0 10px 28px rgba(24,39,34,.07); }
+        .premium-post-card > img,.premium-post-card > video { display:block; width:100%; aspect-ratio:1/1; object-fit:cover; background:#111; }
+        .premium-post-body { padding:15px; } .premium-post-label { color:#9A7100; font-size:10px; font-weight:900; letter-spacing:1px; }
+        .premium-post-body h3 { margin:8px 0 5px; font-size:16px; } .premium-post-body p { color:#66736F; font-size:13px; line-height:1.55; }
+        .premium-post-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }
+        .premium-post-actions button,.premium-post-actions a { border:0; border-radius:9px; padding:9px 11px; background:#08745F; color:#fff; text-decoration:none; font-size:11px; font-weight:800; cursor:pointer; }
+        .premium-post-actions a { background:#F2EAF9; color:#3F1D60; }
         .section-heading {
           display: flex;
           align-items: flex-end;
