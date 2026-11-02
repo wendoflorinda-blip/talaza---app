@@ -40,6 +40,7 @@ export default function Admin() {
   const [paymentProofUrls, setPaymentProofUrls] = useState({});
   const [businessNames, setBusinessNames] = useState({});
   const [planNames, setPlanNames] = useState({});
+  const [premiumPromotionDetails, setPremiumPromotionDetails] = useState({});
   const [communityReports, setCommunityReports] = useState([]);
   const [communityPosts, setCommunityPosts] = useState([]);
   const [supportMessages, setSupportMessages] = useState([]);
@@ -234,9 +235,15 @@ export default function Admin() {
       return;
     }
     // Comprovativos sem ficheiro não entram em nenhuma fila de aprovação.
-    const requests = (data || []).filter((item) => String(item.proof_url || '').trim() && (item.business_id || item.event_id));
+    const requests = (data || []).filter((item) => String(item.proof_url || '').trim() && (item.business_id || item.event_id || item.premium_promotion_id));
     setSubscriptionRequests(requests);
 
+    const promotionIds = [...new Set(requests.map(item => item.premium_promotion_id).filter(Boolean))];
+    if (promotionIds.length) {
+      const { data: promotionRows, error: promotionError } = await supabase.from('premium_promotions').select('id,business_id,user_id,description,media_url,media_type,status,starts_at,expires_at').in('id', promotionIds);
+      if (promotionError) console.error('Erro ao carregar publicações premium:', promotionError);
+      else setPremiumPromotionDetails(Object.fromEntries((promotionRows || []).map(item => [item.id, item])));
+    } else setPremiumPromotionDetails({});
     const businessIds = [...new Set(requests.map(item => item.business_id).filter(Boolean))];
     const planIds = [...new Set(requests.map(item => item.plan_id).filter(Boolean))];
 
@@ -915,6 +922,7 @@ export default function Admin() {
       ''
     ).toLowerCase();
 
+    if (request?.premium_promotion_id || explicitArea.includes('destaque premium') || explicitArea.includes('impulsion')) return 'Destaque Premium';
     if (request?.event_id || explicitArea.includes('evento')) return 'Eventos';
     if (request?.job_post_id || request?.opportunity_id || explicitArea.includes('oportunidade') || explicitArea.includes('vaga')) return 'Oportunidades';
     if (request?.business_id || explicitArea.includes('vitrine') || explicitArea.includes('hospedagem')) return 'Vitrine / Hospedagem';
@@ -950,6 +958,36 @@ export default function Admin() {
     let activationMessage = '';
     const areaLabel = getPaymentAreaLabel(request);
 
+    if (request.premium_promotion_id) {
+      const { data: promotion, error: promotionReadError } = await supabase
+        .from('premium_promotions').select('id,user_id,business_id,plan_id,status,description')
+        .eq('id', request.premium_promotion_id).maybeSingle();
+      const { data: premiumPlan, error: premiumPlanError } = await supabase
+        .from('plans').select('id,duration_days,plan_type').eq('id', request.plan_id).maybeSingle();
+      if (promotionReadError || premiumPlanError || !promotion || !premiumPlan ||
+          String(premiumPlan.plan_type || '').trim().toLowerCase() !== 'destaque premium' ||
+          String(promotion.plan_id) !== String(request.plan_id)) {
+        activationMessage = ' Não foi possível confirmar a publicação e o plano premium associados.';
+      } else if (approved) {
+        const startsAt = new Date();
+        const durationDays = Number(premiumPlan.duration_days) || 0;
+        if (durationDays <= 0) {
+          activationMessage = ' O pagamento foi aprovado, mas a duração do plano não está configurada.';
+        } else {
+          const expiresAt = new Date(startsAt.getTime() + durationDays * 86400000).toISOString();
+          const { error: promotionUpdateError } = await supabase.from('premium_promotions')
+            .update({ status: 'active', starts_at: startsAt.toISOString(), expires_at: expiresAt, payment_submission_id: request.id })
+            .eq('id', promotion.id);
+          if (promotionUpdateError) activationMessage = ' O pagamento foi aprovado, mas não foi possível ativar a promoção: ' + promotionUpdateError.message;
+          else activationMessage = ' A publicação Destaque Premium está ativa até ' + new Date(expiresAt).toLocaleDateString('pt-AO') + '.';
+        }
+      } else {
+        const { error: promotionUpdateError } = await supabase.from('premium_promotions').update({ status: 'rejected' }).eq('id', promotion.id);
+        if (promotionUpdateError) activationMessage = ' O comprovativo foi recusado, mas não foi possível atualizar a publicação: ' + promotionUpdateError.message;
+        else activationMessage = ' A publicação foi marcada como recusada. Poderá corrigir o pagamento e submeter novamente.';
+      }
+      await notifyUser(promotion?.user_id || request.user_id, approved ? 'Destaque Premium aprovado — Talaza' : 'Destaque Premium recusado — Talaza', approved ? 'O pagamento foi confirmado.' + activationMessage : 'O comprovativo do Destaque Premium foi recusado. ' + activationMessage, 'premium_promotion');
+    }
     if (approved && request.business_id && request.plan_id) {
       const [{ data: business, error: businessError }, { data: plan, error: planError }] = await Promise.all([
         supabase.from('businesses').select('id, owner_id, approval_status').eq('id', request.business_id).maybeSingle(),
@@ -1519,11 +1557,11 @@ export default function Admin() {
           <div style={styles.titleRow}>
             <div>
               <h2 style={styles.title}>Pagamentos e hospedagem da Vitrine</h2>
-              <p style={styles.description}>Esta secção mostra apenas os comprovativos com ficheiro enviados para a hospedagem dos negócios. Os pagamentos de eventos ficam em Eventos; as publicações gratuitas ficam em Oportunidades.</p>
+              <p style={styles.description}>Esta secção reúne os comprovativos de hospedagem e Destaques Premium. Os pagamentos de eventos ficam em Eventos; as publicações gratuitas ficam em Oportunidades.</p>
             </div>
-            <div style={styles.counter}>{subscriptionRequests.filter(item => item.business_id && String(item.status || '').toLowerCase() === 'pending').length} pagamentos de hospedagem pendentes</div>
+            <div style={styles.counter}>{subscriptionRequests.filter(item => (item.business_id || item.premium_promotion_id) && String(item.status || '').toLowerCase() === 'pending').length} pagamentos pendentes</div>
           </div>
-          {subscriptionRequests.filter(item => item.business_id).length === 0 ? (
+          {subscriptionRequests.filter(item => item.business_id || item.premium_promotion_id).length === 0 ? (
             <div style={styles.empty}>
               <div style={styles.emptyIcon}>◇</div>
               <h2>Sem pedidos de pagamento</h2>
@@ -1531,20 +1569,21 @@ export default function Admin() {
             </div>
           ) : (
             <div style={styles.list}>
-              {subscriptionRequests.filter(item => item.business_id).map(request => {
+              {subscriptionRequests.filter(item => item.business_id || item.premium_promotion_id).map(request => {
                 const pending = String(request.status || '').toLowerCase() === 'pending';
                 return <article key={request.id} style={styles.card}>
                   <div style={styles.cardTop}>
                     <div style={styles.logoPlaceholder}>₭</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={styles.businessName}>{businessNames[request.business_id] || (request.event_id ? 'Pagamento de evento' : (request.job_post_id || request.opportunity_id) ? 'Pagamento de oportunidade' : getPaymentAreaLabel(request))}</h3>
-                      <div style={styles.meta}>Área: {getPaymentAreaLabel(request)} · {request.business_id ? 'Negócio: ' + (businessNames[request.business_id] || 'A carregar nome…') + ' · ' : ''}Plano: {planNames[request.plan_id] || 'A carregar plano…'}</div>
+                      <h3 style={styles.businessName}>{request.premium_promotion_id ? (premiumPromotionDetails[request.premium_promotion_id]?.description || 'Publicação Destaque Premium') : businessNames[request.business_id] || (request.event_id ? 'Pagamento de evento' : (request.job_post_id || request.opportunity_id) ? 'Pagamento de oportunidade' : getPaymentAreaLabel(request))}</h3>
+                      <div style={styles.meta}>Área: {getPaymentAreaLabel(request)} · {request.business_id ? 'Negócio: ' + (businessNames[request.business_id] || 'A carregar nome…') + ' · ' : request.premium_promotion_id ? 'Negócio: ' + (businessNames[premiumPromotionDetails[request.premium_promotion_id]?.business_id] || 'Publicação do vendedor') + ' · ' : ''}Plano: {planNames[request.plan_id] || 'A carregar plano…'}</div>
                     </div>
                     <span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span>
                   </div>
                   <div style={styles.details}>
                     <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
                     <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
+                    {request.premium_promotion_id && premiumPromotionDetails[request.premium_promotion_id]?.media_url && <p><a href={premiumPromotionDetails[request.premium_promotion_id].media_url} target="_blank" rel="noreferrer">Ver publicação enviada ↗</a></p>}
                     {(() => {
                       const paths = getPaymentProofPaths(request);
                       const imageUrl = paymentProofUrls[request.id + ':image'];
