@@ -36,6 +36,7 @@ export default function BusinessPublicProfile() {
     let cancelled = false;
 
     async function loadProfile() {
+      setIsSavedGraceProfile(false);
       setLoading(true);
       setError('');
       try {
