@@ -6,9 +6,7 @@ const DOCK_ROUTES = [
   '/explore',
   '/category',
   '/subcategory',
-  '/businesses',
-  '/seller',
-  '/mensagens',
+  '/eventos',
   '/perfil',
 ];
 
