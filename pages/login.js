@@ -69,20 +69,34 @@ export default function Login() {
        * A política RLS "Owners can view own businesses" permite esta consulta
        * sem expor negócios de outros utilizadores.
        */
-      const { data: ownedBusiness, error: businessError } = await supabase
+      const { data: ownedBusinesses, error: businessError } = await supabase
         .from('businesses')
         .select('id')
         .eq('owner_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
 
       if (businessError) {
-        console.error('Erro ao verificar o negócio associado:', businessError);
+        console.error('Erro ao verificar o negócio associado:', {
+          code: businessError.code,
+          message: businessError.message,
+          details: businessError.details,
+          hint: businessError.hint,
+        });
+
+        // Se a conta já está identificada como vendedor, não a enviar para
+        // a Vitrine por uma falha temporária na consulta de propriedade.
+        const accountType = String(profile?.account_type || '').trim().toLowerCase();
+        if (accountType === 'vendedor' || accountType === 'seller') {
+          await router.replace('/seller');
+          return;
+        }
+
         throw new Error(
-          'A sessão foi iniciada, mas não foi possível verificar o seu negócio. Tente novamente.'
+          'Não foi possível consultar o negócio neste momento. A sua sessão continua iniciada; tente novamente.'
         );
       }
+
+      const ownedBusiness = Array.isArray(ownedBusinesses) ? ownedBusinesses[0] : null;
 
       if (ownedBusiness?.id) {
         await router.replace('/seller');
