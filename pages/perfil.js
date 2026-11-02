@@ -33,7 +33,11 @@ export default function Perfil() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('inicio');
   const [savedBusinesses, setSavedBusinesses] = useState([]);
-  const [savedBusinessUpdates, setSavedBusinessUpdates] = useState([]);\n  const [premiumPromotions, setPremiumPromotions] = useState([]);\n  const [savedPremiumPromotions, setSavedPremiumPromotions] = useState([]);\n  const [savedPromotionIds, setSavedPromotionIds] = useState([]);\n  const [savingPromotionId, setSavingPromotionId] = useState('');
+  const [savedBusinessUpdates, setSavedBusinessUpdates] = useState([]);
+  const [premiumPromotions, setPremiumPromotions] = useState([]);
+  const [savedPremiumPromotions, setSavedPremiumPromotions] = useState([]);
+  const [savedPromotionIds, setSavedPromotionIds] = useState([]);
+  const [savingPromotionId, setSavingPromotionId] = useState('');
   const [provinceEvents, setProvinceEvents] = useState([]);
   const [loadingSections, setLoadingSections] = useState(false);
   const [unreadEventCount, setUnreadEventCount] = useState(0);
