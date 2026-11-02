@@ -132,13 +132,13 @@ function UploadBox({ id, icon, title, hint, accept, file, thumb, onPick }) {
 
 export default function Pagamento() {
   const router = useRouter();
-  const { plan: planId, business: businessId, event_id: eventId, subscription, country_id: countryId, province_id: provinceId, returnTo } = router.query;
+  const { plan: planId, business: businessId, event_id: eventId, premium_promotion_id: premiumPromotionId, subscription, country_id: countryId, province_id: provinceId, returnTo } = router.query;
   const isOpportunitySubscription = subscription === 'opportunities';
 
   const [user, setUser] = useState(null);
   const [plan, setPlan] = useState(null);
   const [business, setBusiness] = useState(null);
-  const [eventRecord, setEventRecord] = useState(null);
+  const [eventRecord, setEventRecord] = useState(null);\n  const [premiumPromotion, setPremiumPromotion] = useState(null);
 
   const [imageFile, setImageFile] = useState(null);
   const [imageThumb, setImageThumb] = useState('');
@@ -154,13 +154,13 @@ export default function Pagamento() {
   useEffect(() => {
     if (!router.isReady) return;
 
-    if (!planId || (!businessId && !eventId && !isOpportunitySubscription)) {
+    if (!planId || (!businessId && !eventId && !premiumPromotionId && !isOpportunitySubscription)) {
       router.replace('/impulsionar');
       return;
     }
 
     load();
-  }, [router.isReady, planId, businessId, eventId, isOpportunitySubscription]);
+  }, [router.isReady, planId, businessId, eventId, premiumPromotionId, isOpportunitySubscription]);
 
   async function load() {
     setLoading(true);
@@ -177,7 +177,7 @@ export default function Pagamento() {
 
     setUser(session.user);
 
-    const [planResult, businessResult, eventResult] = await Promise.all([
+    const [planResult, businessResult, eventResult, premiumResult] = await Promise.all([
       supabase.from('plans').select('*').eq('id', planId).maybeSingle(),
       businessId
         ? supabase.from('businesses').select('id, name, country_id, province_id, category_id, subcategory_id, is_active, approval_status').eq('id', businessId).eq('owner_id', session.user.id).maybeSingle()
@@ -194,13 +194,13 @@ export default function Pagamento() {
       return;
     }
 
-    const subject = isOpportunitySubscription ? true : eventId ? eventResult.data : businessResult.data;
+    const subject = isOpportunitySubscription ? true : premiumPromotionId ? premiumResult.data : eventId ? eventResult.data : businessResult.data;
     if (eventId && (eventResult.error || !eventResult.data)) {
       setError('Não foi possível encontrar o evento desta conta.');
       setLoading(false);
       return;
     }
-    if (businessId && (businessResult.error || !businessResult.data)) {
+    if (premiumPromotionId && (premiumResult.error || !premiumResult.data)) {\n      setError('Não foi possível encontrar a publicação impulsionada desta conta.');\n      setLoading(false);\n      return;\n    }\n    if (businessId && (businessResult.error || !businessResult.data)) {
       console.error(businessResult.error);
       setError('Não foi possível encontrar o seu negócio.');
       setLoading(false);
@@ -249,14 +249,14 @@ export default function Pagamento() {
 
     setPlan(planResult.data);
     setBusiness(businessResult.data);
-    setEventRecord(eventResult.data || null);
+    setEventRecord(eventResult.data || null);\n    setPremiumPromotion(premiumResult.data || null);
 
     let pendingQuery = supabase
       .from('payment_submissions')
       .select('id, plan_id, status, created_at')
       .order('created_at', { ascending: false })
       .limit(1);
-    pendingQuery = eventId ? pendingQuery.eq('event_id', eventId) : businessId ? pendingQuery.eq('business_id', businessResult.data.id) : isOpportunitySubscription ? pendingQuery.eq('user_id', session.user.id).is('business_id', null).is('event_id', null).is('job_post_id', null).eq('plan_id', planId) : pendingQuery.eq('business_id', businessResult.data.id);
+    pendingQuery = eventId ? pendingQuery.eq('event_id', eventId) : premiumPromotionId ? pendingQuery.eq('premium_promotion_id', premiumPromotionId) : businessId ? pendingQuery.eq('business_id', businessResult.data.id) : isOpportunitySubscription ? pendingQuery.eq('user_id', session.user.id).is('business_id', null).is('event_id', null).is('job_post_id', null).eq('plan_id', planId) : pendingQuery.eq('business_id', businessResult.data.id);
     const { data: pendingPayment, error: pendingPaymentError } = await pendingQuery.maybeSingle();
     if (pendingPaymentError) console.error('Erro ao verificar comprovativo já enviado:', pendingPaymentError);
     const latestPaymentStatus = String(pendingPayment?.status || '').toLowerCase();
@@ -323,7 +323,7 @@ export default function Pagamento() {
       return;
     }
 
-    if (!user?.id || (!business?.id && !eventRecord?.id && !isOpportunitySubscription) || !plan?.id) {
+    if (!user?.id || (!business?.id && !eventRecord?.id && !premiumPromotion?.id && !isOpportunitySubscription) || !plan?.id) {
       setError('A sessão ou os dados do pagamento expiraram. Atualize a página e tente novamente.');
       return;
     }
@@ -439,7 +439,7 @@ export default function Pagamento() {
 
   const safeReturnTo = typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null;
   const opportunityHref = safeReturnTo || { pathname: '/oportunidades', query: { ...(countryId ? { country: countryId } : {}), ...(provinceId ? { province: provinceId } : {}) } };
-  const panelHref = isOpportunitySubscription
+  const panelHref = premiumPromotion\n    ? { pathname: '/impulsionar', query: business ? { business: business.id } : {} }\n    : isOpportunitySubscription
     ? opportunityHref
     : business
     ? {
@@ -494,7 +494,7 @@ export default function Pagamento() {
                 lineHeight: 1.6,
               }}
             >
-              {eventRecord ? 'O seu anúncio ficará ativo assim que o seu pagamento for aprovado. Aguarde.' : isOpportunitySubscription ? 'O seu acesso às Oportunidades será ativado assim que o pagamento for aprovado. Aguarde.' : 'O seu perfil foi criado, mas ainda não está visível para os clientes. A visibilidade só será ativada depois de a equipa Talaza verificar o comprovativo, confirmar o pagamento e aprovar o negócio.'}
+              {premiumPromotion ? 'O comprovativo foi enviado. A sua publicação impulsionada só aparecerá nas vitrines depois da confirmação do pagamento pela administração. Os 15 ou 30 dias começam nessa aprovação.' : eventRecord ? 'O seu anúncio ficará ativo assim que o seu pagamento for aprovado. Aguarde.' : isOpportunitySubscription ? 'O seu acesso às Oportunidades será ativado assim que o pagamento for aprovado. Aguarde.' : 'O seu perfil foi criado, mas ainda não está visível para os clientes. A visibilidade só será ativada depois de a equipa Talaza verificar o comprovativo, confirmar o pagamento e aprovar o negócio.'}
             </p>
 
             <Link
@@ -543,8 +543,8 @@ export default function Pagamento() {
             <Card>
               <div style={{ padding: '5px 0 8px' }}>
                 <div style={{ display: 'inline-block', padding: '7px 11px', borderRadius: 999, background: '#FFF1C2', color: '#5B4300', fontSize: 11, fontWeight: 900, marginBottom: 12 }}>PAGAMENTO EM VERIFICAÇÃO</div>
-                <h1 style={{ margin: '0 0 10px', color: C.ink, fontSize: 25 }}>{eventRecord ? 'O seu evento está em verificação' : 'O seu negócio está em verificação'}</h1>
-                <p style={{ color: C.muted, lineHeight: 1.65 }}>{eventRecord ? 'O comprovativo já foi enviado. O anúncio ficará ativo assim que o pagamento for aprovado. Aguarde; não envie outro comprovativo.' : 'O comprovativo já foi enviado. Esta página mostra os dados do plano escolhido para sua consulta. Não precisa enviar novamente e não pode mudar de plano nem editar o perfil enquanto a equipa Talaza verifica o pagamento e a ativação.'}</p>
+                <h1 style={{ margin: '0 0 10px', color: C.ink, fontSize: 25 }}>{premiumPromotion ? 'A sua publicação está em verificação' : eventRecord ? 'O seu evento está em verificação' : 'O seu negócio está em verificação'}</h1>
+                <p style={{ color: C.muted, lineHeight: 1.65 }}>{premiumPromotion ? 'O comprovativo já foi enviado. Não precisa enviar novamente. A publicação só entrará nas vitrines depois da aprovação e o prazo começará nesse momento.' : eventRecord ? 'O comprovativo já foi enviado. O anúncio ficará ativo assim que o pagamento for aprovado. Aguarde; não envie outro comprovativo.' : 'O comprovativo já foi enviado. Esta página mostra os dados do plano escolhido para sua consulta. Não precisa enviar novamente e não pode mudar de plano nem editar o perfil enquanto a equipa Talaza verifica o pagamento e a ativação.'}</p>
               </div>
               <div style={{ marginTop: 12, padding: 16, borderRadius: 14, background: C.soft, border: `1px solid ${C.line}` }}>
                 <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>NEGÓCIO</p>
@@ -605,7 +605,7 @@ export default function Pagamento() {
             </strong>
           </div>
 
-          {(business || eventRecord) && (
+          {(business || eventRecord || premiumPromotion) && (
             <p
               style={{
                 margin: '8px 4px 0',
@@ -613,7 +613,7 @@ export default function Pagamento() {
                 fontSize: 13,
               }}
             >
-              Para: {cleanText(eventRecord?.title || business?.name || 'Anúncio Talaza')}
+              Para: {cleanText(premiumPromotion?.description || eventRecord?.title || business?.name || 'Anúncio Talaza')}
             </p>
           )}
 
