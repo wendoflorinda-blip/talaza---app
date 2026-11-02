@@ -60,6 +60,9 @@ export default function Subcategory() {
   const [businesses, setBusinesses] = useState([]);
   const [businessImagesById, setBusinessImagesById] = useState({});
   const [premiumBusinesses, setPremiumBusinesses] = useState([]);
+  const [premiumPromotions, setPremiumPromotions] = useState([]);
+  const [savedPromotionIds, setSavedPromotionIds] = useState([]);
+  const [savingPromotionId, setSavingPromotionId] = useState('');
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
 
@@ -244,11 +247,34 @@ export default function Subcategory() {
           setBusinessImagesById({});
         }
 
+        const { data: premiumPlanRows, error: premiumPlanError } = await supabase.from('plans')
+          .select('id,duration_days').eq('plan_type','Destaque Premium').eq('is_active',true);
+        if (premiumPlanError) console.warn('Não foi possível consultar os planos Premium:',premiumPlanError);
+        const allPremiumPlanIds=(premiumPlanRows||[]).map(item=>item.id);
+        if(allPremiumPlanIds.length) {
+          const { data: promoRows, error: promoError } = await supabase.from('premium_promotions')
+            .select('id,business_id,plan_id,media_url,media_type,description,starts_at,expires_at,status')
+            .in('plan_id',allPremiumPlanIds).eq('status','active').gt('expires_at',new Date().toISOString())
+            .order('starts_at',{ascending:false});
+          if(promoError) console.warn('Não foi possível carregar promoções da subcategoria:',promoError);
+          const promoBusinessIds=[...new Set((promoRows||[]).map(item=>item.business_id))];
+          const [promoBusinesses,promoSaved]=await Promise.all([
+            promoBusinessIds.length ? supabase.from('businesses').select('id,name,owner_id,logo_url,province_id,country_id,subcategory_id').in('id',promoBusinessIds) : Promise.resolve({data:[],error:null}),
+            currentUserId ? supabase.from('saved_premium_promotions').select('promotion_id').eq('user_id',currentUserId) : Promise.resolve({data:[],error:null})
+          ]);
+          if(promoBusinesses.error) console.warn('Não foi possível carregar negócios dos destaques:',promoBusinesses.error);
+          const businessMap=Object.fromEntries((promoBusinesses.data||[]).map(item=>[item.id,item]));
+          const planMap=Object.fromEntries((premiumPlanRows||[]).map(item=>[item.id,item.duration_days]));
+          const visible=(promoRows||[]).filter(item=>{
+            const b=businessMap[item.business_id];
+            return b && String(b.subcategory_id)===String(id) && (!country || String(b.country_id)===String(country)) && (!province || String(b.province_id)===String(province));
+          }).map(item=>({...item,business:businessMap[item.business_id],duration_days:planMap[item.plan_id]||0}));
+          if(!cancelled) {
+            setPremiumPromotions(visible);
+            setSavedPromotionIds((promoSaved.data||[]).map(row=>row.promotion_id));
+          }
+        } else if(!cancelled) setPremiumPromotions([]);
         setLoading(false);
-
-        // O campo/plano Premium será configurado mais tarde.
-        // Por enquanto, a secção Premium fica vazia e a hospedagem normal
-        // continua visível apenas na lista da respetiva subcategoria.
         if (!cancelled) {
           setPremiumBusinesses([]);
           setPremiumLoading(false);
@@ -275,6 +301,23 @@ export default function Subcategory() {
       cancelled = true;
     };
   }, [router.isReady, id, country, province]);
+
+  async function toggleSavedPromotion(promotion) {
+    if(!currentUserId) { setSaveNotice('Inicia sessão na Talaza para guardar esta publicação.'); return; }
+    setSavingPromotionId(promotion.id); setSaveNotice('');
+    try {
+      if(savedPromotionIds.includes(promotion.id)) {
+        const {error}=await supabase.from('saved_premium_promotions').delete().eq('user_id',currentUserId).eq('promotion_id',promotion.id);
+        if(error) throw error;
+        setSavedPromotionIds(prev=>prev.filter(id=>id!==promotion.id));
+      } else {
+        const {error}=await supabase.from('saved_premium_promotions').insert({user_id:currentUserId,promotion_id:promotion.id});
+        if(error) throw error;
+        setSavedPromotionIds(prev=>[...prev,promotion.id]);
+      }
+    } catch(err) { setSaveNotice(err.message || 'Não foi possível guardar a publicação.'); }
+    finally { setSavingPromotionId(''); }
+  }
 
   useEffect(() => {
     if (!premiumOpen) return;
@@ -518,68 +561,22 @@ export default function Subcategory() {
 
               <section className="premiumSection">
                 <div className="sectionHeading">
-                  <div>
-                    <span className="premiumEyebrow">DESTAQUES</span>
-                    <h2>Premium</h2>
-                    <p>Negócios com subscrição Premium ativa.</p>
-                  </div>
-
-                  {premiumBusinesses.length > 0 && (
-                    <span className="premiumCount">
-                      {premiumBusinesses.length}
-                    </span>
-                  )}
+                  <div><span className="premiumEyebrow">DESTAQUES PREMIUM</span><h2>Publicações impulsionadas</h2><p>Publicações de negócios desta subcategoria, ativas e aprovadas.</p></div>
+                  {premiumPromotions.length>0 && <span className="premiumCount">{premiumPromotions.length}</span>}
                 </div>
-
-                {premiumLoading ? (
-                  <div className="message">A carregar destaques…</div>
-                ) : premiumBusinesses.length === 0 ? (
-                  <div className="emptyPremium">
-                    <span className="emptyPremiumMark">✦</span>
-                    <div>
-                      <strong>Novos destaques em breve</strong>
-                      <p>
-                        Ainda não há negócios Premium ativos nesta
-                        subcategoria e localização.
-                      </p>
+                {premiumLoading ? <div className="message">A carregar destaques…</div> : premiumPromotions.length===0 ? (
+                  <div className="emptyPremium"><span className="emptyPremiumMark">✦</span><div><strong>Novos destaques em breve</strong><p>Ainda não há publicações impulsionadas ativas nesta subcategoria e localização.</p></div></div>
+                ) : <div className="premium-post-grid">{premiumPromotions.map(item=><article key={item.id} className="premium-post-card">
+                  {item.media_type==='video'?<video src={item.media_url} controls playsInline/>:<img src={item.media_url} alt="Publicação Destaque Premium"/>}
+                  <div className="premium-post-body"><span className="premium-post-label">✦ DESTAQUE PREMIUM</span><h3>{item.business?.name || 'Negócio Talaza'}</h3><p>{item.description}</p>
+                    <div className="premium-post-actions">
+                      <button type="button" disabled={!item.business?.owner_id} onClick={()=>router.push({pathname:'/mensagens',query:{to:item.business?.owner_id,source:'Vitrine da subcategoria',sourceId:item.business_id,box:'explore'}})}>Enviar mensagem</button>
+                      <Link href={makeBusinessHref(item.business_id,country,province,id)}>Ver perfil</Link>
+                      {item.duration_days===30 && <button type="button" disabled={savingPromotionId===item.id} onClick={()=>toggleSavedPromotion(item)}>{savingPromotionId===item.id?'…':savedPromotionIds.includes(item.id)?'✓ Guardado':'☆ Guardar'}</button>}
                     </div>
                   </div>
-                ) : (
-                  <div className="premiumGrid">
-                    {premiumBusinesses.map((business, index) => (
-                      <button
-                        type="button"
-                        className="premiumCard"
-                        key={business.id}
-                        onClick={() => openPremium(index)}
-                      >
-                        <div className="premiumImage">
-                          {business.logo_url ? (
-                            <img
-                              src={business.logo_url}
-                              alt=""
-                              loading="lazy"
-                            />
-                          ) : (
-                            <span>{getInitials(business.name)}</span>
-                          )}
-
-                          <span className="premiumBadge">✦ Premium</span>
-                        </div>
-
-                        <div className="premiumCardText">
-                          <h3>{business.name}</h3>
-                          <p>
-                            {cleanText(business.municipality) ||
-                              cleanText(business.neighborhood) ||
-                              'Na tua província'}
-                          </p>
-                          <span>Ver destaque →</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                </article>)}</div>}
+                {saveNotice && <p className="message">{saveNotice}</p>}
               </section>
 
               <section className="businessSection">
@@ -821,6 +818,15 @@ export default function Subcategory() {
       </main>
 
       <style jsx>{`
+        .premium-post-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr)); gap:16px; }
+        .premium-post-card { overflow:hidden; border:1px solid #E3E8E4; border-radius:17px; background:#fff; box-shadow:0 9px 24px rgba(24,39,34,.06); }
+        .premium-post-card > img,.premium-post-card > video { display:block; width:100%; aspect-ratio:1/1; object-fit:cover; background:#111; }
+        .premium-post-body { padding:14px; } .premium-post-label { color:#9A7100; font-size:10px; font-weight:900; letter-spacing:1px; }
+        .premium-post-body h3 { margin:8px 0 5px; font-size:16px; } .premium-post-body p { color:#66736F; font-size:13px; line-height:1.55; }
+        .premium-post-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }
+        .premium-post-actions button,.premium-post-actions a { border:0; border-radius:9px; padding:9px 11px; background:#08745F; color:#fff; text-decoration:none; font-size:11px; font-weight:800; cursor:pointer; }
+        .premium-post-actions a { background:#F2EAF9; color:#3F1D60; }
+
         .page {
           min-height: 100vh;
           background: ${COLORS.canvas};
