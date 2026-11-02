@@ -30,6 +30,10 @@ export default function Seller() {
   const [assetUploading, setAssetUploading] = useState(false);
   const [subscriptionPending, setSubscriptionPending] = useState(false);
   const [pendingPlan, setPendingPlan] = useState(null);
+  const [hostingExpiry, setHostingExpiry] = useState(null);
+  const [hostingExpired, setHostingExpired] = useState(false);
+  const [renewalPlans, setRenewalPlans] = useState([]);
+  const [renewalLoading, setRenewalLoading] = useState(false);
   const [notice, setNotice] = useState('');
 
   const [loading, setLoading] = useState(true);
@@ -195,6 +199,36 @@ export default function Seller() {
     await loadImages(data.id);
     await loadBusinessUpdates(data.id);
 
+    const { data: latestSubscription, error: subscriptionError } = await supabase
+      .from('business_subscriptions')
+      .select('id,plan_id,starts_at,expires_at,status')
+      .eq('business_id', data.id)
+      .order('starts_at',{ascending:false})
+      .order('created_at',{ascending:false})
+      .limit(1)
+      .maybeSingle();
+    if (subscriptionError) console.warn('Não foi possível consultar a validade da hospedagem:',subscriptionError);
+    const expiryDate = latestSubscription?.expires_at ? new Date(latestSubscription.expires_at) : null;
+    const validHosting = Boolean(latestSubscription && String(latestSubscription.status || '').trim().toLowerCase()==='active' && expiryDate && !Number.isNaN(expiryDate.getTime()) && expiryDate.getTime()>Date.now());
+    setHostingExpiry(expiryDate && !Number.isNaN(expiryDate.getTime()) ? expiryDate : null);
+    setHostingExpired(Boolean(latestSubscription && !validHosting));
+    if (latestSubscription && !validHosting) {
+      setRenewalLoading(true);
+      const { data: plansData, error: plansError } = await supabase.from('plans')
+        .select('id,name,description,price,duration_days,plan_type,category_id,subcategory_id,area')
+        .eq('is_active',true)
+        .eq('category_id',data.category_id);
+      if (plansError) console.warn('Não foi possível carregar planos para renovação:',plansError);
+      const matchingPlans=(plansData || []).filter(plan =>
+        String(plan.plan_type || '').trim().toLowerCase()==='hospedagem' &&
+        (!plan.subcategory_id || String(plan.subcategory_id)===String(data.subcategory_id))
+      ).sort((a,b)=>Number(a.duration_days)-Number(b.duration_days));
+      setRenewalPlans(matchingPlans);
+      setRenewalLoading(false);
+    } else {
+      setRenewalPlans([]);
+    }
+
     const { data: pendingRequest, error: pendingRequestError } = await supabase
       .from('payment_submissions')
       .select('id, plan_id, amount, created_at, status')
@@ -205,12 +239,7 @@ export default function Seller() {
 
     if (pendingRequestError) console.error('Erro ao verificar pagamento pendente:', pendingRequestError);
     const requestStatus = String(pendingRequest?.status || '').toLowerCase();
-    const isInVerification = Boolean(
-      pendingRequest &&
-      (requestStatus === 'pending' ||
-        (requestStatus === 'approved' &&
-          (!data.is_active || String(data.approval_status || '').toLowerCase() !== 'approved')))
-    );
+    const isInVerification = Boolean(pendingRequest && requestStatus === 'pending');
     setSubscriptionPending(isInVerification);
     if (pendingRequest?.plan_id && isInVerification) {
       const { data: selectedPlan, error: selectedPlanError } = await supabase
@@ -869,6 +898,23 @@ export default function Seller() {
             <span>O comprovativo já foi enviado. Não é possível mudar de plano nem editar o perfil enquanto a equipa Talaza verifica o pagamento e a aprovação do negócio.</span>
             {pendingPlan && <div style={{ marginTop: 8 }}><strong>Plano escolhido:</strong> {pendingPlan.name || pendingPlan.title || pendingPlan.plan_name || pendingPlan.nome || (pendingPlan.duration_days ? pendingPlan.duration_days + ' dias' : 'Plano selecionado')}</div>}
           </div>
+        )}
+
+        {hostingExpired && !subscriptionPending && (
+          <section style={{marginTop:18,padding:18,border:'1px solid #E8D49A',borderRadius:16,background:'#FFF8E5',color:'#5B4300'}}>
+            <strong style={{display:'block',fontSize:17,marginBottom:7}}>A sua hospedagem expirou</strong>
+            <p style={{fontSize:13,lineHeight:1.65,margin:'0 0 10px'}}>O seu perfil deixou de aparecer na Vitrine e nas pesquisas. Os clientes que já guardaram o seu perfil continuam a poder consultá-lo durante 15 dias, mas não podem enviar novas mensagens até a renovação ser aprovada.</p>
+            {hostingExpiry && <p style={{fontSize:12,margin:'0 0 12px'}}>Expirou em {hostingExpiry.toLocaleString('pt-AO')}.</p>}
+            <p style={{fontSize:13,lineHeight:1.6,margin:'0 0 12px'}}>A sua hospedagem expirou. Se não renovar dentro dos próximos 15 dias, o seu perfil deixará de aparecer na lista de Guardados dos exploradores. Depois de renovar, as pessoas terão de guardar novamente o seu perfil.</p>
+            <strong style={{display:'block',marginBottom:9}}>Escolha um plano para renovar a hospedagem</strong>
+            {renewalLoading ? <p>A carregar planos disponíveis…</p> : renewalPlans.length ? <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:10}}>
+              {renewalPlans.map(plan=><div key={plan.id} style={{padding:12,border:'1px solid #E8D49A',borderRadius:12,background:'#FFFFFF'}}>
+                <strong style={{display:'block,fontSize:13}}>{plan.name}</strong>
+                <p style={{fontSize:12,margin:'6px 0',color:'#705B25'}}>{plan.duration_days} dias · {formatKz(plan.price)}</p>
+                <Link href={{pathname:'/Pagamento',query:{plan:plan.id,business:business.id,renewal:'1'}}} style={{display:'inline-flex',padding:'9px 12px',borderRadius:9,background:'#075B4E',color:'#FFFFFF',fontWeight:800,fontSize:12,textDecoration:'none'}}>Escolher e renovar</Link>
+              </div>)}
+            </div> : <p style={{fontSize:12}}>Não encontrámos planos ativos para esta categoria. Contacte o Suporte Talaza para verificar os planos disponíveis.</p>}
+          </section>
         )}
 
         {/* Pré-visualização da loja */}
