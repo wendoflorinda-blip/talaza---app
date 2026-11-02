@@ -836,6 +836,12 @@ export default function Admin() {
       }
       const { error } = await supabase.from('payment_submissions').delete().eq('id', request.id);
       if (error) throw error;
+      if (request.premium_promotion_id) {
+        const { error: resetPromotionError } = await supabase.from('premium_promotions')
+          .update({ status: 'pending_payment', payment_submission_id: null })
+          .eq('id', request.premium_promotion_id).eq('status', 'pending');
+        if (resetPromotionError) console.warn('O comprovativo foi eliminado, mas não foi possível reabrir o pedido premium:', resetPromotionError);
+      }
       await loadSubscriptionRequests();
       alert('Comprovativo eliminado.');
     } catch (error) {
