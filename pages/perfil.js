@@ -381,7 +381,7 @@ export default function Perfil() {
           <span style={S.caption}>{provinceName} · Comunidade Talaza</span>
         </div>
         <div style={S.stats}>
-          <div style={S.stat}><strong>{savedBusinesses.length}</strong><span>Guardados</span></div>
+          <div style={S.stat}><strong>{savedBusinesses.length + savedPremiumPromotions.length}</strong><span>Guardados</span></div>
           <div style={S.stat}><strong>{premiumPromotions.length}</strong><span>Para si</span></div>
           <div style={S.stat}><strong>{provinceEvents.length}</strong><span>Eventos</span></div>
         </div>
@@ -485,7 +485,7 @@ export default function Perfil() {
                 <p style={S.cardDescription}>{business.description || 'Conheça este negócio na Vitrine Talaza.'}</p>
                 <Link href={{ pathname:'/businesses/'+business.id, query:{ returnTo:'/perfil?tab=guardados' } }} style={S.openBusiness}>Ver perfil</Link></div>
               </article>; })}
-            </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>▱</span><strong>Ainda não guardou nenhum perfil</strong><p>Quando tocar em Guardar num negócio da Vitrine, ele aparecerá aqui.</p><Link href="/explore" style={S.openBusiness}>Explorar negócios</Link></div>}
+            </div> : savedPremiumPromotions.length ? null : <div style={S.emptyCard}><span style={S.emptyIcon}>▱</span><strong>Ainda não guardou nenhum perfil ou publicação</strong><p>Quando tocar em Guardar num negócio ou numa publicação da Vitrine, o conteúdo aparecerá aqui.</p><Link href="/explore" style={S.openBusiness}>Explorar negócios</Link></div>}
           </>}
           {activeTab === 'novidades' && <>
             <h2 style={S.sectionTitle}>Novidades dos seus negócios favoritos</h2>
