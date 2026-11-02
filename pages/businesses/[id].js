@@ -26,6 +26,7 @@ export default function BusinessPublicProfile() {
   const [mainImages, setMainImages] = useState([]);
   const [panelImages, setPanelImages] = useState([]);
   const [businessUpdates, setBusinessUpdates] = useState([]);
+  const [isSavedGraceProfile, setIsSavedGraceProfile] = useState(false);
   const [viewMode, setViewMode] = useState('normal');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -42,12 +43,19 @@ export default function BusinessPublicProfile() {
           .from('businesses')
           .select('id, owner_id, name, description, country_id, province_id, municipality, neighborhood, address, phone, whatsapp, email, opening_hours, logo_url, cover_url, is_active, approval_status, panel_view_mode')
           .eq('id', id)
-          .eq('is_active', true)
           .eq('approval_status', 'approved')
           .maybeSingle();
 
         if (businessError) throw businessError;
         if (!businessData) throw new Error('Este negócio não está disponível publicamente.');
+        if (!businessData.is_active) {
+          const { data: { user: viewer } } = await supabase.auth.getUser();
+          if (!viewer) throw new Error('A hospedagem deste negócio expirou. Entre na sua conta e consulte os seus Guardados durante o período de tolerância.');
+          const { data: savedRow, error: savedError } = await supabase.from('saved_businesses')
+            .select('id').eq('business_id', businessData.id).eq('user_id', viewer.id).maybeSingle();
+          if (savedError || !savedRow) throw new Error('Este negócio está temporariamente inativo e só pode ser consultado pelos exploradores que já o guardaram.');
+          setIsSavedGraceProfile(true);
+        }
 
         // A província e o país da URL devem corresponder ao negócio.
         // Isso impede abrir um perfil de outra província alterando o link.
@@ -117,7 +125,7 @@ export default function BusinessPublicProfile() {
   const backLabel = backHref.startsWith('/perfil') ? 'Voltar aos guardados' : backHref.startsWith('/subcategory?') ? 'Voltar à subcategoria' : backHref.startsWith('/category?') ? 'Voltar às subcategorias' : 'Voltar à Vitrine';
 
   const contactNumber = business?.phone;
-  const messageHref = business?.owner_id ? '/mensagens?to=' + encodeURIComponent(business.owner_id) + '&source=Vitrine&sourceId=' + encodeURIComponent(business.id) + '&returnTo=' + encodeURIComponent(backHref) : null;
+  const messageHref = business?.owner_id && business?.is_active ? '/mensagens?to=' + encodeURIComponent(business.owner_id) + '&source=Vitrine&sourceId=' + encodeURIComponent(business.id) + '&returnTo=' + encodeURIComponent(backHref) : null;
   const addressParts = [business?.address, business?.neighborhood].map(clean).filter(Boolean);
   const addressLine = addressParts.join(', ');
 
@@ -152,6 +160,7 @@ export default function BusinessPublicProfile() {
                   {business.logo_url ? <img src={business.logo_url} alt={'Logo de ' + business.name} /> : <span>{clean(business.name).slice(0, 1).toUpperCase() || 'T'}</span>}
                 </div>
                 <h1>{business.name}</h1>
+                {isSavedGraceProfile && <div role="status" style={{display:'inline-flex',marginTop:8,padding:'7px 11px',borderRadius:999,background:'#FFF1C2',color:'#6B4A00',fontSize:12,fontWeight:800}}>Perfil inativo temporariamente · hospedagem expirada</div>}
                 <div className="mainAndUpdates">
                   <div className="mainImages">
                     {[0, 1, 2].map((slot) => {
@@ -191,8 +200,8 @@ export default function BusinessPublicProfile() {
             </section>
 
             <section className="messagePanel">
-              <div><strong>Gostaste deste negócio?</strong><span>Fala diretamente com o vendedor através das mensagens da Talaza.</span></div>
-              {messageHref ? <Link className="messageButton" href={messageHref} style={{backgroundColor:'#08745F',backgroundImage:'linear-gradient(135deg,#08745F,#075B4E)',color:'#FFFFFF',opacity:1}}>✉ Enviar mensagem</Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
+              <div><strong>{isSavedGraceProfile ? 'Este perfil está temporariamente inativo' : 'Gostaste deste negócio?'}</strong><span>{isSavedGraceProfile ? 'O vendedor precisa renovar a hospedagem para voltar a receber novas mensagens.' : 'Fala diretamente com o vendedor através das mensagens da Talaza.'}</span></div>
+              {messageHref ? <Link className="messageButton" href={messageHref} style={{backgroundColor:'#08745F',backgroundImage:'linear-gradient(135deg,#08745F,#075B4E)',color:'#FFFFFF',opacity:1}}>✉ Enviar mensagem</Link> : <span className="disabledMessage">{isSavedGraceProfile ? 'Mensagens temporariamente indisponíveis' : 'Mensagem interna indisponível'}</span>}
             </section>
 
             <section className="productsCard">
