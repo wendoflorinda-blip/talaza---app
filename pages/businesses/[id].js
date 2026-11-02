@@ -25,6 +25,7 @@ export default function BusinessPublicProfile() {
   const [business, setBusiness] = useState(null);
   const [mainImages, setMainImages] = useState([]);
   const [panelImages, setPanelImages] = useState([]);
+  const [businessUpdates, setBusinessUpdates] = useState([]);
   const [viewMode, setViewMode] = useState('normal');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,6 +82,16 @@ export default function BusinessPublicProfile() {
         setBusiness(businessData);
         setMainImages(allImages.filter((image) => image.kind === 'main').sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0)).slice(0, 3));
         setPanelImages(allImages.filter((image) => image.kind === 'panel'));
+        const { data: updatesData, error: updatesError } = await supabase.from('business_updates')
+          .select('id,media_path,media_type,created_at,expires_at')
+          .eq('business_id', businessData.id).gt('expires_at', new Date().toISOString())
+          .order('created_at', { ascending:false });
+        if (updatesError) console.warn('Novidades indisponíveis para este visitante:', updatesError);
+        const signedUpdates = await Promise.all((updatesData || []).map(async item => {
+          const { data: signed, error } = await supabase.storage.from('business-updates').createSignedUrl(item.media_path, 3600);
+          return error ? null : { ...item, signedUrl:signed?.signedUrl };
+        }));
+        if (!cancelled) setBusinessUpdates(signedUpdates.filter(Boolean));
         setViewMode(VIEW_MODES.includes(businessData.panel_view_mode) ? businessData.panel_view_mode : 'normal');
       } catch (err) {
         console.error('Erro ao carregar perfil público do negócio:', err);
@@ -141,11 +152,21 @@ export default function BusinessPublicProfile() {
                   {business.logo_url ? <img src={business.logo_url} alt={'Logo de ' + business.name} /> : <span>{clean(business.name).slice(0, 1).toUpperCase() || 'T'}</span>}
                 </div>
                 <h1>{business.name}</h1>
-                <div className="mainImages">
-                  {[0, 1, 2].map((slot) => {
-                    const image = mainImages.find((item) => item.slot === slot) || mainImages[slot];
-                    return <div className="mainImage" key={slot}>{image?.image_url ? <img src={image.image_url} alt={image.name || ('Imagem principal ' + (slot + 1))} /> : <span>Imagem {slot + 1}</span>}</div>;
-                  })}
+                <div className="mainAndUpdates">
+                  <div className="mainImages">
+                    {[0, 1, 2].map((slot) => {
+                      const image = mainImages.find((item) => item.slot === slot) || mainImages[slot];
+                      return <div className="mainImage" key={slot}>{image?.image_url ? <img src={image.image_url} alt={image.name || ('Imagem principal ' + (slot + 1))} /> : <span>Imagem {slot + 1}</span>}</div>;
+                    })}
+                  </div>
+                  <span className="updatesArrow" aria-hidden="true">➜</span>
+                  <div className="publicUpdates">
+                    <strong>Novidades</strong>
+                    {businessUpdates.length ? businessUpdates.map(item => <div className="publicUpdate" key={item.id}>
+                      {item.media_type === 'video' ? <video src={item.signedUrl} controls playsInline preload="metadata" /> : <img src={item.signedUrl} alt="Novidade de " + business.name />}
+                      <small>{new Date(item.expires_at).toLocaleDateString('pt-PT')}</small>
+                    </div>) : <span className="noUpdates">Sem novidades publicadas</span>}
+                  </div>
                 </div>
                 {business.description && <p className="description">{business.description}</p>}
                 <div className="topActions">
@@ -200,7 +221,16 @@ export default function BusinessPublicProfile() {
         .logo img{width:100%;height:100%;object-fit:cover}
         h1{font-size:clamp(22px,4vw,31px);line-height:1.2;margin:9px 0 7px;overflow-wrap:anywhere}
         .description{white-space:pre-wrap;color:#53635D;font-size:13px;line-height:1.55;margin:0 0 12px}
-        .mainImages{width:min(100%,570px);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px auto}
+        .mainAndUpdates{display:flex;align-items:center;gap:12px;margin:14px auto;max-width:100%;min-width:0}
+        .mainImages{flex:1;min-width:0;width:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}
+        .updatesArrow{flex:0 0 auto;color:#D8A319;font-size:25px;font-weight:900}
+        .publicUpdates{flex:0 0 112px;min-width:0;display:flex;flex-direction:column;gap:7px;align-items:center;padding:8px;border:1px solid #E3E8E4;border-radius:12px;background:#F8FAF8}
+        .publicUpdates>strong{font-size:11px;color:#075B4E}
+        .publicUpdate{width:100%}
+        .publicUpdate img,.publicUpdate video{display:block;width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:8px;background:#111}
+        .publicUpdate small{display:block;color:#66736F;font-size:9px;text-align:center;margin-top:3px}
+        .noUpdates{font-size:10px;text-align:center;color:#66736F;line-height:1.4}
+        @media(max-width:600px){.mainAndUpdates{gap:6px}.updatesArrow{font-size:18px}.publicUpdates{flex-basis:82px;padding:5px}.publicUpdates>strong{font-size:10px}.mainImages{gap:5px}.mainImage{border-radius:8px}}
         .mainImage{aspect-ratio:1/1;max-height:180px;overflow:hidden;border-radius:13px;background:#EDF3F0;box-shadow:0 3px 12px rgba(20,54,44,.07)}
         .mainImage img{display:block;width:100%;height:100%;object-fit:cover}
         .mainImage span{height:100%;display:grid;place-items:center;color:#8A9992;font-size:12px}
