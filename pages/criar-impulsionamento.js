@@ -102,7 +102,7 @@ export default function CriarImpulsionamento() {
           <div style={S.count}>{description.length}/2000</div>
           <h2 style={S.sectionTitle}>3. Rever e continuar</h2>
           <p style={S.notice}>Depois de continuar, irá para o pagamento por Multicaixa Express e poderá enviar o comprovativo. A publicação só aparecerá nas vitrines após a administração confirmar o pagamento. A duração começa nessa aprovação.</p>
-          <button type="button" onClick={submit} disabled={sending} style={{...S.cta,opacity:sending?.65:1}}>{sending?'A preparar…':'Continuar para pagamento →'}</button>
+          <button type="button" onClick={submit} disabled={sending} style={{...S.cta,opacity:sending ? 0.65 : 1}}>{sending?'A preparar…':'Continuar para pagamento →'}</button>
         </section>
       </>}
     </div>
