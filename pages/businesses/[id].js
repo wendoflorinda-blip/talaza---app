@@ -3,13 +3,6 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
-import ProductsView, { VIEW_MODES } from '../../components/ProductsView';
-
-const MODE_LABELS = {
-  vertical: 'Vertical',
-  deslize: 'Quadrado / deslize',
-  normal: 'Grade normal',
-};
 
 function clean(value) {
   return String(value || '').trim();
@@ -24,9 +17,7 @@ export default function BusinessPublicProfile() {
   const { id, country, province } = router.query;
   const [business, setBusiness] = useState(null);
   const [mainImages, setMainImages] = useState([]);
-  const [panelImages, setPanelImages] = useState([]);
   const [isSavedGraceProfile, setIsSavedGraceProfile] = useState(false);
-  const [viewMode, setViewMode] = useState('normal');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -103,8 +94,6 @@ export default function BusinessPublicProfile() {
         const allImages = imageData || [];
         setBusiness(businessData);
         setMainImages(allImages.filter((image) => image.kind === 'main').sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0)).slice(0, 3));
-        setPanelImages(allImages.filter((image) => image.kind === 'panel'));
-        setViewMode(VIEW_MODES.includes(businessData.panel_view_mode) ? businessData.panel_view_mode : 'normal');
       } catch (err) {
         console.error('Erro ao carregar perfil público do negócio:', err);
         if (!cancelled) setError(err?.message || 'Não foi possível carregar este perfil.');
@@ -171,11 +160,11 @@ export default function BusinessPublicProfile() {
                     return <div className="mainImage" key={slot}>{image?.image_url ? <img src={image.image_url} alt={image.name || ('Imagem principal ' + (slot + 1))} /> : <span>Imagem {slot + 1}</span>}</div>;
                   })}
                 </div>
-                {business.description && <p className="description">{business.description}</p>}
                 <div className="topActions">
-                  <a className="productsButton" href="#produtos">🛍 Produtos <span aria-hidden="true">›</span></a>
-                  {messageHref ? <Link className="messageButton" href={messageHref}>Enviar mensagem</Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
+                  {messageHref ? <Link className="messageButton" href={messageHref}>✉ Enviar mensagem</Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
+                  <Link className="productsButton" href={{pathname:'/businesses/' + business.id + '/products',query:{country:business.country_id,province:business.province_id,returnTo:router.asPath}}}><span className="cartIcon" aria-hidden="true">🛒</span> Ver produtos <span aria-hidden="true">›</span></Link>
                 </div>
+                {business.description && <p className="description">{business.description}</p>}
               </div>
             </section>
 
@@ -193,12 +182,6 @@ export default function BusinessPublicProfile() {
               {!business.whatsapp && !business.phone && !business.email && !addressLine && !business.opening_hours && <p className="muted">O vendedor ainda não adicionou os contactos e a localização.</p>}
             </section>
 
-            <section id="produtos" className="productsCard">
-              <div className="productsHeading">
-                <div><span className="eyebrow">GALERIA DO NEGÓCIO</span><h2>Produtos</h2><p>Imagens e vídeos publicados na galeria da loja. Escolhe Todos, Imagens ou Vídeos e a forma de visualização.</p></div>
-              </div>
-              <ProductsView items={panelImages} mode={viewMode} onModeChange={setViewMode} editable={false} businessName={business.name} businessId={business.id} sellerId={business.owner_id} />
-            </section>
             <p className="publicNotice">Este é o perfil público do negócio. As alterações só podem ser feitas pelo vendedor no seu painel.</p>
           </div>
         )}
@@ -223,14 +206,14 @@ export default function BusinessPublicProfile() {
         .mainImage{aspect-ratio:1/1;max-height:180px;overflow:hidden;border-radius:13px;background:#EDF3F0;box-shadow:0 3px 12px rgba(20,54,44,.07)}
         .mainImage img{display:block;width:100%;height:100%;object-fit:cover}
         .mainImage span{height:100%;display:grid;place-items:center;color:#8A9992;font-size:12px}
-        .topActions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
-        .topActions .messageButton,.productsButton{flex:1 1 190px;min-height:54px;font-size:15px}
+         .topActions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+        .topActions .messageButton,.productsButton{width:100%;min-height:54px;font-size:15px}
         .messageButton,.disabledMessage,.primaryButton,.productsButton{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:54px;padding:13px 22px;border-radius:13px;text-decoration:none;font-size:15px;font-weight:900;box-sizing:border-box}
         .messageButton,.primaryButton{background:linear-gradient(135deg,#08745F,#075B4E)!important;color:#fff!important;border:2px solid #E7BD48;box-shadow:0 8px 20px rgba(7,91,78,.18);letter-spacing:.2px;opacity:1!important;text-decoration:none!important}
         .productsButton{background:linear-gradient(135deg,#F7D76B,#E6A900 58%,#C98F00);color:#17342F;border:1px solid #D6A21B;box-shadow:0 7px 17px rgba(201,143,0,.18)}
-        .productsButton span{font-size:24px;line-height:1}
+         .productsButton span{font-size:22px;line-height:1}.productsButton .cartIcon{font-size:20px}
         .disabledMessage{background:#EDF1EF;color:#7A8983}
-        .detailsCard,.productsCard{padding:20px}
+        .detailsCard{padding:20px}
         h2{font-size:20px;margin:0 0 15px}
         .detailsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
         .detail{display:grid;grid-template-columns:30px minmax(0,1fr);grid-template-rows:auto auto;column-gap:10px;align-items:center;min-width:0;padding:13px 14px;border:1px solid #E4EBE7;border-radius:13px;background:linear-gradient(135deg,#FFFFFF,#F8FBF9)}
