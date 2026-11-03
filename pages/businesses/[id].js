@@ -183,25 +183,80 @@ export default function BusinessPublicProfile() {
             </section>
 
             {/* Botões soltos fora do cartão branco do perfil */}
-            <div className="profileActionPills">
+            <div
+              className="w-full px-4 mt-5 mb-2 flex gap-3"
+              style={{width:'100%',padding:'0 16px',marginTop:'20px',marginBottom:'8px',display:'flex',gap:'12px',boxSizing:'border-box'}}
+            >
               <Link
                 href={{pathname:'/businesses/' + business.id + '/products',query:{country:business.country_id,province:business.province_id,returnTo:router.asPath}}}
-                className="profileActionButton"
-                style={{background:'linear-gradient(90deg, #FFD700 0%, #B8860B 100%)',color:'#000000',border:'none',boxShadow:'0 8px 18px rgba(184,134,11,.28)'}}
+                style={{
+                  background:'linear-gradient(90deg, #FFD700 0%, #B8860B 100%)',
+                  color:'#000',
+                  height:'54px',
+                  minHeight:'54px',
+                  padding:'0 22px',
+                  fontSize:'16px',
+                  fontWeight:'700',
+                  borderRadius:'9999px',
+                  flex:'1',
+                  minWidth:0,
+                  display:'flex',
+                  alignItems:'center',
+                  justifyContent:'space-between',
+                  textDecoration:'none',
+                  boxSizing:'border-box',
+                }}
               >
-                <span className="profileActionLabel"><ShoppingCart size={20} color="#000000" strokeWidth={2.5} />Produtos</span>
-                <ChevronRight size={21} color="#000000" strokeWidth={2.7} />
+                <span style={{display:'flex',alignItems:'center',gap:'8px',whiteSpace:'nowrap'}}>🛒 Produtos</span>
+                <span style={{fontSize:'20px'}}>›</span>
               </Link>
+
               {messageHref ? (
                 <Link
                   href={messageHref}
-                  className="profileActionButton"
-                  style={{background:'#0a0a0a',border:'1.5px solid #FFD700',color:'#FFFFFF',boxShadow:'0 6px 16px rgba(0,0,0,.16)'}}
+                  style={{
+                    background:'#0a0a0a',
+                    border:'1.5px solid #FFD700',
+                    color:'#fff',
+                    height:'54px',
+                    minHeight:'54px',
+                    padding:'0 22px',
+                    fontSize:'16px',
+                    fontWeight:'700',
+                    borderRadius:'9999px',
+                    flex:'1',
+                    minWidth:0,
+                    display:'flex',
+                    alignItems:'center',
+                    justifyContent:'space-between',
+                    textDecoration:'none',
+                    boxSizing:'border-box',
+                  }}
                 >
-                  <span className="profileActionLabel"><MessageCircle size={20} color="#FFFFFF" strokeWidth={2.3} />Enviar Mensagem</span>
-                  <ChevronRight size={21} color="#FFFFFF" strokeWidth={2.7} />
+                  <span style={{display:'flex',alignItems:'center',gap:'8px',whiteSpace:'nowrap'}}>💬 Enviar Mensagem</span>
+                  <span style={{fontSize:'20px'}}>›</span>
                 </Link>
-              ) : <span className="profileActionButton disabledMessage">Mensagem interna indisponível</span>}
+              ) : (
+                <span
+                  style={{
+                    background:'#0a0a0a',
+                    border:'1.5px solid #FFD700',
+                    color:'#fff',
+                    height:'54px',
+                    minHeight:'54px',
+                    padding:'0 22px',
+                    fontSize:'16px',
+                    fontWeight:'700',
+                    borderRadius:'9999px',
+                    flex:'1',
+                    minWidth:0,
+                    display:'flex',
+                    alignItems:'center',
+                    justifyContent:'center',
+                    boxSizing:'border-box',
+                  }}
+                >Mensagem interna indisponível</span>
+              )}
             </div>
 
             <section className="detailsCard">
