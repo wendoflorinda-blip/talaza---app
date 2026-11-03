@@ -838,12 +838,12 @@ export default function Seller() {
         }}
       >
         <div style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-          <Link href="/mensagens?box=explore" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, boxSizing: 'border-box', padding: '10px 38px 10px 12px', borderRadius: 12, background: 'linear-gradient(135deg,#F7F1FC,#EDE2F8)', border: '1px solid #D5C1EA', color: '#60318C', textDecoration: 'none', fontSize: 13, fontWeight: 850, textAlign: 'center' }}>
+          <Link href="/mensagens?box=explore" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, boxSizing: 'border-box', padding: '10px 38px 10px 12px', borderRadius: 12, background: 'linear-gradient(135deg,#F8F3FD,#E9DDF6)', border: '1px solid #D7C3E9', color: '#64358B', boxShadow: '0 4px 12px rgba(100,53,139,.08)', textDecoration: 'none', fontSize: 13, fontWeight: 850, textAlign: 'center' }}>
             <span aria-hidden="true">✉</span>
             <span>Mensagens do Explorar Talaza</span>
             {unreadExploreCount > 0 && <span aria-label={unreadExploreCount + ' conversas não lidas'} style={{ position: 'absolute', top: -7, right: -5, minWidth: 23, height: 23, padding: '0 6px', borderRadius: 999, boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#D8A319', color: '#30200A', border: '2px solid #FFFFFF', fontSize: 12, fontWeight: 900 }}>{unreadExploreCount}</span>}
           </Link>
-          <Link href="/mensagens?box=store" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, boxSizing: 'border-box', padding: '10px 38px 10px 12px', borderRadius: 12, background: '#F2EAF9', border: '1px solid #D9C6E9', color: '#64358B', textDecoration: 'none', fontSize: 13, fontWeight: 850, textAlign: 'center' }}>
+          <Link href="/mensagens?box=store" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, boxSizing: 'border-box', padding: '10px 38px 10px 12px', borderRadius: 12, background: 'linear-gradient(135deg,#F8F3FD,#E9DDF6)', border: '1px solid #D7C3E9', color: '#64358B', boxShadow: '0 4px 12px rgba(100,53,139,.08)', textDecoration: 'none', fontSize: 13, fontWeight: 850, textAlign: 'center' }}>
             <span aria-hidden="true">▣</span>
             <span>Mensagens da minha loja</span>
             {unreadStoreCount > 0 && <span aria-label={unreadStoreCount + ' conversas não lidas'} style={{ position: 'absolute', top: -7, right: -5, minWidth: 23, height: 23, padding: '0 6px', borderRadius: 999, boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#D8A319', color: '#30200A', border: '2px solid #FFFFFF', fontSize: 12, fontWeight: 900 }}>{unreadStoreCount}</span>}
@@ -975,7 +975,7 @@ export default function Seller() {
           </div>
         </details>
 
-        <section style={{marginTop:18,padding:18,border:'1px solid #D9E8E1',borderRadius:16,background:'#FFFFFF'}}>
+        <section style={{marginTop:14,padding:14,border:'1px solid #D9E8E1',borderRadius:16,background:'linear-gradient(135deg,#FFFFFF,#F8FCFA)'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
             <div><h2 style={{margin:'0 0 5px',color:'#075B4E'}}>Novidades</h2><p style={{margin:0,fontSize:12,color:'#65756E'}}>Publique uma imagem ou vídeo vertical (9:16). Cada publicação fica disponível durante 7 dias.</p></div>
             <label style={{padding:'11px 15px',borderRadius:10,background:subscriptionPending?'#AAB4AF':'#075B4E',color:'#fff',fontWeight:800,fontSize:12,cursor:subscriptionPending?'not-allowed':'pointer'}}>
@@ -983,7 +983,7 @@ export default function Seller() {
               <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" disabled={subscriptionPending || updateBusy} hidden onChange={e=>{const f=e.target.files?.[0];e.target.value='';if(f)publishBusinessUpdate(f);}} />
             </label>
           </div>
-          <p style={{fontSize:12,lineHeight:1.6,color:'#64358B',margin:'12px 0'}}>Todo cliente que guardou o seu perfil verá esta publicação no seu painel de Novidades.</p>
+          <p style={{fontSize:11,lineHeight:1.5,color:'#75847D',margin:'8px 0'}}>Visível para clientes que guardaram a sua loja.</p>
           {updateError && <p role="alert" style={{color:'#A52F3B',fontSize:12}}>{updateError}</p>}
           {businessUpdates.length>0 && <div style={{display:'flex',gap:12,overflowX:'auto',padding:'5px 0'}}>
             {businessUpdates.map(item=><div key={item.id} style={{flex:'0 0 120px',width:120}}>
