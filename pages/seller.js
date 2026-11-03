@@ -981,7 +981,7 @@ export default function Seller() {
           </summary>
           <div style={{padding:'0 14px 14px',borderTop:'1px solid #EDF2EF'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-            <div><h2 style={{margin:'0 0 5px',color:'#075B4E'}}>Novidades</h2><p style={{margin:0,fontSize:12,color:'#65756E'}}>Publique uma imagem ou vídeo vertical (9:16). Cada publicação fica disponível durante 7 dias.</p></div>
+            <div><p style={{margin:0,fontSize:12,color:'#65756E'}}>Publique uma imagem ou vídeo vertical (9:16). Cada publicação fica disponível durante 7 dias.</p></div>
             <label style={{padding:'11px 15px',borderRadius:10,background:subscriptionPending?'#AAB4AF':'#075B4E',color:'#fff',fontWeight:800,fontSize:12,cursor:subscriptionPending?'not-allowed':'pointer'}}>
               {updateBusy?'A publicar…':'＋ Publicar novidade'}
               <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" disabled={subscriptionPending || updateBusy} hidden onChange={e=>{const f=e.target.files?.[0];e.target.value='';if(f)publishBusinessUpdate(f);}} />
