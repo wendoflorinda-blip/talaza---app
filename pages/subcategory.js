@@ -705,15 +705,23 @@ export default function Subcategory() {
                                     },
                                   }); }}
                                 >
-                                  Enviar mensagem
+                                  <span className="actionIcon">💬</span>
+                                  <span>Enviar<br />mensagem</span>
                                 </button>
                               ) : (
                                 <span className="messageButton disabledButton" aria-disabled="true">
-                                  Mensagem interna indisponível
+                                  <span className="actionIcon">💬</span>
+                                  <span>Mensagem<br />indisponível</span>
                                 </span>
                               )}
-                              <Link className="profileButton" href={makeBusinessHref(business.id, country, province, id)} onClick={() => trackBusinessAction(business)}>Ver perfil</Link>
-                              <button type="button" className={'saveButton' + (savedBusinessIds.includes(business.id) ? ' saved' : '')} disabled={savingBusinessId === business.id} onClick={() => toggleSavedBusiness(business)}>{savingBusinessId === business.id ? 'A guardar…' : savedBusinessIds.includes(business.id) ? '✓ Guardado' : '☆ Guardar'}</button>
+                              <Link className="profileButton" href={makeBusinessHref(business.id, country, province, id)} onClick={() => trackBusinessAction(business)}>
+                                <span className="actionIcon">👤</span>
+                                <span>Ver perfil</span>
+                              </Link>
+                              <button type="button" className={'saveButton' + (savedBusinessIds.includes(business.id) ? ' saved' : '')} disabled={savingBusinessId === business.id} onClick={() => toggleSavedBusiness(business)}>
+                                <span className="actionIcon">🔖</span>
+                                <span>{savingBusinessId === business.id ? 'A guardar…' : savedBusinessIds.includes(business.id) ? 'Guardado' : 'Guardar'}</span>
+                              </button>
                             </div>
                           </div>
                         </article>
@@ -1274,31 +1282,39 @@ export default function Subcategory() {
           text-align: center;
         }
 
-        .businessActions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; align-items: stretch; }
-
+        .businessActions { display: flex; width: 100%; gap: 8px; align-items: stretch; }
         .messageButton, .profileButton, .saveButton {
           display: flex;
+          flex: 1 1 0;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
-          min-height: 40px;
+          gap: 2px;
           min-width: 0;
-          padding: 8px 5px;
+          min-height: 54px;
+          height: 54px;
+          padding: 5px 3px;
           box-sizing: border-box;
-          border-radius: 11px;
-          font-size: 12px;
-          font-weight: 800;
+          border: 1.8px solid #C9A227;
+          border-radius: 14px;
+          background: #112A15;
+          color: #FFFFFF;
+          font-size: 12.5px;
+          line-height: 14px;
+          font-weight: 700;
           text-align: center;
           text-decoration: none;
-          transition: filter .15s;
+          white-space: normal;
+          transition: filter .15s, transform .15s;
+          cursor: pointer;
         }
-
-        .messageButton { border: 1px solid #D8C9EB; background: #F4EFF9; color: #70519A; }
-        .profileButton { border: 1px solid #176B57; background: #176B57; color: #FFFFFF; }
-        .saveButton { width: 100%; border: 1px solid #D8B85A; border-radius: 11px; background: #FFF8E6; color: #765817; cursor: pointer; font-size: 11px; line-height: 1.2; font-weight: 800; padding: 8px 5px; overflow-wrap: anywhere; }
-        .saveButton.saved { background: #E7F2EC; border-color: #83B7A0; color: #176B57; }
+        .actionIcon { display: block; color: #FFD700; font-size: 16px; line-height: 18px; }
+        .saveButton { width: auto; overflow-wrap: normal; }
+        .saveButton.saved { background: #173D25; border-color: #E0BD4B; color: #FFFFFF; }
         .saveButton:disabled { opacity: .6; cursor: wait; }
         .disabledButton { opacity: .55; cursor: not-allowed; }
-        .messageButton:hover, .profileButton:hover, .saveButton:hover { filter: brightness(.97); }
+        .messageButton:hover, .profileButton:hover, .saveButton:hover { filter: brightness(1.16); }
+        .messageButton:active, .profileButton:active, .saveButton:active { transform: scale(.98); }
 
         .message,
         .notice {
