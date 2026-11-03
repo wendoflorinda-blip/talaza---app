@@ -178,17 +178,31 @@ export default function BusinessPublicProfile() {
                     return <div className="mainImage" key={slot}>{image?.image_url ? <img src={image.image_url} alt={image.name || ('Imagem principal ' + (slot + 1))} /> : <span>Imagem {slot + 1}</span>}</div>;
                   })}
                 </div>
-                <div className="topActions">
-                  <Link className="productsButton" href={{pathname:'/businesses/' + business.id + '/products',query:{country:business.country_id,province:business.province_id,returnTo:router.asPath}}}>
-                    <ShoppingCart size={20} strokeWidth={2.5} aria-hidden="true" /><span>Produtos</span><ChevronRight size={20} strokeWidth={2.5} aria-hidden="true" />
-                  </Link>
-                  {messageHref ? <Link className="messageButton" href={messageHref}>
-                    <MessageCircle size={20} strokeWidth={2.2} aria-hidden="true" /><span>Enviar mensagem</span><ChevronRight size={20} strokeWidth={2.5} aria-hidden="true" />
-                  </Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
-                </div>
                 {business.description && <p className="description">{business.description}</p>}
               </div>
             </section>
+
+            {/* Botões soltos fora do cartão branco do perfil */}
+            <div className="profileActionPills">
+              <Link
+                href={{pathname:'/businesses/' + business.id + '/products',query:{country:business.country_id,province:business.province_id,returnTo:router.asPath}}}
+                className="profileActionButton"
+                style={{background:'linear-gradient(90deg, #FFD700 0%, #B8860B 100%)',color:'#000000',border:'none',boxShadow:'0 8px 18px rgba(184,134,11,.28)'}}
+              >
+                <span className="profileActionLabel"><ShoppingCart size={20} color="#000000" strokeWidth={2.5} />Produtos</span>
+                <ChevronRight size={21} color="#000000" strokeWidth={2.7} />
+              </Link>
+              {messageHref ? (
+                <Link
+                  href={messageHref}
+                  className="profileActionButton"
+                  style={{background:'#0a0a0a',border:'1.5px solid #FFD700',color:'#FFFFFF',boxShadow:'0 6px 16px rgba(0,0,0,.16)'}}
+                >
+                  <span className="profileActionLabel"><MessageCircle size={20} color="#FFFFFF" strokeWidth={2.3} />Enviar Mensagem</span>
+                  <ChevronRight size={21} color="#FFFFFF" strokeWidth={2.7} />
+                </Link>
+              ) : <span className="profileActionButton disabledMessage">Mensagem interna indisponível</span>}
+            </div>
 
             <section className="detailsCard">
               <h2>Contactos e localização</h2>
@@ -228,12 +242,11 @@ export default function BusinessPublicProfile() {
         .mainImage{aspect-ratio:1/1;max-height:180px;overflow:hidden;border-radius:13px;background:#EDF3F0;box-shadow:0 3px 12px rgba(20,54,44,.07)}
         .mainImage img{display:block;width:100%;height:100%;object-fit:cover}
         .mainImage span{height:100%;display:grid;place-items:center;color:#8A9992;font-size:12px}
-         .topActions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
-        .topActions .messageButton,.productsButton{width:100%;min-width:0;min-height:54px}
-        .messageButton,.disabledMessage,.primaryButton,.productsButton{display:inline-flex;align-items:center;justify-content:space-between;gap:9px;min-height:54px;padding:12px 19px;border-radius:999px;text-decoration:none;font-size:14px;font-weight:900;box-sizing:border-box}
-        .messageButton,.primaryButton{background:#0A0A0A!important;color:#FFFFFF!important;border:1px solid #EABF28;box-shadow:0 8px 18px rgba(0,0,0,.14);letter-spacing:.1px;opacity:1!important;text-decoration:none!important}
-        .productsButton{background:linear-gradient(90deg,#FFD700 0%,#B8860B 100%)!important;color:#090909!important;border:1px solid #D5A900;box-shadow:0 8px 18px rgba(184,134,11,.22);letter-spacing:.1px}
-        .disabledMessage{background:#EDF1EF;color:#7A8983}
+        .profileActionPills{display:flex;gap:12px;width:100%;margin:16px 0 0;padding:0 16px;box-sizing:border-box}
+        .profileActionButton{flex:1 1 0;min-width:0;min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 20px;border-radius:999px;text-decoration:none!important;font-size:15px;font-weight:900;box-sizing:border-box;transition:transform .15s ease}
+        .profileActionButton:active{transform:scale(.97)}
+        .profileActionLabel{display:inline-flex;align-items:center;gap:9px;min-width:0}
+        .profileActionButton.disabledMessage{background:#EDF1EF!important;color:#7A8983!important;border:1px solid #DCE5E0}
         .copyButton{width:39px;height:39px;flex:0 0 39px;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;color:#B8860B;cursor:pointer}
         .copyButton:hover{background:#FFF7D6;color:#8B6500}
         .copyToast{position:fixed;z-index:1000;left:50%;bottom:26px;transform:translateX(-50%);padding:12px 18px;border-radius:999px;background:#0A0A0A;color:#fff;border:1px solid #D5A900;box-shadow:0 8px 24px rgba(0,0,0,.22);font-size:13px;font-weight:800;white-space:nowrap}
@@ -256,7 +269,7 @@ export default function BusinessPublicProfile() {
         .stateCard{width:min(640px,calc(100% - 32px));box-sizing:border-box;margin:55px auto;padding:24px;line-height:1.6;color:#52635B}
         .stateCard h1{color:#17211F}
         .errorState{border-color:#F0D5D5}
-        @media(max-width:600px){.topActions{gap:8px}.topActions .messageButton,.productsButton{padding:11px 12px;font-size:12px;gap:6px}.topbar{padding:13px 15px}.profileWrap{width:calc(100% - 20px);margin-top:12px;gap:12px}.identityBody{padding:0 14px 16px}.logo{width:78px;height:78px;margin-top:-39px}.detailsCard,.productsCard{padding:16px}.detailsGrid{grid-template-columns:1fr}.mainImages{gap:5px}.modeChoices{gap:5px}.modeButton{font-size:10px;padding:10px 4px}.cover{height:165px}.stateCard{margin-top:25px}}
+        @media(max-width:600px){.profileActionPills{gap:9px;padding:0 10px}.profileActionButton{padding:12px 13px;font-size:12px;min-height:54px}.profileActionLabel{gap:6px}.topbar{padding:13px 15px}.profileWrap{width:calc(100% - 20px);margin-top:12px;gap:12px}.identityBody{padding:0 14px 16px}.logo{width:78px;height:78px;margin-top:-39px}.detailsCard,.productsCard{padding:16px}.detailsGrid{grid-template-columns:1fr}.mainImages{gap:5px}.modeChoices{gap:5px}.modeButton{font-size:10px;padding:10px 4px}.cover{height:165px}.stateCard{margin-top:25px}}
       `}</style>
     </>
   );
