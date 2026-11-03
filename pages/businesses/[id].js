@@ -183,45 +183,46 @@ export default function BusinessPublicProfile() {
             </section>
 
             {/* Botões soltos fora do cartão branco do perfil */}
-            <div
-              className="w-full px-4 mt-5 mb-2 flex gap-3"
-              style={{width:'100%',padding:'0 16px',marginTop:'20px',marginBottom:'8px',display:'flex',gap:'12px',boxSizing:'border-box'}}
-            >
+            <div className="w-full px-4 mt-5 mb-2 flex gap-2.5" style={{width:'100%',padding:'0 16px',marginTop:'20px',marginBottom:'8px',display:'flex',gap:'10px',boxSizing:'border-box'}}>
               <Link
                 href={{pathname:'/businesses/' + business.id + '/products',query:{country:business.country_id,province:business.province_id,returnTo:router.asPath}}}
                 style={{
-                  background:'linear-gradient(90deg, #FFD700 0%, #B8860B 100%)',
+                  background:'linear-gradient(105deg, #FFF082 0%, #FFD700 15%, #FFC300 30%, #FFB000 50%, #B8860B 100%)',
                   color:'#000',
-                  height:'54px',
-                  minHeight:'54px',
-                  padding:'0 22px',
-                  fontSize:'16px',
-                  fontWeight:'700',
+                  height:'50px',
+                  minHeight:'50px',
+                  padding:'0 16px',
+                  fontSize:'14.5px',
+                  fontWeight:'800',
                   borderRadius:'9999px',
                   flex:'1',
                   minWidth:0,
                   display:'flex',
                   alignItems:'center',
                   justifyContent:'space-between',
+                  whiteSpace:'nowrap',
+                  boxShadow:'0 4px 20px rgba(255, 215, 0, 0.45), inset 0 1px 1px rgba(255,255,255,0.9)',
+                  border:'1px solid #FFD700',
+                  textShadow:'0 1px 0 rgba(255,255,255,0.4)',
                   textDecoration:'none',
                   boxSizing:'border-box',
                 }}
               >
-                <span style={{display:'flex',alignItems:'center',gap:'8px',whiteSpace:'nowrap'}}>🛒 Produtos</span>
-                <span style={{fontSize:'20px'}}>›</span>
+                <span style={{display:'flex',alignItems:'center',gap:'6px'}}>🛒 Produtos</span>
+                <span style={{fontSize:'18px',marginLeft:'8px'}}>›</span>
               </Link>
 
               {messageHref ? (
                 <Link
                   href={messageHref}
                   style={{
-                    background:'#0a0a0a',
+                    background:'linear-gradient(180deg, #2a2a2a 0%, #000000 100%)',
                     border:'1.5px solid #FFD700',
                     color:'#fff',
-                    height:'54px',
-                    minHeight:'54px',
-                    padding:'0 22px',
-                    fontSize:'16px',
+                    height:'50px',
+                    minHeight:'50px',
+                    padding:'0 16px',
+                    fontSize:'14px',
                     fontWeight:'700',
                     borderRadius:'9999px',
                     flex:'1',
@@ -229,33 +230,17 @@ export default function BusinessPublicProfile() {
                     display:'flex',
                     alignItems:'center',
                     justifyContent:'space-between',
+                    whiteSpace:'nowrap',
+                    boxShadow:'0 2px 10px rgba(0,0,0,0.3)',
                     textDecoration:'none',
                     boxSizing:'border-box',
                   }}
                 >
-                  <span style={{display:'flex',alignItems:'center',gap:'8px',whiteSpace:'nowrap'}}>💬 Enviar Mensagem</span>
-                  <span style={{fontSize:'20px'}}>›</span>
+                  <span style={{display:'flex',alignItems:'center',gap:'6px'}}>💬 Mensagem</span>
+                  <span style={{fontSize:'18px',marginLeft:'8px'}}>›</span>
                 </Link>
               ) : (
-                <span
-                  style={{
-                    background:'#0a0a0a',
-                    border:'1.5px solid #FFD700',
-                    color:'#fff',
-                    height:'54px',
-                    minHeight:'54px',
-                    padding:'0 22px',
-                    fontSize:'16px',
-                    fontWeight:'700',
-                    borderRadius:'9999px',
-                    flex:'1',
-                    minWidth:0,
-                    display:'flex',
-                    alignItems:'center',
-                    justifyContent:'center',
-                    boxSizing:'border-box',
-                  }}
-                >Mensagem interna indisponível</span>
+                <span style={{background:'linear-gradient(180deg, #2a2a2a 0%, #000000 100%)',border:'1.5px solid #FFD700',color:'#fff',height:'50px',minHeight:'50px',padding:'0 16px',fontSize:'14px',fontWeight:'700',borderRadius:'9999px',flex:'1',minWidth:0,display:'flex',alignItems:'center',justifyContent:'center',whiteSpace:'nowrap',boxShadow:'0 2px 10px rgba(0,0,0,0.3)',boxSizing:'border-box'}}>Mensagem indisponível</span>
               )}
             </div>
 
