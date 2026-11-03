@@ -1297,7 +1297,6 @@ export default function Subcategory() {
           box-sizing: border-box;
           border: 1.8px solid #C9A227;
           border-radius: 14px;
-          background: #112A15;
           color: #FFFFFF;
           font-size: 12.5px;
           line-height: 14px;
@@ -1308,6 +1307,8 @@ export default function Subcategory() {
           transition: filter .15s, transform .15s;
           cursor: pointer;
         }
+        .messageButton, .saveButton { background: #112a15; border: 1.8px solid #C9A227; }
+        .profileButton { background: #00A651; border: 1.8px solid #00A651; }
         .actionIcon { display: block; color: #FFD700; font-size: 16px; line-height: 18px; }
         .saveButton { width: auto; overflow-wrap: normal; }
         .saveButton.saved { background: #173D25; border-color: #E0BD4B; color: #FFFFFF; }
