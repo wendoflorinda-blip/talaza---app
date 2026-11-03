@@ -22,6 +22,9 @@ export default function Seller() {
   const [editPhone, setEditPhone] = useState('');
   const [showEmail, setShowEmail] = useState(false);
   const [emailVisibilitySaving, setEmailVisibilitySaving] = useState(false);
+  const [supportDraft, setSupportDraft] = useState('');
+  const [supportSending, setSupportSending] = useState(false);
+  const [supportFeedback, setSupportFeedback] = useState('');
   const [editHours, setEditHours] = useState('');
   const [editMunicipality, setEditMunicipality] = useState('');
   const [editNeighborhood, setEditNeighborhood] = useState('');
@@ -147,6 +150,30 @@ export default function Seller() {
     }, 6000);
     return () => clearTimeout(timer);
   }, [notice, error, business]);
+
+  async function sendSellerSupport() {
+    const message = supportDraft.trim();
+    if (!message || supportSending) return;
+    setSupportSending(true);
+    setSupportFeedback('');
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!authData?.user) throw new Error('Entre na sua conta para contactar o Suporte Talaza.');
+      const { error: insertError } = await supabase.from('support_messages').insert({
+        user_id: authData.user.id,
+        message,
+        status: 'pending',
+      });
+      if (insertError) throw insertError;
+      setSupportDraft('');
+      setSupportFeedback('Mensagem enviada ao Suporte Talaza.');
+    } catch (err) {
+      setSupportFeedback(err.message || 'Não foi possível enviar a mensagem.');
+    } finally {
+      setSupportSending(false);
+    }
+  }
 
   async function loadBusiness() {
     setLoading(true);
@@ -811,7 +838,7 @@ export default function Seller() {
         }}
       >
         <div style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-          <Link href="/mensagens?box=explore" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, boxSizing: 'border-box', padding: '10px 38px 10px 12px', borderRadius: 12, background: '#F2EAF9', border: '1px solid #D9C6E9', color: '#64358B', textDecoration: 'none', fontSize: 13, fontWeight: 850, textAlign: 'center' }}>
+          <Link href="/mensagens?box=explore" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, boxSizing: 'border-box', padding: '10px 38px 10px 12px', borderRadius: 12, background: 'linear-gradient(135deg,#F7F1FC,#EDE2F8)', border: '1px solid #D5C1EA', color: '#60318C', textDecoration: 'none', fontSize: 13, fontWeight: 850, textAlign: 'center' }}>
             <span aria-hidden="true">✉</span>
             <span>Mensagens do Explorar Talaza</span>
             {unreadExploreCount > 0 && <span aria-label={unreadExploreCount + ' conversas não lidas'} style={{ position: 'absolute', top: -7, right: -5, minWidth: 23, height: 23, padding: '0 6px', borderRadius: 999, boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#D8A319', color: '#30200A', border: '2px solid #FFFFFF', fontSize: 12, fontWeight: 900 }}>{unreadExploreCount}</span>}
@@ -923,15 +950,30 @@ export default function Seller() {
           <button type="button" onClick={() => setCustomerOpen(true)} style={{ padding: '13px 22px', borderRadius: 13, background: '#E6A900', color: '#17342F', fontWeight: 900, border: 0, cursor: 'pointer', minWidth: 150 }}>▦ Pré-visualizar loja</button>
         </div>
 
-        <section style={{ marginTop: 14, padding: 16, border: '1px solid #DDE8E3', borderRadius: 15, background: '#FFFFFF', color: '#17342F' }}>
-          <strong style={{ display: 'block', marginBottom: 6 }}>Privacidade do e-mail</strong>
-          <p style={{ margin: '0 0 12px', color: '#65756E', fontSize: 13, lineHeight: 1.6 }}>Escolha se pretende que o e-mail de contacto do seu negócio apareça no perfil público. O e-mail usado para entrar na sua conta Talaza continua privado.</p>
-          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: subscriptionPending || emailVisibilitySaving ? 'not-allowed' : 'pointer', fontSize: 13, lineHeight: 1.5 }}>
-            <input type="checkbox" checked={showEmail} disabled={subscriptionPending || emailVisibilitySaving} onChange={(event) => saveEmailVisibility(event.target.checked)} style={{ marginTop: 3, accentColor: '#075B4E' }} />
-            <span><strong>{showEmail ? 'Mostrar e-mail aos clientes' : 'Ocultar e-mail aos clientes'}</strong><br />{showEmail ? 'Os visitantes poderão ver o e-mail de contacto.' : 'Os visitantes não verão o e-mail de contacto.'}</span>
-          </label>
-          {emailVisibilitySaving && <p style={{ margin: '10px 0 0', fontSize: 12 }}>A guardar preferência…</p>}
-        </section>
+        <details style={{ marginTop:14, border:'1px solid #D9E8E3', borderRadius:16, background:'#FFFFFF', color:'#17342F', overflow:'hidden' }}>
+          <summary style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'15px 17px',cursor:'pointer',listStyle:'none',fontWeight:850,color:'#17342F'}}>
+            <span style={{display:'flex',alignItems:'center',gap:11}}><span style={{width:38,height:38,borderRadius:12,display:'grid',placeItems:'center',background:'#EAF4F1',color:'#075B4E',fontSize:21}}>⚙</span>Configurações</span>
+            <span style={{color:'#075B4E',fontSize:20}}>⌄</span>
+          </summary>
+          <div style={{padding:'0 17px 17px',borderTop:'1px solid #EDF2EF'}}>
+            <div style={{paddingTop:14}}>
+              <strong style={{display:'block',marginBottom:5,fontSize:13}}>Privacidade do e-mail</strong>
+              <p style={{margin:'0 0 12px',color:'#65756E',fontSize:12,lineHeight:1.55}}>Escolha se pretende apresentar o e-mail de contacto no perfil público. O e-mail de acesso à sua conta Talaza continua privado.</p>
+              <label style={{display:'flex',alignItems:'center',gap:10,cursor:subscriptionPending||emailVisibilitySaving?'not-allowed':'pointer',fontSize:13,lineHeight:1.5}}>
+                <input type="checkbox" checked={showEmail} disabled={subscriptionPending||emailVisibilitySaving} onChange={event=>saveEmailVisibility(event.target.checked)} style={{accentColor:'#075B4E'}} />
+                <span><strong>{showEmail?'Mostrar e-mail aos clientes':'Ocultar e-mail aos clientes'}</strong></span>
+              </label>
+              {emailVisibilitySaving&&<p style={{margin:'8px 0 0',fontSize:11,color:'#65756E'}}>A guardar preferência…</p>}
+            </div>
+            <div style={{marginTop:17,paddingTop:14,borderTop:'1px solid #EDF2EF'}}>
+              <strong style={{display:'block',fontSize:13,marginBottom:5}}>Suporte Talaza</strong>
+              <p style={{margin:'0 0 10px',fontSize:12,color:'#65756E',lineHeight:1.55}}>Precisa de ajuda com a sua loja? Envie uma mensagem à equipa Talaza.</p>
+              <textarea value={supportDraft} onChange={event=>{setSupportDraft(event.target.value);setSupportFeedback('');}} rows={3} placeholder="Escreva a sua mensagem…" style={{width:'100%',boxSizing:'border-box',resize:'vertical',border:'1px solid #D9E5DF',borderRadius:11,padding:11,font:'inherit',fontSize:12,color:'#17342F'}} />
+              <button type="button" disabled={!supportDraft.trim()||supportSending} onClick={sendSellerSupport} style={{marginTop:8,padding:'10px 15px',border:0,borderRadius:10,background:supportDraft.trim()&&!supportSending?'#075B4E':'#BFC9C5',color:'#fff',fontSize:12,fontWeight:800,cursor:supportDraft.trim()&&!supportSending?'pointer':'not-allowed'}}>{supportSending?'A enviar…':'Enviar ao Suporte Talaza'}</button>
+              {supportFeedback&&<p role="status" style={{margin:'8px 0 0',fontSize:12,color:supportFeedback.startsWith('Mensagem enviada')?'#08745F':'#A52F3B'}}>{supportFeedback}</p>}
+            </div>
+          </div>
+        </details>
 
         <section style={{marginTop:18,padding:18,border:'1px solid #D9E8E1',borderRadius:16,background:'#FFFFFF'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
