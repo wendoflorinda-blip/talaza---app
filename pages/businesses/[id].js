@@ -210,7 +210,7 @@ export default function BusinessPublicProfile() {
         .topActions .messageButton,.productsButton{width:100%;min-height:54px;font-size:15px}
         .messageButton,.disabledMessage,.primaryButton,.productsButton{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:54px;padding:13px 22px;border-radius:13px;text-decoration:none;font-size:15px;font-weight:900;box-sizing:border-box}
         .messageButton,.primaryButton{background:linear-gradient(135deg,#08745F,#075B4E)!important;color:#fff!important;border:2px solid #E7BD48;box-shadow:0 8px 20px rgba(7,91,78,.18);letter-spacing:.2px;opacity:1!important;text-decoration:none!important}
-        .productsButton{background:linear-gradient(135deg,#F7D76B,#E6A900 58%,#C98F00);color:#17342F;border:1px solid #D6A21B;box-shadow:0 7px 17px rgba(201,143,0,.18)}
+        .productsButton{background:linear-gradient(135deg,#08745F,#075B4E)!important;color:#FFFFFF!important;border:2px solid #E7BD48;box-shadow:0 8px 20px rgba(7,91,78,.18);letter-spacing:.2px}
          .productsButton span{font-size:22px;line-height:1}.productsButton .cartIcon{font-size:20px}
         .disabledMessage{background:#EDF1EF;color:#7A8983}
         .detailsCard{padding:20px}
