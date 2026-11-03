@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { Copy, ShoppingCart, MessageCircle, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
 function clean(value) {
@@ -20,6 +21,7 @@ export default function BusinessPublicProfile() {
   const [isSavedGraceProfile, setIsSavedGraceProfile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [copyToast, setCopyToast] = useState('');
   
   useEffect(() => {
     if (!router.isReady || !id) return;
@@ -122,6 +124,22 @@ export default function BusinessPublicProfile() {
   const addressParts = [business?.address, business?.neighborhood].map(clean).filter(Boolean);
   const addressLine = addressParts.join(', ');
 
+  async function copyContact(value) {
+    const text = clean(value);
+    if (!text || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      setCopyToast('Não foi possível copiar. Tente novamente.');
+      window.setTimeout(() => setCopyToast(''), 2600);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyToast('Copiado com sucesso!');
+    } catch {
+      setCopyToast('Não foi possível copiar. Tente novamente.');
+    }
+    window.setTimeout(() => setCopyToast(''), 2600);
+  }
+
   return (
     <>
       <Head>
@@ -161,8 +179,12 @@ export default function BusinessPublicProfile() {
                   })}
                 </div>
                 <div className="topActions">
-                  {messageHref ? <Link className="messageButton" href={messageHref}>✉ Enviar mensagem</Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
-                  <Link className="productsButton" href={{pathname:'/businesses/' + business.id + '/products',query:{country:business.country_id,province:business.province_id,returnTo:router.asPath}}}><span className="cartIcon" aria-hidden="true">🛒</span> Ver produtos <span aria-hidden="true">›</span></Link>
+                  <Link className="productsButton" href={{pathname:'/businesses/' + business.id + '/products',query:{country:business.country_id,province:business.province_id,returnTo:router.asPath}}}>
+                    <ShoppingCart size={20} strokeWidth={2.5} aria-hidden="true" /><span>Produtos</span><ChevronRight size={20} strokeWidth={2.5} aria-hidden="true" />
+                  </Link>
+                  {messageHref ? <Link className="messageButton" href={messageHref}>
+                    <MessageCircle size={20} strokeWidth={2.2} aria-hidden="true" /><span>Enviar mensagem</span><ChevronRight size={20} strokeWidth={2.5} aria-hidden="true" />
+                  </Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
                 </div>
                 {business.description && <p className="description">{business.description}</p>}
               </div>
@@ -171,16 +193,16 @@ export default function BusinessPublicProfile() {
             <section className="detailsCard">
               <h2>Contactos e localização</h2>
               <div className="detailsGrid">
-                
-                {business.phone && <div className="detail"><span>Telefone</span><strong>{business.phone}</strong></div>}
-                {business.show_email === true && business.email && <div className="detail"><span>E-mail</span><strong>{business.email}</strong></div>}
-                {addressLine && <div className="detail"><span>Localização</span><strong>{addressLine}</strong></div>}
-                {business.municipality && <div className="detail"><span>Município</span><strong>{business.municipality}</strong></div>}
-                {business.neighborhood && <div className="detail"><span>Bairro</span><strong>{business.neighborhood}</strong></div>}
-                {business.opening_hours && <div className="detail"><span>Horário</span><strong>{business.opening_hours}</strong></div>}
+                {business.phone && <div className="detail"><div><span>Telefone</span><strong>{business.phone}</strong></div><button type="button" className="copyButton" aria-label="Copiar telefone" onClick={() => copyContact(business.phone)}><Copy size={19} /></button></div>}
+                {business.show_email === true && business.email && <div className="detail"><div><span>E-mail</span><strong>{business.email}</strong></div><button type="button" className="copyButton" aria-label="Copiar e-mail" onClick={() => copyContact(business.email)}><Copy size={19} /></button></div>}
+                {addressLine && <div className="detail"><div><span>Localização</span><strong>{addressLine}</strong></div><button type="button" className="copyButton" aria-label="Copiar localização" onClick={() => copyContact(addressLine)}><Copy size={19} /></button></div>}
+                {business.municipality && <div className="detail"><div><span>Município</span><strong>{business.municipality}</strong></div><button type="button" className="copyButton" aria-label="Copiar município" onClick={() => copyContact(business.municipality)}><Copy size={19} /></button></div>}
+                {business.neighborhood && <div className="detail"><div><span>Bairro</span><strong>{business.neighborhood}</strong></div><button type="button" className="copyButton" aria-label="Copiar bairro" onClick={() => copyContact(business.neighborhood)}><Copy size={19} /></button></div>}
+                {business.opening_hours && <div className="detail"><div><span>Horário</span><strong>{business.opening_hours}</strong></div><button type="button" className="copyButton" aria-label="Copiar horário" onClick={() => copyContact(business.opening_hours)}><Copy size={19} /></button></div>}
               </div>
               {!business.whatsapp && !business.phone && !business.email && !addressLine && !business.opening_hours && <p className="muted">O vendedor ainda não adicionou os contactos e a localização.</p>}
             </section>
+            {copyToast && <div className="copyToast" role="status" aria-live="polite">{copyToast}</div>}
 
             <p className="publicNotice">Este é o perfil público do negócio. As alterações só podem ser feitas pelo vendedor no seu painel.</p>
           </div>
@@ -206,19 +228,22 @@ export default function BusinessPublicProfile() {
         .mainImage{aspect-ratio:1/1;max-height:180px;overflow:hidden;border-radius:13px;background:#EDF3F0;box-shadow:0 3px 12px rgba(20,54,44,.07)}
         .mainImage img{display:block;width:100%;height:100%;object-fit:cover}
         .mainImage span{height:100%;display:grid;place-items:center;color:#8A9992;font-size:12px}
-         .topActions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
-        .topActions .messageButton,.productsButton{width:100%;min-height:54px;font-size:15px}
-        .messageButton,.disabledMessage,.primaryButton,.productsButton{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:54px;padding:13px 22px;border-radius:13px;text-decoration:none;font-size:15px;font-weight:900;box-sizing:border-box}
-        .messageButton,.primaryButton{background:linear-gradient(135deg,#08745F,#075B4E)!important;color:#fff!important;border:2px solid #E7BD48;box-shadow:0 8px 20px rgba(7,91,78,.18);letter-spacing:.2px;opacity:1!important;text-decoration:none!important}
-        .productsButton{background:linear-gradient(135deg,#08745F,#075B4E)!important;color:#FFFFFF!important;border:2px solid #E7BD48;box-shadow:0 8px 20px rgba(7,91,78,.18);letter-spacing:.2px}
-         .productsButton span{font-size:22px;line-height:1}.productsButton .cartIcon{font-size:20px}
+         .topActions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+        .topActions .messageButton,.productsButton{width:100%;min-width:0;min-height:54px}
+        .messageButton,.disabledMessage,.primaryButton,.productsButton{display:inline-flex;align-items:center;justify-content:space-between;gap:9px;min-height:54px;padding:12px 19px;border-radius:999px;text-decoration:none;font-size:14px;font-weight:900;box-sizing:border-box}
+        .messageButton,.primaryButton{background:#0A0A0A!important;color:#FFFFFF!important;border:1px solid #EABF28;box-shadow:0 8px 18px rgba(0,0,0,.14);letter-spacing:.1px;opacity:1!important;text-decoration:none!important}
+        .productsButton{background:linear-gradient(90deg,#FFD700 0%,#B8860B 100%)!important;color:#090909!important;border:1px solid #D5A900;box-shadow:0 8px 18px rgba(184,134,11,.22);letter-spacing:.1px}
         .disabledMessage{background:#EDF1EF;color:#7A8983}
-        .detailsCard{padding:20px}
+        .copyButton{width:39px;height:39px;flex:0 0 39px;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;color:#B8860B;cursor:pointer}
+        .copyButton:hover{background:#FFF7D6;color:#8B6500}
+        .copyToast{position:fixed;z-index:1000;left:50%;bottom:26px;transform:translateX(-50%);padding:12px 18px;border-radius:999px;background:#0A0A0A;color:#fff;border:1px solid #D5A900;box-shadow:0 8px 24px rgba(0,0,0,.22);font-size:13px;font-weight:800;white-space:nowrap}
+        .detailsCard{padding:20px;background:#FFFFFF}
         h2{font-size:20px;margin:0 0 15px}
         .detailsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-        .detail{display:grid;grid-template-columns:30px minmax(0,1fr);grid-template-rows:auto auto;column-gap:10px;align-items:center;min-width:0;padding:13px 14px;border:1px solid #E4EBE7;border-radius:13px;background:linear-gradient(135deg,#FFFFFF,#F8FBF9)}
-        .detail span{grid-column:2;font-size:10px;letter-spacing:.45px;text-transform:uppercase;color:#718078;font-weight:850}
-        .detail strong{grid-column:2;font-size:13px;line-height:1.45;overflow-wrap:anywhere;font-weight:750;color:#20332B}
+        .detail{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;padding:13px 14px;border:1px solid #E5E7EB;border-radius:16px;background:#FFFFFF}
+        .detail>div{display:grid;gap:4px;min-width:0}
+        .detail span{font-size:10px;letter-spacing:.45px;text-transform:uppercase;color:#718078;font-weight:850}
+        .detail strong{font-size:13px;line-height:1.45;overflow-wrap:anywhere;font-weight:750;color:#20332B}
         .muted{color:#73827B;font-size:13px}
         .productsHeading{display:flex;justify-content:space-between;gap:15px}
         .eyebrow{font-size:10px;letter-spacing:1.5px;color:#0B7563;font-weight:900}
@@ -231,7 +256,7 @@ export default function BusinessPublicProfile() {
         .stateCard{width:min(640px,calc(100% - 32px));box-sizing:border-box;margin:55px auto;padding:24px;line-height:1.6;color:#52635B}
         .stateCard h1{color:#17211F}
         .errorState{border-color:#F0D5D5}
-        @media(max-width:600px){.topActions .messageButton{max-width:none}.topbar{padding:13px 15px}.profileWrap{width:calc(100% - 20px);margin-top:12px;gap:12px}.identityBody{padding:0 14px 16px}.logo{width:78px;height:78px;margin-top:-39px}.detailsCard,.productsCard{padding:16px}.detailsGrid{grid-template-columns:1fr}.mainImages{gap:5px}.modeChoices{gap:5px}.modeButton{font-size:10px;padding:10px 4px}.cover{height:165px}.stateCard{margin-top:25px}}
+        @media(max-width:600px){.topActions{gap:8px}.topActions .messageButton,.productsButton{padding:11px 12px;font-size:12px;gap:6px}.topbar{padding:13px 15px}.profileWrap{width:calc(100% - 20px);margin-top:12px;gap:12px}.identityBody{padding:0 14px 16px}.logo{width:78px;height:78px;margin-top:-39px}.detailsCard,.productsCard{padding:16px}.detailsGrid{grid-template-columns:1fr}.mainImages{gap:5px}.modeChoices{gap:5px}.modeButton{font-size:10px;padding:10px 4px}.cover{height:165px}.stateCard{margin-top:25px}}
       `}</style>
     </>
   );
