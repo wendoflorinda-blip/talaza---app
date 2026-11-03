@@ -173,8 +173,8 @@ export default function BusinessPublicProfile() {
                 </div>
                 {business.description && <p className="description">{business.description}</p>}
                 <div className="topActions">
-                  {messageHref ? <Link className="messageButton" href={messageHref} style={{backgroundColor:'#08745F',backgroundImage:'linear-gradient(135deg,#08745F,#075B4E)',color:'#FFFFFF',opacity:1}}>Enviar mensagem dentro da Talaza</Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
-                  
+                  <a className="productsButton" href="#produtos">🛍 Produtos <span aria-hidden="true">›</span></a>
+                  {messageHref ? <Link className="messageButton" href={messageHref}>Enviar mensagem</Link> : <span className="disabledMessage">Mensagem interna indisponível</span>}
                 </div>
               </div>
             </section>
@@ -193,14 +193,9 @@ export default function BusinessPublicProfile() {
               {!business.whatsapp && !business.phone && !business.email && !addressLine && !business.opening_hours && <p className="muted">O vendedor ainda não adicionou os contactos e a localização.</p>}
             </section>
 
-            <section className="messagePanel">
-              <div><strong>{isSavedGraceProfile ? 'Este perfil está temporariamente inativo' : 'Gostaste deste negócio?'}</strong><span>{isSavedGraceProfile ? 'O vendedor precisa renovar a hospedagem para voltar a receber novas mensagens.' : 'Fala diretamente com o vendedor através das mensagens da Talaza.'}</span></div>
-              {messageHref ? <Link className="messageButton" href={messageHref} style={{backgroundColor:'#08745F',backgroundImage:'linear-gradient(135deg,#08745F,#075B4E)',color:'#FFFFFF',opacity:1}}>✉ Enviar mensagem</Link> : <span className="disabledMessage">{isSavedGraceProfile ? 'Mensagens temporariamente indisponíveis' : 'Mensagem interna indisponível'}</span>}
-            </section>
-
-            <section className="productsCard">
+            <section id="produtos" className="productsCard">
               <div className="productsHeading">
-                <div><span className="eyebrow">GALERIA DO NEGÓCIO</span><h2>Conteúdo do negócio</h2><p>Escolhe Todos, Imagens ou Vídeos e, abaixo, a forma de visualização.</p></div>
+                <div><span className="eyebrow">GALERIA DO NEGÓCIO</span><h2>Produtos</h2><p>Imagens e vídeos publicados na galeria da loja. Escolhe Todos, Imagens ou Vídeos e a forma de visualização.</p></div>
               </div>
               <ProductsView items={panelImages} mode={viewMode} onModeChange={setViewMode} editable={false} businessName={business.name} businessId={business.id} sellerId={business.owner_id} />
             </section>
@@ -228,10 +223,12 @@ export default function BusinessPublicProfile() {
         .mainImage{aspect-ratio:1/1;max-height:180px;overflow:hidden;border-radius:13px;background:#EDF3F0;box-shadow:0 3px 12px rgba(20,54,44,.07)}
         .mainImage img{display:block;width:100%;height:100%;object-fit:cover}
         .mainImage span{height:100%;display:grid;place-items:center;color:#8A9992;font-size:12px}
-        .topActions{display:flex;gap:10px;margin-top:16px}.topActions .messageButton{width:100%;max-width:420px;min-height:56px;font-size:16px}
-        .messagePanel{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;border:1px solid #DCE9E2;border-radius:17px;background:linear-gradient(120deg,#F5FAF7,#FFFFFF);box-shadow:0 5px 18px rgba(20,54,44,.04)}.messagePanel div{display:grid;gap:5px}.messagePanel .messageButton{min-width:230px;min-height:58px;font-size:15px}.messagePanel strong{font-size:15px;color:#18382D}.messagePanel span{font-size:12px;line-height:1.5;color:#687970}
-        .messageButton,.disabledMessage,.primaryButton{display:inline-flex;align-items:center;justify-content:center;min-height:54px;padding:13px 22px;border-radius:13px;text-decoration:none;font-size:15px;font-weight:900}
-        .messageButton,.primaryButton{background:#08745F!important;background-image:linear-gradient(135deg,#08745F,#075B4E)!important;color:#fff!important;border:2px solid #E7BD48;box-shadow:0 8px 20px rgba(7,91,78,.22);letter-spacing:.2px;opacity:1!important;text-decoration:none!important}
+        .topActions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+        .topActions .messageButton,.productsButton{flex:1 1 190px;min-height:54px;font-size:15px}
+        .messageButton,.disabledMessage,.primaryButton,.productsButton{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:54px;padding:13px 22px;border-radius:13px;text-decoration:none;font-size:15px;font-weight:900;box-sizing:border-box}
+        .messageButton,.primaryButton{background:linear-gradient(135deg,#08745F,#075B4E)!important;color:#fff!important;border:2px solid #E7BD48;box-shadow:0 8px 20px rgba(7,91,78,.18);letter-spacing:.2px;opacity:1!important;text-decoration:none!important}
+        .productsButton{background:linear-gradient(135deg,#F7D76B,#E6A900 58%,#C98F00);color:#17342F;border:1px solid #D6A21B;box-shadow:0 7px 17px rgba(201,143,0,.18)}
+        .productsButton span{font-size:24px;line-height:1}
         .disabledMessage{background:#EDF1EF;color:#7A8983}
         .detailsCard,.productsCard{padding:20px}
         h2{font-size:20px;margin:0 0 15px}
@@ -251,7 +248,7 @@ export default function BusinessPublicProfile() {
         .stateCard{width:min(640px,calc(100% - 32px));box-sizing:border-box;margin:55px auto;padding:24px;line-height:1.6;color:#52635B}
         .stateCard h1{color:#17211F}
         .errorState{border-color:#F0D5D5}
-        @media(max-width:600px){.topActions .messageButton{max-width:none}.messagePanel{align-items:stretch;flex-direction:column}.messagePanel .messageButton{width:100%;box-sizing:border-box}.topbar{padding:13px 15px}.profileWrap{width:calc(100% - 20px);margin-top:12px;gap:12px}.identityBody{padding:0 14px 16px}.logo{width:78px;height:78px;margin-top:-39px}.detailsCard,.productsCard{padding:16px}.detailsGrid{grid-template-columns:1fr}.mainImages{gap:5px}.modeChoices{gap:5px}.modeButton{font-size:10px;padding:10px 4px}.cover{height:165px}.stateCard{margin-top:25px}}
+        @media(max-width:600px){.topActions .messageButton{max-width:none}.messagePanel{align-items:stretch;flex-direction:column}.topbar{padding:13px 15px}.profileWrap{width:calc(100% - 20px);margin-top:12px;gap:12px}.identityBody{padding:0 14px 16px}.logo{width:78px;height:78px;margin-top:-39px}.detailsCard,.productsCard{padding:16px}.detailsGrid{grid-template-columns:1fr}.mainImages{gap:5px}.modeChoices{gap:5px}.modeButton{font-size:10px;padding:10px 4px}.cover{height:165px}.stateCard{margin-top:25px}}
       `}</style>
     </>
   );
