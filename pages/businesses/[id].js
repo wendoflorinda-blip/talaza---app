@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { Copy, ShoppingCart, MessageCircle, ChevronRight } from 'lucide-react';
+import { Copy, ShoppingCart, MessageCircle, ChevronRight, Phone, MapPin, Building2, Home, Clock, Mail } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
 function clean(value) {
@@ -207,12 +207,12 @@ export default function BusinessPublicProfile() {
             <section className="detailsCard">
               <h2>Contactos e localização</h2>
               <div className="detailsGrid">
-                {business.phone && <div className="detail"><div><span>Telefone</span><strong>{business.phone}</strong></div><button type="button" className="copyButton" aria-label="Copiar telefone" onClick={() => copyContact(business.phone)}><Copy size={19} /></button></div>}
-                {business.show_email === true && business.email && <div className="detail"><div><span>E-mail</span><strong>{business.email}</strong></div><button type="button" className="copyButton" aria-label="Copiar e-mail" onClick={() => copyContact(business.email)}><Copy size={19} /></button></div>}
-                {addressLine && <div className="detail"><div><span>Localização</span><strong>{addressLine}</strong></div><button type="button" className="copyButton" aria-label="Copiar localização" onClick={() => copyContact(addressLine)}><Copy size={19} /></button></div>}
-                {business.municipality && <div className="detail"><div><span>Município</span><strong>{business.municipality}</strong></div><button type="button" className="copyButton" aria-label="Copiar município" onClick={() => copyContact(business.municipality)}><Copy size={19} /></button></div>}
-                {business.neighborhood && <div className="detail"><div><span>Bairro</span><strong>{business.neighborhood}</strong></div><button type="button" className="copyButton" aria-label="Copiar bairro" onClick={() => copyContact(business.neighborhood)}><Copy size={19} /></button></div>}
-                {business.opening_hours && <div className="detail"><div><span>Horário</span><strong>{business.opening_hours}</strong></div><button type="button" className="copyButton" aria-label="Copiar horário" onClick={() => copyContact(business.opening_hours)}><Copy size={19} /></button></div>}
+                {business.phone && <div className="detail"><span className="detailIcon"><Phone size={18} color="#6B7280" /></span><div><span>Telefone</span><strong>{business.phone}</strong></div><button type="button" className="copyButton" aria-label="Copiar telefone" onClick={() => copyContact(business.phone)}><Copy size={19} /></button></div>}
+                {business.show_email === true && business.email && <div className="detail"><span className="detailIcon"><Mail size={18} color="#6B7280" /></span><div><span>E-mail</span><strong>{business.email}</strong></div><button type="button" className="copyButton" aria-label="Copiar e-mail" onClick={() => copyContact(business.email)}><Copy size={19} /></button></div>}
+                {addressLine && <div className="detail"><span className="detailIcon"><MapPin size={18} color="#6B7280" /></span><div><span>Localização</span><strong>{addressLine}</strong></div><button type="button" className="copyButton" aria-label="Copiar localização" onClick={() => copyContact(addressLine)}><Copy size={19} /></button></div>}
+                {business.municipality && <div className="detail"><span className="detailIcon"><Building2 size={18} color="#6B7280" /></span><div><span>Município</span><strong>{business.municipality}</strong></div><button type="button" className="copyButton" aria-label="Copiar município" onClick={() => copyContact(business.municipality)}><Copy size={19} /></button></div>}
+                {business.neighborhood && <div className="detail"><span className="detailIcon"><Home size={18} color="#6B7280" /></span><div><span>Bairro</span><strong>{business.neighborhood}</strong></div><button type="button" className="copyButton" aria-label="Copiar bairro" onClick={() => copyContact(business.neighborhood)}><Copy size={19} /></button></div>}
+                {business.opening_hours && <div className="detail"><span className="detailIcon"><Clock size={18} color="#6B7280" /></span><div><span>Horário</span><strong>{business.opening_hours}</strong></div><button type="button" className="copyButton" aria-label="Copiar horário" onClick={() => copyContact(business.opening_hours)}><Copy size={19} /></button></div>}
               </div>
               {!business.whatsapp && !business.phone && !business.email && !addressLine && !business.opening_hours && <p className="muted">O vendedor ainda não adicionou os contactos e a localização.</p>}
             </section>
@@ -243,9 +243,9 @@ export default function BusinessPublicProfile() {
         .mainImage img{display:block;width:100%;height:100%;object-fit:cover}
         .mainImage span{height:100%;display:grid;place-items:center;color:#8A9992;font-size:12px}
         .profileActionPills{display:flex;gap:12px;width:100%;margin:16px 0 0;padding:0 16px;box-sizing:border-box}
-        .profileActionButton{flex:1 1 0;min-width:0;min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 20px;border-radius:999px;text-decoration:none!important;font-size:15px;font-weight:900;box-sizing:border-box;transition:transform .15s ease}
+        .profileActionButton{flex:1 1 0;min-width:160px;min-height:52px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:16px 24px;border-radius:999px;text-decoration:none!important;font-size:16px;font-weight:700;box-sizing:border-box;transition:transform .15s ease}
         .profileActionButton:active{transform:scale(.97)}
-        .profileActionLabel{display:inline-flex;align-items:center;gap:9px;min-width:0}
+        .profileActionLabel{display:inline-flex;align-items:center;gap:9px;min-width:0;white-space:nowrap}
         .profileActionButton.disabledMessage{background:#EDF1EF!important;color:#7A8983!important;border:1px solid #DCE5E0}
         .copyButton{width:39px;height:39px;flex:0 0 39px;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;color:#B8860B;cursor:pointer}
         .copyButton:hover{background:#FFF7D6;color:#8B6500}
@@ -253,8 +253,9 @@ export default function BusinessPublicProfile() {
         .detailsCard{padding:20px;background:#FFFFFF}
         h2{font-size:20px;margin:0 0 15px}
         .detailsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-        .detail{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;padding:13px 14px;border:1px solid #E5E7EB;border-radius:16px;background:#FFFFFF}
-        .detail>div{display:grid;gap:4px;min-width:0}
+        .detail{display:flex;align-items:center;gap:12px;min-width:0;padding:13px 14px;border:1px solid #E5E7EB;border-radius:16px;background:#FFFFFF}
+        .detail>div{display:grid;gap:4px;min-width:0;flex:1}
+        .detailIcon{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border-radius:50%;background:#F3F4F6;color:#6B7280}
         .detail span{font-size:10px;letter-spacing:.45px;text-transform:uppercase;color:#718078;font-weight:850}
         .detail strong{font-size:13px;line-height:1.45;overflow-wrap:anywhere;font-weight:750;color:#20332B}
         .muted{color:#73827B;font-size:13px}
@@ -269,7 +270,7 @@ export default function BusinessPublicProfile() {
         .stateCard{width:min(640px,calc(100% - 32px));box-sizing:border-box;margin:55px auto;padding:24px;line-height:1.6;color:#52635B}
         .stateCard h1{color:#17211F}
         .errorState{border-color:#F0D5D5}
-        @media(max-width:600px){.profileActionPills{gap:9px;padding:0 10px}.profileActionButton{padding:12px 13px;font-size:12px;min-height:54px}.profileActionLabel{gap:6px}.topbar{padding:13px 15px}.profileWrap{width:calc(100% - 20px);margin-top:12px;gap:12px}.identityBody{padding:0 14px 16px}.logo{width:78px;height:78px;margin-top:-39px}.detailsCard,.productsCard{padding:16px}.detailsGrid{grid-template-columns:1fr}.mainImages{gap:5px}.modeChoices{gap:5px}.modeButton{font-size:10px;padding:10px 4px}.cover{height:165px}.stateCard{margin-top:25px}}
+        @media(max-width:600px){.profileActionPills{gap:8px;padding:0 4px}.profileActionButton{flex:1 1 160px;min-width:160px;padding:14px 16px;font-size:14px;min-height:52px}.profileActionLabel{gap:6px}.topbar{padding:13px 15px}.profileWrap{width:calc(100% - 20px);margin-top:12px;gap:12px}.identityBody{padding:0 14px 16px}.logo{width:78px;height:78px;margin-top:-39px}.detailsCard,.productsCard{padding:16px}.detailsGrid{grid-template-columns:1fr}.mainImages{gap:5px}.modeChoices{gap:5px}.modeButton{font-size:10px;padding:10px 4px}.cover{height:165px}.stateCard{margin-top:25px}}
       `}</style>
     </>
   );
