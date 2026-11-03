@@ -831,14 +831,14 @@ export default function Seller() {
           position: 'sticky',
           top: 78,
           zIndex: 9,
-          background: '#F3F7F4',
-          borderBottom: '1px solid #D6E4DD',
-          padding: '10px 18px',
-          boxShadow: '0 5px 14px rgba(0,60,48,.06)'
+          background: 'rgba(243,247,244,.96)',
+          borderBottom: '1px solid #E2EBE6',
+          padding: '8px 18px',
+          boxShadow: 'none'
         }}
       >
         <div style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-          <Link href="/mensagens?box=explore" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, boxSizing: 'border-box', padding: '10px 38px 10px 12px', borderRadius: 12, background: 'linear-gradient(135deg,#F8F3FD,#E9DDF6)', border: '1px solid #D7C3E9', color: '#64358B', boxShadow: '0 4px 12px rgba(100,53,139,.08)', textDecoration: 'none', fontSize: 13, fontWeight: 850, textAlign: 'center' }}>
+          <Link href="/mensagens?box=explore" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 44, boxSizing: 'border-box', padding: '9px 34px 9px 10px', borderRadius: 12, background: '#FFFFFF', border: '1px solid #DCE8E2', color: '#075B4E', boxShadow: 'none', textDecoration: 'none', fontSize: 13, fontWeight: 850, textAlign: 'center' }}>
             <span aria-hidden="true">✉</span>
             <span>Mensagens do Explorar Talaza</span>
             {unreadExploreCount > 0 && <span aria-label={unreadExploreCount + ' conversas não lidas'} style={{ position: 'absolute', top: -7, right: -5, minWidth: 23, height: 23, padding: '0 6px', borderRadius: 999, boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#D8A319', color: '#30200A', border: '2px solid #FFFFFF', fontSize: 12, fontWeight: 900 }}>{unreadExploreCount}</span>}
@@ -975,7 +975,11 @@ export default function Seller() {
           </div>
         </details>
 
-        <section style={{marginTop:14,padding:14,border:'1px solid #D9E8E1',borderRadius:16,background:'linear-gradient(135deg,#FFFFFF,#F8FCFA)'}}>
+        <details style={{marginTop:12,border:'1px solid #E1EBE5',borderRadius:13,background:'#FFFFFF',overflow:'hidden'}}>
+          <summary style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,padding:'13px 15px',cursor:'pointer',listStyle:'none',color:'#075B4E',fontWeight:850}}>
+            <span>Novidades <small style={{fontWeight:500,color:'#718078'}}>· {businessUpdates.length} publicadas</small></span><span aria-hidden="true">⌄</span>
+          </summary>
+          <div style={{padding:'0 14px 14px',borderTop:'1px solid #EDF2EF'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
             <div><h2 style={{margin:'0 0 5px',color:'#075B4E'}}>Novidades</h2><p style={{margin:0,fontSize:12,color:'#65756E'}}>Publique uma imagem ou vídeo vertical (9:16). Cada publicação fica disponível durante 7 dias.</p></div>
             <label style={{padding:'11px 15px',borderRadius:10,background:subscriptionPending?'#AAB4AF':'#075B4E',color:'#fff',fontWeight:800,fontSize:12,cursor:subscriptionPending?'not-allowed':'pointer'}}>
@@ -992,10 +996,13 @@ export default function Seller() {
             </div>)}
           </div>}
           {!businessUpdates.length && !updateError && <p style={{fontSize:12,color:'#8A9992',marginBottom:0}}>Ainda não publicou novidades.</p>}
-        </section>
+          </div>
+        </details>
 
         {/* IMAGENS PRINCIPAIS · 3 lugares · 600x600 */}
-        <section id="galeria-principais" className="gal-sec">
+        <details id="galeria-principais" className="gal-sec">
+          <summary className="gal-summary"><span>Imagens principais</span><small>{mainCount}/3 imagens</small><span aria-hidden="true">⌄</span></summary>
+          <div className="gal-content">
           <div className="gal-head">
             <h2>Imagens principais</h2>
             <span className="gal-count">{mainCount}/3</span>
@@ -1031,16 +1038,22 @@ export default function Seller() {
               )
             )}
           </div>
-        </section>
+          </div>
+        </details>
 
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 10, marginTop: 18, padding: 16, background: '#EAF4F1', borderRadius: 16 }}>
+        <details style={{marginTop:12,border:'1px solid #E1EBE5',borderRadius:13,background:'#FFFFFF',overflow:'hidden'}}>
+          <summary style={{padding:'13px 15px',cursor:'pointer',listStyle:'none',fontWeight:850,color:'#075B4E'}}>Contactos e localização <span style={{float:'right'}}>⌄</span></summary>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,padding:'0 15px 14px',borderTop:'1px solid #EDF2EF'}}>
           <div style={{ color: '#075B4E', fontSize: 13, lineHeight: 1.7 }}><strong>Telefone</strong><div>{business.phone || 'Não definido'}</div></div>
           <div style={{ color: '#075B4E', fontSize: 13, lineHeight: 1.7 }}><strong>Horário</strong><div>{business.opening_hours || 'Não definido'}</div></div>
           {addressLine && <div style={{ color: '#075B4E', fontSize: 13, lineHeight: 1.7 }}><strong>Endereço</strong><div>{addressLine}</div></div>}
-        </section>
+          </div>
+        </details>
 
         {/* IMAGENS DE PAINEL · 3 modos */}
-        <section id="galeria-painel" className="gal-sec">
+        <details id="galeria-painel" className="gal-sec">
+          <summary className="gal-summary"><span>Imagens e vídeos</span><small>{panelImages.length} publicações</small><span aria-hidden="true">⌄</span></summary>
+          <div className="gal-content">
           <div className="gal-head">
             <h2>Conteúdo do painel</h2>
             <span className="gal-count">{panelImages.length}</span>
@@ -1056,7 +1069,8 @@ export default function Seller() {
             whatsapp={business.phone}
             businessName={business.name}
           />
-        </section>
+          </div>
+        </details>
 
         <button
           type="button"
@@ -1173,7 +1187,10 @@ export default function Seller() {
 
       <style jsx>{`
         button{font:inherit}
-        .gal-sec{margin-top:18px;background:#fff;border-radius:18px;padding:16px;scroll-margin-top:84px;box-shadow:0 1px 0 rgba(0,0,0,.03)}
+        .gal-sec{margin-top:12px;background:#fff;border:1px solid #E1EBE5;border-radius:13px;padding:0;scroll-margin-top:84px;box-shadow:none;overflow:hidden}
+        .gal-summary{display:flex;align-items:center;gap:10px;padding:13px 15px;cursor:pointer;list-style:none;color:#075B4E;font-size:14px;font-weight:850}
+        .gal-summary::-webkit-details-marker{display:none}.gal-summary small{margin-left:auto;color:#7A8981;font-size:11px;font-weight:600}
+        .gal-content{padding:14px;border-top:1px solid #EDF2EF}
         .gal-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
         .gal-head h2{margin:0;font-size:19px;color:#075B4E;flex:1}
         .gal-count{font-weight:700;color:#5A6A64;font-size:14px}
