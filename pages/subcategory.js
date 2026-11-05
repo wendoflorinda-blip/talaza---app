@@ -714,7 +714,7 @@ export default function Subcategory() {
                                   <span>Mensagem<br />indisponível</span>
                                 </span>
                               )}
-                              <Link className="profileButton" href={makeBusinessHref(business.id, country, province, id)} onClick={() => trackBusinessAction(business)}>
+                              <Link className="profileButton" style={{backgroundColor:"#00A651",background:"#00A651",border:"1.8px solid #00A651",color:"#FFFFFF"}} href={makeBusinessHref(business.id, country, province, id)} onClick={() => trackBusinessAction(business)}>
                                 <span className="actionIcon">👤</span>
                                 <span>Ver perfil</span>
                               </Link>
@@ -1308,7 +1308,7 @@ export default function Subcategory() {
           cursor: pointer;
         }
         .messageButton, .saveButton { background: #112a15; border: 1.8px solid #C9A227; }
-        .profileButton { background: #00A651; border: 1.8px solid #00A651; }
+        .businessActions a.profileButton, .businessActions .profileButton { background: #00A651 !important; background-color: #00A651 !important; border: 1.8px solid #00A651 !important; color: #FFFFFF !important; opacity: 1 !important; }
         .actionIcon { display: block; color: #FFD700; font-size: 16px; line-height: 18px; }
         .saveButton { width: auto; overflow-wrap: normal; }
         .saveButton.saved { background: #173D25; border-color: #E0BD4B; color: #FFFFFF; }
