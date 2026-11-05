@@ -670,7 +670,7 @@ export default function Eventos() {
                   <button key={filter} type="button" onClick={() => setSelectedCategory(filter)} aria-pressed={active} style={{...styles.eventFilterButton, ...(active ? styles.eventFilterButtonActive : {})}}>
                     <EventFilterIcon type={icon} />
                     <span style={styles.eventFilterDivider} />
-                    <span style={{...styles.eventFilterLabel, ...(filter === 'Sessão de Lançamento e Venda' ? { whiteSpace: 'normal', maxWidth: '100%', textAlign: 'center', fontSize: 10 } : {})}}>{filter === 'Sessão de Lançamento e Venda' ? <>Sessão de Lançamento<br />e Venda</> : label}</span>
+                    <span style={{...styles.eventFilterLabel, ...(filter === 'Sessão de Lançamento e Venda' ? { fontSize: 10, lineHeight: 1.05 } : {})}}>{filter === 'Sessão de Lançamento e Venda' ? <>Sessão de<br />Lançamento e Venda</> : label}</span>
                   </button>
                 );
               })}
@@ -810,7 +810,7 @@ const styles = {
   eventFilterGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, marginTop: 14, width: '100%', boxSizing: 'border-box' },
   eventFilterButton: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', minWidth: 0, minHeight: 54, padding: '8px 9px', borderRadius: 30, border: '1.5px solid #D4AF37', background: '#0A3D2A', color: '#FFFFFF', boxShadow: '0 5px 12px rgba(3,35,24,.20), 0 0 10px rgba(212,175,55,.12)', cursor: 'pointer', textAlign: 'center', boxSizing: 'border-box', overflow: 'hidden' },
   eventFilterButtonActive: { background: '#063A26', borderColor: '#E8C979', boxShadow: '0 5px 15px rgba(3,35,24,.28), 0 0 13px rgba(232,201,121,.28)' },
-  eventFilterDivider: { width: 1, height: 22, flex: '0 0 1px', flexShrink: 0, background: '#D4AF37' },
+  eventFilterDivider: { width: 1, height: 28, flex: '0 0 1px', flexShrink: 0, background: '#D4AF37' },
   eventFilterLabel: { color: '#FFFFFF', fontSize: 13, lineHeight: 1.08, fontWeight: 800, minWidth: 0, flex: '1 1 auto', whiteSpace: 'normal', overflowWrap: 'anywhere', textAlign: 'center' },
   stepsIndicator: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: '8px 0 24px' },
   stepItem: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 5px', borderRadius: 12, background: '#F2F5F3', color: '#718078', fontSize: 12, fontWeight: 800 },
