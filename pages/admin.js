@@ -863,6 +863,7 @@ export default function Admin() {
       ''
     ).toLowerCase();
 
+    if (request?.premium_promotion_id) return 'Destaques Premium';
     if (request?.event_id || explicitArea.includes('evento')) return 'Eventos';
     if (request?.job_post_id || request?.opportunity_id || explicitArea.includes('oportunidade') || explicitArea.includes('vaga')) return 'Oportunidades';
     if (request?.business_id || explicitArea.includes('vitrine') || explicitArea.includes('hospedagem')) return 'Vitrine / Hospedagem';
@@ -897,6 +898,31 @@ export default function Admin() {
 
     let activationMessage = '';
     const areaLabel = getPaymentAreaLabel(request);
+
+    if (request.premium_promotion_id) {
+      const { data: promotion, error: promotionReadError } = await supabase.from('premium_promotions').select('id,user_id,plan_id').eq('id', request.premium_promotion_id).maybeSingle();
+      if (promotionReadError || !promotion) {
+        activationMessage = ' Não foi possível localizar a publicação Destaque Premium: ' + (promotionReadError?.message || 'registo não encontrado.');
+      } else if (approved) {
+        const { data: plan, error: planError } = await supabase.from('plans').select('duration_days').eq('id', promotion.plan_id || request.plan_id).maybeSingle();
+        const durationDays = Number(plan?.duration_days) || 0;
+        if (planError || durationDays <= 0) activationMessage = ' O pagamento foi aprovado, mas a duração do plano Premium não está configurada.';
+        else {
+          const startsAt = new Date();
+          const expiresAt = new Date(startsAt.getTime() + durationDays * 86400000).toISOString();
+          const { error: updateError } = await supabase.from('premium_promotions').update({ status: 'active', starts_at: startsAt.toISOString(), expires_at: expiresAt, payment_submission_id: request.id }).eq('id', promotion.id);
+          if (updateError) activationMessage = ' O pagamento foi aprovado, mas não foi possível ativar o Destaque Premium: ' + updateError.message;
+          else {
+            activationMessage = ' O Destaque Premium está ativo até ' + new Date(expiresAt).toLocaleDateString('pt-AO') + '.';
+            await notifyUser(promotion.user_id || request.user_id, 'Destaque Premium aprovado — Talaza', 'O seu Destaque Premium foi aprovado e já está ativo.', 'payment_review');
+          }
+        }
+      } else {
+        const { error: updateError } = await supabase.from('premium_promotions').update({ status: 'rejected' }).eq('id', promotion.id);
+        if (updateError) activationMessage = ' O comprovativo foi recusado, mas não foi possível atualizar a publicação: ' + updateError.message;
+        else await notifyUser(promotion.user_id || request.user_id, 'Destaque Premium recusado — Talaza', 'O comprovativo do seu Destaque Premium foi recusado. Motivo: ' + rejectionReason.trim(), 'payment_review');
+      }
+    }
 
     if (approved && request.business_id && request.plan_id) {
       const [{ data: business, error: businessError }, { data: plan, error: planError }] = await Promise.all([
@@ -1120,7 +1146,8 @@ export default function Admin() {
           <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', gap: 10, margin: '0 -4px 10px', padding: '8px 4px 14px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
             {[
               ['vendedores', 'Vendedores', businesses.length],
-              ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && (item.business_id || item.event_id || item.job_post_id)).length],
+              ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
+              ['destaques-premium', 'Destaques Premium', subscriptionRequests.filter(item => item.premium_promotion_id && String(item.status || '').toLowerCase() === 'pending').length],
               ['eventos', 'Eventos', events.filter(item => String(item.status || '').toLowerCase() === 'pending_payment').length],
               ['oportunidades', 'Oportunidades', jobPosts.filter(item => !['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase())).length],
               ['comunidade', 'Comunidade Talaza', communityPosts.filter(item => String(item.moderation_status || 'pending').toLowerCase() === 'pending').length],
@@ -1440,9 +1467,9 @@ export default function Admin() {
               <h2 style={styles.title}>Pagamentos e hospedagem da Vitrine</h2>
               <p style={styles.description}>Esta secção mostra apenas os comprovativos com ficheiro enviados para a hospedagem dos negócios. Os pagamentos de eventos ficam em Eventos; as publicações gratuitas ficam em Oportunidades.</p>
             </div>
-            <div style={styles.counter}>{subscriptionRequests.filter(item => item.business_id && String(item.status || '').toLowerCase() === 'pending').length} pagamentos de hospedagem pendentes</div>
+            <div style={styles.counter}>{subscriptionRequests.filter(item => item.business_id && !item.premium_promotion_id && String(item.status || '').toLowerCase() === 'pending').length} pagamentos de hospedagem pendentes</div>
           </div>
-          {subscriptionRequests.filter(item => item.business_id).length === 0 ? (
+          {subscriptionRequests.filter(item => item.business_id && !item.premium_promotion_id).length === 0 ? (
             <div style={styles.empty}>
               <div style={styles.emptyIcon}>◇</div>
               <h2>Sem pedidos de pagamento</h2>
@@ -1450,7 +1477,7 @@ export default function Admin() {
             </div>
           ) : (
             <div style={styles.list}>
-              {subscriptionRequests.filter(item => item.business_id).map(request => {
+              {subscriptionRequests.filter(item => item.business_id && !item.premium_promotion_id).map(request => {
                 const pending = String(request.status || '').toLowerCase() === 'pending';
                 return <article key={request.id} style={styles.card}>
                   <div style={styles.cardTop}>
@@ -1503,6 +1530,36 @@ export default function Admin() {
                     <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Confirmar pagamento'}</button></>}
                     <button type="button" disabled={deletingPaymentId === request.id} style={styles.reject} onClick={() => deletePaymentProof(request)}>{deletingPaymentId === request.id ? 'A eliminar…' : 'Eliminar comprovativo'}</button>
                   </div>
+                </article>;
+              })}
+            </div>
+          )}
+        </section>
+
+        <section id="destaques-premium" style={{ marginTop: 0, display: activeAdminSection === 'destaques-premium' ? 'block' : 'none' }}>
+          <div style={styles.titleRow}>
+            <div><h2 style={styles.title}>Aprovação de Destaques Premium</h2><p style={styles.description}>Anúncios Premium com comprovativo enviado para análise administrativa.</p></div>
+            <div style={styles.counter}>{subscriptionRequests.filter(item => item.premium_promotion_id && String(item.status || '').toLowerCase() === 'pending').length} por aprovar</div>
+          </div>
+          {subscriptionRequests.filter(item => item.premium_promotion_id).length === 0 ? (
+            <div style={styles.empty}><div style={styles.emptyIcon}>◇</div><h2>Sem Destaques Premium para aprovar</h2><p>Os anúncios aparecerão aqui depois do envio do comprovativo.</p></div>
+          ) : (
+            <div style={styles.list}>
+              {subscriptionRequests.filter(item => item.premium_promotion_id).map(request => {
+                const pending = String(request.status || '').toLowerCase() === 'pending';
+                const paths = getPaymentProofPaths(request);
+                const imageUrl = paymentProofUrls[request.id + ':image'];
+                return <article key={request.id} style={styles.card}>
+                  <div style={styles.cardTop}><div style={styles.logoPlaceholder}>★</div><div style={{ flex: 1, minWidth: 0 }}><h3 style={styles.businessName}>{businessNames[request.business_id] || 'Destaque Premium'}</h3><div style={styles.meta}>Área: Destaques Premium · Plano: {planNames[request.plan_id] || 'A carregar plano…'}</div></div><span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span></div>
+                  <div style={styles.details}>
+                    <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
+                    <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
+                    {paths.image && imageUrl && <a href={imageUrl} target="_blank" rel="noreferrer"><img src={imageUrl} alt="Comprovativo Destaque Premium" style={{ display: 'block', maxWidth: '100%', width: 260, maxHeight: 320, objectFit: 'contain', border: '1px solid #DCE6E1', borderRadius: 8, background: '#fff' }} /></a>}
+                    {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir/baixar comprovativo ↗</button></p>}
+                    {!paths.image && !paths.file && <p style={{ color: '#9B3A28' }}>Este pedido não contém comprovativo legível.</p>}
+                    {paths.image && !imageUrl && <p style={{ color: '#9B3A28' }}>Não foi possível abrir o comprovativo. Verifique o bucket payment-proofs.</p>}
+                  </div>
+                  <div style={styles.actions}>{pending && <><button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button><button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Aprovar Destaque Premium'}</button></>}</div>
                 </article>;
               })}
             </div>
