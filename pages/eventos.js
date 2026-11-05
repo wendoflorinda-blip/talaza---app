@@ -670,7 +670,7 @@ export default function Eventos() {
                   <button key={filter} type="button" onClick={() => setSelectedCategory(filter)} aria-pressed={active} style={{...styles.eventFilterButton, ...(active ? styles.eventFilterButtonActive : {})}}>
                     <EventFilterIcon type={icon} />
                     <span style={styles.eventFilterDivider} />
-                    <span style={styles.eventFilterLabel}>{filter === 'Sessão de Lançamento e Venda' ? <>Sessão de Lançamento<br />e Venda</> : label}</span>
+                    <span style={{...styles.eventFilterLabel, ...(filter === 'Sessão de Lançamento e Venda' ? { whiteSpace: 'normal', maxWidth: 112, textAlign: 'right', fontSize: 11 } : {})}}>{filter === 'Sessão de Lançamento e Venda' ? <>Sessão de Lançamento<br />e Venda</> : label}</span>
                   </button>
                 );
               })}
@@ -807,11 +807,11 @@ const styles = {
   historyItem: { display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: 8, border: '1px solid #EAE1F2', borderRadius: 10, background: '#FFFFFF', cursor: 'pointer', color: '#26352F' },
   historyThumb: { width: 42, height: 42, objectFit: 'cover', borderRadius: 8, flexShrink: 0 },
   historyThumbFallback: { width: 42, height: 42, display: 'grid', placeItems: 'center', borderRadius: 8, background: '#F0E7F7', color: '#64358B' },
-  eventFilterGrid: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 12, marginTop: 14, width: '100%', boxSizing: 'border-box' },
-  eventFilterButton: { width: '100%', minWidth: 0, overflow: 'hidden', height: 62, display: 'flex', alignItems: 'center', gap: 12, padding: '0 12px', borderRadius: 999, border: '1.5px solid #D4AF37', background: '#0A3D2A', color: '#FFFFFF', boxShadow: '0 5px 12px rgba(3,35,24,.20), 0 0 10px rgba(212,175,55,.12)', cursor: 'pointer', textAlign: 'left', boxSizing: 'border-box' },
+  eventFilterGrid: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 14, width: '100%', boxSizing: 'border-box' },
+  eventFilterButton: { display: 'flex', flex: '0 0 auto', alignItems: 'center', gap: 8, width: 'auto', height: 'auto', minWidth: 0, maxWidth: '100%', padding: '10px 14px', borderRadius: 30, border: '1.5px solid #D4AF37', background: '#0A3D2A', color: '#FFFFFF', boxShadow: '0 5px 12px rgba(3,35,24,.20), 0 0 10px rgba(212,175,55,.12)', cursor: 'pointer', textAlign: 'left', boxSizing: 'border-box' },
   eventFilterButtonActive: { background: '#063A26', borderColor: '#E8C979', boxShadow: '0 5px 15px rgba(3,35,24,.28), 0 0 13px rgba(232,201,121,.28)' },
-  eventFilterDivider: { width: 1, height: 30, flex: '0 0 1px', flexShrink: 0, background: '#D4AF37' },
-  eventFilterLabel: { color: '#FFFFFF', fontSize: 15, lineHeight: 1.1, fontWeight: 800, minWidth: 0, flex: 1, whiteSpace: 'normal', overflow: 'hidden', wordBreak: 'break-word' },
+  eventFilterDivider: { width: 1, height: 22, flex: '0 0 1px', flexShrink: 0, background: '#D4AF37' },
+  eventFilterLabel: { color: '#FFFFFF', fontSize: 14, lineHeight: 1.1, fontWeight: 800, minWidth: 0, whiteSpace: 'nowrap' },
   stepsIndicator: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: '8px 0 24px' },
   stepItem: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 5px', borderRadius: 12, background: '#F2F5F3', color: '#718078', fontSize: 12, fontWeight: 800 },
   currentStep: { background: '#DCEFE8', color: '#075B4E', boxShadow: 'inset 0 0 0 1px #8CB7A8' },
