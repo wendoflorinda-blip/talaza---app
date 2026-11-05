@@ -233,8 +233,11 @@ export default function Admin() {
       setSubscriptionRequests([]);
       return;
     }
-    // Comprovativos sem ficheiro não entram em nenhuma fila de aprovação.
-    const requests = (data || []).filter((item) => String(item.proof_url || '').trim() && (item.business_id || item.event_id));
+    // Destaques Premium não têm business_id no pagamento: usam premium_promotion_id.
+    const requests = (data || []).filter((item) =>
+      String(item.proof_url || '').trim() &&
+      (item.business_id || item.event_id || item.job_post_id || item.premium_promotion_id)
+    );
     setSubscriptionRequests(requests);
 
     const businessIds = [...new Set(requests.map(item => item.business_id).filter(Boolean))];
