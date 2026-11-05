@@ -227,7 +227,7 @@ export default function Pagamento() {
         setLoading(false);
         return;
       }
-    } else if (businessId) {
+    } else if (businessId && !premiumPromotionId) {
       const kind = String(planResult.data.plan_type || '').trim().toLowerCase();
       const planMatchesBusiness =
         kind === 'hospedagem' &&
