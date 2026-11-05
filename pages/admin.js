@@ -1245,6 +1245,7 @@ export default function Admin() {
             {[
               ['vendedores', 'Vendedores', businesses.length],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && (item.business_id || item.event_id || item.job_post_id)).length],
+              ['destaques-premium', 'Destaques Premium', subscriptionRequests.filter(item => item.premium_promotion_id && ['pending','submitted'].includes(String(item.status || '').toLowerCase())).length],
               ['eventos', 'Eventos', events.filter(item => String(item.status || '').toLowerCase() === 'pending_payment').length],
               ['oportunidades', 'Oportunidades', jobPosts.filter(item => !['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase())).length],
               ['comunidade', 'Comunidade Talaza', communityPosts.filter(item => String(item.moderation_status || 'pending').toLowerCase() === 'pending').length],
@@ -1575,6 +1576,82 @@ export default function Admin() {
           ) : (
             <div style={styles.list}>
               {subscriptionRequests.filter(item => item.business_id || item.premium_promotion_id).map(request => {
+                const pending = String(request.status || '').toLowerCase() === 'pending';
+                return <article key={request.id} style={styles.card}>
+                  <div style={styles.cardTop}>
+                    <div style={styles.logoPlaceholder}>₭</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={styles.businessName}>{request.premium_promotion_id ? (premiumPromotionDetails[request.premium_promotion_id]?.description || 'Publicação Destaque Premium') : businessNames[request.business_id] || (request.event_id ? 'Pagamento de evento' : (request.job_post_id || request.opportunity_id) ? 'Pagamento de oportunidade' : getPaymentAreaLabel(request))}</h3>
+                      <div style={styles.meta}>Área: {getPaymentAreaLabel(request)} · {request.business_id ? 'Negócio: ' + (businessNames[request.business_id] || 'A carregar nome…') + ' · ' : request.premium_promotion_id ? 'Negócio: ' + (premiumPromotionDetails[request.premium_promotion_id]?.businesses?.name || businessNames[premiumPromotionDetails[request.premium_promotion_id]?.business_id] || 'Publicação do vendedor') + ' · ' : ''}Plano: {planNames[request.plan_id] || 'A carregar plano…'}</div>
+                    </div>
+                    <span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span>
+                  </div>
+                  <div style={styles.details}>
+                    <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
+                    <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
+                    {request.premium_promotion_id && premiumPromotionDetails[request.premium_promotion_id]?.media_url && <div style={{margin:'12px 0',padding:12,border:'1px solid #DCE6E1',borderRadius:12,background:'#FAFCFB'}}>{premiumPromotionDetails[request.premium_promotion_id].media_type==='video' ? <video src={premiumPromotionDetails[request.premium_promotion_id].media_url} controls playsInline style={{display:'block',width:'100%',maxWidth:360,maxHeight:320,background:'#111',borderRadius:8}}/> : <img src={premiumPromotionDetails[request.premium_promotion_id].media_url} alt="Publicação enviada para Destaque Premium" style={{display:'block',width:'100%',maxWidth:360,maxHeight:320,objectFit:'contain',borderRadius:8,background:'#fff'}}/>}<p><a href={premiumPromotionDetails[request.premium_promotion_id].media_url} target="_blank" rel="noreferrer">Abrir publicação em tamanho completo ↗</a></p></div>}
+                    {(() => {
+                      const paths = getPaymentProofPaths(request);
+                      const imageUrl = paymentProofUrls[request.id + ':image'];
+                      const fileUrl = paymentProofUrls[request.id + ':file'];
+                      return (
+                        <div style={{ marginTop: 12, padding: 12, border: '1px solid #DCE6E1', borderRadius: 12, background: '#FAFCFB' }}>
+                          <p style={{ marginTop: 0 }}><strong>Comprovativo enviado pela cliente:</strong></p>
+                          {paths.image ? (
+                            <div style={{ marginBottom: 12 }}>
+                              {imageUrl ? (
+                                <a href={imageUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block' }}>
+                                  <img src={imageUrl} alt="Comprovativo de pagamento enviado" style={{ display: 'block', maxWidth: '100%', width: 280, maxHeight: 360, objectFit: 'contain', border: '1px solid #DCE6E1', borderRadius: 8, background: '#fff' }} />
+                                </a>
+                              ) : <p>A preparar a imagem do comprovativo…</p>}
+                              <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem em tamanho completo ↗</button></p>
+                            </div>
+                          ) : null}
+                          {paths.file ? (
+                            <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir/baixar comprovativo PDF ↗</button></p>
+                          ) : null}
+                          {!paths.image && !paths.file && (
+                            <p style={{ color: '#9B3A28', marginBottom: 0 }}>
+                              O registo deste pagamento não contém um caminho de comprovativo legível. Atualize o painel e confirme se a publicação do formulário de pagamento já foi concluída.
+                            </p>
+                          )}
+                          {paths.image && !imageUrl && (
+                            <p style={{ color: '#9B3A28', marginBottom: 0 }}>
+                              O caminho da imagem foi encontrado, mas o Supabase não forneceu acesso temporário. Confirme a política de leitura do bucket privado payment-proofs para administradores.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div style={styles.actions}>
+                    {pending && <><button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>
+                    <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Confirmar pagamento'}</button></>}
+                    <button type="button" disabled={deletingPaymentId === request.id} style={styles.reject} onClick={() => deletePaymentProof(request)}>{deletingPaymentId === request.id ? 'A eliminar…' : 'Eliminar comprovativo'}</button>
+                  </div>
+                </article>;
+              })}
+            </div>
+          )}
+        </section>
+
+        <section id="destaques-premium" style={{ marginTop: 0, display: activeAdminSection === 'destaques-premium' ? 'block' : 'none' }}>
+          <div style={styles.titleRow}>
+            <div>
+              <h2 style={styles.title}>Aprovação de Destaques Premium</h2>
+              <p style={styles.description}>Analise as publicações impulsionadas e confirme ou recuse os comprovativos enviados pelos vendedores.</p>
+            </div>
+            <div style={styles.counter}>{subscriptionRequests.filter(item => item.premium_promotion_id && ['pending','submitted'].includes(String(item.status || '').toLowerCase())).length} pagamentos pendentes</div>
+          </div>
+          {subscriptionRequests.filter(item => item.premium_promotion_id).length === 0 ? (
+            <div style={styles.empty}>
+              <div style={styles.emptyIcon}>◇</div>
+              <h2>Sem Destaques Premium para aprovar</h2>
+              <p>Quando um vendedor enviar um comprovativo de Destaque Premium, o pedido aparecerá aqui.</p>
+            </div>
+          ) : (
+            <div style={styles.list}>
+              {subscriptionRequests.filter(item => item.premium_promotion_id).map(request => {
                 const pending = String(request.status || '').toLowerCase() === 'pending';
                 return <article key={request.id} style={styles.card}>
                   <div style={styles.cardTop}>
