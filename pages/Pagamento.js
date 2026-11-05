@@ -550,11 +550,11 @@ export default function Pagamento() {
 
   return (
     <AuthShell
-      backHref={{
+      backHref={premiumPromotion ? { pathname: '/criar-impulsionamento', query: { plan: plan.id, edit_promotion_id: premiumPromotion.id } } : {
         pathname: eventRecord ? '/eventos' : isOpportunitySubscription ? '/oportunidades' : '/impulsionar',
         query: eventRecord ? { country_id: eventRecord.country_id, province_id: eventRecord.province_id } : isOpportunitySubscription ? { ...(countryId ? { country: countryId } : {}), ...(provinceId ? { province: provinceId } : {}) } : businessId ? { business: businessId } : {},
       }}
-      backLabel={eventRecord ? '← Voltar aos eventos' : isOpportunitySubscription ? '← Voltar às Oportunidades' : '← Planos'}
+      backLabel={premiumPromotion ? '← Voltar e editar anúncio' : eventRecord ? '← Voltar aos eventos' : isOpportunitySubscription ? '← Voltar às Oportunidades' : '← Planos'}
     >
       <Head>
         <title>Pagamento | Talaza</title>
