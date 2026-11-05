@@ -59,7 +59,6 @@ export default function Subcategory() {
   const [subcategory, setSubcategory] = useState(null);
   const [businesses, setBusinesses] = useState([]);
   const [businessImagesById, setBusinessImagesById] = useState({});
-  const [premiumBusinesses, setPremiumBusinesses] = useState([]);
   const [premiumPromotions, setPremiumPromotions] = useState([]);
   const [savedPromotionIds, setSavedPromotionIds] = useState([]);
   const [savingPromotionId, setSavingPromotionId] = useState('');
@@ -84,7 +83,6 @@ export default function Subcategory() {
   const historyStorageKey = 'talaza_history_subcategory_' + String(id || '') + '_' + String(province || 'all');
 
   const [premiumOpen, setPremiumOpen] = useState(false);
-  const [premiumIndex, setPremiumIndex] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -247,31 +245,32 @@ export default function Subcategory() {
           setBusinessImagesById({});
         }
 
+        // Na subcategoria aparecem apenas os destaques de 15 dias (2.500 Kz).
+        // O plano de 30 dias (5.000 Kz) é reservado à área Para si.
         const { data: premiumPlanRows, error: premiumPlanError } = await supabase.from('plans')
-          .select('id,duration_days').eq('plan_type','Destaque Premium').eq('is_active',true);
+          .select('id,duration_days').eq('plan_type','Destaque Premium').eq('duration_days',15).eq('is_active',true);
         if (premiumPlanError) console.warn('Não foi possível consultar os planos Premium:',premiumPlanError);
-        const allPremiumPlanIds=(premiumPlanRows||[]).map(item=>item.id);
-        if(allPremiumPlanIds.length) {
+        const subcategoryPlanIds=(premiumPlanRows||[]).map(item=>item.id);
+        if(subcategoryPlanIds.length) {
           const { data: promoRows, error: promoError } = await supabase.from('premium_promotions')
             .select('id,business_id,plan_id,media_url,media_type,description,starts_at,expires_at,status')
-            .in('plan_id',allPremiumPlanIds).eq('status','active').gt('expires_at',new Date().toISOString())
+            .in('plan_id',subcategoryPlanIds).eq('status','active').gt('expires_at',new Date().toISOString())
             .order('starts_at',{ascending:false});
           if(promoError) console.warn('Não foi possível carregar promoções da subcategoria:',promoError);
-          const promoBusinessIds=[...new Set((promoRows||[]).map(item=>item.business_id))];
+          const promoBusinessIds=[...new Set((promoRows||[]).map(item=>item.business_id).filter(Boolean))];
           const {data:promoAuth}=await supabase.auth.getUser();
           const promoUserId=promoAuth?.user?.id || currentUserId;
           if(promoUserId) setCurrentUserId(promoUserId);
           const [promoBusinesses,promoSaved]=await Promise.all([
-            promoBusinessIds.length ? supabase.from('businesses').select('id,name,owner_id,logo_url,province_id,country_id,subcategory_id').in('id',promoBusinessIds) : Promise.resolve({data:[],error:null}),
+            promoBusinessIds.length ? supabase.from('businesses').select('id,name,owner_id,province_id,country_id,subcategory_id').in('id',promoBusinessIds) : Promise.resolve({data:[],error:null}),
             promoUserId ? supabase.from('saved_premium_promotions').select('promotion_id').eq('user_id',promoUserId) : Promise.resolve({data:[],error:null})
           ]);
           if(promoBusinesses.error) console.warn('Não foi possível carregar negócios dos destaques:',promoBusinesses.error);
           const businessMap=Object.fromEntries((promoBusinesses.data||[]).map(item=>[item.id,item]));
-          const planMap=Object.fromEntries((premiumPlanRows||[]).map(item=>[item.id,item.duration_days]));
           const visible=(promoRows||[]).filter(item=>{
             const b=businessMap[item.business_id];
             return b && String(b.subcategory_id)===String(id) && (!country || String(b.country_id)===String(country)) && (!province || String(b.province_id)===String(province));
-          }).map(item=>({...item,business:businessMap[item.business_id],duration_days:planMap[item.plan_id]||0}));
+          }).map(item=>({...item,business:businessMap[item.business_id],duration_days:15}));
           if(!cancelled) {
             setPremiumPromotions(visible);
             setSavedPromotionIds((promoSaved.data||[]).map(row=>row.promotion_id));
@@ -279,7 +278,6 @@ export default function Subcategory() {
         } else if(!cancelled) setPremiumPromotions([]);
         setLoading(false);
         if (!cancelled) {
-          setPremiumBusinesses([]);
           setPremiumLoading(false);
         }
       } catch (err) {
@@ -327,29 +325,10 @@ export default function Subcategory() {
 
     function onKeyDown(event) {
       if (event.key === 'Escape') setPremiumOpen(false);
-
-      if (event.key === 'ArrowRight') {
-        setPremiumIndex((current) =>
-          premiumBusinesses.length
-            ? (current + 1) % premiumBusinesses.length
-            : 0
-        );
-      }
-
-      if (event.key === 'ArrowLeft') {
-        setPremiumIndex((current) =>
-          premiumBusinesses.length
-            ? (current - 1 + premiumBusinesses.length) %
-              premiumBusinesses.length
-            : 0
-        );
-      }
     }
-
     window.addEventListener('keydown', onKeyDown);
-
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [premiumOpen, premiumBusinesses.length]);
+  }, [premiumOpen]);
 
   const filteredBusinesses = useMemo(() => {
     const term = cleanText(search).toLocaleLowerCase('pt-AO');
@@ -385,28 +364,6 @@ export default function Subcategory() {
       );
     });
   }, [businesses, search, municipality, neighborhood]);
-
-  const premiumIds = useMemo(
-    () => new Set(premiumBusinesses.map((business) => business.id)),
-    [premiumBusinesses]
-  );
-
-  const currentPremium = premiumBusinesses[premiumIndex] || null;
-
-  function openPremium(index) {
-    setPremiumIndex(index);
-    setPremiumOpen(true);
-  }
-
-  function movePremium(direction) {
-    if (!premiumBusinesses.length) return;
-
-    setPremiumIndex(
-      (current) =>
-        (current + direction + premiumBusinesses.length) %
-        premiumBusinesses.length
-    );
-  }
 
   function getBackHref() {
     const categoryId = subcategory?.category_id;
@@ -562,25 +519,16 @@ export default function Subcategory() {
                 )}
               </section>
 
-              <section className="premiumSection">
-                <div className="sectionHeading">
-                  <div><span className="premiumEyebrow">DESTAQUES PREMIUM</span><h2>Publicações impulsionadas</h2><p>Publicações de negócios desta subcategoria, ativas e aprovadas.</p></div>
-                  {premiumPromotions.length>0 && <span className="premiumCount">{premiumPromotions.length}</span>}
-                </div>
-                {premiumLoading ? <div className="message">A carregar destaques…</div> : premiumPromotions.length===0 ? (
-                  <div className="emptyPremium"><span className="emptyPremiumMark">✦</span><div><strong>Novos destaques em breve</strong><p>Ainda não há publicações impulsionadas ativas nesta subcategoria e localização.</p></div></div>
-                ) : <div className="premium-post-grid">{premiumPromotions.map(item=><article key={item.id} className="premium-post-card">
-                  {item.media_type==='video'?<video src={item.media_url} controls playsInline/>:<img src={item.media_url} alt="Publicação Destaque Premium"/>}
-                  <div className="premium-post-body"><span className="premium-post-label">✦ DESTAQUE PREMIUM</span><h3>{item.business?.name || 'Negócio Talaza'}</h3><p>{item.description}</p>
-                    <div className="premium-post-actions">
-                      <button type="button" disabled={!item.business?.owner_id} onClick={()=>router.push({pathname:'/mensagens',query:{to:item.business?.owner_id,source:'Vitrine da subcategoria',sourceId:item.business_id,box:'explore'}})}>Enviar mensagem</button>
-                      <Link href={makeBusinessHref(item.business_id,country,province,id)}>Ver perfil</Link>
-                      {item.duration_days===30 && <button type="button" disabled={savingPromotionId===item.id} onClick={()=>toggleSavedPromotion(item)}>{savingPromotionId===item.id?'…':savedPromotionIds.includes(item.id)?'✓ Guardado':'☆ Guardar'}</button>}
-                    </div>
-                  </div>
-                </article>)}</div>}
-                {saveNotice && <p className="message">{saveNotice}</p>}
-              </section>
+              {!premiumLoading && premiumPromotions.length > 0 && (
+                <section className="premiumSection" aria-label="Destaques Premium">
+                  <button type="button" className="premiumLauncher" onClick={() => setPremiumOpen(true)}>
+                    <span className="premiumLauncherIcon">✦</span>
+                    <span className="premiumLauncherText"><strong>Destaques Premium</strong><small>Publicações especiais desta subcategoria</small></span>
+                    <span className="premiumLauncherCount">{premiumPromotions.length}</span>
+                    <span className="premiumLauncherArrow">›</span>
+                  </button>
+                </section>
+              )}
 
               <section className="businessSection">
                 <div className="sectionHeading">
@@ -670,7 +618,6 @@ export default function Subcategory() {
                           <div className="businessInfo">
                             <div className="businessTitleRow">
                               <h3>{business.name}</h3>
-                              {premiumIds.has(business.id) && <span className="smallPremium">✦</span>}
                             </div>
                             <div className="mainImagesPreview">
                               {[0, 1, 2].map((slot) => {
@@ -740,90 +687,30 @@ export default function Subcategory() {
           <span>Descobre. Compara. Encontra.</span>
         </footer>
 
-        {premiumOpen && currentPremium && (
-          <div
-            className="premiumOverlay"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Destaques Premium"
-            onClick={(event) => {
-              if (event.target === event.currentTarget) {
-                setPremiumOpen(false);
-              }
-            }}
-          >
-            <button
-              type="button"
-              className="closeFeed"
-              onClick={() => setPremiumOpen(false)}
-              aria-label="Fechar destaques"
-            >
-              ×
-            </button>
-
-            {premiumBusinesses.length > 1 && (
-              <button
-                type="button"
-                className="feedArrow feedArrowLeft"
-                onClick={() => movePremium(-1)}
-                aria-label="Destaque anterior"
-              >
-                ‹
-              </button>
-            )}
-
-            <article className="feedCard">
-              <div className="feedVisual">
-                {currentPremium.logo_url ? (
-                  <img src={currentPremium.logo_url} alt="" />
-                ) : (
-                  <span>{getInitials(currentPremium.name)}</span>
-                )}
-
-                <span className="feedPremiumBadge">✦ Premium</span>
-              </div>
-
-              <div className="feedDetails">
-                <span className="feedCounter">
-                  {premiumIndex + 1} / {premiumBusinesses.length}
-                </span>
-
-                <h2>{currentPremium.name}</h2>
-
-                <p>
-                  {cleanText(currentPremium.description) ||
-                    'Conhece este negócio na Vitrine Talaza.'}
-                </p>
-
-                <div className="feedLocation">
-                  {[currentPremium.municipality, currentPremium.neighborhood]
-                    .filter(Boolean)
-                    .join(' • ') || provinceName || 'Talaza'}
-                </div>
-
-                <Link
-                  href={makeBusinessHref(
-                    currentPremium.id,
-                    country,
-                    province
-                  )}
-                  className="viewProfileButton"
-                >
-                  Ver perfil
-                </Link>
-              </div>
-            </article>
-
-            {premiumBusinesses.length > 1 && (
-              <button
-                type="button"
-                className="feedArrow feedArrowRight"
-                onClick={() => movePremium(1)}
-                aria-label="Próximo destaque"
-              >
-                ›
-              </button>
-            )}
+        {premiumOpen && premiumPromotions.length > 0 && (
+          <div className="premiumFeedOverlay" role="dialog" aria-modal="true" aria-label="Feed de Destaques Premium" onClick={(event) => {
+            if (event.target === event.currentTarget) setPremiumOpen(false);
+          }}>
+            <button type="button" className="premiumFeedClose" onClick={() => setPremiumOpen(false)} aria-label="Fechar destaques">×</button>
+            <div className="premiumFeedScroller">
+              {premiumPromotions.map((item, index) => (
+                <article className="premiumFeedItem" key={item.id}>
+                  {item.media_type === 'video'
+                    ? <video className="premiumFeedMedia" src={item.media_url} controls autoPlay muted loop playsInline />
+                    : <img className="premiumFeedMedia" src={item.media_url} alt="Publicação Destaque Premium" />}
+                  <div className="premiumFeedShade" />
+                  <div className="premiumFeedTop"><span>✦ DESTAQUE PREMIUM</span><small>{index + 1} / {premiumPromotions.length}</small></div>
+                  <div className="premiumFeedInfo">
+                    <strong>{item.business?.name || 'Negócio Talaza'}</strong>
+                    <p>{cleanText(item.description) || 'Conhece esta publicação na Talaza.'}</p>
+                    <div className="premiumFeedActions">
+                      <button type="button" disabled={!item.business?.owner_id} onClick={() => router.push({pathname:'/mensagens',query:{to:item.business?.owner_id,source:'Destaques Premium',sourceId:item.business_id,box:'explore'}})}>Enviar mensagem</button>
+                      <Link href={makeBusinessHref(item.business_id,country,province,id)}>Ver perfil</Link>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
         )}
       </main>
@@ -1397,116 +1284,30 @@ export default function Subcategory() {
           font-size: 11px;
         }
 
-        .premiumOverlay {
-          position: fixed;
-          z-index: 1000;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 14px;
-          padding: 24px;
-          background: rgba(4, 24, 20, 0.94);
-        }
-
-        .feedCard {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr);
-          width: min(900px, 100%);
-          max-height: 86vh;
-          overflow: auto;
-          border-radius: 20px;
-          background: white;
-        }
-
-        .feedVisual {
-          position: relative;
-          display: grid;
-          place-items: center;
-          min-height: 380px;
-          overflow: hidden;
-          background: #E8F3F0;
-          color: ${COLORS.green};
-          font-size: 55px;
-          font-weight: 800;
-        }
-
-        .feedVisual img {
-          width: 100%;
-          height: 100%;
-          min-height: 380px;
-          object-fit: cover;
-        }
-
-        .feedDetails {
-          align-self: center;
-          padding: 30px;
-        }
-
-        .feedCounter {
-          color: ${COLORS.purple};
-          font-size: 11px;
-          font-weight: 800;
-        }
-
-        .feedDetails h2 {
-          margin: 13px 0;
-          font-size: 26px;
-          line-height: 1.2;
-          overflow-wrap: anywhere;
-        }
-
-        .feedDetails p {
-          color: ${COLORS.muted};
-          font-size: 13px;
-          line-height: 1.7;
-          white-space: pre-wrap;
-        }
-
-        .feedLocation {
-          margin: 14px 0 20px;
-          color: ${COLORS.faint};
-          font-size: 12px;
-        }
-
-        .viewProfileButton {
-          display: inline-block;
-          padding: 12px 17px;
-          border-radius: 10px;
-          background: ${COLORS.green};
-          color: white;
-          font-size: 12px;
-          font-weight: 800;
-          text-decoration: none;
-        }
-
-        .closeFeed {
-          position: absolute;
-          top: 17px;
-          right: 20px;
-          width: 42px;
-          height: 42px;
-          border: 1px solid rgba(255, 255, 255, 0.35);
-          border-radius: 50%;
-          background: transparent;
-          color: white;
-          font-size: 29px;
-          cursor: pointer;
-        }
-
-        .feedArrow {
-          display: grid;
-          place-items: center;
-          flex-shrink: 0;
-          width: 42px;
-          height: 42px;
-          border: 1px solid rgba(255, 255, 255, 0.35);
-          border-radius: 50%;
-          background: rgba(255, 255, 255, 0.1);
-          color: white;
-          font-size: 29px;
-          cursor: pointer;
-        }
+        .premiumSection { margin: 0 0 22px; }
+        .premiumLauncher { display:flex; align-items:center; gap:12px; width:100%; min-height:66px; padding:11px 15px; border:1px solid #E7D8A9; border-radius:14px; background:linear-gradient(105deg,#FFFCF2,#FFFFFF); color:#332B18; text-align:left; cursor:pointer; box-shadow:0 5px 16px rgba(73,57,15,.045); }
+        .premiumLauncherIcon { display:grid; place-items:center; width:39px; height:39px; flex:0 0 39px; border-radius:12px; background:#F8EBC5; color:#98700A; font-size:23px; }
+        .premiumLauncherText { display:flex; flex:1; min-width:0; flex-direction:column; gap:3px; }
+        .premiumLauncherText strong { font-size:13px; }
+        .premiumLauncherText small { color:#777064; font-size:11px; }
+        .premiumLauncherCount { display:grid; place-items:center; min-width:28px; height:28px; padding:0 7px; border-radius:20px; background:#DDA10A; color:#302406; font-size:12px; font-weight:900; }
+        .premiumLauncherArrow { color:#98700A; font-size:25px; line-height:1; }
+        .premiumFeedOverlay { position:fixed; z-index:1200; inset:0; display:flex; justify-content:center; background:rgba(3,10,9,.97); }
+        .premiumFeedScroller { width:min(100%,520px); height:100%; overflow-y:auto; overscroll-behavior:contain; scroll-snap-type:y mandatory; scrollbar-width:none; }
+        .premiumFeedScroller::-webkit-scrollbar { display:none; }
+        .premiumFeedItem { position:relative; width:100%; height:100vh; height:100dvh; overflow:hidden; scroll-snap-align:start; scroll-snap-stop:always; background:#101614; color:#fff; }
+        .premiumFeedMedia { position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:contain; background:#080B0A; }
+        .premiumFeedShade { position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg,rgba(0,0,0,.34),transparent 28%,transparent 48%,rgba(0,0,0,.82)); }
+        .premiumFeedTop { position:absolute; top:20px; left:18px; right:72px; display:flex; justify-content:space-between; gap:10px; align-items:center; font-size:10px; font-weight:900; letter-spacing:1.2px; color:#F4D77E; }
+        .premiumFeedTop small { color:#fff; font-size:11px; letter-spacing:0; }
+        .premiumFeedClose { position:fixed; z-index:3; top:14px; right:16px; width:42px; height:42px; border:1px solid rgba(255,255,255,.55); border-radius:50%; background:rgba(0,0,0,.38); color:#fff; font-size:27px; cursor:pointer; }
+        .premiumFeedInfo { position:absolute; z-index:2; left:20px; right:20px; bottom:max(26px,env(safe-area-inset-bottom)); }
+        .premiumFeedInfo strong { display:block; margin-bottom:9px; font-size:21px; text-shadow:0 2px 8px rgba(0,0,0,.5); }
+        .premiumFeedInfo p { max-width:440px; margin:0 0 16px; color:#F3F3F3; font-size:14px; line-height:1.55; white-space:pre-wrap; text-shadow:0 1px 5px rgba(0,0,0,.6); }
+        .premiumFeedActions { display:flex; flex-wrap:wrap; gap:9px; }
+        .premiumFeedActions button,.premiumFeedActions a { display:inline-flex; align-items:center; justify-content:center; min-height:40px; padding:0 15px; border:1px solid rgba(255,255,255,.2); border-radius:10px; background:#08745F; color:#fff; font-size:12px; font-weight:800; text-decoration:none; cursor:pointer; }
+        .premiumFeedActions a { background:#F2EAF9; color:#3F1D60; }
+        .premiumFeedActions button:disabled { opacity:.5; cursor:not-allowed; }
 
         @media (max-width: 760px) {
           .topbar {
