@@ -90,15 +90,41 @@ export default function Perfil() {
           supabase.from('saved_premium_promotions').select('id,created_at,premium_promotions(id,business_id,plan_id,description,media_url,media_type,status,expires_at,businesses(id,name,owner_id))').eq('user_id', current.id).order('created_at',{ascending:false})
         ]);
         if (!premiumPlansResult.error && (premiumPlansResult.data || []).length) {
+          // Para si recebe exclusivamente o plano de 30 dias (5.000 Kz).
           const premiumPlanIds = premiumPlansResult.data.map(item => item.id);
           const { data: promotionRows, error: promotionError } = await supabase
             .from('premium_promotions')
-            .select('id,business_id,plan_id,media_url,media_type,description,starts_at,expires_at,status,businesses(id,name,owner_id,logo_url,province_id)')
+            .select('id,business_id,plan_id,media_url,media_type,description,starts_at,expires_at,status')
             .in('plan_id', premiumPlanIds).eq('status','active').gt('expires_at',new Date().toISOString())
             .order('starts_at',{ascending:false});
-          if (promotionError) console.warn('Não foi possível carregar destaques Para si:', promotionError);
-          else setPremiumPromotions((promotionRows || []).filter(item => item.businesses?.province_id === data.province_id));
-        } else setPremiumPromotions([]);
+          if (promotionError) {
+            console.warn('Não foi possível carregar destaques Para si:', promotionError);
+            setPremiumPromotions([]);
+          } else {
+            const businessIds = [...new Set((promotionRows || []).map(item => item.business_id).filter(Boolean))];
+            const { data: promotionBusinesses, error: businessesError } = businessIds.length
+              ? await supabase.from('businesses').select('id,name,owner_id,logo_url,province_id,country_id').in('id', businessIds)
+              : { data: [], error: null };
+            if (businessesError) {
+              console.warn('Não foi possível carregar os negócios dos destaques Para si:', businessesError);
+              setPremiumPromotions([]);
+            } else {
+              const businessById = Object.fromEntries((promotionBusinesses || []).map(item => [item.id, item]));
+              const visiblePromotions = (promotionRows || [])
+                .filter(item => {
+                  const business = businessById[item.business_id];
+                  return business &&
+                    String(business.province_id || '') === String(data.province_id || '') &&
+                    (!data.country_id || String(business.country_id || '') === String(data.country_id));
+                })
+                .map(item => ({ ...item, businesses: businessById[item.business_id] }));
+              setPremiumPromotions(visiblePromotions);
+            }
+          }
+        } else {
+          if (premiumPlansResult.error) console.warn('Não foi possível consultar o plano de 30 dias:', premiumPlansResult.error);
+          setPremiumPromotions([]);
+        }
         if (savedPromotionsResult.error) console.warn('Não foi possível carregar publicações guardadas:', savedPromotionsResult.error);
         else {
           const rows = (savedPromotionsResult.data || []).filter(row => row.premium_promotions);
