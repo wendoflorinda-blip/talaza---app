@@ -2,13 +2,26 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import CommentThread from '../components/CommentThread';
+import { LayoutGrid, Globe2, Presentation, BookOpenPen, Theater, Users, Wrench, Speech, Clapperboard } from 'lucide-react';
 
 const BUCKET = 'event-images';
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const VIDEO_TYPES = ['video/mp4', 'video/webm'];
-const EVENT_TYPES = ['Geral', 'Formação', 'Show', 'Atividades', 'Sessão de Lançamento e Venda', 'Conferência', 'Fórum', 'Workshop', 'Palestra', 'Cinema'];
+const EVENT_TYPES = ['Geral', 'Formação', 'Sessão de Lançamento e Venda', 'Show', 'Fórum', 'Conferência', 'Workshop', 'Palestra', 'Cinema'];
+const EVENT_FILTERS = [
+  { label: 'Todas', icon: LayoutGrid, filter: 'Todas' },
+  { label: 'Geral', icon: Globe2, filter: 'Geral' },
+  { label: 'Formação', icon: Presentation, filter: 'Formação' },
+  { label: 'Sessão de Lançamento e Venda', icon: BookOpenPen, filter: 'Sessão de Lançamento e Venda' },
+  { label: 'Show', icon: Theater, filter: 'Show' },
+  { label: 'Fórum', icon: Users, filter: 'Fórum' },
+  { label: 'Conferência', icon: Presentation, filter: 'Conferência' },
+  { label: 'Workshop', icon: Wrench, filter: 'Workshop' },
+  { label: 'Palestra', icon: Speech, filter: 'Palestra' },
+  { label: 'Cinema', icon: Clapperboard, filter: 'Cinema' },
+];
 const PLAN_DETAILS = {
   Quinzenal: 'Ideal para divulgar eventos de curta duração e alcançar o público durante 15 dias.',
   Mensal: 'Mais tempo para promover o evento, gerar interesse e receber mensagens durante 30 dias.',
@@ -613,8 +626,17 @@ export default function Eventos() {
               <button type="button" onClick={() => router.push('/historico?type=eventos')} style={styles.historyButton}>◷ Ver histórico ({historyItems.length})</button>
             </div>
             
-            <div style={styles.categoryChips} aria-label="Filtrar eventos por categoria">
-              {['Todas', ...EVENT_TYPES].map(category => { const theme = category === 'Todas' ? { color: '#FFFFFF', soft: '#075B4E' } : categoryTheme(category); const active = selectedCategory === category; return <button key={category} type="button" onClick={() => setSelectedCategory(category)} style={{ ...styles.categoryChip, color: active ? '#FFFFFF' : theme.color, background: active ? theme.color : theme.soft, borderColor: theme.color + '55', boxShadow: active ? '0 4px 12px ' + theme.color + '35' : 'none' }}>{category}</button>; })}
+            <div style={styles.eventFilterGrid} aria-label="Filtrar eventos por categoria">
+              {EVENT_FILTERS.map(({label, icon: Icon, filter}) => {
+                const active = selectedCategory === filter;
+                return (
+                  <button key={filter} type="button" onClick={() => setSelectedCategory(filter)} aria-pressed={active} style={{...styles.eventFilterButton, ...(active ? styles.eventFilterButtonActive : {})}}>
+                    <Icon size={28} strokeWidth={2.1} color="#E8C979" aria-hidden="true" />
+                    <span style={styles.eventFilterDivider} />
+                    <span style={styles.eventFilterLabel}>{label}</span>
+                  </button>
+                );
+              })}
             </div>
             <p style={styles.muted}>Descobre o que está a acontecer na tua província. Podes gostar, comentar e falar com o organizador através das mensagens internas da Talaza.</p>
             {feedError && <div style={styles.error}>{feedError}</div>}
@@ -748,9 +770,11 @@ const styles = {
   historyItem: { display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: 8, border: '1px solid #EAE1F2', borderRadius: 10, background: '#FFFFFF', cursor: 'pointer', color: '#26352F' },
   historyThumb: { width: 42, height: 42, objectFit: 'cover', borderRadius: 8, flexShrink: 0 },
   historyThumbFallback: { width: 42, height: 42, display: 'grid', placeItems: 'center', borderRadius: 8, background: '#F0E7F7', color: '#64358B' },
-  categoryChips: { display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 14, alignItems: 'center' },
-  categoryChip: { border: '1px solid #D8E3DD', borderRadius: 999, padding: '8px 12px', background: '#FFFFFF', color: '#35534B', fontWeight: 700, fontSize: 12, cursor: 'pointer' },
-  categoryChipActive: { borderColor: '#075B4E', background: '#075B4E', color: '#FFFFFF' },
+  eventFilterGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginTop: 14, width: '100%' },
+  eventFilterButton: { width: '100%', minWidth: 0, height: 56, display: 'flex', alignItems: 'center', gap: 12, padding: '0 14px', borderRadius: 999, border: '1.5px solid #D4AF37', background: '#0A3D2A', color: '#FFFFFF', boxShadow: '0 5px 12px rgba(3,35,24,.20), 0 0 10px rgba(212,175,55,.12)', cursor: 'pointer', textAlign: 'left', boxSizing: 'border-box' },
+  eventFilterButtonActive: { background: '#063A26', borderColor: '#E8C979', boxShadow: '0 5px 15px rgba(3,35,24,.28), 0 0 13px rgba(232,201,121,.28)' },
+  eventFilterDivider: { width: 1, height: 30, flex: '0 0 1px', background: '#D4AF37' },
+  eventFilterLabel: { color: '#FFFFFF', fontSize: 17, lineHeight: '19px', fontWeight: 800, minWidth: 0 },
   stepsIndicator: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: '8px 0 24px' },
   stepItem: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 5px', borderRadius: 12, background: '#F2F5F3', color: '#718078', fontSize: 12, fontWeight: 800 },
   currentStep: { background: '#DCEFE8', color: '#075B4E', boxShadow: 'inset 0 0 0 1px #8CB7A8' },
