@@ -57,7 +57,7 @@ function EventFilterIcon({ type }) {
       art = <><rect x="2" y="8" width="20" height="14" rx="2"/><path d="M2 8 5 2h4L6 8H2Zm7 0 3-6h4l-3 6H9Zm7 0 3-6h3l-3 6h-3Z"/><rect x="5" y="12" width="3" height="3" rx=".5" fill="#0A3D2A"/><rect x="11" y="12" width="3" height="3" rx=".5" fill="#0A3D2A"/><rect x="17" y="12" width="3" height="3" rx=".5" fill="#0A3D2A"/></>;
       break;
   }
-  return <svg width="32" height="32" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" {...common} aria-hidden="true">{art}</svg>;
+  return <svg width="26" height="26" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{width:26,height:26,flexShrink:0}} {...common} aria-hidden="true">{art}</svg>;
 }
 const PLAN_DETAILS = {
   Quinzenal: 'Ideal para divulgar eventos de curta duração e alcançar o público durante 15 dias.',
@@ -670,7 +670,7 @@ export default function Eventos() {
                   <button key={filter} type="button" onClick={() => setSelectedCategory(filter)} aria-pressed={active} style={{...styles.eventFilterButton, ...(active ? styles.eventFilterButtonActive : {})}}>
                     <EventFilterIcon type={icon} />
                     <span style={styles.eventFilterDivider} />
-                    <span style={styles.eventFilterLabel}>{label}</span>
+                    <span style={styles.eventFilterLabel}>{filter === 'Sessão de Lançamento e Venda' ? <>Sessão de Lançamento<br />e Venda</> : label}</span>
                   </button>
                 );
               })}
@@ -807,11 +807,11 @@ const styles = {
   historyItem: { display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: 8, border: '1px solid #EAE1F2', borderRadius: 10, background: '#FFFFFF', cursor: 'pointer', color: '#26352F' },
   historyThumb: { width: 42, height: 42, objectFit: 'cover', borderRadius: 8, flexShrink: 0 },
   historyThumbFallback: { width: 42, height: 42, display: 'grid', placeItems: 'center', borderRadius: 8, background: '#F0E7F7', color: '#64358B' },
-  eventFilterGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginTop: 14, width: '100%' },
-  eventFilterButton: { width: '100%', minWidth: 0, height: 56, display: 'flex', alignItems: 'center', gap: 12, padding: '0 14px', borderRadius: 999, border: '1.5px solid #D4AF37', background: '#0A3D2A', color: '#FFFFFF', boxShadow: '0 5px 12px rgba(3,35,24,.20), 0 0 10px rgba(212,175,55,.12)', cursor: 'pointer', textAlign: 'left', boxSizing: 'border-box' },
+  eventFilterGrid: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 12, marginTop: 14, width: '100%', boxSizing: 'border-box' },
+  eventFilterButton: { width: '100%', minWidth: 0, overflow: 'hidden', height: 62, display: 'flex', alignItems: 'center', gap: 12, padding: '0 12px', borderRadius: 999, border: '1.5px solid #D4AF37', background: '#0A3D2A', color: '#FFFFFF', boxShadow: '0 5px 12px rgba(3,35,24,.20), 0 0 10px rgba(212,175,55,.12)', cursor: 'pointer', textAlign: 'left', boxSizing: 'border-box' },
   eventFilterButtonActive: { background: '#063A26', borderColor: '#E8C979', boxShadow: '0 5px 15px rgba(3,35,24,.28), 0 0 13px rgba(232,201,121,.28)' },
-  eventFilterDivider: { width: 1, height: 30, flex: '0 0 1px', background: '#D4AF37' },
-  eventFilterLabel: { color: '#FFFFFF', fontSize: 17, lineHeight: '19px', fontWeight: 800, minWidth: 0 },
+  eventFilterDivider: { width: 1, height: 30, flex: '0 0 1px', flexShrink: 0, background: '#D4AF37' },
+  eventFilterLabel: { color: '#FFFFFF', fontSize: 15, lineHeight: 1.1, fontWeight: 800, minWidth: 0, flex: 1, whiteSpace: 'normal', overflow: 'hidden', wordBreak: 'break-word' },
   stepsIndicator: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: '8px 0 24px' },
   stepItem: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 5px', borderRadius: 12, background: '#F2F5F3', color: '#718078', fontSize: 12, fontWeight: 800 },
   currentStep: { background: '#DCEFE8', color: '#075B4E', boxShadow: 'inset 0 0 0 1px #8CB7A8' },
