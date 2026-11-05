@@ -7,7 +7,7 @@ const C = { green:'#08745F', dark:'#06483D', gold:'#D8A319', ink:'#182722', mute
 
 export default function CriarImpulsionamento() {
   const router = useRouter();
-  const { plan: planId } = router.query;
+  const { plan: planId, edit_promotion_id: editPromotionId } = router.query;
   const [user,setUser] = useState(null);
   const [business,setBusiness] = useState(null);
   const [plan,setPlan] = useState(null);
@@ -18,7 +18,7 @@ export default function CriarImpulsionamento() {
   const [sending,setSending] = useState(false);
   const [error,setError] = useState('');
 
-  useEffect(()=>{ if(router.isReady && planId) load(); },[router.isReady,planId]);
+  useEffect(()=>{ if(router.isReady && planId) load(); },[router.isReady,planId,editPromotionId]);
 
   async function load() {
     setLoading(true); setError('');
@@ -29,14 +29,21 @@ export default function CriarImpulsionamento() {
       supabase.from('plans').select('*').eq('id',planId).eq('is_active',true).maybeSingle(),
       supabase.from('businesses').select('id,name,owner_id,country_id,province_id,category_id,subcategory_id,is_active,approval_status').eq('owner_id',session.user.id).order('created_at',{ascending:false}).limit(1).maybeSingle()
     ]);
+    const existingResult = editPromotionId ? await supabase.from('premium_promotions').select('id,business_id,user_id,plan_id,media_url,storage_path,media_type,description,status').eq('id',editPromotionId).eq('user_id',session.user.id).maybeSingle() : { data: null, error: null };
     if(p.error || !p.data || String(p.data.plan_type||'').trim().toLowerCase()!=='destaque premium') {
       setError('Não foi possível confirmar o plano Destaque Premium escolhido.');
     } else if(b.error || !b.data) {
       setError('Não encontramos um negócio associado à sua conta.');
     } else if(!b.data.is_active || String(b.data.approval_status||'').toLowerCase()!=='approved') {
       setError('O seu perfil de negócio precisa estar aprovado e ativo antes de contratar um Destaque Premium.');
+    } else if (editPromotionId && (existingResult.error || !existingResult.data || existingResult.data.status !== 'pending_payment' || existingResult.data.plan_id !== p.data.id || existingResult.data.business_id !== b.data.id)) {
+      setError('Não foi possível recuperar o anúncio para edição.');
     } else {
       setPlan(p.data); setBusiness(b.data);
+      if (existingResult.data) {
+        setDescription(existingResult.data.description || '');
+        setPreview(existingResult.data.media_url || '');
+      }
     }
     setLoading(false);
   }
@@ -55,7 +62,7 @@ export default function CriarImpulsionamento() {
   async function submit() {
     if(sending) return;
     setError('');
-    if(!file) { setError('Adicione uma imagem ou vídeo para a publicação.'); return; }
+    if(!file && !editPromotionId) { setError('Adicione uma imagem ou vídeo para a publicação.'); return; }
     if(description.trim().length<2) { setError('Escreva uma descrição para a publicação.'); return; }
     if(!user?.id || !business?.id || !plan?.id) { setError('Os dados expiraram. Atualize a página.'); return; }
     setSending(true);
@@ -64,18 +71,32 @@ export default function CriarImpulsionamento() {
       const {data:{session},error:sessionError}=await supabase.auth.getSession();
       if(sessionError) throw sessionError;
       if(session?.user?.id!==user.id) throw new Error('A sessão mudou. Entre novamente.');
-      const ext=(file.name.split('.').pop() || (file.type.startsWith('video/')?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'');
-      storagePath=business.id+'/premium-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext;
-      const {error:uploadError}=await supabase.storage.from('business-media').upload(storagePath,file,{upsert:false,contentType:file.type,cacheControl:'3600'});
-      if(uploadError) throw uploadError;
-      const mediaUrl=supabase.storage.from('business-media').getPublicUrl(storagePath).data?.publicUrl;
-      if(!mediaUrl) throw new Error('Não foi possível preparar a imagem ou vídeo.');
-      const {data:promotion,error:insertError}=await supabase.from('premium_promotions').insert({
-        business_id:business.id,user_id:user.id,plan_id:plan.id,media_url:mediaUrl,storage_path:storagePath,
-        media_type:file.type.startsWith('video/')?'video':'image',description:description.trim(),status:'pending_payment'
-      }).select('id').single();
-      if(insertError) throw insertError;
-      const paymentUrl='/Pagamento?'+new URLSearchParams({plan:String(plan.id),business:String(business.id),premium_promotion_id:String(promotion.id)}).toString();
+      let mediaUrl = preview;
+      let mediaType = editPromotionId ? (preview.includes('.mp4') || preview.includes('.webm') || preview.includes('.mov') ? 'video' : 'image') : '';
+      if (file) {
+        const ext=(file.name.split('.').pop() || (file.type.startsWith('video/')?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'');
+        storagePath=business.id+'/premium-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext;
+        const {error:uploadError}=await supabase.storage.from('business-media').upload(storagePath,file,{upsert:false,contentType:file.type,cacheControl:'3600'});
+        if(uploadError) throw uploadError;
+        mediaUrl=supabase.storage.from('business-media').getPublicUrl(storagePath).data?.publicUrl;
+        mediaType=file.type.startsWith('video/')?'video':'image';
+      }
+      if(!mediaUrl) throw new Error('Adicione uma imagem ou vídeo para a publicação.');
+      let promotionId = editPromotionId;
+      if (editPromotionId) {
+        const updateData = { description: description.trim() };
+        if (file) Object.assign(updateData,{media_url:mediaUrl,storage_path:storagePath,media_type:mediaType});
+        const {error:updateError}=await supabase.from('premium_promotions').update(updateData).eq('id',editPromotionId).eq('user_id',user.id);
+        if(updateError) throw updateError;
+      } else {
+        const {data:promotion,error:insertError}=await supabase.from('premium_promotions').insert({
+          business_id:business.id,user_id:user.id,plan_id:plan.id,media_url:mediaUrl,storage_path:storagePath,
+          media_type:mediaType,description:description.trim(),status:'pending_payment'
+        }).select('id').single();
+        if(insertError) throw insertError;
+        promotionId=promotion.id;
+      }
+      const paymentUrl='/Pagamento?'+new URLSearchParams({plan:String(plan.id),business:String(business.id),premium_promotion_id:String(promotionId)}).toString();
       // Navegação completa evita ficar preso no estado "A preparar…" após o upload e a gravação.
       window.location.assign(paymentUrl);
       return;
