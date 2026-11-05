@@ -75,7 +75,10 @@ export default function CriarImpulsionamento() {
         media_type:file.type.startsWith('video/')?'video':'image',description:description.trim(),status:'pending_payment'
       }).select('id').single();
       if(insertError) throw insertError;
-      router.push({pathname:'/Pagamento',query:{plan:plan.id,business:business.id,premium_promotion_id:promotion.id}});
+      const paymentUrl='/Pagamento?'+new URLSearchParams({plan:String(plan.id),business:String(business.id),premium_promotion_id:String(promotion.id)}).toString();
+      // Navegação completa evita ficar preso no estado "A preparar…" após o upload e a gravação.
+      window.location.assign(paymentUrl);
+      return;
     } catch(err) {
       console.error('Erro ao criar publicação premium:',err);
       if(storagePath) { const {error:cleanupError}=await supabase.storage.from('business-media').remove([storagePath]); if(cleanupError) console.warn(cleanupError); }
