@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import CommentThread from '../components/CommentThread';
-import { LayoutGrid, Globe2, Presentation, BookOpenPen, Theater, Users, Wrench, Speech, Clapperboard } from 'lucide-react';
 
 const BUCKET = 'event-images';
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -11,17 +10,55 @@ const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const VIDEO_TYPES = ['video/mp4', 'video/webm'];
 const EVENT_TYPES = ['Geral', 'Formação', 'Sessão de Lançamento e Venda', 'Show', 'Fórum', 'Conferência', 'Workshop', 'Palestra', 'Cinema'];
 const EVENT_FILTERS = [
-  { label: 'Todas', icon: LayoutGrid, filter: 'Todas' },
-  { label: 'Geral', icon: Globe2, filter: 'Geral' },
-  { label: 'Formação', icon: Presentation, filter: 'Formação' },
-  { label: 'Sessão de Lançamento e Venda', icon: BookOpenPen, filter: 'Sessão de Lançamento e Venda' },
-  { label: 'Show', icon: Theater, filter: 'Show' },
-  { label: 'Fórum', icon: Users, filter: 'Fórum' },
-  { label: 'Conferência', icon: Presentation, filter: 'Conferência' },
-  { label: 'Workshop', icon: Wrench, filter: 'Workshop' },
-  { label: 'Palestra', icon: Speech, filter: 'Palestra' },
-  { label: 'Cinema', icon: Clapperboard, filter: 'Cinema' },
+  { label: 'Todas', icon: 'all', filter: 'Todas' },
+  { label: 'Geral', icon: 'globe', filter: 'Geral' },
+  { label: 'Formação', icon: 'training', filter: 'Formação' },
+  { label: 'Sessão de Lançamento e Venda', icon: 'book', filter: 'Sessão de Lançamento e Venda' },
+  { label: 'Show', icon: 'show', filter: 'Show' },
+  { label: 'Fórum', icon: 'forum', filter: 'Fórum' },
+  { label: 'Conferência', icon: 'conference', filter: 'Conferência' },
+  { label: 'Workshop', icon: 'tools', filter: 'Workshop' },
+  { label: 'Palestra', icon: 'lecture', filter: 'Palestra' },
+  { label: 'Cinema', icon: 'cinema', filter: 'Cinema' },
 ];
+
+function EventFilterIcon({ type }) {
+  const common = { fill: '#E8C979', stroke: 'none' };
+  let art = null;
+  switch (type) {
+    case 'all':
+      art = <><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></>;
+      break;
+    case 'globe':
+      art = <><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2.1c1.2 1.4 2 4.1 2.1 7H9.9c.1-2.9.9-5.6 2.1-7ZM4.1 13h3.7c.1 2.5.7 4.7 1.6 6.3A8.05 8.05 0 0 1 4.1 13Zm3.7-2H4.1a8.05 8.05 0 0 1 5.3-6.3c-.9 1.6-1.5 3.8-1.6 6.3Zm4.2 9c-1.2-1.4-2-4.1-2.1-7h4.2c-.1 2.9-.9 5.6-2.1 7Zm4.2-.7c.9-1.6 1.5-3.8 1.6-6.3h3.7a8.05 8.05 0 0 1-5.3 6.3ZM15.9 11c-.1-2.5-.7-4.7-1.6-6.3a8.05 8.05 0 0 1 5.3 6.3h-3.7Z"/></>;
+      break;
+    case 'training':
+      art = <><rect x="9" y="3" width="12" height="9" rx="1.2"/><path d="M14 12h2v2h-2zM12 14h6v1.5h-6zM4.5 5.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm.8 5H4a3 3 0 0 0-3 3v2h5v-2a4.5 4.5 0 0 1 1.2-3Zm4.2 1.2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm-.8 4.8a3 3 0 0 0-3 3V21h8v-1.5a3 3 0 0 0-3-3Zm8-4.8a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm-.8 4.8a3 3 0 0 0-3 3V21h8v-1.5a3 3 0 0 0-3-3Z"/><path d="m7 8 3-2v3L7 11z"/></>;
+      break;
+    case 'book':
+      art = <><path d="M2.5 5.5c3.6-1.5 6.6-.8 9.5 1v14c-2.9-1.8-5.9-2.5-9.5-1v-14Zm19 0c-3.6-1.5-6.6-.8-9.5 1v14c2.9-1.8 5.9-2.5 9.5-1v-14Z"/><path d="m15.5 3 2-1 4 4-1 2-4-4-1  -1Z"/><path d="m14.8 4.2 4 4-4.5 4.5-2.2.7.7-2.2z"/></>;
+      break;
+    case 'show':
+      art = <><path d="M3 17h18v2H3zM5 14h14v2H5zM7 11h10v2H7z"/><path d="M3 3h3l2 6H6L3 3Zm18 0h-3l-2 6h2l3-6ZM10 3h4v6h-4z"/><circle cx="5" cy="21" r="1.5"/><circle cx="12" cy="21" r="1.5"/><circle cx="19" cy="21" r="1.5"/></>;
+      break;
+    case 'forum':
+      art = <><circle cx="12" cy="7" r="3.2"/><circle cx="4.8" cy="9" r="2.4"/><circle cx="19.2" cy="9" r="2.4"/><path d="M5.5 20v-2.2a6.5 6.5 0 0 1 13 0V20h-13ZM.8 18a4 4 0 0 1 5.4-3.7A7.5 7.5 0 0 0 4 19.5v.5H.8V18Zm22.4 0a4 4 0 0 0-5.4-3.7 7.5 7.5 0 0 1 2.2 5.2v.5h3.2V18Z"/></>;
+      break;
+    case 'conference':
+      art = <><circle cx="12" cy="5" r="2.8"/><path d="M7 12a5 5 0 0 1 10 0v2H7v-2ZM2 17h20v2H2zM4 14.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm16 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM1 21h22v1H1z"/></>;
+      break;
+    case 'tools':
+      art = <><path d="M21.2 6.2a5.2 5.2 0 0 1-6.8 6.8L7 20.4a2.1 2.1 0 0 1-3-3l7.4-7.4a5.2 5.2 0 0 1 6.8-6.8l-3 3 .8 2.2 2.2.8 3-3Z"/><path d="m3 3 2.1-.8 5.8 5.8-2.1 2.1L3 4.3V3Zm12.2 10.1 2.1-2.1 5.2 5.2v2.1h-2.1l-5.2-5.2Z"/></>;
+      break;
+    case 'lecture':
+      art = <><circle cx="12" cy="4.5" r="2.8"/><path d="M8 9h8l2 5h-3v3h-6v-3H6l2-5ZM3 17h18v2H3zM5 19h14v3H5z"/></>;
+      break;
+    case 'cinema':
+      art = <><rect x="2" y="8" width="20" height="14" rx="2"/><path d="M2 8 5 2h4L6 8H2Zm7 0 3-6h4l-3 6H9Zm7 0 3-6h3l-3 6h-3Z"/><rect x="5" y="12" width="3" height="3" rx=".5" fill="#0A3D2A"/><rect x="11" y="12" width="3" height="3" rx=".5" fill="#0A3D2A"/><rect x="17" y="12" width="3" height="3" rx=".5" fill="#0A3D2A"/></>;
+      break;
+  }
+  return <svg width="32" height="32" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" {...common} aria-hidden="true">{art}</svg>;
+}
 const PLAN_DETAILS = {
   Quinzenal: 'Ideal para divulgar eventos de curta duração e alcançar o público durante 15 dias.',
   Mensal: 'Mais tempo para promover o evento, gerar interesse e receber mensagens durante 30 dias.',
@@ -627,11 +664,11 @@ export default function Eventos() {
             </div>
             
             <div style={styles.eventFilterGrid} aria-label="Filtrar eventos por categoria">
-              {EVENT_FILTERS.map(({label, icon: Icon, filter}) => {
+              {EVENT_FILTERS.map(({label, icon, filter}) => {
                 const active = selectedCategory === filter;
                 return (
                   <button key={filter} type="button" onClick={() => setSelectedCategory(filter)} aria-pressed={active} style={{...styles.eventFilterButton, ...(active ? styles.eventFilterButtonActive : {})}}>
-                    <Icon size={28} strokeWidth={2.1} color="#E8C979" aria-hidden="true" />
+                    <EventFilterIcon type={icon} />
                     <span style={styles.eventFilterDivider} />
                     <span style={styles.eventFilterLabel}>{label}</span>
                   </button>
