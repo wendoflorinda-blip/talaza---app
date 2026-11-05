@@ -7,6 +7,18 @@ import TalazaMenu from '../components/TalazaMenu';
 
 const C = { green:'#08745F', dark:'#06483D', purple:'#64358B', gold:'#D8A319', ink:'#182722', muted:'#66736F', bg:'#F7F6F3', line:'#E3E8E4', white:'#FFFFFF', red:'#A52F3B' };
 
+function ProfileTabIcon({ type, color = '#06483D' }) {
+  const common = { width: 27, height: 27, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true };
+  const paths = {
+    dados: <><circle cx="12" cy="7.5" r="3.5" /><path d="M4.5 20c.4-4 3.2-6 7.5-6s7.1 2 7.5 6" /></>,
+    guardados: <path d="M6 3.5h12v17l-6-4-6 4z" />,
+    novidades: <path d="M12 2.5c1.3 5.2 3.3 7.2 8.5 8.5-5.2 1.3-7.2 3.3-8.5 8.5-1.3-5.2-3.3-7.2-8.5-8.5 5.2-1.3 7.2-3.3 8.5-8.5Z" />,
+    eventos: <><rect x="3.5" y="5" width="17" height="16" rx="2" /><path d="M7.5 2.5v5M16.5 2.5v5M3.5 9.5h17" /></>,
+    parasi: <path d="m12 2.5 2.9 6 6.6 1-4.8 4.7 1.1 6.7-5.8-3.2-5.8 3.2 1.1-6.7-4.8-4.7 6.6-1z" />
+  };
+  return <svg {...common}>{paths[type]}</svg>;
+}
+
 export default function Perfil() {
   const router = useRouter();
   const fileRef = useRef(null);
@@ -28,7 +40,6 @@ export default function Perfil() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('inicio');
@@ -364,8 +375,6 @@ export default function Perfil() {
         <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', justifyContent:'flex-end' }}>
           <Link href={{ pathname:'/explore', query:{ ...(profile?.country_id ? { country:profile.country_id } : {}), ...(profile?.province_id ? { province:profile.province_id } : {}) } }} style={{ color:'#64358B', textDecoration:'none', fontWeight:800, fontSize:12, padding:'8px 10px', border:'1px solid #D9C6E9', borderRadius:10, background:'#F7F1FB' }}>← Voltar à Vitrine</Link>
           <span style={S.headerText}>O meu perfil</span>
-          <button type="button" onClick={() => router.push('/notificacoes')} aria-label="Notificações" style={{...S.more,position:'relative'}}>♧{unreadNotificationCount > 0 && <span style={S.notificationBadge}>{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</span>}</button>
-          <button type="button" onClick={() => setMenuOpen((value) => !value)} aria-label="Opções do perfil" style={S.more}>•••</button>
           <TalazaMenu country={profile?.country_id} province={profile?.province_id} countryName="" provinceName="" />
         </div>
       </header>
@@ -387,16 +396,14 @@ export default function Perfil() {
         </div>
         <button type="button" onClick={() => {setActiveTab('dados');setEditing(true);setError('');setNotice('');}} style={S.editProfileButton}>✎　Editar perfil</button>
 
-        {menuOpen && <div style={S.menuPopup}><button type="button" onClick={() => { setEditing((value) => !value); setMenuOpen(false); setError(''); setNotice(''); }} style={S.menuAction}>{editing ? 'Cancelar edição' : 'Editar perfil'}</button></div>}
-
       <nav aria-label="Secções do perfil" style={S.tabs}>
         {[
-          ['dados','♙','Dados'],
-          ['guardados','▱','Guardados'],
-          ['novidades','✦','Novidades'],
-          ['eventos','▣','Eventos'],
-          ['parasi','✧','Para si']
-        ].map(([id,icon,label]) => (
+          ['dados','Dados'],
+          ['guardados','Guardados'],
+          ['novidades','Novidades'],
+          ['eventos','Eventos'],
+          ['parasi','Para si']
+        ].map(([id,label]) => (
           <button key={id} type="button" onClick={() => {
             setActiveTab(id);
             if (id === 'eventos' && user) {
@@ -409,7 +416,7 @@ export default function Perfil() {
             }
           }} aria-current={activeTab===id?'page':undefined}
             style={{...S.tab,borderBottom:activeTab===id?'3px solid '+C.gold:'3px solid transparent',color:activeTab===id?C.dark:C.muted}}>
-            <span style={{position:'relative',fontSize:23,lineHeight:1.1}}>{icon}
+            <span style={{position:'relative',display:'inline-flex',alignItems:'center',justifyContent:'center',lineHeight:1}}><ProfileTabIcon type={id} color={activeTab===id?'#06483D':'#182722'} />
               {id === 'eventos' && unreadEventCount > 0 && <span style={S.unreadBadge}>{unreadEventCount > 9 ? '9+' : unreadEventCount}</span>}
             </span><strong>{label}</strong>
           </button>
@@ -563,7 +570,6 @@ const S = {
   stat:{display:'flex',flexDirection:'column',alignItems:'center',gap:5,padding:'12px 3px',color:C.muted},
   editProfileButton:{width:'100%',padding:'14px 18px',border:0,borderRadius:14,background:C.gold,color:C.dark,fontWeight:900,fontSize:15,cursor:'pointer'},
   tabs:{maxWidth:700,margin:'20px auto 0',display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',background:C.bg,borderBottom:'1px solid '+C.line},
-  notificationBadge:{position:'absolute',top:-6,right:-6,minWidth:17,height:17,padding:'0 4px',borderRadius:999,background:'#C43C45',color:'#FFFFFF',fontSize:10,fontWeight:900,display:'grid',placeItems:'center',border:'2px solid '+C.dark},
   unreadBadge:{position:'absolute',top:-7,right:-13,minWidth:18,height:18,padding:'0 4px',borderRadius:999,background:'#C43C45',color:'#FFFFFF',fontSize:10,fontWeight:900,display:'grid',placeItems:'center',border:'2px solid '+C.bg},
   eventMessageButton:{width:'100%',padding:'13px 16px',border:0,borderRadius:12,background:C.green,color:'#FFFFFF',fontSize:14,fontWeight:900,cursor:'pointer',boxShadow:'0 4px 12px rgba(8,116,95,.16)'},
   tab:{minWidth:0,minHeight:76,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:7,border:0,background:'transparent',fontSize:12,cursor:'pointer',padding:'8px 3px'},
@@ -585,7 +591,6 @@ const S = {
   logo:{display:'flex',alignItems:'center',gap:9,color:C.white,textDecoration:'none',fontSize:13,fontWeight:900,letterSpacing:2},
   mark:{display:'grid',placeItems:'center',width:33,height:33,borderRadius:11,background:C.gold,color:C.dark,fontSize:18,letterSpacing:0},
   headerText:{fontSize:13,fontWeight:700},
-  more:{border:0,background:'rgba(255,255,255,.1)',color:'#fff',fontSize:20,fontWeight:900,cursor:'pointer',padding:'8px 10px',borderRadius:10},
   card:{maxWidth:500,margin:'28px auto',padding:25,border:'1px solid '+C.line,borderRadius:23,background:C.white,boxShadow:'0 14px 40px rgba(20,50,43,.06)'},
   avatarWrap:{display:'flex',alignItems:'center',flexDirection:'column',marginBottom:24},
   avatar:{position:'relative',width:104,height:104,border:0,borderRadius:'50%',background:'#F1ECFA',overflow:'visible',padding:0},
@@ -599,8 +604,6 @@ const S = {
   passwordToggle:{position:'absolute',right:8,top:7,bottom:7,border:0,borderRadius:8,padding:'0 10px',background:'#EEE8F5',color:C.purple,fontSize:12,fontWeight:800,cursor:'pointer'},
   profileName:{marginTop:14,fontSize:21},
   caption:{marginTop:5,fontSize:12,color:C.muted},
-  menuPopup:{display:'flex',justifyContent:'flex-end',marginBottom:14},
-  menuAction:{padding:'10px 16px',border:'1px solid '+C.line,borderRadius:10,background:'#fff',color:C.purple,fontWeight:800,cursor:'pointer'},
   details:{display:'grid',gap:15,padding:17,borderRadius:15,background:'#F8F6FB',fontSize:13},
   detailLabel:{display:'block',color:C.muted,fontSize:11,marginBottom:4},
   label:{display:'block',margin:'16px 0 7px',fontSize:12,fontWeight:900,color:C.ink},
