@@ -22,8 +22,8 @@ const EVENT_FILTERS = [
   { label: 'Cinema', icon: 'cinema', filter: 'Cinema' },
 ];
 
-function EventFilterIcon({ type }) {
-  const common = { fill: '#E8C979', stroke: 'none' };
+function EventFilterIcon({ type, active = false }) {
+  const common = { fill: active ? '#0A3D2A' : '#E8C979', stroke: 'none' };
   let art = null;
   switch (type) {
     case 'all':
@@ -431,9 +431,19 @@ export default function Eventos() {
     return () => clearTimeout(timer);
   }, [router.isReady, loading, router.query.eventId, events.length]);
 
+  const normalizeEventCategory = (value) => String(value || 'Geral').trim().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
   const visibleEvents = selectedCategory === 'Todas'
     ? events
-    : events.filter(event => (event.event_type || 'Geral') === selectedCategory);
+    : events.filter(event => normalizeEventCategory(event.event_type) === normalizeEventCategory(selectedCategory));
+
+  function selectEventCategory(filter) {
+    setSelectedCategory(filter);
+    setView('browse');
+    setFeedError('');
+    setTimeout(() => {
+      document.getElementById('eventos-publicados')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  }
 
   async function toggleLike(eventId) {
     const selected = events.find(item => item.id === eventId);
@@ -667,8 +677,8 @@ export default function Eventos() {
               {EVENT_FILTERS.map(({label, icon, filter}) => {
                 const active = selectedCategory === filter;
                 return (
-                  <button key={filter} type="button" onClick={() => setSelectedCategory(filter)} aria-pressed={active} style={{...styles.eventFilterButton, ...(active ? styles.eventFilterButtonActive : {})}}>
-                    <EventFilterIcon type={icon} />
+                  <button key={filter} type="button" onClick={() => selectEventCategory(filter)} aria-pressed={active} style={{...styles.eventFilterButton, ...(active ? styles.eventFilterButtonActive : {})}}>
+                    <EventFilterIcon type={icon} active={active} />
                     
                     <span style={{...styles.eventFilterLabel, ...(filter === 'Sessão de Lançamento e Venda' ? { fontSize: 8.5, lineHeight: 1.02 } : {})}}>{filter === 'Sessão de Lançamento e Venda' ? <>Sessão de<br />Lançamento e Venda</> : label}</span>
                   </button>
@@ -681,7 +691,7 @@ export default function Eventos() {
             {feedLoading && <p style={styles.muted}>A carregar eventos...</p>}
             {!feedLoading && events.length === 0 && <div style={styles.notice}>Ainda não existem eventos aprovados e ativos nesta província.</div>}
             {!feedLoading && events.length > 0 && visibleEvents.length === 0 && <div style={styles.notice}>Ainda não há eventos nesta categoria. Escolhe outra categoria ou «Todas».</div>}
-            <div style={styles.eventList}>
+            <div id="eventos-publicados" style={styles.eventList}>
               {visibleEvents.map(item => (
                 <article id={'evento-' + item.id} key={item.id} style={{ ...styles.eventCard, borderColor: categoryTheme(item.event_type).color + '45', background: '#FFFFFF', boxShadow: '0 6px 22px rgba(24,39,34,.07)' }} onClick={() => trackEventAction(item)}>
                   {(item.video_url || item.image_url) && <div style={styles.eventMedia}>
@@ -809,9 +819,9 @@ const styles = {
   historyThumbFallback: { width: 42, height: 42, display: 'grid', placeItems: 'center', borderRadius: 8, background: '#F0E7F7', color: '#64358B' },
   eventFilterGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 7, marginTop: 14, width: '100%', boxSizing: 'border-box' },
   eventFilterButton: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, width: '100%', minWidth: 0, height: 44, minHeight: 44, padding: '5px 3px', borderRadius: 24, border: '1.5px solid #D4AF37', background: '#0A3D2A', color: '#FFFFFF', boxShadow: '0 3px 7px rgba(3,35,24,.18), 0 0 6px rgba(212,175,55,.10)', cursor: 'pointer', textAlign: 'center', boxSizing: 'border-box', overflow: 'hidden' },
-  eventFilterButtonActive: { background: '#063A26', borderColor: '#E8C979', boxShadow: '0 5px 15px rgba(3,35,24,.28), 0 0 13px rgba(232,201,121,.28)' },
+  eventFilterButtonActive: { background: '#E8C979', borderColor: '#0A3D2A', color: '#0A3D2A', boxShadow: '0 5px 15px rgba(3,35,24,.24), 0 0 0 2px rgba(232,201,121,.24)' },
   eventFilterDivider: { display: 'none' },
-  eventFilterLabel: { color: '#FFFFFF', fontSize: 10, lineHeight: 1.05, fontWeight: 800, minWidth: 0, flex: '0 1 auto', whiteSpace: 'normal', overflow: 'hidden', overflowWrap: 'anywhere', textAlign: 'center' },
+  eventFilterLabel: { color: 'inherit', fontSize: 10, lineHeight: 1.05, fontWeight: 800, minWidth: 0, flex: '0 1 auto', whiteSpace: 'normal', overflow: 'hidden', overflowWrap: 'anywhere', textAlign: 'center' },
   stepsIndicator: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: '8px 0 24px' },
   stepItem: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 5px', borderRadius: 12, background: '#F2F5F3', color: '#718078', fontSize: 12, fontWeight: 800 },
   currentStep: { background: '#DCEFE8', color: '#075B4E', boxShadow: 'inset 0 0 0 1px #8CB7A8' },
