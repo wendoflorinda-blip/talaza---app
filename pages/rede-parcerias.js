@@ -24,6 +24,9 @@ export default function RedeParcerias() {
   const [myPublications, setMyPublications] = useState([]);
   const [description, setDescription] = useState('');
   const [mediaFile, setMediaFile] = useState(null);
+  const [reactivationProof, setReactivationProof] = useState(null);
+  const [reactivationPending, setReactivationPending] = useState(false);
+  const [sendingReactivation, setSendingReactivation] = useState(false);
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState('');
@@ -76,6 +79,8 @@ export default function RedeParcerias() {
             if (ownError) throw ownError;
             setAccount(girassolAccount || null);
             setMyPublications(ownRows || []);
+            const { data: pendingReactivation } = await supabase.from('girassol_reactivation_requests').select('id').eq('business_id', ownedBusiness.id).eq('status','pending').limit(1).maybeSingle();
+            setReactivationPending(Boolean(pendingReactivation));
           }
         }
 
@@ -121,6 +126,28 @@ export default function RedeParcerias() {
 
   function toggleProvince(id) {
     setSelectedProvinceIds(current => current.includes(id) ? current.filter(value => value !== id) : current.length < maxProvinces ? [...current,id] : current);
+  }
+
+  async function submitReactivation() {
+    if (!business || !account?.unlocked_tier || !isSuspended || !reactivationProof || sendingReactivation) return;
+    if (!reactivationProof.type.startsWith('image/') && reactivationProof.type !== 'application/pdf') { setError('Envie uma imagem ou um comprovativo PDF.'); return; }
+    if (reactivationProof.size > 10 * 1024 * 1024) { setError('O comprovativo deve ter no máximo 10 MB.'); return; }
+    setSendingReactivation(true); setError(''); setNotice('');
+    let proofPath = '';
+    try {
+      const ext = (reactivationProof.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
+      proofPath = business.id + '/reactivation-' + Date.now() + '.' + ext;
+      const { error: uploadError } = await supabase.storage.from('girassol-proofs').upload(proofPath,reactivationProof,{upsert:false,contentType:reactivationProof.type});
+      if (uploadError) throw uploadError;
+      const { error: insertError } = await supabase.from('girassol_reactivation_requests').insert({business_id:business.id,tier:account.unlocked_tier,amount:12000,currency:'AOA',proof_path:proofPath,status:'pending'});
+      if (insertError) throw insertError;
+      setReactivationPending(true); setReactivationProof(null);
+      const input = document.getElementById('girassol-reactivation-proof'); if (input) input.value = '';
+      setNotice('Comprovativo enviado. A reactivação aguarda aprovação da administração. A hospedagem normal continua independente.');
+    } catch (err) {
+      if (proofPath) await supabase.storage.from('girassol-proofs').remove([proofPath]).catch(()=>{});
+      setError(err.message || 'Não foi possível enviar o comprovativo de reactivação.');
+    } finally { setSendingReactivation(false); }
   }
 
   async function publish() {
@@ -188,7 +215,7 @@ export default function RedeParcerias() {
                     <p style={{fontSize:13,color:COLORS.muted}}>Ao atingir 5.000 Guardados desbloqueia Girassol. Ao atingir 1.000.000 desbloqueia Girassol Pró.</p>
                   </> : <>
                     <p style={{margin:'0 0 12px',color:COLORS.muted}}>Nível: <strong>{account.unlocked_tier === 'girassol_pro' ? 'Girassol Pró' : 'Girassol'}</strong> · {isSuspended ? 'Acesso suspenso' : 'Acesso activo'}</p>
-                    {isSuspended && <p style={{color:'#9B2929'}}>A conquista permanece, mas precisa de reactivação aprovada. A reactivação não substitui a hospedagem normal da loja.</p>}
+                    {isSuspended && <div style={{padding:14,borderRadius:12,background:'#FFF8E7',marginTop:10}}><p style={{color:'#805A00',marginTop:0}}>A conquista permanece, mas o acesso está suspenso. Envie o comprovativo de reactivação de 12.000 Kz. Este pagamento não substitui a hospedagem normal da loja.</p>{reactivationPending ? <strong style={{color:'#805A00'}}>Comprovativo recebido · A aguardar análise administrativa</strong> : <><label style={{display:'block',fontWeight:800,marginBottom:7}}>Comprovativo de 12.000 Kz</label><input id="girassol-reactivation-proof" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={event=>setReactivationProof(event.target.files?.[0]||null)}/><button type="button" disabled={!reactivationProof||sendingReactivation} onClick={submitReactivation} style={{display:'block',marginTop:12,border:0,borderRadius:10,padding:'11px 16px',background:COLORS.green,color:'#fff',fontWeight:900,opacity:!reactivationProof||sendingReactivation ? .6 : 1}}>{sendingReactivation?'A enviar…':'Enviar comprovativo de reactivação'}</button></>}</div>}
                     {!isSuspended && <>
                       <p style={{fontSize:13,color:COLORS.muted}}>Pode seleccionar até {maxProvinces} províncias por publicação. A publicação dura 5 dias e poderá publicar novamente 15 dias após a publicação anterior.</p>
                       <label style={{display:'block',fontWeight:800,margin:'12px 0 6px'}}>Descrição</label>
@@ -202,7 +229,7 @@ export default function RedeParcerias() {
                       <p style={{fontSize:12,color:COLORS.muted}}>{selectedProvinceIds.length} de {maxProvinces} províncias seleccionadas. A província de origem do negócio não é alterada.</p>
                       {!hostingActive && <p style={{color:'#9B2929'}}>A hospedagem normal da loja não está activa. As publicações ficam suspensas até renovar.</p>}
                       {cooldownActive && <p style={{color:'#8B5B00'}}>Próxima publicação disponível a partir de {formatDate(canPublishAt)}.</p>}
-                      <button type="button" disabled={publishing||!hostingActive||cooldownActive} onClick={publish} style={{border:0,borderRadius:12,padding:'12px 18px',background:COLORS.green,color:'#fff',fontWeight:900,cursor:'pointer',opacity:publishing||!hostingActive||cooldownActive?.55:1}}>{publishing?'A publicar…':'Publicar na Entrega Interprovincial'}</button>
+                      <button type="button" disabled={publishing||!hostingActive||cooldownActive} onClick={publish} style={{border:0,borderRadius:12,padding:'12px 18px',background:COLORS.green,color:'#fff',fontWeight:900,cursor:'pointer',opacity:publishing||!hostingActive||cooldownActive ? .55 : 1}}>{publishing?'A publicar…':'Publicar na Entrega Interprovincial'}</button>
                     </>}
                   </>}
                   {myPublications.length>0 && <div style={{marginTop:18,borderTop:'1px solid '+COLORS.line,paddingTop:14}}><h3 style={{fontSize:15,color:COLORS.dark}}>As minhas publicações</h3>{myPublications.map(item=><p key={item.id} style={{fontSize:13,color:COLORS.muted,margin:'7px 0'}}> {item.status==='active'?'Activa':'Expirada'} · publicada em {formatDate(item.created_at)} · termina em {formatDate(item.expires_at)} · próxima publicação: {formatDate(item.next_publish_at)}</p>)}</div>}
