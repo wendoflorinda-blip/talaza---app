@@ -619,7 +619,7 @@ export default function Explore() {
                         <p>{item.description}</p>
                         <div className="premium-post-actions">
                           <button type="button" onClick={()=>router.push({pathname:'/mensagens',query:{to:item.business?.owner_id,source:'Vitrine',sourceId:item.business_id,box:'explore'}})} disabled={!item.business?.owner_id}>Enviar mensagem</button>
-                          <Link href={{pathname:'/businesses/'+item.business_id,query:exploreQuery}}>Ver perfil</Link>
+                          <Link href={{pathname:'/businesses/'+item.business_id,query:exploreQuery}} onClick={() => trackMainBusiness(item.business)}>Ver perfil</Link>
                           {item.duration_days===30 && <button type="button" onClick={()=>toggleSavedPromotion(item)} disabled={savingPromotionId===item.id}>{savingPromotionId===item.id?'…':savedPromotionIds.includes(item.id)?'✓ Guardado':'☆ Guardar'}</button>}
                         </div>
                       </div>
