@@ -55,6 +55,15 @@ function Icon({ type, color = COLORS.ink, size = 19 }) {
       </>
     ),
 
+    partnerships: (
+      <>
+        <circle cx="7" cy="8" r="3" />
+        <circle cx="17" cy="8" r="3" />
+        <path d="M2.5 20c0-3 2-5 4.5-5h2c2.5 0 4.5 2 4.5 5" />
+        <path d="M10.5 20c0-3 2-5 4.5-5h2c2.5 0 4.5 2 4.5 5" />
+      </>
+    ),
+
     seller: (
       <>
         <rect x="3" y="7" width="18" height="13" rx="2" />
@@ -308,6 +317,10 @@ export default function TalazaMenu({
   const [supportDraft, setSupportDraft] = useState('');
   const [supportError, setSupportError] = useState('');
   const [sendingSupport, setSendingSupport] = useState(false);
+
+  useEffect(() => {
+    if (router.isReady && router.query.menuOpen === '1') setOpen(true);
+  }, [router.isReady, router.query.menuOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -747,13 +760,13 @@ export default function TalazaMenu({
                   />
 
                   <MenuItem
-                    icon="seller"
+                    icon="partnerships"
                     color={COLORS.purple}
                     bg={COLORS.purpleSoft}
                     label="Rede de Parcerias"
                     onClick={() => {
                       closeMenu();
-                      router.push('/rede-parcerias');
+                      router.push({ pathname: '/rede-parcerias', query: { returnTo: router.asPath } });
                     }}
                   />
 
