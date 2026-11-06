@@ -37,6 +37,9 @@ export default function Admin() {
   const [authorized, setAuthorized] = useState(false);
   const [businesses, setBusinesses] = useState([]);
   const [subscriptionRequests, setSubscriptionRequests] = useState([]);
+  const [girassolReactivations, setGirassolReactivations] = useState([]);
+  const [girassolProofUrls, setGirassolProofUrls] = useState({});
+  const [reviewingGirassolId, setReviewingGirassolId] = useState('');
   const [paymentProofUrls, setPaymentProofUrls] = useState({});
   const [businessNames, setBusinessNames] = useState({});
   const [planNames, setPlanNames] = useState({});
@@ -146,6 +149,7 @@ export default function Admin() {
     setAuthorized(true);
     await loadBusinesses();
     await loadSubscriptionRequests();
+    await loadGirassolReactivations();
     await loadCommunityReports();
     await loadPendingCommunityPosts();
     await loadSupportMessages();
@@ -402,6 +406,37 @@ export default function Admin() {
     alert(status === 'approved'
       ? (isPaid ? 'Perfil aprovado e hospedagem ativada.' : 'Perfil aprovado na análise, mas permanece inativo até existir uma hospedagem paga válida.')
       : 'Cadastro recusado.');
+  }
+
+  async function loadGirassolReactivations() {
+    const { data, error } = await supabase.from('girassol_reactivation_requests').select('id,business_id,tier,amount,currency,proof_path,status,notes,created_at').order('created_at', { ascending: false });
+    if (error) { console.error('Erro ao carregar reativações Girassol:', error); setGirassolReactivations([]); return; }
+    const rows = data || [];
+    const ids = [...new Set(rows.map(row => row.business_id).filter(Boolean))];
+    const result = ids.length ? await supabase.from('businesses').select('id,name,owner_id').in('id', ids) : { data: [] };
+    const businessById = Object.fromEntries((result.data || []).map(row => [row.id, row]));
+    const proofUrls = {};
+    await Promise.all(rows.map(async row => {
+      const { data: signed } = await supabase.storage.from('girassol-proofs').createSignedUrl(row.proof_path, 300);
+      if (signed?.signedUrl) proofUrls[row.id] = signed.signedUrl;
+    }));
+    setGirassolProofUrls(proofUrls);
+    setGirassolReactivations(rows.map(row => ({ ...row, business: businessById[row.business_id] || null })));
+  }
+
+  async function reviewGirassolReactivation(request, approved) {
+    const reason = approved ? '' : window.prompt('Indique o motivo da recusa da reactivação Girassol:');
+    if (!approved && (!reason || !reason.trim())) return;
+    if (reviewingGirassolId) return;
+    setReviewingGirassolId(request.id);
+    const { data, error } = await supabase.from('girassol_reactivation_requests')
+      .update({ status: approved ? 'approved' : 'rejected', notes: approved ? request.notes : reason.trim() })
+      .eq('id', request.id).eq('status', 'pending').select('id').maybeSingle();
+    if (error || !data) { alert('Não foi possível actualizar a reactivação: ' + (error?.message || 'Pedido já analisado.')); setReviewingGirassolId(''); return; }
+    if (request.business?.owner_id) await notifyUser(request.business.owner_id, approved ? 'Girassol reactivado' : 'Reactivação Girassol recusada', approved ? 'A administração aprovou a reactivação do seu acesso Girassol. A hospedagem normal continua a ser necessária.' : 'O pedido de reactivação foi recusado. Motivo: ' + reason.trim(), 'girassol_reactivation');
+    await loadGirassolReactivations();
+    setReviewingGirassolId('');
+    alert(approved ? 'Acesso Girassol reactivado. A hospedagem não foi alterada.' : 'Pedido de reactivação recusado.');
   }
 
   async function loadCommunityReports() {
@@ -1056,6 +1091,7 @@ export default function Admin() {
     await Promise.all([
       loadBusinesses(),
       loadSubscriptionRequests(),
+      loadGirassolReactivations(),
       loadCommunityReports(),
       loadPendingCommunityPosts(),
       loadSupportMessages(),
@@ -1150,6 +1186,7 @@ export default function Admin() {
             {[
               ['vendedores', 'Vendedores', businesses.length],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
+              ['girassol', 'Reactivação Girassol', girassolReactivations.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['destaques-premium', 'Destaques Premium', subscriptionRequests.filter(item => item.premium_promotion_id && String(item.status || '').toLowerCase() === 'pending').length],
               ['eventos', 'Eventos', events.filter(item => String(item.status || '').toLowerCase() === 'pending_payment').length],
               ['oportunidades', 'Oportunidades', jobPosts.filter(item => !['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase())).length],
@@ -1462,6 +1499,23 @@ export default function Admin() {
               ))}
             </div>
           )}
+        </section>
+
+        <section id="girassol" style={{ marginTop: 0, display: activeAdminSection === "girassol" ? "block" : "none" }}>
+          <div style={styles.titleRow}>
+            <div><h2 style={styles.title}>Reactivação Girassol e Girassol Pró</h2><p style={styles.description}>Analise comprovativos de 12.000 Kz. A aprovação reactiva apenas o acesso Girassol; não renova a hospedagem normal da loja.</p></div>
+            <div style={styles.counter}>{girassolReactivations.filter(item => String(item.status || "").toLowerCase() === "pending").length} por analisar</div>
+          </div>
+          {girassolReactivations.length === 0 ? <div style={styles.empty}><div style={styles.emptyIcon}>🌻</div><h2>Sem pedidos de reactivação</h2><p>Os comprovativos enviados pelos vendedores aparecerão aqui.</p></div> :
+            <div style={styles.list}>{girassolReactivations.map(request => {
+              const pending = String(request.status || "").toLowerCase() === "pending";
+              return <article key={request.id} style={styles.card}>
+                <div style={styles.cardTop}><div style={styles.logoPlaceholder}>🌻</div><div style={{ flex: 1, minWidth: 0 }}><h3 style={styles.businessName}>{request.business?.name || "Negócio TALAZA"}</h3><div style={styles.meta}>{request.tier === "girassol_pro" ? "Girassol Pró" : "Girassol"} · {request.created_at ? new Date(request.created_at).toLocaleString("pt-AO") : "Data não disponível"}</div></div><span style={pending ? styles.pending : styles.paymentStatus}>{request.status}</span></div>
+                <div style={styles.details}><p><strong>Valor:</strong> {Number(request.amount).toLocaleString("pt-AO")} Kz</p><p><strong>Nota:</strong> A hospedagem da loja não é alterada por esta aprovação.</p>{girassolProofUrls[request.id] ? <p><a href={girassolProofUrls[request.id]} target="_blank" rel="noreferrer" style={{ color: "#075B4E", fontWeight: 800 }}>Abrir comprovativo ↗</a></p> : <p>Comprovativo a carregar ou indisponível.</p>}{request.notes && <p><strong>Observação:</strong> {request.notes}</p>}</div>
+                {pending && <div style={styles.actions}><button type="button" disabled={reviewingGirassolId === request.id} style={styles.reject} onClick={() => reviewGirassolReactivation(request, false)}>Recusar</button><button type="button" disabled={reviewingGirassolId === request.id} style={styles.approve} onClick={() => reviewGirassolReactivation(request, true)}>{reviewingGirassolId === request.id ? "A guardar…" : "Aprovar reactivação"}</button></div>}
+              </article>;
+            })}</div>
+          }
         </section>
 
         <section id="pagamentos" style={{ marginTop: 0, display: activeAdminSection === 'pagamentos' ? 'block' : 'none' }}>
