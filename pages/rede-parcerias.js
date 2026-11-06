@@ -33,7 +33,7 @@ export default function RedeParcerias() {
   const [notice, setNotice] = useState('');
 
   const maxProvinces = account?.unlocked_tier === 'girassol_pro' ? 10 : 3;
-  const progressGoal = account?.unlocked_tier === 'girassol_pro' ? 1000000 : 5000;
+  const progressGoal = account?.unlocked_tier === 'girassol' || account?.unlocked_tier === 'girassol_pro' ? 1000000 : 5000;
   const progress = Math.min(100, (Number(account?.unique_saved_count || 0) / progressGoal) * 100);
   const isUnlocked = Boolean(account?.unlocked_tier);
   const isSuspended = account?.access_status === 'suspended';
@@ -215,6 +215,7 @@ export default function RedeParcerias() {
                     <p style={{fontSize:13,color:COLORS.muted}}>Ao atingir 5.000 Guardados desbloqueia Girassol. Ao atingir 1.000.000 desbloqueia Girassol Pró.</p>
                   </> : <>
                     <p style={{margin:'0 0 12px',color:COLORS.muted}}>Nível: <strong>{account.unlocked_tier === 'girassol_pro' ? 'Girassol Pró' : 'Girassol'}</strong> · {isSuspended ? 'Acesso suspenso' : 'Acesso activo'}</p>
+                    {account.unlocked_tier === 'girassol' && <div style={{margin:'12px 0 16px'}}><p style={{fontSize:13,color:COLORS.muted}}>Progresso para Girassol Pró: <strong>{Number(account.unique_saved_count||0).toLocaleString('pt-AO')} / 1.000.000 Guardados únicos</strong></p><div style={{height:8,borderRadius:99,background:'#EDF0EE',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(account.unique_saved_count||0)/1000000)*100)+'%',background:COLORS.gold}}/></div></div>}
                     {isSuspended && <div style={{padding:14,borderRadius:12,background:'#FFF8E7',marginTop:10}}><p style={{color:'#805A00',marginTop:0}}>A conquista permanece, mas o acesso está suspenso. Envie o comprovativo de reactivação de 12.000 Kz. Este pagamento não substitui a hospedagem normal da loja.</p>{reactivationPending ? <strong style={{color:'#805A00'}}>Comprovativo recebido · A aguardar análise administrativa</strong> : <><label style={{display:'block',fontWeight:800,marginBottom:7}}>Comprovativo de 12.000 Kz</label><input id="girassol-reactivation-proof" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={event=>setReactivationProof(event.target.files?.[0]||null)}/><button type="button" disabled={!reactivationProof||sendingReactivation} onClick={submitReactivation} style={{display:'block',marginTop:12,border:0,borderRadius:10,padding:'11px 16px',background:COLORS.green,color:'#fff',fontWeight:900,opacity:!reactivationProof||sendingReactivation ? .6 : 1}}>{sendingReactivation?'A enviar…':'Enviar comprovativo de reactivação'}</button></>}</div>}
                     {!isSuspended && <>
                       <p style={{fontSize:13,color:COLORS.muted}}>Pode seleccionar até {maxProvinces} províncias por publicação. A publicação dura 5 dias e poderá publicar novamente 15 dias após a publicação anterior.</p>
