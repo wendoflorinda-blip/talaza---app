@@ -746,6 +746,17 @@ export default function TalazaMenu({
                     onClick={() => setScreen('provinces')}
                   />
 
+                  <MenuItem
+                    icon="seller"
+                    color={COLORS.purple}
+                    bg={COLORS.purpleSoft}
+                    label="Rede de Parcerias"
+                    onClick={() => {
+                      closeMenu();
+                      router.push('/rede-parcerias');
+                    }}
+                  />
+
                   <Divider />
 
                   <MenuItem
