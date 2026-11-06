@@ -245,10 +245,10 @@ export default function Subcategory() {
           setBusinessImagesById({});
         }
 
-        // Na subcategoria aparecem apenas os destaques de 15 dias (2.500 Kz).
-        // O plano de 30 dias (5.000 Kz) é reservado à área Para si.
+        // Na subcategoria aparecem os dois planos Premium: 15 dias (2.500 Kz)
+        // e 30 dias (5.000 Kz). O plano de 30 dias também surge em Para si.
         const { data: premiumPlanRows, error: premiumPlanError } = await supabase.from('plans')
-          .select('id,duration_days').eq('plan_type','Destaque Premium').eq('duration_days',15).eq('is_active',true);
+          .select('id,duration_days').eq('plan_type','Destaque Premium').in('duration_days',[15,30]).eq('is_active',true);
         if (premiumPlanError) console.warn('Não foi possível consultar os planos Premium:',premiumPlanError);
         const subcategoryPlanIds=(premiumPlanRows||[]).map(item=>item.id);
         if(subcategoryPlanIds.length) {
