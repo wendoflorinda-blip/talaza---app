@@ -94,6 +94,24 @@ export default function RedeParcerias() {
           }
         }
 
+        if (activeCountry) {
+          const { data: partnerAccounts, error: partnerAccountsError } = await supabase.from('girassol_accounts')
+            .select('business_id,unlocked_tier').not('unlocked_tier','is',null).eq('access_status','active');
+          if (partnerAccountsError) throw partnerAccountsError;
+          const partnerIds = [...new Set((partnerAccounts || []).map(row => row.business_id))];
+          if (partnerIds.length) {
+            const { data: partnerBusinesses, error: partnerBusinessError } = await supabase.from('businesses')
+              .select('id,name,owner_id,logo_url,country_id,province_id')
+              .in('id',partnerIds).eq('country_id',activeCountry).eq('is_active',true).eq('approval_status','approved');
+            if (partnerBusinessError) throw partnerBusinessError;
+            const pIds = [...new Set((partnerBusinesses || []).map(row => row.province_id).filter(Boolean))];
+            const { data: pRows } = await supabase.from('provinces').select('id,name').in('id',pIds.length ? pIds : ['00000000-0000-0000-0000-000000000000']);
+            const pNames = Object.fromEntries((pRows || []).map(row => [row.id,row.name]));
+            const accountById = Object.fromEntries((partnerAccounts || []).map(row => [row.business_id,row]));
+            if (!cancelled) setAvailablePartners((partnerBusinesses || []).map(row => ({...row,provinceName:pNames[row.province_id] || '',tier:accountById[row.id]?.unlocked_tier})));
+          } else if (!cancelled) setAvailablePartners([]);
+        }
+
         if (activeProvince) {
           const { data: targetRows, error: targetError } = await supabase.from('girassol_publication_provinces')
             .select('publication_id').eq('province_id', activeProvince);
@@ -211,9 +229,18 @@ export default function RedeParcerias() {
           {notice && <div role="status" style={{padding:13,marginBottom:12,borderRadius:12,background:'#E8F3F0',color:COLORS.dark}}>{notice}</div>}
           {loading ? <div style={{padding:32,textAlign:'center'}}>A carregar Rede de Parcerias…</div> : (
             <>
+              <section style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(210px,1fr))',gap:10,marginBottom:18}}>
+                <button type="button" onClick={()=>setActiveTab('partners')} style={{textAlign:'left',padding:17,borderRadius:15,border:activeTab==='partners'?'2px solid '+COLORS.purple:'1px solid '+COLORS.line,background:activeTab==='partners'?'#F2EAF9':'#fff',cursor:'pointer'}}>
+                  <div style={{fontSize:24,color:COLORS.purple}}>♧</div><strong style={{display:'block',marginTop:7,color:COLORS.dark}}>Vendedores disponíveis para parceria</strong><span style={{fontSize:12,color:COLORS.muted}}>Conheça negócios com acesso Girassol activo e contacte-os directamente pela Talaza.</span>
+                </button>
+                <button type="button" onClick={()=>setActiveTab('entregas')} style={{textAlign:'left',padding:17,borderRadius:15,border:activeTab==='entregas'?'2px solid '+COLORS.green:'1px solid '+COLORS.line,background:activeTab==='entregas'?'#E8F3F0':'#fff',cursor:'pointer'}}>
+                  <div style={{fontSize:24,color:COLORS.green}}>⇄</div><strong style={{display:'block',marginTop:7,color:COLORS.dark}}>Entrega Interprovincial</strong><span style={{fontSize:12,color:COLORS.muted}}>Encontre vendedores que transportam produtos ou prestam serviços fora da província de origem.</span>
+                </button>
+              </section>
+              {activeTab==='entregas' && <>
               <section style={{background:'#fff',border:'1px solid '+COLORS.line,borderRadius:18,padding:18,marginBottom:20}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-                  <div><h2 style={{margin:'0 0 5px',fontSize:20,color:COLORS.dark}}>Entrega Interprovincial</h2><p style={{margin:0,color:COLORS.muted,fontSize:13}}>Esta área é separada da Vitrine local. Os negócios aparecem aqui apenas nas províncias seleccionadas pelo vendedor.</p></div>
+                  <div><h2 style={{margin:'0 0 5px',fontSize:20,color:COLORS.dark}}>Entrega Interprovincial</h2><p style={{margin:0,color:COLORS.muted,fontSize:14,lineHeight:1.7,maxWidth:720}}>Está à procura de um produto ou serviço que não encontra na sua província? Nesta área pode descobrir negócios de outras regiões que confirmaram capacidade para entregar na sua localidade. Cada publicação é apresentada apenas às províncias seleccionadas pelo próprio vendedor, sem misturar negócios de outras regiões na Vitrine local. Consulte a origem do negócio, veja o perfil e envie uma mensagem privada dentro da Talaza para confirmar disponibilidade, prazo e condições de entrega.</p></div>
                   <label style={{fontSize:13,fontWeight:800,color:COLORS.dark}}>Província de entrega
                     <select value={province} onChange={event=>router.push({pathname:'/rede-parcerias',query:{province:event.target.value,country:countryId,homeCountry:router.query.homeCountry||countryId,homeProvince:router.query.homeProvince||province}})} style={{display:'block',marginTop:6,minWidth:190,padding:10,borderRadius:10,border:'1px solid '+COLORS.line,background:'#fff'}}><option value="">Seleccione a província</option>{provinces.filter(item=>!countryId || item.country_id===countryId).map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select>
                   </label>
@@ -260,6 +287,17 @@ export default function RedeParcerias() {
                   </article>)}
                 </div>}
               </section>
+              </>}
+              {activeTab==='partners' && <section>
+                <h2 style={{margin:'0 0 6px',fontSize:22,color:COLORS.dark}}>Vendedores disponíveis para parceria</h2>
+                <p style={{margin:'0 0 16px',fontSize:14,lineHeight:1.7,color:COLORS.muted}}>Aqui encontra negócios com o nível Girassol ou Girassol Pró activo e hospedagem aprovada na Talaza. Consulte a província de cada vendedor e inicie uma conversa privada para propor uma parceria comercial. A lista não altera a sua província de navegação nem a localização oficial dos negócios.</p>
+                {availablePartners.length===0 ? <div style={{padding:25,background:'#fff',borderRadius:16,color:COLORS.muted}}>Ainda não há vendedores disponíveis para parceria neste país.</div> : <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,270px),1fr))',gap:14}}>
+                  {availablePartners.map(item=><article key={item.id} style={{background:'#fff',border:'1px solid '+COLORS.line,borderRadius:16,padding:15}}>
+                    <div style={{display:'flex',alignItems:'center',gap:10}}>{item.logo_url?<img src={item.logo_url} alt="" style={{width:48,height:48,borderRadius:'50%',objectFit:'cover'}}/>:<span style={{width:48,height:48,borderRadius:'50%',background:'#F2EAF9',display:'grid',placeItems:'center',fontWeight:900,color:COLORS.purple}}>{item.name?.slice(0,1)||'T'}</span>}<div><strong style={{color:COLORS.dark}}>{item.name}</strong><div style={{fontSize:12,color:COLORS.muted}}>{item.provinceName} · {item.tier==='girassol_pro'?'Girassol Pró':'Girassol'}</div></div></div>
+                    <div style={{display:'flex',gap:8,marginTop:13}}><Link href={'/businesses/'+item.id+'?country='+item.country_id+'&province='+item.province_id} style={{flex:1,textAlign:'center',padding:'10px 8px',borderRadius:10,background:COLORS.green,color:'#fff',textDecoration:'none',fontWeight:800,fontSize:12}}>Ver perfil</Link><button type="button" onClick={()=>router.push({pathname:'/mensagens',query:{to:item.owner_id,source:'Rede de Parcerias',box:'explore'}})} style={{flex:1,padding:'10px 8px',borderRadius:10,border:'1px solid '+COLORS.green,background:'#fff',color:COLORS.green,fontWeight:800,fontSize:12,cursor:'pointer'}}>Enviar mensagem</button></div>
+                  </article>)}
+                </div>}
+              </section>}
             </>
           )}
         </div>
