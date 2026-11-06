@@ -16,6 +16,7 @@ export default function RedeParcerias() {
   const [user, setUser] = useState(null);
   const [province, setProvince] = useState('');
   const [provinceName, setProvinceName] = useState('');
+  const [countryId, setCountryId] = useState('');
   const [business, setBusiness] = useState(null);
   const [account, setAccount] = useState(null);
   const [provinces, setProvinces] = useState([]);
@@ -54,14 +55,20 @@ export default function RedeParcerias() {
         setUser(currentUser);
         setProvinces(provinceRows || []);
         const requestedProvince = String(router.query.province || router.query.homeProvince || '');
-        let activeProvince = requestedProvince;
-        if (!activeProvince && currentUser) {
-          const { data: profile } = await supabase.from('profiles').select('province_id').eq('id', currentUser.id).maybeSingle();
-          activeProvince = profile?.province_id || '';
+        const requestedCountry = String(router.query.country || router.query.homeCountry || '');
+        let profileProvince = '';
+        let profileCountry = '';
+        if (currentUser) {
+          const { data: profile } = await supabase.from('profiles').select('country_id,province_id').eq('id', currentUser.id).maybeSingle();
+          profileProvince = profile?.province_id || '';
+          profileCountry = profile?.country_id || '';
         }
+        const activeProvince = requestedProvince || profileProvince;
         if (cancelled) return;
         setProvince(activeProvince);
         const provinceRow = (provinceRows || []).find(item => item.id === activeProvince);
+        const activeCountry = requestedCountry || profileCountry || provinceRow?.country_id || '';
+        setCountryId(activeCountry);
         setProvinceName(provinceRow?.name || '');
 
         if (currentUser) {
@@ -201,7 +208,7 @@ export default function RedeParcerias() {
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
                   <div><h2 style={{margin:'0 0 5px',fontSize:20,color:COLORS.dark}}>Entrega Interprovincial</h2><p style={{margin:0,color:COLORS.muted,fontSize:13}}>Esta área é separada da Vitrine local. Os negócios aparecem aqui apenas nas províncias seleccionadas pelo vendedor.</p></div>
                   <label style={{fontSize:13,fontWeight:800,color:COLORS.dark}}>Província de entrega
-                    <select value={province} onChange={event=>router.push({pathname:'/rede-parcerias',query:{province:event.target.value,homeProvince:router.query.homeProvince||province}})} style={{display:'block',marginTop:6,minWidth:190,padding:10,borderRadius:10,border:'1px solid '+COLORS.line,background:'#fff'}}><option value="">Seleccione a província</option>{provinces.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select>
+                    <select value={province} onChange={event=>router.push({pathname:'/rede-parcerias',query:{province:event.target.value,country:countryId,homeCountry:router.query.homeCountry||countryId,homeProvince:router.query.homeProvince||province}})} style={{display:'block',marginTop:6,minWidth:190,padding:10,borderRadius:10,border:'1px solid '+COLORS.line,background:'#fff'}}><option value="">Seleccione a província</option>{provinces.filter(item=>!countryId || item.country_id===countryId).map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select>
                   </label>
                 </div>
               </section>
