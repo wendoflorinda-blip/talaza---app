@@ -1301,7 +1301,7 @@ export default function Subcategory() {
         .premiumFeedTop { position:absolute; top:20px; left:18px; right:72px; display:flex; justify-content:space-between; gap:10px; align-items:center; font-size:10px; font-weight:900; letter-spacing:1.2px; color:#F4D77E; }
         .premiumFeedTop small { color:#fff; font-size:11px; letter-spacing:0; }
         .premiumFeedClose { position:fixed; z-index:3; top:14px; right:16px; width:42px; height:42px; border:1px solid rgba(255,255,255,.55); border-radius:50%; background:rgba(0,0,0,.38); color:#fff; font-size:27px; cursor:pointer; }
-        .premiumFeedInfo { position:absolute; z-index:2; left:20px; right:20px; bottom:max(26px,env(safe-area-inset-bottom)); }
+        .premiumFeedInfo { position:absolute; z-index:2; left:20px; right:20px; bottom:max(86px,calc(env(safe-area-inset-bottom) + 64px)); }
         .premiumFeedInfo strong { display:block; margin-bottom:9px; font-size:21px; text-shadow:0 2px 8px rgba(0,0,0,.5); }
         .premiumFeedInfo p { max-width:440px; margin:0 0 16px; color:#F3F3F3; font-size:14px; line-height:1.55; white-space:pre-wrap; text-shadow:0 1px 5px rgba(0,0,0,.6); }
         .premiumFeedActions { display:flex; flex-wrap:wrap; gap:9px; }
