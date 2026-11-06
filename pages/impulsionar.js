@@ -137,24 +137,44 @@ export default function Impulsionar() {
             <p style={{color:COLORS.muted,fontSize:14,lineHeight:1.7,maxWidth:780}}>Os níveis Girassol são conquistas do seu negócio, alcançadas através de Guardados únicos. Ao atingir cada meta, desbloqueia o acesso à Rede de Parcerias e à Entrega Interprovincial. Não são compras de impulsionamento: o progresso é contado automaticamente pela Talaza.</p>
           </div>
           <div style={S.grid}>
-            <article style={{...S.card,borderColor:'#EBD58C',background:'linear-gradient(145deg,#FFF9E8,#F8EAC1)'}}>
-              <div style={{...S.icon,background:'#D8A319',color:'#fff'}}>✿</div><div style={{...S.tag,color:'#705000',background:'rgba(255,255,255,.75)'}}>PRIMEIRO NÍVEL</div>
-              <h3 style={{...S.cardTitle,color:'#5B4300'}}>Girassol</h3><div style={{...S.price,color:'#5B4300'}}>5.000 Guardados únicos</div>
-              <p style={{fontSize:13,lineHeight:1.65,color:'#66552C'}}>Desbloqueia a presença na lista de vendedores disponíveis para parceria e a possibilidade de publicar entregas interprovinciais em até 3 províncias por publicação.</p>
-              <div style={{height:9,borderRadius:99,background:'rgba(91,67,0,.12)',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(girassolAccount?.unique_saved_count||0)/5000)*100)+'%',background:'#D8A319'}}/></div>
-              <p style={{fontSize:12,color:'#66552C'}}>{Number(girassolAccount?.unique_saved_count||0).toLocaleString('pt-AO')} / 5.000 Guardados únicos</p>
-              {girassolAccount?.unlocked_tier && <strong style={{fontSize:12,color:'#5B4300'}}>Conquista desbloqueada</strong>}
+            <article style={{...S.card,borderColor:'#E8A9C2',background:'linear-gradient(145deg,#FFF1F6 0%,#F7C9DB 100%)'}}>
+              <div style={{...S.icon,background:'#C13B75',color:'#fff'}}>🌻</div><div style={{...S.tag,color:'#84254D',background:'rgba(255,255,255,.78)'}}>PRIMEIRO NÍVEL</div>
+              <h3 style={{...S.cardTitle,color:'#84254D'}}>Girassol</h3><div style={{...S.price,color:'#84254D'}}>5.000 Guardados únicos</div>
+              <p style={{fontSize:13,lineHeight:1.7,color:'#71344E'}}>Ao alcançar 5.000 Guardados únicos, o seu negócio conquista permanentemente o nível Girassol. Mesmo que, mais tarde, os clientes deixem de guardar o seu perfil ou a contagem diminua, a conquista e o desbloqueio não são retirados.</p>
+              <div style={{fontSize:12,fontWeight:900,color:'#84254D',marginTop:5}}>BENEFÍCIOS INCLUÍDOS</div>
+              <ul style={{margin:'9px 0 16px',paddingLeft:19,color:'#71344E',fontSize:12,lineHeight:1.75}}>
+                <li>Publicar gratuitamente na Vitrine principal da sua província.</li>
+                <li>Publicar gratuitamente na Vitrine da sua própria subcategoria, na província oficial do negócio.</li>
+                <li>Ter o perfil apresentado em «Vendedores disponíveis para parceria», para outros vendedores descobrirem o seu negócio, consultarem o perfil e enviarem mensagens internas para propor parcerias.</li>
+                <li>Aceder à Entrega Interprovincial e publicar uma oferta de entrega para até 3 províncias escolhidas por si.</li>
+              </ul>
+              <div style={{height:9,borderRadius:99,background:'rgba(132,37,77,.13)',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(girassolAccount?.unique_saved_count||0)/5000)*100)+'%',background:'#C13B75'}}/></div>
+              <p style={{fontSize:12,color:'#71344E'}}>{Number(girassolAccount?.unique_saved_count||0).toLocaleString('pt-AO')} / 5.000 Guardados únicos</p>
+              {girassolAccount?.unlocked_tier && <strong style={{fontSize:12,color:'#84254D'}}>🌻 Conquista permanente desbloqueada</strong>}
             </article>
-            <article style={{...S.card,borderColor:'#CFC2E5',background:'linear-gradient(145deg,#F7F2FC,#E8DDF4)'}}>
-              <div style={{...S.icon,background:COLORS.purple,color:'#fff'}}>✧</div><div style={{...S.tag,color:COLORS.purpleDark,background:'rgba(255,255,255,.75)'}}>NÍVEL AVANÇADO</div>
-              <h3 style={{...S.cardTitle,color:COLORS.purpleDark}}>Girassol Pró</h3><div style={{...S.price,color:COLORS.purpleDark}}>1.000.000 Guardados únicos</div>
-              <p style={{fontSize:13,lineHeight:1.65,color:'#59476D'}}>Eleva o seu acesso à Rede de Parcerias e permite publicar entregas interprovinciais em até 10 províncias por publicação. O total de Guardados continua a acumular depois do primeiro nível.</p>
-              <div style={{height:9,borderRadius:99,background:'rgba(63,29,96,.12)',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(girassolAccount?.unique_saved_count||0)/1000000)*100)+'%',background:COLORS.purple}}/></div>
-              <p style={{fontSize:12,color:'#59476D'}}>{Number(girassolAccount?.unique_saved_count||0).toLocaleString('pt-AO')} / 1.000.000 Guardados únicos</p>
-              {girassolAccount?.unlocked_tier==='girassol_pro' && <strong style={{fontSize:12,color:COLORS.purpleDark}}>Conquista desbloqueada</strong>}
+            <article style={{...S.card,borderColor:'#8CCFD2',background:'linear-gradient(145deg,#E9FAFA 0%,#BCE8E8 100%)'}}>
+              <div style={{...S.icon,background:'#087E8B',color:'#fff'}}>🌻</div><div style={{...S.tag,color:'#075965',background:'rgba(255,255,255,.8)'}}>NÍVEL AVANÇADO</div>
+              <h3 style={{...S.cardTitle,color:'#075965'}}>Girassol Pró</h3><div style={{...S.price,color:'#075965'}}>1.000.000 Guardados únicos</div>
+              <p style={{fontSize:13,lineHeight:1.7,color:'#24565B'}}>Ao alcançar 1.000.000 de Guardados únicos, sobe para Girassol Pró. É uma conquista permanente: não perde o nível mesmo que os Guardados diminuam ou deixe de receber novos Guardados.</p>
+              <div style={{fontSize:12,fontWeight:900,color:'#075965',marginTop:5}}>TODOS OS BENEFÍCIOS GIRASSOL, MAIS</div>
+              <ul style={{margin:'9px 0 16px',paddingLeft:19,color:'#24565B',fontSize:12,lineHeight:1.75}}>
+                <li>Publicação gratuita na Vitrine principal e na Vitrine da sua própria subcategoria, respeitando a província oficial do negócio.</li>
+                <li>Presença permanente no directório de vendedores disponíveis para parceria enquanto o acesso estiver activo.</li>
+                <li>Publicações de Entrega Interprovincial dirigidas a até 10 províncias escolhidas por si, ampliando o alcance a clientes de outras regiões sem misturar essas ofertas na Vitrine local.</li>
+                <li>Mais oportunidades para receber contactos, encontrar parceiros comerciais e conquistar clientes fora da sua província.</li>
+              </ul>
+              <div style={{height:9,borderRadius:99,background:'rgba(7,89,101,.13)',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(girassolAccount?.unique_saved_count||0)/1000000)*100)+'%',background:'#087E8B'}}/></div>
+              <p style={{fontSize:12,color:'#24565B'}}>{Number(girassolAccount?.unique_saved_count||0).toLocaleString('pt-AO')} / 1.000.000 Guardados únicos</p>
+              {girassolAccount?.unlocked_tier==='girassol_pro' && <strong style={{fontSize:12,color:'#075965'}}>🌻 Conquista permanente desbloqueada</strong>}
             </article>
           </div>
-          {girassolAccount?.access_status==='suspended' && <div style={{marginTop:14,padding:15,borderRadius:14,background:'#FFF5D6',color:'#6A4D00',lineHeight:1.65,fontSize:13}}>O seu nível Girassol permanece conquistado, mas o acesso está suspenso por falta de hospedagem activa. Reactivação actual: <strong>{Number(girassolAccount.reactivation_amount||12000).toLocaleString('pt-AO')} Kz</strong>. O valor duplica a cada 365 dias completos desde o início da suspensão. A reactivação não substitui a hospedagem normal.</div>}
+          <div style={{marginTop:15,padding:17,borderRadius:15,background:'#F0F4F7',border:'1px solid #CBD5DF',color:'#34485A',fontSize:13,lineHeight:1.75}}>
+            <strong style={{display:'block',marginBottom:5}}>Atenção ao prazo de hospedagem</strong>
+            Se ainda não tiver atingido os 5.000 Guardados do Girassol ou os 1.000.000 do Girassol Pró e a hospedagem da sua loja expirar, terá 15 dias para renovar. Se não renovar dentro desse prazo, perde a quantidade de Guardados acumulada para o desbloqueio e terá de começar novamente. Esta regra só afecta quem ainda não conquistou o nível.
+            <br/><br/>
+            <strong>A conquista é permanente depois de desbloqueada.</strong> Se já alcançou Girassol ou Girassol Pró, não perde esse marco por deixar de receber Guardados. Se a hospedagem ficar expirada por mais de 15 dias, o acesso aos benefícios fica suspenso até à reactivação e à regularização da hospedagem. A reactivação não substitui a hospedagem normal.
+          </div>
+          {girassolAccount?.access_status==='suspended' && <div style={{marginTop:14,padding:15,borderRadius:14,background:'#FFF5D6',color:'#6A4D00',lineHeight:1.65,fontSize:13}}>A sua conquista Girassol permanece guardada permanentemente, mas o acesso está suspenso por falta de hospedagem activa. Reactivação actual: <strong>{Number(girassolAccount.reactivation_amount||12000).toLocaleString('pt-AO')} Kz</strong>. O valor duplica a cada 365 dias completos desde o início da suspensão. A reactivação não substitui a hospedagem normal.</div>}
         </section>
         <section style={{ marginTop:25 }}>
           <div style={{ marginBottom:16 }}>
