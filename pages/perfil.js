@@ -511,13 +511,10 @@ export default function Perfil() {
             </article>;})}</div></>}
 
             {loadingSections ? <p style={S.empty}>A carregar os seus guardados…</p> : savedBusinesses.length ? <div style={S.savedGrid}>
-              {savedBusinesses.map(row => { const business=row.businesses; return <article key={row.id} style={S.savedCard}>
-                {business.cover_url || business.logo_url ? <img src={business.cover_url || business.logo_url} alt="" style={S.savedImage}/> : <div style={S.savedImagePlaceholder}>T</div>}
-                <div style={{padding:14}}><strong>{business.name || 'Negócio Talaza'}</strong>
-                {!business.is_active && <span style={{display:'inline-flex',marginTop:7,padding:'5px 8px',borderRadius:999,background:'#FFF1C2',color:'#6B4A00',fontSize:10,fontWeight:800}}>Perfil inativo temporariamente</span>}
-                <p style={S.cardDescription}>{business.description || 'Conheça este negócio na Vitrine Talaza.'}</p>
-                <Link href={{ pathname:'/businesses/'+business.id, query:{ returnTo:'/perfil?tab=guardados' } }} style={S.openBusiness}>Ver perfil</Link></div>
-              </article>; })}
+              {savedBusinesses.map(row => { const business=row.businesses; return <Link key={row.id} href={{ pathname:'/businesses/'+business.id, query:{ returnTo:'/perfil?tab=guardados' } }} aria-label={'Ver perfil de '+(business.name || 'Negócio Talaza')} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,minHeight:58,padding:'13px 16px',border:'1px solid '+C.line,borderRadius:12,background:C.white,color:C.dark,textDecoration:'none',boxShadow:'0 3px 10px rgba(20,50,43,.035)'}}>
+                <strong style={{fontSize:14,fontWeight:800,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{business.name || 'Negócio Talaza'}</strong>
+                <span aria-hidden="true" style={{flex:'0 0 auto',display:'grid',placeItems:'center',width:30,height:30,borderRadius:'50%',background:C.goldSoft,color:C.dark,fontSize:21,fontWeight:900,lineHeight:1}}>›</span>
+              </Link>; })}
             </div> : savedPremiumPromotions.length ? null : <div style={S.emptyCard}><span style={S.emptyIcon}>▱</span><strong>Ainda não guardou nenhum perfil ou publicação</strong><p>Quando tocar em Guardar num negócio ou numa publicação da Vitrine, o conteúdo aparecerá aqui.</p><Link href="/explore" style={S.openBusiness}>Explorar negócios</Link></div>}
           </>}
           {activeTab === 'novidades' && <>
