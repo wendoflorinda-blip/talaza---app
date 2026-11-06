@@ -270,7 +270,7 @@ export default function Subcategory() {
           const visible=(promoRows||[]).filter(item=>{
             const b=businessMap[item.business_id];
             return b && String(b.subcategory_id)===String(id) && (!country || String(b.country_id)===String(country)) && (!province || String(b.province_id)===String(province));
-          }).map(item=>({...item,business:businessMap[item.business_id],duration_days:15}));
+          }).map(item=>({...item,business:businessMap[item.business_id],duration_days:Number((premiumPlanRows||[]).find(plan=>String(plan.id)===String(item.plan_id))?.duration_days||0)}));
           if(!cancelled) {
             setPremiumPromotions(visible);
             setSavedPromotionIds((promoSaved.data||[]).map(row=>row.promotion_id));
@@ -704,8 +704,17 @@ export default function Subcategory() {
                     <strong>{item.business?.name || 'Negócio Talaza'}</strong>
                     <p>{cleanText(item.description) || 'Conhece esta publicação na Talaza.'}</p>
                     <div className="premiumFeedActions">
+                      <button
+                        type="button"
+                        disabled={!item.business?.id || savingBusinessId === item.business.id}
+                        onClick={() => toggleSavedBusiness(item.business)}
+                        aria-pressed={savedBusinessIds.includes(item.business?.id)}
+                        style={{background:savedBusinessIds.includes(item.business?.id)?'#E8F3EF':'#FFFFFF',color:'#08745F',border:'1px solid #B9D8CD'}}
+                      >
+                        {savingBusinessId === item.business?.id ? 'A guardar…' : savedBusinessIds.includes(item.business?.id) ? 'Guardado' : 'Guardar'}
+                      </button>
                       <button type="button" disabled={!item.business?.owner_id} onClick={() => router.push({pathname:'/mensagens',query:{to:item.business?.owner_id,source:'Destaques Premium',sourceId:item.business_id,box:'explore'}})}>Enviar mensagem</button>
-                      <Link href={makeBusinessHref(item.business_id,country,province,id)}>Ver perfil</Link>
+                      <Link href={makeBusinessHref(item.business_id,country,province,id)} onClick={() => trackBusinessAction(item.business)}>Ver perfil</Link>
                     </div>
                   </div>
                 </article>
