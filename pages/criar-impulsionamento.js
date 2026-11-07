@@ -122,7 +122,8 @@ export default function CriarImpulsionamento() {
           <h2 style={S.sectionTitle}>1. Escolha a imagem ou vídeo</h2>
           <p style={S.muted}>A publicação será apresentada nas áreas incluídas no plano depois da confirmação do pagamento.</p>
           <div style={S.mediaPreviewWrap}>
-            {preview ? (mediaType==='video' ? <video src={preview} controls playsInline style={S.preview}/> : <img src={preview} alt="Imagem actual da publicação" style={S.preview}/>) : <div style={S.emptyMedia}>Ainda não foi adicionada uma imagem ou um vídeo.</div>}
+            {preview ? (mediaType==='video' ? <video src={preview} controls playsInline style={S.preview}/> : <img src={preview} alt="Imagem original da publicação" style={S.preview}/>) : <div style={S.emptyMedia}>{editPromotionId ? 'Não foi possível carregar a imagem ou o vídeo original desta publicação. Pode adicionar novamente o ficheiro abaixo.' : 'Ainda não foi adicionada uma imagem ou um vídeo.'}</div>}
+            {editPromotionId && preview && <p style={S.originalMediaNote}>A sua imagem ou vídeo original foi recuperado e será mantido. Só será substituído se escolher outro ficheiro.</p>}
             <label style={S.changeMedia}><span style={S.changeMediaPlus}>＋</span>{preview ? 'Alterar imagem ou vídeo' : 'Adicionar imagem ou vídeo'}<input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" onChange={e=>chooseFile(e.target.files?.[0])} style={{display:'none'}} /></label>
           </div>
           {file && <p style={S.fileName}>Novo ficheiro seleccionado: {file.name}</p>}
@@ -152,6 +153,7 @@ const S={
  emptyMedia:{minHeight:170,display:'grid',placeItems:'center',padding:18,border:'1px dashed #C8D4CE',borderRadius:14,color:C.muted,textAlign:'center',fontSize:13},
  changeMedia:{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:9,width:'100%',boxSizing:'border-box',padding:'12px 15px',border:'1px solid #8FC4B6',borderRadius:12,background:'#F2FAF7',color:C.green,fontWeight:900,cursor:'pointer'},
  changeMediaPlus:{width:25,height:25,display:'grid',placeItems:'center',borderRadius:'50%',background:C.green,color:'#fff',fontSize:19,lineHeight:1},
+ originalMediaNote:{margin:'-2px 0 0',padding:'10px 12px',borderRadius:10,background:'#F2FAF7',border:'1px solid #CFE7DE',color:C.dark,fontSize:12,lineHeight:1.55},
  preview:{display:'block',width:'100%',maxHeight:440,objectFit:'contain',borderRadius:14,background:'#111'},
  fileName:{fontSize:12,color:C.muted,overflowWrap:'anywhere'},textarea:{width:'100%',boxSizing:'border-box',padding:14,border:'1px solid #CFDAD4',borderRadius:12,font:'inherit',resize:'vertical',outlineColor:C.green},count:{textAlign:'right',fontSize:11,color:C.muted,marginTop:5},
  notice:{padding:14,borderRadius:12,background:'#F2EAF9',color:'#3F1D60',fontSize:13,lineHeight:1.65},
