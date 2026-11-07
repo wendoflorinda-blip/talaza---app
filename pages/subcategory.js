@@ -85,6 +85,23 @@ export default function Subcategory() {
   const [premiumOpen, setPremiumOpen] = useState(false);
 
   useEffect(() => {
+    if (!premiumOpen) return;
+    const scroller = document.querySelector('.premiumFeedScroller');
+    if (!scroller) return;
+    const videos = Array.from(scroller.querySelectorAll('video'));
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.65) entry.target.pause();
+      });
+    }, { root: scroller, threshold: [0, 0.35, 0.65, 1] });
+    videos.forEach((video) => observer.observe(video));
+    return () => {
+      observer.disconnect();
+      videos.forEach((video) => video.pause());
+    };
+  }, [premiumOpen, premiumPromotions.length]);
+
+  useEffect(() => {
     let alive = true;
     supabase.auth.getUser().then(({ data }) => { if (alive) setCurrentUserId(data?.user?.id || null); }).catch(() => {});
     return () => { alive = false; };
@@ -696,7 +713,13 @@ export default function Subcategory() {
               {premiumPromotions.map((item, index) => (
                 <article className="premiumFeedItem" key={item.id}>
                   {item.media_type === 'video'
-                    ? <video className="premiumFeedMedia" src={item.media_url} controls playsInline preload="auto" muted={false} />
+                    ? <video className="premiumFeedMedia" src={item.media_url} controls playsInline preload="auto" muted={false} onPlay={(event) => {
+                      const currentVideo = event.currentTarget;
+                      const scroller = currentVideo.closest('.premiumFeedScroller');
+                      scroller?.querySelectorAll('video').forEach((video) => {
+                        if (video !== currentVideo) video.pause();
+                      });
+                    }} />
                     : <img className="premiumFeedMedia" src={item.media_url} alt="Publicação Destaque Premium" />}
                   <div className="premiumFeedShade" />
                   <div className="premiumFeedTop"><span>✦ DESTAQUE PREMIUM</span><small>{index + 1} / {premiumPromotions.length}</small></div>
