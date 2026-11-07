@@ -59,6 +59,7 @@ export default function Impulsionar() {
   const [error, setError] = useState('');
   const [pendingRequest, setPendingRequest] = useState(null);
   const [promotions, setPromotions] = useState([]);
+  const [hostingSubscription, setHostingSubscription] = useState(null);
   useEffect(() => { if (router.isReady) loadData(); }, [router.isReady]);
   async function loadData() {
     setLoading(true); setError('');
@@ -73,6 +74,12 @@ export default function Impulsionar() {
       setLoading(false); return;
     }
     setBusiness(businessData);
+    const { data: subscriptionData, error: subscriptionError } = await supabase.from('business_subscriptions')
+      .select('id,plan_id,starts_at,status,expires_at,created_at')
+      .eq('business_id', businessData.id)
+      .order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (subscriptionError) console.error('Erro ao carregar validade da hospedagem:', subscriptionError);
+    setHostingSubscription(subscriptionData || null);
     const { data: girassolData, error: girassolError } = await supabase.from('girassol_accounts').select('business_id,unique_saved_count,unlocked_tier,access_status,reactivation_started_at,reactivation_amount').eq('business_id',businessData.id).maybeSingle();
     if (girassolError) console.error('Erro ao carregar progressos Girassol:',girassolError);
     setGirassolAccount(girassolData || null);
@@ -143,6 +150,17 @@ export default function Impulsionar() {
 
         {activeTab === 'hospedagem' && <article style={S.planMainCard}>
           <div style={S.planIcon}>🏡</div>
+          {(() => {
+            const expiry = hostingSubscription?.expires_at ? new Date(hostingSubscription.expires_at) : null;
+            const validExpiry = expiry && !Number.isNaN(expiry.getTime());
+            const remaining = validExpiry ? Math.max(0, Math.ceil((expiry.getTime() - Date.now()) / 86400000)) : 0;
+            const active = hostingSubscription?.status === 'active' && remaining > 0;
+            return <div style={{margin:'0 0 18px',padding:16,borderRadius:16,background:active?'#EAF6EF':'#FFF3E8',border:'1px solid '+(active?'#B9DEC8':'#E8C9A9'),color:active?'#175B3E':'#80502C'}}>
+              <div style={{fontSize:11,fontWeight:900,letterSpacing:.8}}>{active?'HOSPEDAGEM ACTIVA':'HOSPEDAGEM EXPIRADA OU NÃO ACTIVADA'}</div>
+              <div style={{fontSize:'clamp(30px,7vw,42px)',fontWeight:950,lineHeight:1.1,margin:'8px 0 4px'}}>{active?remaining.toLocaleString('pt-AO'):'0'} <span style={{fontSize:16}}>dias restantes</span></div>
+              <div style={{fontSize:12,lineHeight:1.6}}>{active?'A sua hospedagem termina em '+expiry.toLocaleDateString('pt-AO')+'. Ao renovar, os novos dias serão acrescentados à validade actual.':validExpiry?'A hospedagem terminou em '+expiry.toLocaleDateString('pt-AO')+'. Ao renovar, o novo período começa na data da aprovação do pagamento.':'Ainda não existe uma hospedagem activa registada para esta loja.'}</div>
+            </div>;
+          })()}
           <div style={S.planBadge}>SERVIÇO BASE</div>
           <h2 style={S.planTitle}>Hospedagem</h2>
           <h3 style={S.planSubtitle}>O teu negócio sempre visível na Talaza</h3>
@@ -164,7 +182,7 @@ export default function Impulsionar() {
               {hostingPlans.map((plan,index)=>{
                 const theme=HOSTING_THEMES[index%HOSTING_THEMES.length];
                 return <div key={plan.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',padding:'13px 14px',borderRadius:14,background:'rgba(255,255,255,.66)',border:'1px solid #DDCDBB'}}>
-                  <div><strong style={{color:'#6E3038'}}>{titleOf(plan,index)}</strong><div style={{fontSize:12,color:'#6B5747',marginTop:3}}>{plan.duration_days?plan.duration_days+' dias de hospedagem':'Duração conforme o plano'} · {priceOf(plan)}</div></div>
+                  <div><strong style={{color:'#6E3038'}}>{titleOf(plan,index)}</strong><div style={{fontSize:12,color:'#6B5747',marginTop:3}}>{plan.duration_days?'+ '+plan.duration_days+' dias adicionais de hospedagem':'Duração conforme o plano'} · {priceOf(plan)}</div></div>
                   <button type="button" onClick={()=>{const planName=titleOf(plan,index);const confirmed=window.confirm('Pretende escolher o plano "'+planName+'" para o seu negócio? Se continuar, irá para a página de pagamento por Multicaixa Express.');if(confirmed)router.push({pathname:'/Pagamento',query:{plan:plan.id,business:business.id}});}} style={{border:0,borderRadius:11,padding:'11px 15px',background:theme.color,color:'#fff',fontWeight:900,cursor:'pointer'}}>Escolher plano →</button>
                 </div>;
               })}
