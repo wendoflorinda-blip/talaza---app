@@ -5,6 +5,7 @@ import TalazaMenu from '../components/TalazaMenu';
 import ProductsView, { VIEW_MODES } from '../components/ProductsView';
 import { supabase } from '../lib/supabaseClient';
 import { prepareImage, formatKz } from '../lib/imageTools';
+import MusicEditor from '../components/MusicEditor';
 
 export default function Seller() {
   const router = useRouter();
@@ -55,6 +56,7 @@ export default function Seller() {
   const [businessUpdates, setBusinessUpdates] = useState([]);
   const [updateBusy, setUpdateBusy] = useState(false);
   const [updateError, setUpdateError] = useState('');
+  const [musicEditorOpen, setMusicEditorOpen] = useState(false);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -568,7 +570,7 @@ export default function Seller() {
 
   async function addPanelImages(files) {
     const batch = files.slice(0, 10);
-    await runGallery(async () => {
+    return await runGallery(async () => {
       let done = 0;
       try {
         for (const file of batch) {
@@ -853,6 +855,7 @@ export default function Seller() {
 
       <input id="talaza-logo-upload" type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) uploadBrandAsset(file, 'logo_url'); }} />
       <input id="talaza-cover-upload" type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) uploadBrandAsset(file, 'cover_url'); }} />
+      {musicEditorOpen && <MusicEditor onClose={() => setMusicEditorOpen(false)} onExport={async file => { const saved = await addPanelImages([file]); if (!saved) throw new Error('Não foi possível guardar o vídeo na galeria.'); return true; }} />}
       <main
         style={{
           maxWidth: 1000,
@@ -1079,7 +1082,7 @@ export default function Seller() {
           <div className="gal-head">
             <h2>Conteúdo do painel</h2>
             <span className="gal-count">{panelImages.length}</span>
-            <button type="button" className="gal-add" disabled={locked} onClick={() => pickImages('media', addPanelImages)}>+ Adicionar imagens/vídeos</button>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button type="button" className="gal-add" disabled={locked} onClick={() => pickImages('media', addPanelImages)}>+ Adicionar imagens/vídeos</button><button type="button" className="gal-add" disabled={locked} onClick={() => setMusicEditorOpen(true)}>♫ Criar vídeo com música</button></div>
           </div>
           <div className="gal-rot">Escolha Todos, Imagens ou Vídeos; depois seleccione a forma de visualização.</div>
           <ProductsView
