@@ -91,9 +91,24 @@ export default function Subcategory() {
     const videos = Array.from(scroller.querySelectorAll('video'));
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
-        if (!entry.isIntersecting || entry.intersectionRatio < 0.65) entry.target.pause();
+        const video = entry.target;
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.65) {
+          video.pause();
+          return;
+        }
+        // Reproduz o vídeo que ocupa a maior parte do feed, como nos feeds sociais.
+        // Primeiro tenta com som; se o navegador bloquear autoplay com áudio,
+        // inicia automaticamente sem som. O utilizador pode activar o som nos controlos.
+        videos.forEach((other) => { if (other !== video) other.pause(); });
+        const playback = video.play();
+        if (playback && typeof playback.catch === 'function') {
+          playback.catch(() => {
+            video.muted = true;
+            video.play().catch(() => {});
+          });
+        }
       });
-    }, { root: scroller, threshold: [0, 0.35, 0.65, 1] });
+    }, { root: scroller, threshold: [0, 0.35, 0.65, 0.85, 1] });
     videos.forEach((video) => observer.observe(video));
     return () => {
       observer.disconnect();
@@ -713,7 +728,7 @@ export default function Subcategory() {
               {premiumPromotions.map((item, index) => (
                 <article className="premiumFeedItem" key={item.id}>
                   {item.media_type === 'video'
-                    ? <video className="premiumFeedMedia" src={item.media_url} controls playsInline preload="auto" muted={false} onPlay={(event) => {
+                    ? <video className="premiumFeedMedia" src={item.media_url} controls playsInline preload="auto" autoPlay muted={false} onPlay={(event) => {
                       const currentVideo = event.currentTarget;
                       const scroller = currentVideo.closest('.premiumFeedScroller');
                       scroller?.querySelectorAll('video').forEach((video) => {
