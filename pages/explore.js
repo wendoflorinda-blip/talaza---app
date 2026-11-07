@@ -613,7 +613,7 @@ export default function Explore() {
                 <div className="premium-post-grid">
                   {premiumPromotions.map((item) => (
                     <article key={item.id} className="premium-post-card">
-                      {item.media_type === 'video' ? <MediaOptions url={item.media_url} isVideo fileName="destaque-premium"><video src={item.media_url} controls playsInline /></MediaOptions> : <MediaOptions url={item.media_url} fileName="destaque-premium"><img src={item.media_url} alt="Publicação Destaque Premium" /></MediaOptions>}
+                      {item.media_type === 'video' ? <MediaOptions url={item.media_url} isVideo fileName="destaque-premium" storagePath={item.storage_path}><video src={item.media_url} controls playsInline /></MediaOptions> : <MediaOptions url={item.media_url} fileName="destaque-premium"><img src={item.media_url} alt="Publicação Destaque Premium" /></MediaOptions>}
                       <div className="premium-post-body">
                         <span className="premium-post-label">✦ DESTAQUE PREMIUM</span>
                         <h3>{item.business?.name || 'Negócio Talaza'}</h3>
