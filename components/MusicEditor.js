@@ -26,7 +26,6 @@ export default function MusicEditor({ onExport, onClose }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
-  const previewRef = useRef(null);
 
   useEffect(() => {
     if (!musicFile) { setMusicUrl(''); setMusicDuration(0); return; }
@@ -39,7 +38,6 @@ export default function MusicEditor({ onExport, onClose }) {
 
   const isVideo = mediaFiles.length === 1 && mediaFiles[0]?.type.startsWith('video/');
   const isPhotos = mediaFiles.length > 0 && mediaFiles.every(file => file.type.startsWith('image/'));
-  const totalDuration = isVideo ? (previewRef.current?.duration || segmentDuration) : mediaFiles.length * photoDuration;
 
   function chooseMedia(files) {
     const chosen = Array.from(files || []);
@@ -196,7 +194,7 @@ export default function MusicEditor({ onExport, onClose }) {
         <label className="field">Vídeo ou fotografias
           <input type="file" accept="image/*,video/mp4,video/webm,video/quicktime" multiple onChange={event => { chooseMedia(event.target.files); event.target.value=''; }} disabled={busy}/>
         </label>
-        {mediaFiles.length > 0 && <p className="hint">{isVideo ? '1 vídeo seleccionado' : mediaFiles.length + ' fotografias para apresentação'}</p>}
+        {mediaFiles.length > 0 && <><p className="hint">{isVideo ? '1 vídeo seleccionado' : mediaFiles.length + ' fotografias para apresentação'}</p>{isVideo && <video src={mediaFiles[0]._previewUrl} controls playsInline style={{width:'100%',maxHeight:240,background:'#111',borderRadius:10}} />}</>}
         {isPhotos && <div className="controls"><label>Tempo por fotografia<select value={photoDuration} onChange={event=>setPhotoDuration(Number(event.target.value))}><option value={3}>3 segundos</option><option value={4}>4 segundos</option><option value={5}>5 segundos</option><option value={7}>7 segundos</option></select></label><label>Formato<select value={ratio} onChange={event=>setRatio(event.target.value)}><option value="9:16">Vertical 9:16</option><option value="1:1">Quadrado 1:1</option></select></label></div>}
         <label className="field">Faixa de música (ficheiro que tens direito de usar)
           <input type="file" accept="audio/*" onChange={event=>setMusicFile(event.target.files?.[0]||null)} disabled={busy}/>
