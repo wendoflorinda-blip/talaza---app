@@ -13,6 +13,7 @@ export default function CriarImpulsionamento() {
   const [plan,setPlan] = useState(null);
   const [file,setFile] = useState(null);
   const [preview,setPreview] = useState('');
+  const [mediaType,setMediaType] = useState('');
   const [description,setDescription] = useState('');
   const [loading,setLoading] = useState(true);
   const [sending,setSending] = useState(false);
@@ -43,6 +44,7 @@ export default function CriarImpulsionamento() {
       if (existingResult.data) {
         setDescription(existingResult.data.description || '');
         setPreview(existingResult.data.media_url || '');
+        setMediaType(existingResult.data.media_type || 'image');
       }
     }
     setLoading(false);
@@ -56,6 +58,7 @@ export default function CriarImpulsionamento() {
     if(!video && !['image/jpeg','image/png','image/webp'].includes(next.type)) { setError('Use imagem JPG, PNG ou WebP.'); return; }
     if(next.size > 100*1024*1024) { setError('O ficheiro deve ter no máximo 100 MB.'); return; }
     setFile(next);
+    setMediaType(video ? 'video' : 'image');
     setPreview(URL.createObjectURL(next));
   }
 
@@ -72,26 +75,26 @@ export default function CriarImpulsionamento() {
       if(sessionError) throw sessionError;
       if(session?.user?.id!==user.id) throw new Error('A sessão mudou. Entre novamente.');
       let mediaUrl = preview;
-      let mediaType = editPromotionId ? (preview.includes('.mp4') || preview.includes('.webm') || preview.includes('.mov') ? 'video' : 'image') : '';
+      let nextMediaType = mediaType || (file?.type?.startsWith('video/') ? 'video' : 'image');
       if (file) {
         const ext=(file.name.split('.').pop() || (file.type.startsWith('video/')?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'');
         storagePath=business.id+'/premium-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext;
         const {error:uploadError}=await supabase.storage.from('business-media').upload(storagePath,file,{upsert:false,contentType:file.type,cacheControl:'3600'});
         if(uploadError) throw uploadError;
         mediaUrl=supabase.storage.from('business-media').getPublicUrl(storagePath).data?.publicUrl;
-        mediaType=file.type.startsWith('video/')?'video':'image';
+        nextMediaType=file.type.startsWith('video/')?'video':'image';
       }
       if(!mediaUrl) throw new Error('Adicione uma imagem ou vídeo para a publicação.');
       let promotionId = editPromotionId;
       if (editPromotionId) {
         const updateData = { description: description.trim() };
-        if (file) Object.assign(updateData,{media_url:mediaUrl,storage_path:storagePath,media_type:mediaType});
+        if (file) Object.assign(updateData,{media_url:mediaUrl,storage_path:storagePath,media_type:nextMediaType});
         const {error:updateError}=await supabase.from('premium_promotions').update(updateData).eq('id',editPromotionId).eq('user_id',user.id);
         if(updateError) throw updateError;
       } else {
         const {data:promotion,error:insertError}=await supabase.from('premium_promotions').insert({
           business_id:business.id,user_id:user.id,plan_id:plan.id,media_url:mediaUrl,storage_path:storagePath,
-          media_type:mediaType,description:description.trim(),status:'pending_payment'
+          media_type:nextMediaType,description:description.trim(),status:'pending_payment'
         }).select('id').single();
         if(insertError) throw insertError;
         promotionId=promotion.id;
@@ -118,9 +121,11 @@ export default function CriarImpulsionamento() {
         <section style={S.card}>
           <h2 style={S.sectionTitle}>1. Escolha a imagem ou vídeo</h2>
           <p style={S.muted}>A publicação será apresentada nas áreas incluídas no plano depois da confirmação do pagamento.</p>
-          <label style={S.upload}>{file ? 'Alterar ficheiro' : '＋ Adicionar imagem ou vídeo'}<input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" onChange={e=>chooseFile(e.target.files?.[0])} style={{display:'none'}} /></label>
-          {preview && (file?.type.startsWith('video/') ? <video src={preview} controls style={S.preview}/> : <img src={preview} alt="Pré-visualização da publicação" style={S.preview}/>)}
-          {file && <p style={S.fileName}>{file.name}</p>}
+          <div style={S.mediaPreviewWrap}>
+            {preview ? (mediaType==='video' ? <video src={preview} controls playsInline style={S.preview}/> : <img src={preview} alt="Imagem actual da publicação" style={S.preview}/>) : <div style={S.emptyMedia}>Ainda não foi adicionada uma imagem ou um vídeo.</div>}
+            <label style={S.changeMedia}><span style={S.changeMediaPlus}>＋</span>{preview ? 'Alterar imagem ou vídeo' : 'Adicionar imagem ou vídeo'}<input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" onChange={e=>chooseFile(e.target.files?.[0])} style={{display:'none'}} /></label>
+          </div>
+          {file && <p style={S.fileName}>Novo ficheiro seleccionado: {file.name}</p>}
           <h2 style={S.sectionTitle}>2. Descrição da publicação</h2>
           <textarea value={description} onChange={e=>setDescription(e.target.value)} maxLength={2000} rows={5} placeholder="Escreva uma descrição clara para apresentar o seu produto, serviço ou novidade…" style={S.textarea}/>
           <div style={S.count}>{description.length}/2000</div>
@@ -143,8 +148,11 @@ const S={
  content:{maxWidth:820,margin:'0 auto',padding:'24px 16px'},
  plan:{padding:23,borderRadius:20,background:'linear-gradient(125deg,#06483D,#08745F 58%,#64358B)',color:'#fff',marginBottom:18},
  eyebrow:{fontSize:10,letterSpacing:2,color:'#F4D36B',fontWeight:900},title:{fontSize:26,margin:'10px 0 4px'},price:{fontSize:27,fontWeight:900},muted:{color:C.muted,fontSize:13,lineHeight:1.6},sectionTitle:{fontSize:17,margin:'20px 0 9px'},card:{background:'#fff',border:'1px solid '+C.line,borderRadius:20,padding:22,boxShadow:'0 10px 30px #1827220a'},
- upload:{display:'block',textAlign:'center',padding:19,border:'1.5px dashed #8FC4B6',borderRadius:14,color:C.green,fontWeight:900,cursor:'pointer',marginTop:14},
- preview:{display:'block',width:'100%',maxHeight:440,objectFit:'contain',borderRadius:14,marginTop:15,background:'#111'},
+ mediaPreviewWrap:{display:'grid',gap:11,marginTop:14},
+ emptyMedia:{minHeight:170,display:'grid',placeItems:'center',padding:18,border:'1px dashed #C8D4CE',borderRadius:14,color:C.muted,textAlign:'center',fontSize:13},
+ changeMedia:{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:9,width:'100%',boxSizing:'border-box',padding:'12px 15px',border:'1px solid #8FC4B6',borderRadius:12,background:'#F2FAF7',color:C.green,fontWeight:900,cursor:'pointer'},
+ changeMediaPlus:{width:25,height:25,display:'grid',placeItems:'center',borderRadius:'50%',background:C.green,color:'#fff',fontSize:19,lineHeight:1},
+ preview:{display:'block',width:'100%',maxHeight:440,objectFit:'contain',borderRadius:14,background:'#111'},
  fileName:{fontSize:12,color:C.muted,overflowWrap:'anywhere'},textarea:{width:'100%',boxSizing:'border-box',padding:14,border:'1px solid #CFDAD4',borderRadius:12,font:'inherit',resize:'vertical',outlineColor:C.green},count:{textAlign:'right',fontSize:11,color:C.muted,marginTop:5},
  notice:{padding:14,borderRadius:12,background:'#F2EAF9',color:'#3F1D60',fontSize:13,lineHeight:1.65},
  cta:{width:'100%',marginTop:18,padding:15,border:0,borderRadius:13,background:C.green,color:'#fff',fontSize:15,fontWeight:900,cursor:'pointer'},
