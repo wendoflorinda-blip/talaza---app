@@ -11,7 +11,7 @@ function drawCover(context, image, width, height) {
   context.drawImage(image, (image.width - sw) / 2, (image.height - sh) / 2, sw, sh, 0, 0, width, height);
 }
 
-export default function MusicEditor({ onExport, onClose }) {
+export default function MusicEditor({ onExport, onClose, initialMediaFile = null, videoOnly = false }) {
   const [mediaFiles, setMediaFiles] = useState([]);
   const [musicFile, setMusicFile] = useState(null);
   const [musicUrl, setMusicUrl] = useState('');
@@ -36,6 +36,10 @@ export default function MusicEditor({ onExport, onClose }) {
 
   useEffect(() => () => mediaFiles.forEach(file => { if (file._previewUrl) URL.revokeObjectURL(file._previewUrl); }), [mediaFiles]);
 
+  useEffect(() => {
+    if (initialMediaFile) chooseMedia([initialMediaFile]);
+  }, [initialMediaFile, videoOnly]);
+
   const isVideo = mediaFiles.length === 1 && mediaFiles[0]?.type.startsWith('video/');
   const isPhotos = mediaFiles.length > 0 && mediaFiles.every(file => file.type.startsWith('image/'));
 
@@ -43,6 +47,10 @@ export default function MusicEditor({ onExport, onClose }) {
     const chosen = Array.from(files || []);
     if (!chosen.length) return;
     const hasVideo = chosen.some(file => file.type.startsWith('video/'));
+    if (videoOnly && chosen.some(file => !file.type.startsWith('video/'))) {
+      setError('Nesta opção só pode adicionar música a um vídeo.');
+      return;
+    }
     if (hasVideo && (chosen.length !== 1 || !chosen[0].type.startsWith('video/'))) {
       setError('Escolha um único vídeo ou seleccione apenas fotografias para a apresentação.');
       return;
@@ -192,11 +200,12 @@ export default function MusicEditor({ onExport, onClose }) {
       <section className="musicPanel">
         <header><div><strong>Editor de música TALAZA</strong><small>Cria vídeos com a tua música e controla o som</small></div><button type="button" onClick={onClose} disabled={busy} aria-label="Fechar">×</button></header>
         <label className="field">Vídeo ou fotografias
-          <input type="file" accept="image/*,video/mp4,video/webm,video/quicktime" multiple onChange={event => { chooseMedia(event.target.files); event.target.value=''; }} disabled={busy}/>
+          <input type="file" accept={videoOnly ? "video/mp4,video/webm,video/quicktime" : "image/*,video/mp4,video/webm,video/quicktime"} multiple={!videoOnly} onChange={event => { chooseMedia(event.target.files); event.target.value=''; }} disabled={busy}/>
         </label>
         {mediaFiles.length > 0 && <><p className="hint">{isVideo ? '1 vídeo seleccionado' : mediaFiles.length + ' fotografias para apresentação'}</p>{isVideo && <video src={mediaFiles[0]._previewUrl} controls playsInline style={{width:'100%',maxHeight:240,background:'#111',borderRadius:10}} />}</>}
         {isPhotos && <div className="controls"><label>Tempo por fotografia<select value={photoDuration} onChange={event=>setPhotoDuration(Number(event.target.value))}><option value={3}>3 segundos</option><option value={4}>4 segundos</option><option value={5}>5 segundos</option><option value={7}>7 segundos</option></select></label><label>Formato<select value={ratio} onChange={event=>setRatio(event.target.value)}><option value="9:16">Vertical 9:16</option><option value="1:1">Quadrado 1:1</option></select></label></div>}
-        <label className="field">Faixa de música (ficheiro que tens direito de usar)
+        <label className="field">Faixa de música do Pixabay
+          <span style={{fontWeight:500,color:"#65756E",lineHeight:1.5}}>Descarregue uma faixa em <a href="https://pixabay.com/music/" target="_blank" rel="noreferrer" style={{color:"#08745F",fontWeight:800}}>Pixabay Music</a> e seleccione-a aqui. Use apenas faixas com licença adequada para uso comercial.</span>
           <input type="file" accept="audio/*" onChange={event=>setMusicFile(event.target.files?.[0]||null)} disabled={busy}/>
         </label>
         {musicUrl && <audio controls src={musicUrl} onLoadedMetadata={event=>{setMusicDuration(event.currentTarget.duration||0);setSegmentDuration(Math.min(30,event.currentTarget.duration||30));}} style={{width:'100%'}}/>}
