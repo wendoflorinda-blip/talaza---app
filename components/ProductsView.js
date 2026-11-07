@@ -72,7 +72,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
       {visibleItems.length > 0 && current === 'vertical' && <div className="vert">
         {visibleItems.map((item) => <article key={item.id}>
           <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : ''}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
-          {isVideo(item) ? <div className="videoWrap"><div className="im r916"><Media item={item} alt={item.name || 'Vídeo'} /></div><button type="button" className="viewVideo" onClick={() => setOpen(item.id)}>Abrir vídeo e transferir</button></div> : <button type="button" className="im r916" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
+          {isVideo(item) ? <div className="videoWrap"><div className="im r916"><Media item={item} alt={item.name || 'Vídeo'} /></div></div> : <button type="button" className="im r916" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
           <div className="cap"><span className="dash">–</span><span><b>{item.name || ''}</b>{item.description ? ' · ' + item.description : ''}</span></div>
         </article>)}
       </div>}
@@ -80,12 +80,12 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         <div className="hint">Desliza e vê outro negócio ›</div>
         <div className="slide">{visibleItems.map((item) => <article key={item.id}>
           <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : ''}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
-          {isVideo(item) ? <div className="videoWrap"><div className="im r11"><Media item={item} alt={item.name || 'Vídeo'} /></div><button type="button" className="viewVideo" onClick={() => setOpen(item.id)}>Abrir vídeo e transferir</button></div> : <button type="button" className="im r11" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
+          {isVideo(item) ? <div className="videoWrap"><div className="im r11"><Media item={item} alt={item.name || 'Vídeo'} /></div></div> : <button type="button" className="im r11" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
           <div className="cap"><span className="dash">–</span><span>{item.name && <b>{item.name}</b>}{item.description ? ' · ' + item.description : ''}</span></div>
         </article>)}{showNextCard && <div className="next">Próximo negócio<small>Continue a deslizar</small></div>}</div>
       </>}
       {visibleItems.length > 0 && current === 'normal' && <div className="grid">{visibleItems.map((item) => <div className="cell" key={item.id}>
-        {isVideo(item) ? <div className="videoWrap gridVideo"><div className="open"><Media item={item} alt={item.name || 'Vídeo'} /></div><button type="button" className="viewVideo" onClick={() => setOpen(item.id)}>Abrir vídeo</button></div> : <button type="button" className="open" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
+        {isVideo(item) ? <div className="videoWrap gridVideo"><div className="open"><Media item={item} alt={item.name || 'Vídeo'} /></div></div> : <button type="button" className="open" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
         {item.price !== null && item.price !== undefined && item.price !== '' && <span className="tag">{formatKz(item.price)}</span>}
         {editable && <button type="button" className="more abs" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}
       </div>)}</div>}
@@ -95,7 +95,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
           {openItem.price !== null && openItem.price !== undefined && openItem.price !== '' && <div className="bigprice">{formatKz(openItem.price)}</div>}
           {openItem.name && <h3>{openItem.name}</h3>}
           {openItem.description && <p>{openItem.description}</p>}
-          <div className="acts"><button type="button" className="download" onClick={downloadOpenMedia} disabled={downloading}>{downloading ? 'A preparar ficheiro…' : 'Transferir ' + (isVideo(openItem) ? 'vídeo' : 'imagem')}</button><button type="button" className="close" onClick={() => setOpen(null)}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}><span className="messageIcon" aria-hidden="true">▣</span><span>Mensagem</span><span className="messageArrow" aria-hidden="true">›</span></button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
+          <div className="acts"><button type="button" className="download" onClick={downloadOpenMedia} disabled={downloading}>{downloading ? 'A preparar ficheiro…' : 'Transferir ' + (isVideo(openItem) ? 'vídeo' : 'imagem')}</button><button type="button" className="close" onClick={() => setOpen(null)}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}><span className="messageIcon" aria-hidden="true">▣</span><span>Enviar mensagem</span><span className="messageArrow" aria-hidden="true">›</span></button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
           {downloadError && <p role="alert" className="downloadError">{downloadError}</p>}
         </div>
       </div>}
