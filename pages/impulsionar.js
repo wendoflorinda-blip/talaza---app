@@ -245,11 +245,14 @@ export default function Impulsionar() {
             <div style={{display:'grid',gap:10,marginTop:12}}>{promotions.map(item=>{
               const waitingProof=item.status==='pending_payment';
               const stateLabel=item.status==='active'&&item.expires_at&&new Date(item.expires_at).getTime()<=Date.now()?'Expirada':({pending_payment:'A aguardar comprovativo',pending:'Comprovativo enviado · Em análise',active:'Ativa',rejected:'Recusada',expired:'Expirada',cancelled:'Cancelada'})[item.status]||item.status;
-              return <div key={item.id} style={{display:'flex',gap:12,alignItems:'center',padding:12,borderRadius:13,background:'rgba(255,255,255,.65)',border:'1px solid #E3D8C9',flexWrap:'wrap'}}>
-                {item.media_type==='video'?<video src={item.media_url} muted style={{width:64,height:64,objectFit:'cover',borderRadius:9}}/>:<img src={item.media_url} alt="" style={{width:64,height:64,objectFit:'cover',borderRadius:9}}/>}
-                <div style={{minWidth:0,flex:1}}><strong style={{display:'block',color:'#6E3038',fontSize:13}}>{item.description}</strong><span style={{fontSize:11,color:'#6B5747'}}>Estado: {stateLabel}</span></div>
-                {waitingProof && <button type="button" onClick={()=>router.push({pathname:'/criar-impulsionamento',query:{plan:item.plan_id,edit_promotion_id:item.id}})} style={{border:0,borderRadius:10,padding:'11px 13px',background:'#0A3D2A',color:'#fff',fontSize:12,fontWeight:900,cursor:'pointer'}}>Enviar comprovativo →</button>}
-              </div>;
+              return <article key={item.id} style={{display:'grid',gridTemplateColumns:'88px minmax(0,1fr)',gap:'12px 14px',alignItems:'center',padding:14,borderRadius:16,background:'rgba(255,255,255,.72)',border:'1px solid #E3D8C9',minWidth:0,boxSizing:'border-box'}}>
+                {item.media_type==='video'?<video src={item.media_url} muted playsInline style={{width:88,height:88,objectFit:'cover',borderRadius:12,background:'#E9E2D8'}}/>:<img src={item.media_url} alt="Pré-visualização da publicação" style={{width:88,height:88,objectFit:'cover',borderRadius:12,background:'#E9E2D8'}}/>}
+                <div style={{minWidth:0,overflowWrap:'anywhere'}}>
+                  <strong style={{display:'block',color:'#6E3038',fontSize:14,lineHeight:1.45,overflowWrap:'anywhere'}}>{item.description}</strong>
+                  <span style={{display:'block',fontSize:12,color:'#6B5747',marginTop:7}}>Estado: {stateLabel}</span>
+                </div>
+                {waitingProof && <button type="button" onClick={()=>router.push({pathname:'/criar-impulsionamento',query:{plan:item.plan_id,edit_promotion_id:item.id}})} style={{gridColumn:'1 / -1',width:'100%',boxSizing:'border-box',border:0,borderRadius:11,padding:'13px 15px',background:'#0A3D2A',color:'#fff',fontSize:13,fontWeight:900,cursor:'pointer'}}>Enviar comprovativo →</button>}
+              </article>;
             })}</div>
           </div>}
         </>}
