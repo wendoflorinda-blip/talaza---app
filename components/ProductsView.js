@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { formatKz } from '../lib/imageTools';
+import { supabase } from '../lib/supabaseClient';
 
 export const VIEW_MODES = ['vertical', 'deslize', 'normal'];
 
@@ -13,6 +14,8 @@ const MODES = [
 export default function ProductsView({ items = [], mode = 'normal', onModeChange, editable = false, onEdit, businessName = '', businessId = '', sellerId = '', showNextCard = true }) {
   const [open, setOpen] = useState(null);
   const [mediaFilter, setMediaFilter] = useState('all');
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
   const router = useRouter();
   const current = VIEW_MODES.includes(mode) ? mode : 'normal';
   const visibleItems = useMemo(() => items.filter((item) => mediaFilter === 'all' || (mediaFilter === 'video' ? (item?.media_type === 'video' || Boolean(item?.video_url)) : !(item?.media_type === 'video' || Boolean(item?.video_url)))), [items, mediaFilter]);
@@ -20,6 +23,32 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
   const isVideo = (item) => item?.media_type === 'video' || Boolean(item?.video_url); 
   const mediaUrl = (item) => isVideo(item) ? item.video_url : item.image_url;
   const Media = ({ item, alt = 'Produto', className = '' }) => isVideo(item) ? <video className={className} src={mediaUrl(item)} controls playsInline preload="metadata" aria-label={alt} /> : <img className={className} src={mediaUrl(item)} alt={alt} loading="lazy" />;
+  async function downloadOpenMedia() {
+    if (!openItem || downloading) return;
+    setDownloading(true); setDownloadError('');
+    try {
+      let blob;
+      if (openItem.storage_path) {
+        const { data, error } = await supabase.storage.from('business-media').download(openItem.storage_path);
+        if (error) throw error;
+        blob = data;
+      } else {
+        const response = await fetch(mediaUrl(openItem));
+        if (!response.ok) throw new Error('Não foi possível obter o ficheiro original.');
+        blob = await response.blob();
+      }
+      const objectUrl = URL.createObjectURL(blob);
+      const extension = isVideo(openItem) ? (blob.type.includes('webm') ? 'webm' : 'mp4') : (blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg');
+      const baseName = (openItem.name || (isVideo(openItem) ? 'video' : 'imagem')).replace(/[^a-z0-9-_ ]/gi, '').trim() || (isVideo(openItem) ? 'video' : 'imagem');
+      const link = document.createElement('a');
+      link.href = objectUrl; link.download = baseName + '.' + extension;
+      document.body.appendChild(link); link.click(); link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      console.error('Erro ao transferir mídia:', error);
+      setDownloadError('Não foi possível transferir este ficheiro. Tente novamente.');
+    } finally { setDownloading(false); }
+  }
 
   return (
     <div className="pv">
@@ -33,9 +62,9 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
       {items.length > 0 && !visibleItems.length && <div className="empty">Ainda não há {mediaFilter === 'video' ? 'vídeos' : 'imagens'} neste perfil.</div>}
       {visibleItems.length > 0 && current === 'vertical' && <div className="vert">
         {visibleItems.map((item) => <article key={item.id}>
-          <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : 'Sem preço'}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
+          <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : ''}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
           {isVideo(item) ? <div className="videoWrap"><div className="im r916"><Media item={item} alt={item.name || 'Vídeo'} /></div><button type="button" className="viewVideo" onClick={() => setOpen(item.id)}>Abrir vídeo e transferir</button></div> : <button type="button" className="im r916" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
-          <div className="cap"><span className="dash">–</span><span><b>{item.name || 'Imagem'}</b>{item.description ? ' · ' + item.description : ''}</span></div>
+          <div className="cap"><span className="dash">–</span><span><b>{item.name || ''}</b>{item.description ? ' · ' + item.description : ''}</span></div>
         </article>)}
       </div>}
       {visibleItems.length > 0 && current === 'deslize' && <>
@@ -54,9 +83,11 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
       {openItem && <div className="veu" onClick={(event) => { if (event.target === event.currentTarget) setOpen(null); }}>
         <div className="sheet" role="dialog" aria-modal="true" aria-label={openItem.name || 'Produto'}>
           <Media item={openItem} className="big" alt={openItem.name || 'Produto'} />
-          <div className="bigprice">{openItem.price ? formatKz(openItem.price) : 'Sem preço'}</div>
-          <h3>{openItem.name || 'Sem nome'}</h3><p>{openItem.description || 'Sem descrição'}</p>
-          <div className="acts"><a className="download" href={mediaUrl(openItem)} download={((openItem.name || (isVideo(openItem) ? 'video' : 'imagem')).replace(/[^a-z0-9-_ ]/gi, '').trim() || (isVideo(openItem) ? 'video' : 'imagem')) + (isVideo(openItem) ? '.mp4' : '.jpg')} target="_blank" rel="noreferrer">Transferir {isVideo(openItem) ? 'vídeo' : 'imagem'}</a><button type="button" className="close" onClick={() => setOpen(null)}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}>Enviar mensagem</button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
+          {openItem.price !== null && openItem.price !== undefined && openItem.price !== '' && <div className="bigprice">{formatKz(openItem.price)}</div>}
+          {openItem.name && <h3>{openItem.name}</h3>}
+          {openItem.description && <p>{openItem.description}</p>}
+          <div className="acts"><button type="button" className="download" onClick={downloadOpenMedia} disabled={downloading}>{downloading ? 'A preparar ficheiro…' : 'Transferir ' + (isVideo(openItem) ? 'vídeo' : 'imagem')}</button><button type="button" className="close" onClick={() => setOpen(null)}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}><span aria-hidden="true">💬 </span>Enviar mensagem</button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
+          {downloadError && <p role="alert" className="downloadError">{downloadError}</p>}
         </div>
       </div>}
       <style jsx>{`
@@ -73,7 +104,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         .cap{display:flex;gap:8px;margin-top:7px;font-size:13px;line-height:1.4;color:#14201C}.dash{color:#075B4E;font-weight:800}.vert{display:grid;gap:20px}.vert article{width:min(82vw,320px);max-width:100%;margin-inline:auto}
         .hint{font-size:13px;font-weight:700;color:#075B4E;margin-bottom:8px}.slide{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:4px}.slide article{flex:0 0 min(78vw,340px);max-width:340px;scroll-snap-align:center}.slide .next{flex:0 0 150px;scroll-snap-align:center}.next{aspect-ratio:1/1;border-radius:14px;background:linear-gradient(135deg,#075B4E,#075B4E);color:#fff;display:grid;place-items:center;text-align:center;font-weight:700;padding:16px}.next small{display:block;font-weight:400;opacity:.85;margin-top:4px}
         .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.cell{position:relative;aspect-ratio:1/1;border-radius:7px;overflow:hidden;background:#E8F2EE}.open{display:block;width:100%;height:100%}.open img,.open video{width:100%;height:100%;object-fit:cover;display:block}.tag{position:absolute;left:4px;bottom:4px;background:rgba(15,22,20,.74);color:#fff;font-weight:800;font-size:10px;padding:2px 6px;border-radius:999px}
-        .veu{position:fixed;inset:0;background:rgba(10,20,17,.55);z-index:120;display:flex;align-items:flex-end;justify-content:center}.sheet{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}.sheet .big{width:100%;max-height:52vh;object-fit:contain;background:#E8F2EE;border-radius:14px;display:block;margin:0 0 10px;height:auto}.sheet video.big{width:100%;}.bigprice{font-weight:800;color:#075B4E;font-size:18px}.sheet h3{margin:2px 0;font-size:17px;color:#14201C}.sheet p{margin:2px 0 12px;font-size:13px;color:#5A6A64;line-height:1.5;white-space:pre-wrap}.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.acts .close,.acts .wa,.acts .download{padding:13px;border-radius:11px;font-weight:700;text-align:center;text-decoration:none}.acts .download{background:#DCEFE8;color:#075B4E;text-decoration:none;text-align:center;font-weight:800;border-radius:11px}.acts .close{background:#E9EEEC;color:#14201C}.acts .internalMessage{background:#075B4E;color:#fff;border:0;cursor:pointer}.acts .unavailableMessage{background:#EDF1EF;color:#7A8983;display:grid;place-items:center;padding:13px;border-radius:11px;font-size:12px;text-align:center}
+        .veu{position:fixed;inset:0;background:rgba(10,20,17,.55);z-index:120;display:flex;align-items:flex-end;justify-content:center}.sheet{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}.sheet .big{width:100%;max-height:52vh;object-fit:contain;background:#E8F2EE;border-radius:14px;display:block;margin:0 0 10px;height:auto}.sheet video.big{width:100%;}.bigprice{font-weight:800;color:#075B4E;font-size:18px}.sheet h3{margin:2px 0;font-size:17px;color:#14201C}.sheet p{margin:2px 0 12px;font-size:13px;color:#5A6A64;line-height:1.5;white-space:pre-wrap}.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.acts .close,.acts .wa,.acts .download{padding:13px;border-radius:11px;font-weight:700;text-align:center;text-decoration:none}.acts .download{background:#DCEFE8;color:#075B4E;text-decoration:none;text-align:center;font-weight:800;border-radius:11px}.acts .close{background:#E9EEEC;color:#14201C}.acts .internalMessage{background:#050505;color:#fff;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px}.acts .download:disabled{opacity:.65;cursor:wait}.downloadError{grid-column:1/-1;color:#A12626!important;font-size:12px!important;margin:0!important}.acts .unavailableMessage{background:#EDF1EF;color:#7A8983;display:grid;place-items:center;padding:13px;border-radius:11px;font-size:12px;text-align:center}
       `}</style>
     </div>
   );
