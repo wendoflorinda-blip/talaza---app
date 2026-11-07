@@ -25,7 +25,8 @@ export default function MediaOptions({ url, isVideo = false, fileName = '', stor
     setBusy(true); setError('');
     try {
       let blob = null;
-      const location = storagePath ? { bucket: 'business-media', path: storagePath } : resolveStorageLocation(url);
+      const parsedLocation = resolveStorageLocation(url);
+      const location = storagePath && parsedLocation ? { bucket: parsedLocation.bucket, path: storagePath } : parsedLocation || (storagePath ? { bucket: 'business-media', path: storagePath } : null);
       if (location?.bucket && location?.path) {
         const { data, error: storageError } = await supabase.storage.from(location.bucket).download(location.path);
         if (!storageError && data) blob = data;
