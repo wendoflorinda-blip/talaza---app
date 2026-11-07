@@ -30,7 +30,6 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         controls
         playsInline
         preload="auto"
-        controlsList="nodownload"
         aria-label={alt}
         style={{display:'block',width:'100%',height:'100%',minHeight:180,background:'#080808',objectFit:'contain'}}
         onError={(event) => { event.currentTarget.style.display = 'none'; const fallback = event.currentTarget.nextElementSibling; if (fallback) fallback.style.display = 'grid'; }}
