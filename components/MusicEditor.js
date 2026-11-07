@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 function formatTime(value) {
   const seconds = Math.max(0, Math.floor(Number(value) || 0));
