@@ -856,7 +856,7 @@ export default function Seller() {
 
       <input id="talaza-logo-upload" type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) uploadBrandAsset(file, 'logo_url'); }} />
       <input id="talaza-cover-upload" type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) uploadBrandAsset(file, 'cover_url'); }} />
-      {musicEditorOpen && <MusicEditor initialMediaUrl={musicTargetItem?.video_url || ''} initialMediaName={musicTargetItem?.name ? musicTargetItem.name + '.mp4' : 'video-original.mp4'} videoOnly={Boolean(musicTargetItem)} onClose={() => { setMusicEditorOpen(false); setMusicTargetItem(null); }} onExport={async file => { const saved = musicTargetItem ? await replaceImage(musicTargetItem, file) : await addPanelImages([file]); if (!saved) throw new Error('Não foi possível guardar o vídeo com música.'); setMusicEditorOpen(false); setMusicTargetItem(null); return true; }} />}
+      {musicEditorOpen && <MusicEditor initialMediaUrl={musicTargetItem?.video_url || ''} initialMediaName={musicTargetItem?.name ? musicTargetItem.name + '.mp4' : 'video-original.mp4'} videoOnly onClose={() => { setMusicEditorOpen(false); setMusicTargetItem(null); }} onExport={async file => { const saved = musicTargetItem ? await replaceImage(musicTargetItem, file) : await addPanelImages([file]); if (!saved) throw new Error('Não foi possível guardar o vídeo com música.'); setMusicEditorOpen(false); setMusicTargetItem(null); return true; }} />}
       <main
         style={{
           maxWidth: 1000,
