@@ -627,7 +627,7 @@ export default function Explore() {
                   ))}
                 </div>
               )}
-              {!loadingBusinesses && !businessError && premiumPromotions.length === 0 && <div className="empty-card"><p>Ainda não há publicações Destaque Premium ativas nesta região.</p></div>}
+              
             </>
           )}
         </section>
