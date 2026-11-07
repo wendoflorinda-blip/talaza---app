@@ -1168,8 +1168,10 @@ export default function Seller() {
                 <h3>{sheetItem.kind === 'main' ? 'Imagem principal ' + ((sheetItem.slot ?? 0) + 1) : (sheetItem.name || 'Imagem de painel')}</h3>
                 <button type="button" className="op" onClick={() => openPrice(sheetItem)}>Alterar ou adicionar preço</button>
                 {sheetItem.kind === 'panel' && (
-                  <button type="button" className="op" onClick={() => openText(sheetItem)}>Editar nome e descrição</button>
-                  {((sheetItem.media_type === 'video') || Boolean(sheetItem.video_url)) && <button type="button" className="op" onClick={() => { setMusicTargetItem(sheetItem); setMusicEditorOpen(true); setSheet(null); }}>♫ Adicionar música ao vídeo</button>}
+                  <>
+                    <button type="button" className="op" onClick={() => openText(sheetItem)}>Editar nome e descrição</button>
+                    {((sheetItem.media_type === 'video') || Boolean(sheetItem.video_url)) && <button type="button" className="op" onClick={() => { setMusicTargetItem(sheetItem); setMusicEditorOpen(true); setSheet(null); }}>♫ Adicionar música ao vídeo</button>}
+                  </>
                 )}
                 <button type="button" className="op" onClick={() => { const item = sheetItem; setSheet(null); pickImages('media', (files) => replaceImage(item, files[0])); }}>Trocar imagem/vídeo</button>
                 <button type="button" className="op perigo" onClick={() => { const item = sheetItem; setSheet(null); removeImage(item); }}>Remover</button>
