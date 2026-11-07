@@ -171,66 +171,91 @@ export default function Impulsionar() {
             </div>}
         </article>}
 
-        {activeTab === 'girassol' && <article style={S.planMainCard}>
-          <div style={{...S.planIcon,fontSize:52}}>🌻</div>
-          <div style={S.planBadge}>PRIMEIRO NÍVEL</div>
-          <h2 style={S.planTitle}>Girassol</h2>
-          <div style={S.planBigNumber}>5.000 Guardados únicos</div>
-          <p style={S.planDescription}>Ao alcançar 5.000 Guardados únicos, o seu negócio conquista permanentemente o nível Girassol. Mesmo que, mais tarde, os clientes deixem de guardar o seu perfil ou a contagem diminua, a conquista e o desbloqueio não são retirados.</p>
-          <div style={S.planBenefitHeading}>Benefícios incluídos</div>
-          <ul style={S.planBenefits}>
-            {[
-              'Publicar gratuitamente na Vitrine principal da Talaza',
-              'Desbloqueia o acesso à Rede de Parcerias',
-              'Desbloqueia a Entrega Interprovincial',
-              'Selo Girassol no perfil para dar confiança',
-              'Progresso contado automaticamente pela Talaza'
-            ].map((item,i)=><li key={i}><span style={S.planCheck}>✓</span><span>{item}</span></li>)}
-          </ul>
-          <div style={{padding:15,borderRadius:15,background:'rgba(255,255,255,.68)',border:'1px solid #DDCDBB'}}>
-            <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'center',fontSize:12,color:'#604B3C',fontWeight:800}}><span>O teu progresso</span><span>{Math.min(100,Number(girassolAccount?.unique_saved_count||0)/5000*100).toFixed(1)}%</span></div>
-            <div style={{height:10,borderRadius:99,background:'#E4D8CA',overflow:'hidden',marginTop:9}}><div style={{height:'100%',width:Math.min(100,(Number(girassolAccount?.unique_saved_count||0)/5000)*100)+'%',background:'linear-gradient(90deg,#FFFFFF 0%,#9A7655 100%)'}}/></div>
-            <p style={{margin:'8px 0 0',fontSize:12,color:'#604B3C'}}>{Number(girassolAccount?.unique_saved_count||0).toLocaleString('pt-AO')} / 5.000 Guardados únicos</p>
-            {girassolAccount?.unlocked_tier && <strong style={{display:'block',marginTop:8,color:'#6E3038',fontSize:13}}>🌻 Conquista permanente desbloqueada</strong>}
-            <div style={{marginTop:12,paddingTop:12,borderTop:'1px solid #DDCDBB',fontSize:12,lineHeight:1.6,color:'#604B3C'}}><strong>Próximo nível: Girassol Pró</strong><br/>Meta de 1.000.000 Guardados únicos e possibilidade de publicar na Entrega Interprovincial em até 10 províncias.</div>
+        {activeTab === 'girassol' && <>
+          <div style={S.grid}>
+            <article style={{...S.card,borderColor:'#B99A78',background:'linear-gradient(135deg,#FFFFFF 0%,#E9DDCF 48%,#9A7655 100%)',color:'#5E4937'}}>
+              <div style={{...S.icon,width:72,height:72,minWidth:72,borderRadius:20,fontSize:46,background:'linear-gradient(135deg,#FFFFFF 0%,#9A7655 100%)',boxShadow:'0 8px 20px rgba(90,64,43,.18)'}}>🌻</div>
+              <div style={{...S.tag,color:'#65472F',background:'rgba(255,255,255,.8)'}}>PRIMEIRO NÍVEL</div>
+              <h2 style={{...S.cardTitle,color:'#65472F'}}>Girassol</h2>
+              <div style={{...S.price,color:'#65472F'}}>5.000 Guardados únicos</div>
+              <p style={{fontSize:13,lineHeight:1.7,color:'#5E4937'}}>Ao alcançar 5.000 Guardados únicos, o seu negócio conquista permanentemente o nível Girassol. Mesmo que, mais tarde, os clientes deixem de guardar o seu perfil ou a contagem diminua, a conquista e o desbloqueio não são retirados.</p>
+              <div style={{fontSize:12,fontWeight:900,color:'#65472F',marginTop:5}}>BENEFÍCIOS INCLUÍDOS</div>
+              <ul style={{margin:'9px 0 16px',paddingLeft:19,color:'#5E4937',fontSize:12,lineHeight:1.75}}>
+                <li>Publicar gratuitamente na Vitrine principal da sua província.</li>
+                <li>Publicar gratuitamente na Vitrine da sua própria subcategoria, na província oficial do negócio.</li>
+                <li>Ter o perfil apresentado em «Vendedores disponíveis para parceria», para outros vendedores descobrirem o negócio, consultarem o perfil e enviarem mensagens internas.</li>
+                <li>Publicar ofertas de Entrega Interprovincial para até 3 províncias escolhidas.</li>
+              </ul>
+              <div style={{height:9,borderRadius:99,background:'rgba(100,71,47,.16)',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(girassolAccount?.unique_saved_count||0)/5000)*100)+'%',background:'linear-gradient(90deg,#FFFFFF 0%,#9A7655 100%)'}}/></div>
+              <p style={{fontSize:12,color:'#5E4937'}}>{Number(girassolAccount?.unique_saved_count||0).toLocaleString('pt-AO')} / 5.000 Guardados únicos</p>
+              {girassolAccount?.unlocked_tier && <strong style={{display:'block',fontSize:12,color:'#65472F'}}>🌻 Conquista permanente desbloqueada</strong>}
+            </article>
+            <article style={{...S.card,borderColor:'#83B8D9',background:'linear-gradient(135deg,#FFFFFF 0%,#D8ECFA 48%,#5798C8 100%)',color:'#315A78'}}>
+              <div style={{...S.icon,width:72,height:72,minWidth:72,borderRadius:20,fontSize:46,background:'linear-gradient(135deg,#FFFFFF 0%,#5798C8 100%)',boxShadow:'0 8px 20px rgba(23,76,115,.18)'}}>🌻</div>
+              <div style={{...S.tag,color:'#174C73',background:'rgba(255,255,255,.82)'}}>NÍVEL AVANÇADO</div>
+              <h2 style={{...S.cardTitle,color:'#174C73'}}>Girassol Pró</h2>
+              <div style={{...S.price,color:'#174C73'}}>1.000.000 Guardados únicos</div>
+              <p style={{fontSize:13,lineHeight:1.7,color:'#315A78'}}>Ao alcançar 1.000.000 de Guardados únicos, sobe para Girassol Pró. É uma conquista permanente: não perde o nível mesmo que os Guardados diminuam ou deixe de receber novos Guardados.</p>
+              <div style={{fontSize:12,fontWeight:900,color:'#174C73',marginTop:5}}>TODOS OS BENEFÍCIOS GIRASSOL, MAIS</div>
+              <ul style={{margin:'9px 0 16px',paddingLeft:19,color:'#315A78',fontSize:12,lineHeight:1.75}}>
+                <li>Publicação gratuita na Vitrine principal e na Vitrine da sua própria subcategoria.</li>
+                <li>Presença no directório de vendedores disponíveis para parceria enquanto o acesso estiver activo.</li>
+                <li>Publicações de Entrega Interprovincial dirigidas a até 10 províncias escolhidas por si.</li>
+                <li>Mais oportunidades para receber contactos, encontrar parceiros e conquistar clientes noutras regiões.</li>
+              </ul>
+              <div style={{height:9,borderRadius:99,background:'rgba(23,76,115,.15)',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(girassolAccount?.unique_saved_count||0)/1000000)*100)+'%',background:'linear-gradient(90deg,#FFFFFF 0%,#5798C8 100%)'}}/></div>
+              <p style={{fontSize:12,color:'#315A78'}}>{Number(girassolAccount?.unique_saved_count||0).toLocaleString('pt-AO')} / 1.000.000 Guardados únicos</p>
+              {girassolAccount?.unlocked_tier==='girassol_pro' && <strong style={{display:'block',fontSize:12,color:'#174C73'}}>🌻 Conquista permanente desbloqueada</strong>}
+            </article>
           </div>
-          <p style={{margin:'15px 0 0',fontSize:12,lineHeight:1.65,color:'#6B5747'}}>Não são compras de impulsionamento: o progresso é contado automaticamente pela Talaza.</p>
-          <div style={{...S.planNotice,marginTop:13}}><strong>Importante sobre a hospedagem</strong><p>Se ainda não atingiu o desbloqueio do plano e a hospedagem expirar, terá 15 dias para renovar. Se não renovar dentro desse prazo, perde a quantidade de Guardados acumulada para o desbloqueio e terá de começar novamente. Depois de desbloquear, a conquista é permanente e não é retirada mesmo que os Guardados diminuam. A falta de hospedagem pode suspender temporariamente os benefícios, mas não apaga a conquista.</p></div>
+          <div style={{marginTop:15,padding:17,borderRadius:15,background:'#F0F4F7',border:'1px solid #CBD5DF',color:'#34485A',fontSize:13,lineHeight:1.75}}>
+            <strong style={{display:'block',marginBottom:5}}>Atenção ao prazo de hospedagem</strong>
+            Se ainda não tiver atingido a meta do nível e a hospedagem da sua loja expirar, terá 15 dias para renovar. Se não renovar dentro desse prazo, perde a quantidade de Guardados acumulada para o desbloqueio e terá de começar novamente. Esta regra só afecta quem ainda não conquistou o nível.
+            <br/><br/><strong>A conquista é permanente depois de desbloqueada.</strong> Mesmo que os Guardados diminuam, não perde o marco. Se a hospedagem ficar expirada por mais de 15 dias, os benefícios ficam suspensos até à reactivação e à regularização da hospedagem. A reactivação não substitui a hospedagem normal.
+          </div>
           {girassolAccount?.access_status==='suspended' && <div style={{...S.planNotice,marginTop:12}}><strong>Acesso suspenso</strong><p>A sua conquista continua guardada. Reactivação actual: {Number(girassolAccount.reactivation_amount||12000).toLocaleString('pt-AO')} Kz. A reactivação não substitui a hospedagem normal.</p></div>}
-        </article>}
+        </>}
 
-        {activeTab === 'premium' && <article style={S.planMainCard}>
-          <div style={{...S.planIcon,fontSize:42}}>✦</div>
-          <div style={S.planBadge}>MÁXIMA VISIBILIDADE</div>
-          <h2 style={S.planTitle}>Destaque Premium</h2>
-          <h3 style={S.planSubtitle}>Fica no topo e vende mais rápido</h3>
-          <p style={S.planDescription}>O Destaque Premium coloca o teu negócio no topo da Vitrine e nas primeiras posições das pesquisas. Ideal para quem quer vender hoje, não esperar. Enquanto estiver ativo, és o primeiro que o cliente vê.</p>
-          <div style={S.planBenefitHeading}>Benefícios incluídos</div>
-          <ul style={S.planBenefits}>
-            {[
-              'Topo da Vitrine principal durante todo o período',
-              'Primeiro lugar nas pesquisas da tua categoria',
-              'Selo Premium dourado no perfil',
-              'Prioridade nas sugestões da Talaza',
-              'Estatísticas de quem viu e guardou o teu perfil'
-            ].map((item,i)=><li key={i}><span style={S.planCheck}>✓</span><span>{item}</span></li>)}
-          </ul>
-          {premiumPlans.length>0 && <div style={{marginTop:16}}>
-            <label style={{display:'block',fontSize:12,fontWeight:900,color:'#6E3038',marginBottom:7}}>Escolhe a duração do Destaque Premium</label>
-            <select value={selectedPremiumPlan?.id||''} onChange={event=>setPremiumPlanChoice(event.target.value)} style={{width:'100%',padding:13,borderRadius:12,border:'1px solid #DDCDBB',background:'#fff',color:'#604B3C',fontWeight:700}}>
-              {premiumPlans.map(plan=><option key={plan.id} value={plan.id}>{titleOf(plan,premiumPlans.indexOf(plan))} · {plan.duration_days||'—'} dias · {priceOf(plan)}</option>)}
-            </select>
-          </div>}
-          <button type="button" disabled={!selectedPremiumPlan} onClick={()=>selectedPremiumPlan&&router.push({pathname:'/criar-impulsionamento',query:{plan:selectedPremiumPlan.id}})} style={{...S.planCta,opacity:selectedPremiumPlan?1:.55,cursor:selectedPremiumPlan?'pointer':'not-allowed'}}>Ativar Destaque Premium</button>
-          {!selectedPremiumPlan && <p style={{margin:'10px 0 0',fontSize:12,color:'#6B5747'}}>Os planos de Destaque Premium ainda estão a ser configurados.</p>}
-          {promotions.length>0 && <div style={{marginTop:22,paddingTop:17,borderTop:'1px solid #DDCDBB'}}>
+        {activeTab === 'premium' && <>
+          <section style={{...S.planMainCard,marginBottom:18}}>
+            <div style={{...S.planIcon,fontSize:42}}>✦</div>
+            <div style={S.planBadge}>MÁXIMA VISIBILIDADE</div>
+            <h2 style={S.planTitle}>Destaque Premium</h2>
+            <h3 style={S.planSubtitle}>Fica no topo e vende mais rápido</h3>
+            <p style={S.planDescription}>O Destaque Premium coloca a publicação do teu negócio no topo da Vitrine e nas primeiras posições das pesquisas durante o período contratado. Escolhe a opção que melhor corresponde ao alcance que pretendes.</p>
+            <div style={S.planBenefitHeading}>Benefícios incluídos</div>
+            <ul style={S.planBenefits}>
+              {['Topo da Vitrine principal durante todo o período','Primeiro lugar nas pesquisas da tua categoria','Selo Premium dourado na publicação','Prioridade nas sugestões da Talaza','Estatísticas de quem viu e guardou o teu perfil'].map((item,i)=><li key={i} style={{display:'flex',alignItems:'flex-start',gap:11,fontSize:14,lineHeight:1.6,color:'#604B3C'}}><span style={S.planCheck}>✓</span><span>{item}</span></li>)}
+            </ul>
+          </section>
+          {premiumPlans.length>0 ? <div style={S.grid}>
+            {premiumPlans.map((plan,index)=>{
+              const isShort=Number(plan.duration_days||0)===15;
+              const isFiveThousand=Number(plan.price??plan.price_kz??plan.amount??plan.valor)===5000;
+              const theme=isFiveThousand?{background:'linear-gradient(135deg,#F59A23 0%,#D93620 48%,#F2C14E 100%)',border:'#D65A23',text:'#FFFFFF',button:'#FFFFFF',buttonText:'#9D321B',icon:'✦'}:isShort?{background:'linear-gradient(135deg,#071B3D 0%,#164A85 55%,#B9DDF8 100%)',border:'#8ABBE5',text:'#FFFFFF',button:'#FFFFFF',buttonText:'#123B68',icon:'◈'}:{background:index%2===0?'linear-gradient(135deg,#071B3D 0%,#164A85 55%,#B9DDF8 100%)':'linear-gradient(135deg,#F59A23 0%,#D93620 48%,#F2C14E 100%)',border:index%2===0?'#8ABBE5':'#D65A23',text:'#FFFFFF',button:'#FFFFFF',buttonText:index%2===0?'#123B68':'#9D321B',icon:index%2===0?'◈':'✦'};
+              const benefits=benefitsOf(plan);
+              return <article key={plan.id} style={{...S.card,background:theme.background,borderColor:theme.border,color:theme.text,boxShadow:'0 18px 38px rgba(7,35,83,.18)'}}>
+                <div style={{...S.icon,background:'rgba(255,255,255,.2)',color:'#fff',border:'1px solid rgba(255,255,255,.35)'}}>{theme.icon}</div>
+                <div style={{...S.tag,background:'rgba(255,255,255,.18)',color:'#fff'}}>{Number(plan.duration_days||0)===15?'15 DIAS DE VISIBILIDADE':isFiveThousand?'MAIOR ALCANCE':'DESTAQUE PREMIUM'}</div>
+                <h3 style={{...S.cardTitle,color:'#fff'}}>{titleOf(plan,index)}</h3>
+                <div style={{...S.price,color:'#fff'}}>{priceOf(plan)}</div>
+                <div style={{...S.duration,color:'rgba(255,255,255,.9)'}}>◷ {plan.duration_days||'—'} dias de destaque</div>
+                <div style={{...S.benefitTitle,color:'#fff'}}>Benefícios do plano</div>
+                <ul style={S.benefits}>
+                  {(benefits.length?benefits:['Destaque da publicação na Vitrine principal','Maior visibilidade durante todo o período contratado','Botões Ver perfil e Enviar mensagem na publicação']).map((item,i)=><li key={i} style={{display:'flex',alignItems:'flex-start',gap:10,color:'rgba(255,255,255,.95)',fontSize:12,lineHeight:1.6}}><span style={{...S.check,background:'rgba(255,255,255,.2)',border:'1px solid rgba(255,255,255,.45)'}}>✓</span><span>{item}</span></li>)}
+                </ul>
+                <button type="button" onClick={()=>router.push({pathname:'/criar-impulsionamento',query:{plan:plan.id}})} style={{...S.cta,background:theme.button,color:theme.buttonText}}>Ativar Destaque Premium <span>→</span></button>
+              </article>;
+            })}
+          </div> : <div style={S.empty}><div style={S.emptyIcon}>✦</div><h3>Planos em preparação</h3><p>Os planos de Destaque Premium ainda não estão configurados para esta conta.</p></div>}
+          {promotions.length>0 && <div style={{...S.planMainCard,marginTop:22}}>
             <div style={S.planBenefitHeading}>As minhas publicações impulsionadas</div>
             <div style={{display:'grid',gap:10,marginTop:12}}>{promotions.map(item=><div key={item.id} style={{display:'flex',gap:12,alignItems:'center',padding:11,borderRadius:13,background:'rgba(255,255,255,.65)'}}>
               {item.media_type==='video'?<video src={item.media_url} muted style={{width:64,height:64,objectFit:'cover',borderRadius:9}}/>:<img src={item.media_url} alt="" style={{width:64,height:64,objectFit:'cover',borderRadius:9}}/>}
               <div style={{minWidth:0,flex:1}}><strong style={{display:'block',color:'#6E3038',fontSize:13}}>{item.description}</strong><span style={{fontSize:11,color:'#6B5747'}}>Estado: {item.status==='active'&&item.expires_at&&new Date(item.expires_at).getTime()<=Date.now()?'Expirada':({pending_payment:'A aguardar comprovativo',pending:'Em análise',active:'Ativa',rejected:'Recusada',expired:'Expirada',cancelled:'Cancelada'})[item.status]||item.status}</span></div>
             </div>)}</div>
           </div>}
-        </article>}
+        </>}
       </>}
     </div>
   </main>;
