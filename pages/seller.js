@@ -1036,7 +1036,7 @@ export default function Seller() {
               item ? (
                 <article key={item.id} className="mc">
                   <img src={item.image_url} alt={'Imagem principal ' + (slot + 1)} />
-                  <span className={'pill' + (item.price ? '' : ' sem')}>{item.price ? formatKz(item.price) : 'Sem preço'}</span>
+                  {item.price !== null && item.price !== undefined && item.price !== '' && <span className="pill">{formatKz(item.price)}</span>}
                   {!subscriptionPending && (
                     <button type="button" className="kb" aria-label="Opções da imagem" disabled={galleryBusy} onClick={() => setSheet({ type: 'menu', id: item.id })}>⋮</button>
                   )}
