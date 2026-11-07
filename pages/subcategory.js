@@ -69,6 +69,7 @@ export default function Subcategory() {
   const [municipality, setMunicipality] = useState('');
   const [neighborhood, setNeighborhood] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [premiumLoading, setPremiumLoading] = useState(true);
@@ -376,26 +377,16 @@ export default function Subcategory() {
       const businessMunicipality = cleanText(
         business.municipality
       ).toLocaleLowerCase('pt-AO');
-      const businessNeighborhood = cleanText(
-        business.neighborhood
-      ).toLocaleLowerCase('pt-AO');
-
       const matchesSearch =
-        !term || name.includes(term) || businessMunicipality.includes(term) || businessNeighborhood.includes(term);
+        !term || name.includes(term) || businessMunicipality.includes(term);
 
       const matchesMunicipality =
         !selectedMunicipality ||
         businessMunicipality.includes(selectedMunicipality);
 
-      const matchesNeighborhood =
-        !selectedNeighborhood ||
-        businessNeighborhood.includes(selectedNeighborhood);
-
-      return (
-        matchesSearch && matchesMunicipality && matchesNeighborhood
-      );
+      return matchesSearch && matchesMunicipality;
     });
-  }, [businesses, search, municipality, neighborhood]);
+  }, [businesses, search, municipality]);
 
   function getBackHref() {
     const categoryId = subcategory?.category_id;
@@ -484,32 +475,16 @@ export default function Subcategory() {
           {true && (
             <>
               <section className="searchPanel">
-                <label className="searchLabel" htmlFor="business-search">
-                  O que procuras?
-                </label>
-
-                <div className="searchRow">
-                  <span className="searchIcon" aria-hidden="true">
-                    ⌕
-                  </span>
-
-                  <input
-                    id="business-search"
-                    type="search"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Pesquisar negócios nesta subcategoria…"
-                  />
-
-                  <button
-                    type="button"
-                    className="filterToggle"
-                    onClick={() => setShowFilters((value) => !value)}
-                    aria-expanded={showFilters}
-                  >
-                    <span aria-hidden="true">☷</span>
-                    Filtros
-                  </button>
+                <div className="searchRow compactSearch">
+                  {!searchOpen ? (
+                    <button type="button" className="searchIcon searchIconButton" aria-label="Abrir pesquisa" onClick={() => setSearchOpen(true)}>⌕</button>
+                  ) : (
+                    <>
+                      <span className="searchIcon" aria-hidden="true">⌕</span>
+                      <input id="business-search" type="search" autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nome do negócio ou município…" aria-label="Pesquisar por nome do negócio ou município" />
+                      <button type="button" className="searchClose" aria-label="Fechar pesquisa" onClick={() => {setSearch('');setSearchOpen(false);}}>×</button>
+                    </>
+                  )}
                 </div>
 
                 {showFilters && (
