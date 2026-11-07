@@ -136,8 +136,8 @@ export default function Impulsionar() {
         <nav aria-label="Categorias de planos" style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:8,marginBottom:20}}>
           {[
             ['hospedagem','Hospedagem'],
-            ['girassol','Girassol'],
-            ['premium','Destaque Premium']
+            ['premium','Destaque Premium'],
+            ['girassol','Girassol']
           ].map(([key,label])=><button key={key} type="button" onClick={()=>setActiveTab(key)} aria-pressed={activeTab===key} style={{minWidth:0,padding:'12px 8px',borderRadius:13,border:activeTab===key?'2px solid #D4AF37':'1px solid #DED8CE',background:activeTab===key?'#0A3D2A':'#F0EDE8',color:activeTab===key?'#FFFFFF':'#0A3D2A',fontWeight:900,fontSize:12,cursor:'pointer',boxShadow:activeTab===key?'0 4px 12px rgba(10,61,42,.14)':'none'}}>{label}</button>)}
         </nav>
 
@@ -217,17 +217,6 @@ export default function Impulsionar() {
         </>}
 
         {activeTab === 'premium' && <>
-          <section style={{...S.planMainCard,marginBottom:18}}>
-            <div style={{...S.planIcon,fontSize:42}}>✦</div>
-            <div style={S.planBadge}>MÁXIMA VISIBILIDADE</div>
-            <h2 style={S.planTitle}>Destaque Premium</h2>
-            <h3 style={S.planSubtitle}>Fica no topo e vende mais rápido</h3>
-            <p style={S.planDescription}>O Destaque Premium coloca a publicação do teu negócio no topo da Vitrine e nas primeiras posições das pesquisas durante o período contratado. Escolhe a opção que melhor corresponde ao alcance que pretendes.</p>
-            <div style={S.planBenefitHeading}>Benefícios incluídos</div>
-            <ul style={S.planBenefits}>
-              {['Topo da Vitrine principal durante todo o período','Primeiro lugar nas pesquisas da tua categoria','Selo Premium dourado na publicação','Prioridade nas sugestões da Talaza','Estatísticas de quem viu e guardou o teu perfil'].map((item,i)=><li key={i} style={{display:'flex',alignItems:'flex-start',gap:11,fontSize:14,lineHeight:1.6,color:'#604B3C'}}><span style={S.planCheck}>✓</span><span>{item}</span></li>)}
-            </ul>
-          </section>
           {premiumPlans.length>0 ? <div style={S.grid}>
             {premiumPlans.map((plan,index)=>{
               const planPrice=Number(plan.price);
@@ -253,10 +242,15 @@ export default function Impulsionar() {
           </div> : <div style={S.empty}><div style={S.emptyIcon}>✦</div><h3>Planos em preparação</h3><p>Os planos de Destaque Premium ainda não estão configurados para esta conta.</p></div>}
           {promotions.length>0 && <div style={{...S.planMainCard,marginTop:22}}>
             <div style={S.planBenefitHeading}>As minhas publicações impulsionadas</div>
-            <div style={{display:'grid',gap:10,marginTop:12}}>{promotions.map(item=><div key={item.id} style={{display:'flex',gap:12,alignItems:'center',padding:11,borderRadius:13,background:'rgba(255,255,255,.65)'}}>
-              {item.media_type==='video'?<video src={item.media_url} muted style={{width:64,height:64,objectFit:'cover',borderRadius:9}}/>:<img src={item.media_url} alt="" style={{width:64,height:64,objectFit:'cover',borderRadius:9}}/>}
-              <div style={{minWidth:0,flex:1}}><strong style={{display:'block',color:'#6E3038',fontSize:13}}>{item.description}</strong><span style={{fontSize:11,color:'#6B5747'}}>Estado: {item.status==='active'&&item.expires_at&&new Date(item.expires_at).getTime()<=Date.now()?'Expirada':({pending_payment:'A aguardar comprovativo',pending:'Em análise',active:'Ativa',rejected:'Recusada',expired:'Expirada',cancelled:'Cancelada'})[item.status]||item.status}</span></div>
-            </div>)}</div>
+            <div style={{display:'grid',gap:10,marginTop:12}}>{promotions.map(item=>{
+              const waitingProof=item.status==='pending_payment';
+              const stateLabel=item.status==='active'&&item.expires_at&&new Date(item.expires_at).getTime()<=Date.now()?'Expirada':({pending_payment:'A aguardar comprovativo',pending:'Comprovativo enviado · Em análise',active:'Ativa',rejected:'Recusada',expired:'Expirada',cancelled:'Cancelada'})[item.status]||item.status;
+              return <div key={item.id} style={{display:'flex',gap:12,alignItems:'center',padding:12,borderRadius:13,background:'rgba(255,255,255,.65)',border:'1px solid #E3D8C9',flexWrap:'wrap'}}>
+                {item.media_type==='video'?<video src={item.media_url} muted style={{width:64,height:64,objectFit:'cover',borderRadius:9}}/>:<img src={item.media_url} alt="" style={{width:64,height:64,objectFit:'cover',borderRadius:9}}/>}
+                <div style={{minWidth:0,flex:1}}><strong style={{display:'block',color:'#6E3038',fontSize:13}}>{item.description}</strong><span style={{fontSize:11,color:'#6B5747'}}>Estado: {stateLabel}</span></div>
+                {waitingProof && <button type="button" onClick={()=>router.push({pathname:'/criar-impulsionamento',query:{plan:item.plan_id,edit_promotion_id:item.id}})} style={{border:0,borderRadius:10,padding:'11px 13px',background:'#0A3D2A',color:'#fff',fontSize:12,fontWeight:900,cursor:'pointer'}}>Enviar comprovativo →</button>}
+              </div>;
+            })}</div>
           </div>}
         </>}
       </>}
