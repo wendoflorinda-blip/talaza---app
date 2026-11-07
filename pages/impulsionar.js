@@ -230,9 +230,12 @@ export default function Impulsionar() {
           </section>
           {premiumPlans.length>0 ? <div style={S.grid}>
             {premiumPlans.map((plan,index)=>{
+              const planPrice=Number(plan.price);
               const isShort=Number(plan.duration_days||0)===15;
-              const isFiveThousand=Number(plan.price??plan.price_kz??plan.amount??plan.valor)===5000;
-              const theme=isFiveThousand?{background:'linear-gradient(135deg,#F59A23 0%,#D93620 48%,#F2C14E 100%)',border:'#D65A23',text:'#FFFFFF',button:'#FFFFFF',buttonText:'#9D321B',icon:'✦'}:isShort?{background:'linear-gradient(135deg,#071B3D 0%,#164A85 55%,#B9DDF8 100%)',border:'#8ABBE5',text:'#FFFFFF',button:'#FFFFFF',buttonText:'#123B68',icon:'◈'}:{background:index%2===0?'linear-gradient(135deg,#071B3D 0%,#164A85 55%,#B9DDF8 100%)':'linear-gradient(135deg,#F59A23 0%,#D93620 48%,#F2C14E 100%)',border:index%2===0?'#8ABBE5':'#D65A23',text:'#FFFFFF',button:'#FFFFFF',buttonText:index%2===0?'#123B68':'#9D321B',icon:index%2===0?'◈':'✦'};
+              const isFiveThousand=planPrice===5000;
+              const theme=isFiveThousand
+                ?{background:'linear-gradient(135deg,#F59A23 0%,#D93620 48%,#F2C14E 100%)',border:'#D65A23',text:'#FFFFFF',button:'#FFFFFF',buttonText:'#9D321B',icon:'✦'}
+                :{background:'linear-gradient(135deg,#071B3D 0%,#164A85 55%,#B9DDF8 100%)',border:'#8ABBE5',text:'#FFFFFF',button:'#FFFFFF',buttonText:'#123B68',icon:'◈'};
               const benefits=benefitsOf(plan);
               return <article key={plan.id} style={{...S.card,background:theme.background,borderColor:theme.border,color:theme.text,boxShadow:'0 18px 38px rgba(7,35,83,.18)'}}>
                 <div style={{...S.icon,background:'rgba(255,255,255,.2)',color:'#fff',border:'1px solid rgba(255,255,255,.35)'}}>{theme.icon}</div>
