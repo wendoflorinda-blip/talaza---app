@@ -57,6 +57,7 @@ export default function Seller() {
   const [updateBusy, setUpdateBusy] = useState(false);
   const [updateError, setUpdateError] = useState('');
   const [musicEditorOpen, setMusicEditorOpen] = useState(false);
+  const [musicTargetItem, setMusicTargetItem] = useState(null);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -855,7 +856,7 @@ export default function Seller() {
 
       <input id="talaza-logo-upload" type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) uploadBrandAsset(file, 'logo_url'); }} />
       <input id="talaza-cover-upload" type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) uploadBrandAsset(file, 'cover_url'); }} />
-      {musicEditorOpen && <MusicEditor onClose={() => setMusicEditorOpen(false)} onExport={async file => { const saved = await addPanelImages([file]); if (!saved) throw new Error('Não foi possível guardar o vídeo na galeria.'); return true; }} />}
+      {musicEditorOpen && <MusicEditor initialMediaUrl={musicTargetItem?.video_url || ''} initialMediaName={musicTargetItem?.name ? musicTargetItem.name + '.mp4' : 'video-original.mp4'} videoOnly={Boolean(musicTargetItem)} onClose={() => { setMusicEditorOpen(false); setMusicTargetItem(null); }} onExport={async file => { const saved = musicTargetItem ? await replaceImage(musicTargetItem, file) : await addPanelImages([file]); if (!saved) throw new Error('Não foi possível guardar o vídeo com música.'); setMusicEditorOpen(false); setMusicTargetItem(null); return true; }} />}
       <main
         style={{
           maxWidth: 1000,
@@ -1082,7 +1083,7 @@ export default function Seller() {
           <div className="gal-head">
             <h2>Conteúdo do painel</h2>
             <span className="gal-count">{panelImages.length}</span>
-            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button type="button" className="gal-add" disabled={locked} onClick={() => pickImages('media', addPanelImages)}>+ Adicionar imagens/vídeos</button><button type="button" className="gal-add" disabled={locked} onClick={() => setMusicEditorOpen(true)}>♫ Criar vídeo com música</button></div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button type="button" className="gal-add" disabled={locked} onClick={() => pickImages('media', addPanelImages)}>+ Adicionar imagens/vídeos</button><button type="button" className="gal-add" disabled={locked} onClick={() => { setMusicTargetItem(null); setMusicEditorOpen(true); }}>♫ Criar vídeo com música</button></div>
           </div>
           <div className="gal-rot">Escolha Todos, Imagens ou Vídeos; depois seleccione a forma de visualização.</div>
           <ProductsView
@@ -1168,6 +1169,7 @@ export default function Seller() {
                 <button type="button" className="op" onClick={() => openPrice(sheetItem)}>Alterar ou adicionar preço</button>
                 {sheetItem.kind === 'panel' && (
                   <button type="button" className="op" onClick={() => openText(sheetItem)}>Editar nome e descrição</button>
+                  {((sheetItem.media_type === 'video') || Boolean(sheetItem.video_url)) && <button type="button" className="op" onClick={() => { setMusicTargetItem(sheetItem); setMusicEditorOpen(true); setSheet(null); }}>♫ Adicionar música ao vídeo</button>}
                 )}
                 <button type="button" className="op" onClick={() => { const item = sheetItem; setSheet(null); pickImages('media', (files) => replaceImage(item, files[0])); }}>Trocar imagem/vídeo</button>
                 <button type="button" className="op perigo" onClick={() => { const item = sheetItem; setSheet(null); removeImage(item); }}>Remover</button>
