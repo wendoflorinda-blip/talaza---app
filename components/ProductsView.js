@@ -38,12 +38,13 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         blob = await response.blob();
       }
       const objectUrl = URL.createObjectURL(blob);
-      const extension = isVideo(openItem) ? (blob.type.includes('webm') ? 'webm' : 'mp4') : (blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg');
+      const extension = isVideo(openItem) ? (blob.type.includes('webm') ? 'webm' : blob.type.includes('quicktime') ? 'mov' : 'mp4') : (blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg');
       const baseName = (openItem.name || (isVideo(openItem) ? 'video' : 'imagem')).replace(/[^a-z0-9-_ ]/gi, '').trim() || (isVideo(openItem) ? 'video' : 'imagem');
       const link = document.createElement('a');
-      link.href = objectUrl; link.download = baseName + '.' + extension;
+      link.href = objectUrl; link.download = baseName + '.' + extension; link.rel = 'noopener';
       document.body.appendChild(link); link.click(); link.remove();
-      URL.revokeObjectURL(objectUrl);
+      // Em telemóveis, revogar o URL imediatamente pode cancelar a transferência.
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
     } catch (error) {
       console.error('Erro ao transferir mídia:', error);
       setDownloadError('Não foi possível transferir este ficheiro. Tente novamente.');
@@ -70,9 +71,9 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
       {visibleItems.length > 0 && current === 'deslize' && <>
         <div className="hint">Desliza e vê outro negócio ›</div>
         <div className="slide">{visibleItems.map((item) => <article key={item.id}>
-          <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : 'Sem preço'}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
+          <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : ''}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
           {isVideo(item) ? <div className="videoWrap"><div className="im r11"><Media item={item} alt={item.name || 'Vídeo'} /></div><button type="button" className="viewVideo" onClick={() => setOpen(item.id)}>Abrir vídeo e transferir</button></div> : <button type="button" className="im r11" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
-          <div className="cap"><span className="dash">–</span><span><b>{item.name || 'Imagem'}</b>{item.description ? ' · ' + item.description : ''}</span></div>
+          <div className="cap"><span className="dash">–</span><span>{item.name && <b>{item.name}</b>}{item.description ? ' · ' + item.description : ''}</span></div>
         </article>)}{showNextCard && <div className="next">Próximo negócio<small>Continue a deslizar</small></div>}</div>
       </>}
       {visibleItems.length > 0 && current === 'normal' && <div className="grid">{visibleItems.map((item) => <div className="cell" key={item.id}>
