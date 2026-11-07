@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
 
 function formatTime(value) {
   const seconds = Math.max(0, Math.floor(Number(value) || 0));
@@ -13,7 +14,9 @@ function drawCover(context, image, width, height) {
 
 export default function MusicEditor({ onExport, onClose, initialMediaFile = null, initialMediaUrl = '', initialMediaName = 'video-original.mp4', videoOnly = false }) {
   const [mediaFiles, setMediaFiles] = useState([]);
-  const [musicFile, setMusicFile] = useState(null);
+  const [musicTracks, setMusicTracks] = useState([]);
+  const [selectedMusicId, setSelectedMusicId] = useState('');
+  const [musicLoading, setMusicLoading] = useState(true);
   const [musicUrl, setMusicUrl] = useState('');
   const [musicDuration, setMusicDuration] = useState(0);
   const [musicStart, setMusicStart] = useState(0);
@@ -22,17 +25,43 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
   const [originalVolume, setOriginalVolume] = useState(0.8);
   const [photoDuration, setPhotoDuration] = useState(4);
   const [ratio, setRatio] = useState('9:16');
-  const [licensed, setLicensed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!musicFile) { setMusicUrl(''); setMusicDuration(0); return; }
-    const url = URL.createObjectURL(musicFile);
-    setMusicUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [musicFile]);
+    let cancelled = false;
+    async function loadMusicCatalog() {
+      setMusicLoading(true);
+      try {
+        const response = await fetch('/sounds/catalogo.json', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Não foi possível carregar a biblioteca de músicas.');
+        const catalog = await response.json();
+        const tracks = (Array.isArray(catalog) ? catalog : [catalog]).map(track => {
+          const path = String(track.ficheiro || '').replace(/^\\/+/, '');
+          const { data } = supabase.storage.from('sounds').getPublicUrl(path);
+          return { ...track, audioUrl: data?.publicUrl || '' };
+        }).filter(track => track.audioUrl);
+        if (!cancelled) {
+          setMusicTracks(tracks);
+          setSelectedMusicId(current => tracks.some(track => track.id === current) ? current : (tracks[0]?.id || ''));
+        }
+      } catch (catalogError) {
+        if (!cancelled) setError(catalogError.message || 'Não foi possível carregar a biblioteca de músicas.');
+      } finally {
+        if (!cancelled) setMusicLoading(false);
+      }
+    }
+    loadMusicCatalog();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const selected = musicTracks.find(track => track.id === selectedMusicId);
+    setMusicUrl(selected?.audioUrl || '');
+    setMusicDuration(0);
+    setMusicStart(0);
+  }, [musicTracks, selectedMusicId]);
 
   useEffect(() => () => mediaFiles.forEach(file => { if (file._previewUrl) URL.revokeObjectURL(file._previewUrl); }), [mediaFiles]);
 
@@ -87,7 +116,7 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
   }
 
   async function createVideo() {
-    if (!mediaFiles.length || !musicFile || !licensed || busy) return;
+    if (!mediaFiles.length || !musicUrl || busy) return;
     if (typeof MediaRecorder === 'undefined' || !window.AudioContext && !window.webkitAudioContext) {
       setError('Este navegador não suporta a criação de vídeos com mistura de áudio. Experimente Chrome ou Edge actualizado.');
       return;
@@ -223,17 +252,20 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
         </label>
         {mediaFiles.length > 0 && <><p className="hint">{isVideo ? '1 vídeo seleccionado' : mediaFiles.length + ' fotografias para apresentação'}</p>{isVideo && <video src={mediaFiles[0]._previewUrl} controls playsInline style={{width:'100%',maxHeight:240,background:'#111',borderRadius:10}} />}</>}
         {isPhotos && <div className="controls"><label>Tempo por fotografia<select value={photoDuration} onChange={event=>setPhotoDuration(Number(event.target.value))}><option value={3}>3 segundos</option><option value={4}>4 segundos</option><option value={5}>5 segundos</option><option value={7}>7 segundos</option></select></label><label>Formato<select value={ratio} onChange={event=>setRatio(event.target.value)}><option value="9:16">Vertical 9:16</option><option value="1:1">Quadrado 1:1</option></select></label></div>}
-        <label className="field">Faixa de música do Pixabay
-          <span style={{fontWeight:500,color:"#65756E",lineHeight:1.5}}>Descarregue uma faixa em <a href="https://pixabay.com/music/" target="_blank" rel="noreferrer" style={{color:"#08745F",fontWeight:800}}>Pixabay Music</a> e seleccione-a aqui. Use apenas faixas com licença adequada para uso comercial.</span>
-          <input type="file" accept="audio/*" onChange={event=>setMusicFile(event.target.files?.[0]||null)} disabled={busy}/>
+        <label className="field">Biblioteca de músicas TALAZA
+          <select value={selectedMusicId} onChange={event=>setSelectedMusicId(event.target.value)} disabled={busy || musicLoading || !musicTracks.length}>
+            {musicLoading && <option value="">A carregar músicas…</option>}
+            {!musicLoading && !musicTracks.length && <option value="">Nenhuma música disponível</option>}
+            {musicTracks.map(track=><option key={track.id} value={track.id}>{track.titulo} — {track.genero} · {track.humor}</option>)}
+          </select>
         </label>
-        {musicUrl && <audio controls src={musicUrl} onLoadedMetadata={event=>{setMusicDuration(event.currentTarget.duration||0);setSegmentDuration(Math.min(30,event.currentTarget.duration||30));}} style={{width:'100%'}}/>}
+        {musicUrl && <audio controls preload="metadata" src={musicUrl} onLoadedMetadata={event=>{const duration=event.currentTarget.duration||0;setMusicDuration(duration);setSegmentDuration(Math.min(30,duration));}} style={{width:'100%'}}/>}
+        {!musicLoading && !musicTracks.length && <p className="hint">A biblioteca ainda não tem músicas disponíveis.</p>}
         {musicDuration>0 && <div className="controls"><label>Início do trecho: {formatTime(musicStart)}<input type="range" min="0" max={Math.max(0,musicDuration-1)} step="1" value={Math.min(musicStart,Math.max(0,musicDuration-1))} onChange={event=>setMusicStart(Number(event.target.value))}/></label><label>Duração do trecho<select value={segmentDuration} onChange={event=>setSegmentDuration(Number(event.target.value))}>{[10,15,20,30,45,60].filter(value=>value<=musicDuration).map(value=><option key={value} value={value}>{value} segundos</option>)}</select></label></div>}
         <div className="controls"><label>Volume da música: {Math.round(musicVolume*100)}%<input type="range" min="0" max="1" step=".05" value={musicVolume} onChange={event=>setMusicVolume(Number(event.target.value))}/></label>{isVideo && <label>Som original: {Math.round(originalVolume*100)}%<input type="range" min="0" max="1" step=".05" value={originalVolume} onChange={event=>setOriginalVolume(Number(event.target.value))}/></label>}</div>
-        <label className="license"><input type="checkbox" checked={licensed} onChange={event=>setLicensed(event.target.checked)}/> Confirmo que tenho autorização ou licença para usar esta faixa em publicações comerciais.</label>
         {error && <p className="error" role="alert">{error}</p>}
         {progress && <p className="progress" role="status">{progress}</p>}
-        <footer><button type="button" onClick={onClose} disabled={busy}>Cancelar</button><button type="button" onClick={createVideo} disabled={busy || !mediaFiles.length || !musicFile || !licensed}>{busy?'A criar…':'Criar vídeo com música'}</button></footer>
+        <footer><button type="button" onClick={onClose} disabled={busy}>Cancelar</button><button type="button" onClick={createVideo} disabled={busy || !mediaFiles.length || !musicUrl}>{busy?'A criar…':'Criar vídeo com música'}</button></footer>
       </section>
       <style jsx>{`
         .musicOverlay{position:fixed;inset:0;z-index:500;background:rgba(5,17,13,.72);display:flex;align-items:center;justify-content:center;padding:12px}
