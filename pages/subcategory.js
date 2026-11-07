@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Head from 'next/head';
 import { supabase } from '../lib/supabaseClient';
+import MediaOptions from '../components/MediaOptions';
 
 const COLORS = {
   green: '#0F6E5C',
@@ -703,14 +704,14 @@ export default function Subcategory() {
               {premiumPromotions.map((item, index) => (
                 <article className="premiumFeedItem" key={item.id}>
                   {item.media_type === 'video'
-                    ? <video className="premiumFeedMedia" src={item.media_url} controls playsInline preload="auto" autoPlay muted={false} onPlay={(event) => {
+                    ? <MediaOptions url={item.media_url} isVideo fileName="destaque-premium"><video className="premiumFeedMedia" src={item.media_url} controls playsInline preload="auto" autoPlay muted={false} onPlay={(event) => {
                       const currentVideo = event.currentTarget;
                       const scroller = currentVideo.closest('.premiumFeedScroller');
                       scroller?.querySelectorAll('video').forEach((video) => {
                         if (video !== currentVideo) video.pause();
                       });
-                    }} />
-                    : <img className="premiumFeedMedia" src={item.media_url} alt="Publicação Destaque Premium" />}
+                    }} /></MediaOptions>
+                    : <MediaOptions url={item.media_url} fileName="destaque-premium"><img className="premiumFeedMedia" src={item.media_url} alt="Publicação Destaque Premium" /></MediaOptions>}
                   <div className="premiumFeedShade" />
                   <div className="premiumFeedTop"><span>✦ DESTAQUE PREMIUM</span><small>{index + 1} / {premiumPromotions.length}</small></div>
                   <div className="premiumFeedInfo">
@@ -1318,7 +1319,7 @@ export default function Subcategory() {
         .premiumFeedScroller { width:min(100%,520px); height:100%; overflow-y:auto; overscroll-behavior:contain; scroll-snap-type:y mandatory; scrollbar-width:none; }
         .premiumFeedScroller::-webkit-scrollbar { display:none; }
         .premiumFeedItem { position:relative; width:100%; height:100vh; height:100dvh; overflow:hidden; scroll-snap-align:start; scroll-snap-stop:always; background:#101614; color:#fff; }
-        .premiumFeedMedia { position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:contain; background:#080B0A; }
+        .premiumFeedItem :global(.talazaMediaOptions){position:relative;width:100%;height:100%;display:block}.premiumFeedItem :global(.talazaMediaOptions > video),.premiumFeedItem :global(.talazaMediaOptions > img){width:100%;height:100%;object-fit:cover;display:block}.premiumFeedMedia { position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:contain; background:#080B0A; }
         .premiumFeedShade { position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg,rgba(0,0,0,.34),transparent 28%,transparent 48%,rgba(0,0,0,.82)); }
         .premiumFeedTop { position:absolute; top:20px; left:18px; right:72px; display:flex; justify-content:space-between; gap:10px; align-items:center; font-size:10px; font-weight:900; letter-spacing:1.2px; color:#F4D77E; }
         .premiumFeedTop small { color:#fff; font-size:11px; letter-spacing:0; }
