@@ -696,7 +696,7 @@ export default function Subcategory() {
               {premiumPromotions.map((item, index) => (
                 <article className="premiumFeedItem" key={item.id}>
                   {item.media_type === 'video'
-                    ? <video className="premiumFeedMedia" src={item.media_url} controls autoPlay muted loop playsInline />
+                    ? <video className="premiumFeedMedia" src={item.media_url} controls playsInline preload="metadata" />
                     : <img className="premiumFeedMedia" src={item.media_url} alt="Publicação Destaque Premium" />}
                   <div className="premiumFeedShade" />
                   <div className="premiumFeedTop"><span>✦ DESTAQUE PREMIUM</span><small>{index + 1} / {premiumPromotions.length}</small></div>
@@ -704,7 +704,7 @@ export default function Subcategory() {
                     <strong>{item.business?.name || 'Negócio Talaza'}</strong>
                     <p>{cleanText(item.description) || 'Conhece esta publicação na Talaza.'}</p>
                     <div className="premiumFeedActions">
-                      <button
+                      {Number(item.duration_days) >= 30 && <button
                         type="button"
                         disabled={!item.business?.id || savingBusinessId === item.business.id}
                         onClick={() => toggleSavedBusiness(item.business)}
@@ -712,8 +712,8 @@ export default function Subcategory() {
                         style={{background:savedBusinessIds.includes(item.business?.id)?'#E8F3EF':'#FFFFFF',color:'#08745F',border:'1px solid #B9D8CD'}}
                       >
                         {savingBusinessId === item.business?.id ? 'A guardar…' : savedBusinessIds.includes(item.business?.id) ? 'Guardado' : 'Guardar'}
-                      </button>
-                      <button type="button" disabled={!item.business?.owner_id} onClick={() => router.push({pathname:'/mensagens',query:{to:item.business?.owner_id,source:'Destaques Premium',sourceId:item.business_id,box:'explore'}})}>Enviar mensagem</button>
+                      </button>}
+                      <button type="button" disabled={!item.business?.owner_id} onClick={() => router.push({pathname:'/mensagens',query:{to:item.business?.owner_id,source:'Destaques Premium',sourceId:item.business_id,box:'explore'}})}><span aria-hidden="true">💬 </span>Enviar mensagem</button>
                       <Link href={makeBusinessHref(item.business_id,country,province,id)} onClick={() => trackBusinessAction(item.business)}>Ver perfil</Link>
                     </div>
                   </div>
