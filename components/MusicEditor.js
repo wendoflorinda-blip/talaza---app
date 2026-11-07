@@ -72,6 +72,7 @@ export default function MusicEditor({ onExport, onClose }) {
     let recorder;
     let videoElement;
     let animationFrame;
+    let startPhotoRender = () => {};
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       audioContext = new AudioContextClass();
@@ -143,7 +144,7 @@ export default function MusicEditor({ onExport, onClose }) {
           else if (recorder?.state === 'recording') recorder.stop();
         };
         stopPlayback = () => cancelAnimationFrame(animationFrame);
-        animationFrame = requestAnimationFrame(render);
+        startPhotoRender = () => { animationFrame = requestAnimationFrame(render); };
       }
 
       const stream = new MediaStream([...videoTracks, ...mixedAudio.stream.getAudioTracks()]);
@@ -157,6 +158,7 @@ export default function MusicEditor({ onExport, onClose }) {
         recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
       });
       recorder.start(500);
+      if (!isVideo) startPhotoRender();
       music.currentTime = Math.min(musicStart, Math.max(0, musicDuration - 0.1));
       await music.play();
       if (isVideo) {
