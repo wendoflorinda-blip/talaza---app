@@ -980,14 +980,18 @@ export default function Admin() {
           activationMessage = ' O pagamento foi aprovado, mas a duração do plano não está configurada; a hospedagem não foi ativada.';
         } else {
           const now = new Date();
-          const expiresAt = new Date(now.getTime() + durationDays * 86400000).toISOString();
           const { data: existingSubscription, error: readSubscriptionError } = await supabase
             .from('business_subscriptions')
-            .select('id')
+            .select('id, starts_at, expires_at')
             .eq('business_id', request.business_id)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
+          const currentExpiry = existingSubscription?.expires_at ? new Date(existingSubscription.expires_at) : null;
+          const baseDate = currentExpiry && !Number.isNaN(currentExpiry.getTime()) && currentExpiry > now
+            ? currentExpiry
+            : now;
+          const expiresAt = new Date(baseDate.getTime() + durationDays * 86400000).toISOString();
 
           if (readSubscriptionError) {
             activationMessage = ' O pagamento foi aprovado, mas não foi possível consultar a hospedagem: ' + readSubscriptionError.message;
@@ -995,7 +999,7 @@ export default function Admin() {
             const subscriptionData = {
               business_id: request.business_id,
               plan_id: request.plan_id,
-              starts_at: now.toISOString(),
+              starts_at: existingSubscription?.starts_at || now.toISOString(),
               status: 'active',
               expires_at: expiresAt,
             };
