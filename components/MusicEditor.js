@@ -48,7 +48,8 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
         const response = await fetch(initialMediaUrl, { credentials: 'omit', cache: 'no-store' });
         if (!response.ok) throw new Error('Não foi possível carregar o vídeo original.');
         const blob = await response.blob();
-        if (!blob.type.startsWith('video/')) throw new Error('O ficheiro seleccionado não é um vídeo válido.');
+        if (!blob.type.startsWith('video/') && !blob.type.startsWith('image/')) throw new Error('O ficheiro seleccionado não é uma imagem ou vídeo válido.');
+        if (videoOnly && !blob.type.startsWith('video/')) throw new Error('Nesta opção só pode adicionar música a um vídeo.');
         const file = new File([blob], initialMediaName, { type: blob.type });
         if (!cancelled) chooseMedia([file]);
       } catch (loadError) {
