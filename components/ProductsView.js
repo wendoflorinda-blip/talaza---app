@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { formatKz } from '../lib/imageTools';
 import { supabase } from '../lib/supabaseClient';
+import MediaOptions from './MediaOptions';
 
 export const VIEW_MODES = ['vertical', 'deslize', 'normal'];
 
@@ -84,7 +85,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
       {visibleItems.length > 0 && current === 'vertical' && <div className="vert">
         {visibleItems.map((item) => <article key={item.id}>
           <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : ''}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
-          {isVideo(item) ? <div className="videoWrap"><div className="im r916"><Media item={item} alt={item.name || 'Vídeo'} /></div></div> : <button type="button" className="im r916" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
+          {isVideo(item) ? <MediaOptions url={mediaUrl(item)} isVideo fileName={item.name} storagePath={item.storage_path} className="mediaOptionsFill"><div className="videoWrap"><div className="im r916"><Media item={item} alt={item.name || 'Vídeo'} /></div></div></MediaOptions> : <MediaOptions url={mediaUrl(item)} fileName={item.name} storagePath={item.storage_path} className="mediaOptionsFill"><button type="button" className="im r916" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button></MediaOptions>}
           <div className="cap"><span className="dash">–</span><span><b>{item.name || ''}</b>{item.description ? ' · ' + item.description : ''}</span></div>
         </article>)}
       </div>}
@@ -92,18 +93,18 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         <div className="hint">Desliza e vê outro negócio ›</div>
         <div className="slide">{visibleItems.map((item) => <article key={item.id}>
           <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : ''}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
-          {isVideo(item) ? <div className="videoWrap"><div className="im r11"><Media item={item} alt={item.name || 'Vídeo'} /></div></div> : <button type="button" className="im r11" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
+          {isVideo(item) ? <MediaOptions url={mediaUrl(item)} isVideo fileName={item.name} storagePath={item.storage_path} className="mediaOptionsFill"><div className="videoWrap"><div className="im r11"><Media item={item} alt={item.name || 'Vídeo'} /></div></div></MediaOptions> : <MediaOptions url={mediaUrl(item)} fileName={item.name} storagePath={item.storage_path} className="mediaOptionsFill"><button type="button" className="im r11" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button></MediaOptions>}
           <div className="cap"><span className="dash">–</span><span>{item.name && <b>{item.name}</b>}{item.description ? ' · ' + item.description : ''}</span></div>
         </article>)}{showNextCard && <div className="next">Próximo negócio<small>Continue a deslizar</small></div>}</div>
       </>}
       {visibleItems.length > 0 && current === 'normal' && <div className="grid">{visibleItems.map((item) => <div className="cell" key={item.id}>
-        {isVideo(item) ? <div className="videoWrap gridVideo"><div className="open"><Media item={item} alt={item.name || 'Vídeo'} /></div></div> : <button type="button" className="open" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button>}
+        {isVideo(item) ? <MediaOptions url={mediaUrl(item)} isVideo fileName={item.name} storagePath={item.storage_path} className="mediaOptionsFill"><div className="videoWrap gridVideo"><div className="open"><Media item={item} alt={item.name || 'Vídeo'} /></div></div></MediaOptions> : <MediaOptions url={mediaUrl(item)} fileName={item.name} storagePath={item.storage_path} className="mediaOptionsFill"><button type="button" className="open" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button></MediaOptions>}
         {item.price !== null && item.price !== undefined && item.price !== '' && <span className="tag">{formatKz(item.price)}</span>}
         {editable && <button type="button" className="more abs" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}
       </div>)}</div>}
       {openItem && <div className="veu" onClick={(event) => { if (event.target === event.currentTarget) setOpen(null); }}>
         <div className="sheet" role="dialog" aria-modal="true" aria-label={openItem.name || 'Produto'}>
-          <Media item={openItem} className="big" alt={openItem.name || 'Produto'} />
+          <MediaOptions url={mediaUrl(openItem)} isVideo={isVideo(openItem)} fileName={openItem.name} storagePath={openItem.storage_path} className="modalMediaOptions"><Media item={openItem} className="big" alt={openItem.name || 'Produto'} /></MediaOptions>
           {openItem.price !== null && openItem.price !== undefined && openItem.price !== '' && <div className="bigprice">{formatKz(openItem.price)}</div>}
           {openItem.name && <h3>{openItem.name}</h3>}
           {openItem.description && <p>{openItem.description}</p>}
@@ -112,7 +113,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         </div>
       </div>}
       <style jsx>{`
-        .pv button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+        .pv button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}.pv :global(.mediaOptionsFill){width:100%;height:100%}.pv :global(.modalMediaOptions){width:100%;margin-bottom:10px}.pv :global(.modalMediaOptions .big){margin-bottom:0}
         .mediaFilters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:10px}.filter{padding:10px 7px!important;border:1px solid #D9E3DF!important;border-radius:10px!important;background:#fff!important;color:#36564B!important;font-weight:800!important;font-size:12px!important}.filter.selected{background:#0F6E5C!important;border-color:#0F6E5C!important;color:#fff!important}
         .modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px}
         .mode{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-align:left;padding:11px 9px!important;border-radius:13px;border:2px solid #DBE4E0!important;background:#F8FAF9!important;min-height:80px;color:#075B4E}
