@@ -11,7 +11,7 @@ function drawCover(context, image, width, height) {
   context.drawImage(image, (image.width - sw) / 2, (image.height - sh) / 2, sw, sh, 0, 0, width, height);
 }
 
-export default function MusicEditor({ onExport, onClose, initialMediaFile = null, videoOnly = false }) {
+export default function MusicEditor({ onExport, onClose, initialMediaFile = null, initialMediaUrl = '', initialMediaName = 'video-original.mp4', videoOnly = false }) {
   const [mediaFiles, setMediaFiles] = useState([]);
   const [musicFile, setMusicFile] = useState(null);
   const [musicUrl, setMusicUrl] = useState('');
@@ -39,6 +39,24 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
   useEffect(() => {
     if (initialMediaFile) chooseMedia([initialMediaFile]);
   }, [initialMediaFile, videoOnly]);
+
+  useEffect(() => {
+    if (!initialMediaUrl || initialMediaFile) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(initialMediaUrl, { credentials: 'omit', cache: 'no-store' });
+        if (!response.ok) throw new Error('Não foi possível carregar o vídeo original.');
+        const blob = await response.blob();
+        if (!blob.type.startsWith('video/')) throw new Error('O ficheiro seleccionado não é um vídeo válido.');
+        const file = new File([blob], initialMediaName, { type: blob.type });
+        if (!cancelled) chooseMedia([file]);
+      } catch (loadError) {
+        if (!cancelled) setError(loadError.message || 'Não foi possível carregar o vídeo original.');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [initialMediaUrl, initialMediaFile, initialMediaName]);
 
   const isVideo = mediaFiles.length === 1 && mediaFiles[0]?.type.startsWith('video/');
   const isPhotos = mediaFiles.length > 0 && mediaFiles.every(file => file.type.startsWith('image/'));
