@@ -860,6 +860,28 @@ export default function Seller() {
           padding: '24px 18px'
         }}
       >
+        {(() => {
+          const remaining = hostingExpiry ? Math.max(0, Math.ceil((hostingExpiry.getTime() - Date.now()) / 86400000)) : null;
+          const showWarning = hostingExpired || (remaining !== null && remaining <= 10);
+          if (!showWarning) return null;
+          const urgent = hostingExpired || remaining <= 3;
+          const title = hostingExpired ? 'A hospedagem da sua loja expirou' : urgent ? 'Atenção: faltam poucos dias para a sua hospedagem terminar' : 'A sua hospedagem está a terminar';
+          const message = hostingExpired
+            ? 'O prazo de tolerância de 15 dias está em curso. Renove a hospedagem para evitar a suspensão da sua loja.'
+            : urgent
+              ? 'Restam apenas ' + remaining + (remaining === 1 ? ' dia' : ' dias') + ' de hospedagem. Renove agora para manter a sua loja activa.'
+              : 'Restam ' + remaining + ' dias de hospedagem. Pode renovar antecipadamente e os novos dias serão acrescentados à validade actual.';
+          return <section role="status" aria-live="polite" style={{marginBottom:18,padding:'16px 18px',borderRadius:16,background:urgent?'#FDE8E7':'#FFF0F0',border:'1px solid '+(urgent?'#D94A45':'#E7A3A0'),boxShadow:'0 5px 16px rgba(150,35,35,.08)',color:'#8B2424'}}>
+            <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+              <span aria-hidden="true" style={{fontSize:25,lineHeight:1}}>⚠️</span>
+              <div style={{flex:1,minWidth:0}}>
+                <strong style={{display:'block',fontSize:15,lineHeight:1.35}}>{title}</strong>
+                <p style={{margin:'6px 0 12px',fontSize:13,lineHeight:1.55}}>{message}</p>
+                <Link href="/impulsionar" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',padding:'10px 15px',borderRadius:10,background:'#8B2424',color:'#FFFFFF',fontSize:13,fontWeight:850,textDecoration:'none'}}>Renovar hospedagem</Link>
+              </div>
+            </div>
+          </section>;
+        })()}
         <section style={{ borderRadius: 24, overflow: 'hidden', background: '#075B4E', boxShadow: '0 16px 38px rgba(0,70,60,.14)' }}>
           <div style={{ position: 'relative', minHeight: 260, background: '#0B7563' }}>
             {heroImage ? (
