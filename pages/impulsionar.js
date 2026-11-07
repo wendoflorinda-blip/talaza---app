@@ -137,10 +137,10 @@ export default function Impulsionar() {
             <p style={{color:COLORS.muted,fontSize:14,lineHeight:1.7,maxWidth:780}}>Os níveis Girassol são conquistas do seu negócio, alcançadas através de Guardados únicos. Ao atingir cada meta, desbloqueia o acesso à Rede de Parcerias e à Entrega Interprovincial. Não são compras de impulsionamento: o progresso é contado automaticamente pela Talaza.</p>
           </div>
           <div style={S.grid}>
-            <article style={{...S.card,borderColor:'#E8A9C2',background:'linear-gradient(145deg,#FFF1F6 0%,#F7C9DB 100%)'}}>
-              <div style={{...S.icon,background:'#C13B75',color:'#fff'}}>🌻</div><div style={{...S.tag,color:'#84254D',background:'rgba(255,255,255,.78)'}}>PRIMEIRO NÍVEL</div>
+            <article style={{...S.card,borderColor:'#B99A78',background:'linear-gradient(135deg,#FFFFFF 0%,#E9DDCF 48%,#9A7655 100%)'}}>
+              <div style={{...S.icon,width:68,height:68,minWidth:68,borderRadius:20,fontSize:42,display:'grid',placeItems:'center',background:'linear-gradient(135deg,#FFFFFF 0%,#9A7655 100%)',boxShadow:'0 8px 20px rgba(90,64,43,.18)',color:'#5A402B'}}>🌻</div><div style={{...S.tag,color:'#65472F',background:'rgba(255,255,255,.78)'}}>PRIMEIRO NÍVEL</div>
               <h3 style={{...S.cardTitle,color:'#84254D'}}>Girassol</h3><div style={{...S.price,color:'#84254D'}}>5.000 Guardados únicos</div>
-              <p style={{fontSize:13,lineHeight:1.7,color:'#71344E'}}>Ao alcançar 5.000 Guardados únicos, o seu negócio conquista permanentemente o nível Girassol. Mesmo que, mais tarde, os clientes deixem de guardar o seu perfil ou a contagem diminua, a conquista e o desbloqueio não são retirados.</p>
+              <p style={{fontSize:13,lineHeight:1.7,color:'#5E4937'}}>Ao alcançar 5.000 Guardados únicos, o seu negócio conquista permanentemente o nível Girassol. Mesmo que, mais tarde, os clientes deixem de guardar o seu perfil ou a contagem diminua, a conquista e o desbloqueio não são retirados.</p>
               <div style={{fontSize:12,fontWeight:900,color:'#84254D',marginTop:5}}>BENEFÍCIOS INCLUÍDOS</div>
               <ul style={{margin:'9px 0 16px',paddingLeft:19,color:'#71344E',fontSize:12,lineHeight:1.75}}>
                 <li>Publicar gratuitamente na Vitrine principal da sua província.</li>
@@ -148,14 +148,14 @@ export default function Impulsionar() {
                 <li>Ter o perfil apresentado em «Vendedores disponíveis para parceria», para outros vendedores descobrirem o seu negócio, consultarem o perfil e enviarem mensagens internas para propor parcerias.</li>
                 <li>Aceder à Entrega Interprovincial e publicar uma oferta de entrega para até 3 províncias escolhidas por si.</li>
               </ul>
-              <div style={{height:9,borderRadius:99,background:'rgba(132,37,77,.13)',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(girassolAccount?.unique_saved_count||0)/5000)*100)+'%',background:'#C13B75'}}/></div>
+              <div style={{height:9,borderRadius:99,background:'rgba(100,71,47,.16)',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(girassolAccount?.unique_saved_count||0)/5000)*100)+'%',background:'linear-gradient(90deg,#FFFFFF 0%,#9A7655 100%)'}}/></div>
               <p style={{fontSize:12,color:'#71344E'}}>{Number(girassolAccount?.unique_saved_count||0).toLocaleString('pt-AO')} / 5.000 Guardados únicos</p>
               {girassolAccount?.unlocked_tier && <strong style={{fontSize:12,color:'#84254D'}}>🌻 Conquista permanente desbloqueada</strong>}
             </article>
-            <article style={{...S.card,borderColor:'#8CCFD2',background:'linear-gradient(145deg,#E9FAFA 0%,#BCE8E8 100%)'}}>
-              <div style={{...S.icon,background:'#087E8B',color:'#fff'}}>🌻</div><div style={{...S.tag,color:'#075965',background:'rgba(255,255,255,.8)'}}>NÍVEL AVANÇADO</div>
+            <article style={{...S.card,borderColor:'#83B8D9',background:'linear-gradient(135deg,#FFFFFF 0%,#D8ECFA 48%,#5798C8 100%)'}}>
+              <div style={{...S.icon,width:68,height:68,minWidth:68,borderRadius:20,fontSize:42,display:'grid',placeItems:'center',background:'linear-gradient(135deg,#FFFFFF 0%,#5798C8 100%)',boxShadow:'0 8px 20px rgba(23,76,115,.18)',color:'#174C73'}}>🌻</div><div style={{...S.tag,color:'#174C73',background:'rgba(255,255,255,.8)'}}>NÍVEL AVANÇADO</div>
               <h3 style={{...S.cardTitle,color:'#075965'}}>Girassol Pró</h3><div style={{...S.price,color:'#075965'}}>1.000.000 Guardados únicos</div>
-              <p style={{fontSize:13,lineHeight:1.7,color:'#24565B'}}>Ao alcançar 1.000.000 de Guardados únicos, sobe para Girassol Pró. É uma conquista permanente: não perde o nível mesmo que os Guardados diminuam ou deixe de receber novos Guardados.</p>
+              <p style={{fontSize:13,lineHeight:1.7,color:'#315A78'}}>Ao alcançar 1.000.000 de Guardados únicos, sobe para Girassol Pró. É uma conquista permanente: não perde o nível mesmo que os Guardados diminuam ou deixe de receber novos Guardados.</p>
               <div style={{fontSize:12,fontWeight:900,color:'#075965',marginTop:5}}>TODOS OS BENEFÍCIOS GIRASSOL, MAIS</div>
               <ul style={{margin:'9px 0 16px',paddingLeft:19,color:'#24565B',fontSize:12,lineHeight:1.75}}>
                 <li>Publicação gratuita na Vitrine principal e na Vitrine da sua própria subcategoria, respeitando a província oficial do negócio.</li>
@@ -163,7 +163,7 @@ export default function Impulsionar() {
                 <li>Publicações de Entrega Interprovincial dirigidas a até 10 províncias escolhidas por si, ampliando o alcance a clientes de outras regiões sem misturar essas ofertas na Vitrine local.</li>
                 <li>Mais oportunidades para receber contactos, encontrar parceiros comerciais e conquistar clientes fora da sua província.</li>
               </ul>
-              <div style={{height:9,borderRadius:99,background:'rgba(7,89,101,.13)',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(girassolAccount?.unique_saved_count||0)/1000000)*100)+'%',background:'#087E8B'}}/></div>
+              <div style={{height:9,borderRadius:99,background:'rgba(23,76,115,.15)',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(girassolAccount?.unique_saved_count||0)/1000000)*100)+'%',background:'linear-gradient(90deg,#FFFFFF 0%,#5798C8 100%)'}}/></div>
               <p style={{fontSize:12,color:'#24565B'}}>{Number(girassolAccount?.unique_saved_count||0).toLocaleString('pt-AO')} / 1.000.000 Guardados únicos</p>
               {girassolAccount?.unlocked_tier==='girassol_pro' && <strong style={{fontSize:12,color:'#075965'}}>🌻 Conquista permanente desbloqueada</strong>}
             </article>
