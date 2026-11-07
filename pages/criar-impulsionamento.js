@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
+import MusicEditor from '../components/MusicEditor';
 
 const C = { green:'#08745F', dark:'#06483D', gold:'#D8A319', ink:'#182722', muted:'#66736F', bg:'#F7F6F3', line:'#E3E8E4', purple:'#64358B' };
 
@@ -18,6 +19,7 @@ export default function CriarImpulsionamento() {
   const [loading,setLoading] = useState(true);
   const [sending,setSending] = useState(false);
   const [error,setError] = useState('');
+  const [musicEditorOpen,setMusicEditorOpen] = useState(false);
 
   useEffect(()=>{ if(router.isReady && planId) load(); },[router.isReady,planId,editPromotionId]);
 
@@ -113,6 +115,7 @@ export default function CriarImpulsionamento() {
 
   if(loading) return <main style={S.center}>A preparar a publicação…</main>;
   return <main style={S.page}>
+    {musicEditorOpen && <MusicEditor initialMediaFile={file || null} initialMediaUrl={!file && mediaType==='video' ? preview : ''} initialMediaName={file?.name || 'destaque-original.mp4'} onClose={() => setMusicEditorOpen(false)} onExport={async output => { setFile(output); setMediaType('video'); setPreview(URL.createObjectURL(output)); setMusicEditorOpen(false); return true; }} />}
     <header style={S.header}><div style={S.headerInner}><div><b style={S.brand}>TALAZA</b><div style={S.headTitle}>Criar publicação impulsionada</div></div><Link href="/impulsionar" style={S.back}>← Impulsionar</Link></div></header>
     <div style={S.content}>
       {error && <div role="alert" style={S.error}>{error}</div>}
@@ -127,6 +130,7 @@ export default function CriarImpulsionamento() {
             <label style={S.changeMedia}><span style={S.changeMediaPlus}>＋</span>{preview ? 'Alterar imagem ou vídeo' : 'Adicionar imagem ou vídeo'}<input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" onChange={e=>chooseFile(e.target.files?.[0])} style={{display:'none'}} /></label>
           </div>
           {file && <p style={S.fileName}>Novo ficheiro seleccionado: {file.name}</p>}
+          {(file || (editPromotionId && preview)) && <button type="button" onClick={() => setMusicEditorOpen(true)} style={{...S.changeMedia,marginTop:10,border:0,cursor:'pointer'}}>♫ Adicionar música à publicação</button>}
           <h2 style={S.sectionTitle}>2. Descrição da publicação</h2>
           <textarea value={description} onChange={e=>setDescription(e.target.value)} maxLength={2000} rows={5} placeholder="Escreva uma descrição clara para apresentar o seu produto, serviço ou novidade…" style={S.textarea}/>
           <div style={S.count}>{description.length}/2000</div>
