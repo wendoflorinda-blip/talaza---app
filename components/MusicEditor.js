@@ -79,7 +79,8 @@ export default function MusicEditor({ onExport, onClose }) {
       await audioContext.resume();
       const music = new Audio(musicUrl);
       music.preload = 'auto';
-      music.loop = true;
+      music.loop = false;
+      music.onended = () => { music.currentTime = musicStart; music.play().catch(() => {}); };
       await new Promise((resolve, reject) => {
         music.oncanplay = resolve;
         music.onerror = () => reject(new Error('Não foi possível abrir a faixa de música.'));
@@ -148,7 +149,7 @@ export default function MusicEditor({ onExport, onClose }) {
       }
 
       const stream = new MediaStream([...videoTracks, ...mixedAudio.stream.getAudioTracks()]);
-      const mimeType = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(type => MediaRecorder.isTypeSupported(type));
+      const mimeType = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4'].find(type => MediaRecorder.isTypeSupported(type));
       if (!mimeType) throw new Error('Este navegador não consegue exportar vídeo WebM.');
       const chunks = [];
       recorder = new MediaRecorder(stream, { mimeType });
@@ -173,7 +174,8 @@ export default function MusicEditor({ onExport, onClose }) {
       stopPlayback();
       music.pause();
       if (!blob?.size) throw new Error('O vídeo foi criado sem conteúdo.');
-      const output = new File([blob], 'talaza-com-musica.webm', { type: mimeType });
+      const outputMime = mimeType.split(';')[0];
+      const output = new File([blob], outputMime === 'video/mp4' ? 'talaza-com-musica.mp4' : 'talaza-com-musica.webm', { type: outputMime });
       setProgress('A guardar o vídeo na galeria…');
       await onExport(output);
       onClose?.();
