@@ -1,0 +1,13 @@
+[
+  {
+    "id": "cosmic-haven-kaino",
+    "titulo": "Cosmic Haven",
+    "artista": "Kaino",
+    "ficheiro": "sounds/cosmic-haven-kaino.mp3",
+    "genero": "Afrobeat",
+    "humor": "Envolvente",
+    "duracao_seg": 150,
+    "licenca": "Kaino - Gratuita uso comercial",
+    "origem": "kaino.dev"
+  }
+]
