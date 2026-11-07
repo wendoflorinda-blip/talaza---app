@@ -696,7 +696,7 @@ export default function Subcategory() {
               {premiumPromotions.map((item, index) => (
                 <article className="premiumFeedItem" key={item.id}>
                   {item.media_type === 'video'
-                    ? <video className="premiumFeedMedia" src={item.media_url} controls playsInline preload="metadata" />
+                    ? <video className="premiumFeedMedia" src={item.media_url} controls playsInline preload="auto" muted={false} />
                     : <img className="premiumFeedMedia" src={item.media_url} alt="Publicação Destaque Premium" />}
                   <div className="premiumFeedShade" />
                   <div className="premiumFeedTop"><span>✦ DESTAQUE PREMIUM</span><small>{index + 1} / {premiumPromotions.length}</small></div>
@@ -704,7 +704,7 @@ export default function Subcategory() {
                     <strong>{item.business?.name || 'Negócio Talaza'}</strong>
                     <p>{cleanText(item.description) || 'Conhece esta publicação na Talaza.'}</p>
                     <div className="premiumFeedActions">
-                      {Number(item.duration_days) >= 30 && <button
+                      {Number(item.duration_days) === 30 && <button
                         type="button"
                         disabled={!item.business?.id || savingBusinessId === item.business.id}
                         onClick={() => toggleSavedBusiness(item.business)}
