@@ -245,13 +245,17 @@ export default function Impulsionar() {
             <div style={{display:'grid',gap:10,marginTop:12}}>{promotions.map(item=>{
               const waitingProof=item.status==='pending_payment';
               const stateLabel=item.status==='active'&&item.expires_at&&new Date(item.expires_at).getTime()<=Date.now()?'Expirada':({pending_payment:'A aguardar comprovativo',pending:'Comprovativo enviado · Em análise',active:'Ativa',rejected:'Recusada',expired:'Expirada',cancelled:'Cancelada'})[item.status]||item.status;
-              return <article key={item.id} style={{display:'grid',gridTemplateColumns:'88px minmax(0,1fr)',gap:'12px 14px',alignItems:'center',padding:14,borderRadius:16,background:'rgba(255,255,255,.72)',border:'1px solid #E3D8C9',minWidth:0,boxSizing:'border-box'}}>
-                {item.media_type==='video'?<video src={item.media_url} muted playsInline style={{width:88,height:88,objectFit:'cover',borderRadius:12,background:'#E9E2D8'}}/>:<img src={item.media_url} alt="Pré-visualização da publicação" style={{width:88,height:88,objectFit:'cover',borderRadius:12,background:'#E9E2D8'}}/>}
-                <div style={{minWidth:0,overflowWrap:'anywhere'}}>
-                  <strong style={{display:'block',color:'#6E3038',fontSize:14,lineHeight:1.45,overflowWrap:'anywhere'}}>{item.description}</strong>
-                  <span style={{display:'block',fontSize:12,color:'#6B5747',marginTop:7}}>Estado: {stateLabel}</span>
+              return <article key={item.id} style={{display:'flex',flexDirection:'column',gap:13,padding:14,borderRadius:16,background:'rgba(255,255,255,.82)',border:'1px solid #E3D8C9',minWidth:0,width:'100%',boxSizing:'border-box',overflow:'hidden'}}>
+                <div style={{display:'flex',alignItems:'flex-start',gap:13,minWidth:0,width:'100%',flexWrap:'wrap'}}>
+                  <div style={{flex:'0 0 88px',width:88,height:88}}>
+                    {item.media_type==='video'?<video src={item.media_url} muted playsInline style={{display:'block',width:'100%',height:'100%',objectFit:'cover',borderRadius:12,background:'#E9E2D8'}}/>:<img src={item.media_url} alt="Pré-visualização da publicação" style={{display:'block',width:'100%',height:'100%',objectFit:'cover',borderRadius:12,background:'#E9E2D8'}}/>}
+                  </div>
+                  <div style={{flex:'1 1 220px',minWidth:0,overflowWrap:'anywhere',wordBreak:'normal'}}>
+                    <strong style={{display:'block',width:'100%',color:'#6E3038',fontSize:14,lineHeight:1.5,overflowWrap:'break-word',wordBreak:'normal',whiteSpace:'normal'}}>{item.description}</strong>
+                    <span style={{display:'block',fontSize:12,color:'#6B5747',marginTop:8}}>Estado: {stateLabel}</span>
+                  </div>
                 </div>
-                {waitingProof && <button type="button" onClick={()=>router.push({pathname:'/criar-impulsionamento',query:{plan:item.plan_id,edit_promotion_id:item.id}})} style={{gridColumn:'1 / -1',width:'100%',boxSizing:'border-box',border:0,borderRadius:11,padding:'13px 15px',background:'#0A3D2A',color:'#fff',fontSize:13,fontWeight:900,cursor:'pointer'}}>Enviar comprovativo →</button>}
+                {waitingProof && <button type="button" onClick={()=>router.push({pathname:'/criar-impulsionamento',query:{plan:item.plan_id,edit_promotion_id:item.id}})} style={{display:'block',position:'static',width:'100%',maxWidth:'100%',boxSizing:'border-box',border:0,borderRadius:11,padding:'13px 15px',background:'#0A3D2A',color:'#fff',fontSize:13,fontWeight:900,cursor:'pointer',whiteSpace:'normal'}}>Enviar comprovativo →</button>}
               </article>;
             })}</div>
           </div>}
