@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import TalazaMenu from '../components/TalazaMenu';
+import MediaOptions from '../components/MediaOptions';
 
 const C = {
   green: '#0F6E5C',
@@ -323,7 +324,7 @@ export default function Explore() {
       setBusinessError('');
       try {
         const { data: rows, error: promotionError } = await supabase.from('premium_promotions')
-          .select('id,business_id,plan_id,media_url,media_type,description,expires_at,starts_at')
+          .select('id,business_id,plan_id,media_url,media_type,storage_path,description,expires_at,starts_at')
           .eq('status','active').gt('expires_at',new Date().toISOString()).order('starts_at',{ascending:false});
         if (promotionError) throw promotionError;
         const promotionRows = rows || [];
@@ -612,7 +613,7 @@ export default function Explore() {
                 <div className="premium-post-grid">
                   {premiumPromotions.map((item) => (
                     <article key={item.id} className="premium-post-card">
-                      {item.media_type === 'video' ? <video src={item.media_url} controls playsInline /> : <img src={item.media_url} alt="Publicação Destaque Premium" />}
+                      {item.media_type === 'video' ? <MediaOptions url={item.media_url} isVideo fileName="destaque-premium"><video src={item.media_url} controls playsInline /></MediaOptions> : <MediaOptions url={item.media_url} fileName="destaque-premium"><img src={item.media_url} alt="Publicação Destaque Premium" /></MediaOptions>}
                       <div className="premium-post-body">
                         <span className="premium-post-label">✦ DESTAQUE PREMIUM</span>
                         <h3>{item.business?.name || 'Negócio Talaza'}</h3>
@@ -751,7 +752,7 @@ export default function Explore() {
         .categories-section, .businesses-section { margin-top: 36px; scroll-margin-top: 20px; }
         .premium-post-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:18px; }
         .premium-post-card { overflow:hidden; border:1px solid #E3E8E4; border-radius:18px; background:#fff; box-shadow:0 10px 28px rgba(24,39,34,.07); }
-        .premium-post-card > img,.premium-post-card > video { display:block; width:100%; aspect-ratio:1/1; object-fit:cover; background:#111; }
+        .premium-post-card :global(.talazaMediaOptions){position:relative;display:block;width:100%;aspect-ratio:1/1}.premium-post-card :global(.talazaMediaOptions > img),.premium-post-card :global(.talazaMediaOptions > video){display:block;width:100%;height:100%;object-fit:cover;background:#111}.premium-post-card > img,.premium-post-card > video { display:block; width:100%; aspect-ratio:1/1; object-fit:cover; background:#111; }
         .premium-post-body { padding:15px; } .premium-post-label { color:#9A7100; font-size:10px; font-weight:900; letter-spacing:1px; }
         .premium-post-body h3 { margin:8px 0 5px; font-size:16px; } .premium-post-body p { color:#66736F; font-size:13px; line-height:1.55; }
         .premium-post-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }
