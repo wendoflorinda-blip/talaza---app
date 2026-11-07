@@ -28,15 +28,23 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
     setDownloading(true); setDownloadError('');
     try {
       let blob;
-      if (openItem.storage_path) {
-        const { data, error } = await supabase.storage.from('business-media').download(openItem.storage_path);
+      let storagePath = openItem.storage_path || '';
+      const sourceUrl = mediaUrl(openItem) || '';
+      // Recupera também o caminho de ficheiros públicos do Supabase quando o registo
+      // só guardou a URL, permitindo transferir em computadores e telemóveis.
+      if (!storagePath && sourceUrl.includes('/storage/v1/object/public/business-media/')) {
+        storagePath = decodeURIComponent(sourceUrl.split('/storage/v1/object/public/business-media/')[1].split('?')[0]);
+      }
+      if (storagePath) {
+        const { data, error } = await supabase.storage.from('business-media').download(storagePath);
         if (!error && data) blob = data;
       }
       if (!blob) {
-        const response = await fetch(mediaUrl(openItem), { mode: 'cors', cache: 'no-store' });
-        if (!response.ok) throw new Error('Não foi possível obter o ficheiro original.');
+        const response = await fetch(sourceUrl, { mode: 'cors', credentials: 'omit', cache: 'no-store' });
+        if (!response.ok) throw new Error('O servidor não autorizou a transferência deste ficheiro.');
         blob = await response.blob();
       }
+      if (!blob || !blob.size) throw new Error('O ficheiro está vazio ou indisponível.');
       const objectUrl = URL.createObjectURL(blob);
       const extension = isVideo(openItem) ? (blob.type.includes('webm') ? 'webm' : blob.type.includes('quicktime') ? 'mov' : 'mp4') : (blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg');
       const baseName = (openItem.name || (isVideo(openItem) ? 'video' : 'imagem')).replace(/[^a-z0-9-_ ]/gi, '').trim() || (isVideo(openItem) ? 'video' : 'imagem');
@@ -87,7 +95,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
           {openItem.price !== null && openItem.price !== undefined && openItem.price !== '' && <div className="bigprice">{formatKz(openItem.price)}</div>}
           {openItem.name && <h3>{openItem.name}</h3>}
           {openItem.description && <p>{openItem.description}</p>}
-          <div className="acts"><button type="button" className="download" onClick={downloadOpenMedia} disabled={downloading}>{downloading ? 'A preparar ficheiro…' : 'Transferir ' + (isVideo(openItem) ? 'vídeo' : 'imagem')}</button><button type="button" className="close" onClick={() => setOpen(null)}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}><span aria-hidden="true">💬 </span>Enviar mensagem</button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
+          <div className="acts"><button type="button" className="download" onClick={downloadOpenMedia} disabled={downloading}>{downloading ? 'A preparar ficheiro…' : 'Transferir ' + (isVideo(openItem) ? 'vídeo' : 'imagem')}</button><button type="button" className="close" onClick={() => setOpen(null)}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}><span className="messageIcon" aria-hidden="true">▣</span><span>Mensagem</span><span className="messageArrow" aria-hidden="true">›</span></button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
           {downloadError && <p role="alert" className="downloadError">{downloadError}</p>}
         </div>
       </div>}
@@ -105,7 +113,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         .cap{display:flex;gap:8px;margin-top:7px;font-size:13px;line-height:1.4;color:#14201C}.dash{color:#075B4E;font-weight:800}.vert{display:grid;gap:20px}.vert article{width:min(82vw,320px);max-width:100%;margin-inline:auto}
         .hint{font-size:13px;font-weight:700;color:#075B4E;margin-bottom:8px}.slide{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:4px}.slide article{flex:0 0 min(78vw,340px);max-width:340px;scroll-snap-align:center}.slide .next{flex:0 0 150px;scroll-snap-align:center}.next{aspect-ratio:1/1;border-radius:14px;background:linear-gradient(135deg,#075B4E,#075B4E);color:#fff;display:grid;place-items:center;text-align:center;font-weight:700;padding:16px}.next small{display:block;font-weight:400;opacity:.85;margin-top:4px}
         .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.cell{position:relative;aspect-ratio:1/1;border-radius:7px;overflow:hidden;background:#E8F2EE}.open{display:block;width:100%;height:100%}.open img,.open video{width:100%;height:100%;object-fit:cover;display:block}.tag{position:absolute;left:4px;bottom:4px;background:rgba(15,22,20,.74);color:#fff;font-weight:800;font-size:10px;padding:2px 6px;border-radius:999px}
-        .veu{position:fixed;inset:0;background:rgba(10,20,17,.55);z-index:120;display:flex;align-items:flex-end;justify-content:center}.sheet{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}.sheet .big{width:100%;max-height:52vh;object-fit:contain;background:#E8F2EE;border-radius:14px;display:block;margin:0 0 10px;height:auto}.sheet video.big{width:100%;}.bigprice{font-weight:800;color:#075B4E;font-size:18px}.sheet h3{margin:2px 0;font-size:17px;color:#14201C}.sheet p{margin:2px 0 12px;font-size:13px;color:#5A6A64;line-height:1.5;white-space:pre-wrap}.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.acts .close,.acts .wa,.acts .download{padding:13px;border-radius:11px;font-weight:700;text-align:center;text-decoration:none}.acts .download{background:#DCEFE8;color:#075B4E;text-decoration:none;text-align:center;font-weight:800;border-radius:11px}.acts .close{background:#E9EEEC;color:#14201C}.acts .internalMessage{background:#050505!important;color:#fff;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px}.acts .download:disabled{opacity:.65;cursor:wait}.downloadError{grid-column:1/-1;color:#A12626!important;font-size:12px!important;margin:0!important}.acts .unavailableMessage{background:#EDF1EF;color:#7A8983;display:grid;place-items:center;padding:13px;border-radius:11px;font-size:12px;text-align:center}
+        .veu{position:fixed;inset:0;background:rgba(10,20,17,.55);z-index:120;display:flex;align-items:flex-end;justify-content:center}.sheet{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}.sheet .big{width:100%;max-height:52vh;object-fit:contain;background:#E8F2EE;border-radius:14px;display:block;margin:0 0 10px;height:auto}.sheet video.big{width:100%;}.bigprice{font-weight:800;color:#075B4E;font-size:18px}.sheet h3{margin:2px 0;font-size:17px;color:#14201C}.sheet p{margin:2px 0 12px;font-size:13px;color:#5A6A64;line-height:1.5;white-space:pre-wrap}.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.acts .close,.acts .wa,.acts .download{padding:13px;border-radius:11px;font-weight:700;text-align:center;text-decoration:none}.acts .download{background:#DCEFE8;color:#075B4E;text-decoration:none;text-align:center;font-weight:800;border-radius:11px}.acts .close{background:#E9EEEC;color:#14201C}.acts .internalMessage{grid-column:1/-1;background:linear-gradient(180deg,#292929 0%,#000 100%)!important;color:#fff!important;border:1.5px solid #FFD700!important;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:50px;padding:0 17px!important;border-radius:9999px!important;font-size:14px;font-weight:800;box-shadow:0 2px 10px rgba(0,0,0,.3);box-sizing:border-box}.messageIcon{font-size:17px;line-height:1}.messageArrow{font-size:20px;line-height:1}.acts .download:disabled{opacity:.65;cursor:wait}.downloadError{grid-column:1/-1;color:#A12626!important;font-size:12px!important;margin:0!important}.acts .unavailableMessage{background:#EDF1EF;color:#7A8983;display:grid;place-items:center;padding:13px;border-radius:11px;font-size:12px;text-align:center}
       `}</style>
     </div>
   );
