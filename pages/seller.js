@@ -690,6 +690,24 @@ export default function Seller() {
     });
   }
 
+  async function submitTitle(event) {
+    event.preventDefault();
+    const item = images.find((i) => i.id === sheet?.id);
+    if (!item) return;
+    const name = sheetName.trim() || null;
+    setSheet(null);
+    await runGallery(async () => { await updateRow(item.id, { name }); await loadImages(business.id); setNotice('Título guardado.'); });
+  }
+
+  async function submitDescription(event) {
+    event.preventDefault();
+    const item = images.find((i) => i.id === sheet?.id);
+    if (!item) return;
+    const description = sheetDesc.trim() || null;
+    setSheet(null);
+    await runGallery(async () => { await updateRow(item.id, { description }); await loadImages(business.id); setNotice('Descrição guardada.'); });
+  }
+
   async function changeMode(mode) {
     if (!VIEW_MODES.includes(mode)) return;
     setViewMode(mode);
@@ -714,6 +732,16 @@ export default function Seller() {
     setSheetName(item.name || '');
     setSheetDesc(item.description || '');
     setSheet({ type: 'text', id: item.id });
+  }
+
+  function openTitle(item) {
+    setSheetName(item.name || '');
+    setSheet({ type: 'title', id: item.id });
+  }
+
+  function openDescription(item) {
+    setSheetDesc(item.description || '');
+    setSheet({ type: 'description', id: item.id });
   }
 
   function scrollToId(id) {
@@ -1199,8 +1227,9 @@ export default function Seller() {
             {sheet.type === 'menu' && (
               <>
                 <h3>{sheetItem.kind === 'main' ? 'Imagem principal ' + ((sheetItem.slot ?? 0) + 1) : (sheetItem.name || 'Imagem de painel')}</h3>
+                <button type="button" className="op" onClick={() => openTitle(sheetItem)}>Alterar título</button>
+                <button type="button" className="op" onClick={() => openDescription(sheetItem)}>Alterar descrição</button>
                 <button type="button" className="op" onClick={() => openPrice(sheetItem)}>Alterar preço</button>
-                <button type="button" className="op" onClick={() => openText(sheetItem)}>Alterar título e descrição</button>
                 {sheetItem.kind === 'panel' && ((sheetItem.media_type === 'video') || Boolean(sheetItem.video_url)) ? <button type="button" className="op" onClick={() => { const item = sheetItem; setSheet(null); downloadGalleryItem(item); }}>Transferir vídeo</button> : <button type="button" className="op" onClick={() => { const item = sheetItem; setSheet(null); pickImages('media', (files) => replaceImage(item, files[0])); }}>Trocar imagem</button>}
                 <button type="button" className="op perigo" onClick={() => { const item = sheetItem; setSheet(null); removeImage(item); }}>Eliminar</button>
               </>
@@ -1216,17 +1245,20 @@ export default function Seller() {
                 </div>
               </form>
             )}
-            {sheet.type === 'text' && (
-              <form onSubmit={submitText}>
-                <h3>Nome e descrição</h3>
+            {sheet.type === 'title' && (
+              <form onSubmit={submitTitle}>
+                <h3>Alterar título</h3>
                 <label htmlFor="talaza-nome">Título</label>
-                <input id="talaza-nome" maxLength={80} placeholder="Ex.: Cesta romântica" value={sheetName} onChange={(event) => setSheetName(event.target.value)} autoFocus />
+                <input id="talaza-nome" maxLength={80} placeholder="Título do vídeo" value={sheetName} onChange={(event) => setSheetName(event.target.value)} autoFocus />
+                <div className="acoes"><button type="button" className="cancelar" onClick={() => setSheet(null)}>Cancelar</button><button type="submit" className="guardar">Guardar</button></div>
+              </form>
+            )}
+            {sheet.type === 'description' && (
+              <form onSubmit={submitDescription}>
+                <h3>Alterar descrição</h3>
                 <label htmlFor="talaza-desc">Descrição</label>
-                <textarea id="talaza-desc" maxLength={500} placeholder="Ex.: Flores, vinho e chocolates" value={sheetDesc} onChange={(event) => setSheetDesc(event.target.value)} />
-                <div className="acoes">
-                  <button type="button" className="cancelar" onClick={() => setSheet(null)}>Cancelar</button>
-                  <button type="submit" className="guardar">Guardar</button>
-                </div>
+                <textarea id="talaza-desc" maxLength={500} placeholder="Descrição do vídeo" value={sheetDesc} onChange={(event) => setSheetDesc(event.target.value)} autoFocus />
+                <div className="acoes"><button type="button" className="cancelar" onClick={() => setSheet(null)}>Cancelar</button><button type="submit" className="guardar">Guardar</button></div>
               </form>
             )}
           </div>
