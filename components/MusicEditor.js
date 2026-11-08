@@ -55,6 +55,9 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
   const [screen,setScreen]=useState('media'),[soundMode,setSoundMode]=useState(''),[search,setSearch]=useState(''),[genre,setGenre]=useState('Todos'),[favorites,setFavorites]=useState([]),[previewId,setPreviewId]=useState(''),[previewTime,setPreviewTime]=useState(0); const previewRef=useRef(null); const sourceVideoPreviewRef=useRef(null); const selectedMusicPreviewRef=useRef(null); const previewMixRef=useRef(null);
+  const isVideo = mediaFiles.length === 1 && mediaFiles[0]?.type.startsWith('video/');
+  const isPhotos = mediaFiles.length > 0 && mediaFiles.every(file => file.type.startsWith('image/'));
+
 
   useEffect(() => {
     // Evita que vídeos da galeria continuem a tocar por trás do editor.
@@ -170,9 +173,6 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
     })();
     return () => { cancelled = true; };
   }, [initialMediaUrl, initialMediaFile, initialMediaName]);
-
-  const isVideo = mediaFiles.length === 1 && mediaFiles[0]?.type.startsWith('video/');
-  const isPhotos = mediaFiles.length > 0 && mediaFiles.every(file => file.type.startsWith('image/'));
 
   function chooseMedia(files) {
     const chosen = Array.from(files || []);
