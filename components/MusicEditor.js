@@ -38,7 +38,7 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
         if (!response.ok) throw new Error('Não foi possível carregar a biblioteca de músicas.');
         const catalog = await response.json();
         const tracks = (Array.isArray(catalog) ? catalog : [catalog]).map(track => {
-          const path = String(track.ficheiro || '').replace(/^\\/+/, '');
+          const path = String(track.ficheiro || '').startsWith('/') ? String(track.ficheiro || '').slice(1) : String(track.ficheiro || '');
           const { data } = supabase.storage.from('sounds').getPublicUrl(path);
           return { ...track, audioUrl: data?.publicUrl || '' };
         }).filter(track => track.audioUrl);
