@@ -54,7 +54,7 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
-  const [screen,setScreen]=useState('media'),[soundMode,setSoundMode]=useState(''),[search,setSearch]=useState(''),[genre,setGenre]=useState('Todos'),[favorites,setFavorites]=useState([]),[previewId,setPreviewId]=useState(''),[previewTime,setPreviewTime]=useState(0); const previewRef=useRef(null);
+  const [screen,setScreen]=useState('media'),[soundMode,setSoundMode]=useState(''),[search,setSearch]=useState(''),[genre,setGenre]=useState('Todos'),[favorites,setFavorites]=useState([]),[previewId,setPreviewId]=useState(''),[previewTime,setPreviewTime]=useState(0); const previewRef=useRef(null); const sourceVideoPreviewRef=useRef(null); const selectedMusicPreviewRef=useRef(null); const previewMixRef=useRef(null);
 
   useEffect(() => {
     // Evita que vídeos da galeria continuem a tocar por trás do editor.
@@ -62,6 +62,55 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
       try { media.pause(); } catch (_) {}
     });
   }, []);
+
+  // Pré-visualização real da mistura: áudio da galeria e faixa escolhida
+  // passam por controlos de ganho independentes, tal como na exportação.
+  useEffect(() => {
+    if (screen !== 'adjust' || !isVideo || !sourceVideoPreviewRef.current || !selectedMusicPreviewRef.current) return;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const video = sourceVideoPreviewRef.current;
+    const music = selectedMusicPreviewRef.current;
+    try {
+      const videoGain = context.createGain();
+      const musicGain = context.createGain();
+      const videoSource = context.createMediaElementSource(video);
+      const musicSource = context.createMediaElementSource(music);
+      videoGain.gain.value = originalVolume;
+      musicGain.gain.value = musicVolume;
+      videoSource.connect(videoGain).connect(context.destination);
+      musicSource.connect(musicGain).connect(context.destination);
+      previewMixRef.current = { context, videoGain, musicGain, video, music };
+    } catch (err) {
+      console.error('Não foi possível preparar a pré-visualização de áudio:', err);
+      context.close().catch(() => {});
+    }
+    return () => {
+      try { video.pause(); music.pause(); } catch (_) {}
+      previewMixRef.current = null;
+      context.close().catch(() => {});
+    };
+  }, [screen, isVideo, musicUrl]);
+
+  useEffect(() => {
+    if (!previewMixRef.current) return;
+    previewMixRef.current.videoGain.gain.setTargetAtTime(originalVolume, previewMixRef.current.context.currentTime, 0.015);
+    previewMixRef.current.musicGain.gain.setTargetAtTime(musicVolume, previewMixRef.current.context.currentTime, 0.015);
+  }, [originalVolume, musicVolume]);
+
+  async function playMixedPreview() {
+    const mix = previewMixRef.current;
+    if (!mix) return;
+    try {
+      await mix.context.resume();
+      mix.video.currentTime = 0;
+      mix.music.currentTime = Math.min(musicStart, Math.max(0, musicDuration - 0.1));
+      await Promise.all([mix.video.play(), mix.music.play()]);
+    } catch (err) {
+      setError('Não foi possível iniciar a pré-visualização. Toca novamente em Reproduzir.');
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -298,9 +347,9 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
       <section className="musicPanel">
         <header className="topbar"><button className="back" onClick={()=>screen==='media'?onClose?.():setScreen(screen==='sound'?'media':screen==='library'?'sound':'library')} disabled={busy}>‹</button><div className="brand"><small>TALAZA STUDIO</small><b>{screen==='library'?'Music':screen==='adjust'?'Ajustar música':screen==='sound'?'Som do vídeo':'Criar vídeo'}</b></div><button className="close" onClick={onClose} disabled={busy}>×</button></header>
         {screen==='media'&&<main className="screen"><div className="intro"><small>PASSO 01</small><h1>Escolhe o teu conteúdo</h1><p>Começa por selecionar um vídeo ou fotografias.</p></div><label className="upload"><span>＋</span><b>Escolher {videoOnly?'vídeo':'vídeo ou fotografias'}</b><small>Um vídeo ou várias fotografias</small><input type="file" accept={videoOnly?'video/mp4,video/webm,video/quicktime':'image/*,video/mp4,video/webm,video/quicktime'} multiple={!videoOnly} onChange={e=>{chooseMedia(e.target.files);e.target.value='';}} disabled={busy}/></label>{mediaFiles.length>0&&<div className="selected"><b>{isVideo?'Vídeo selecionado':mediaFiles.length+' fotografias selecionadas'}</b>{isVideo&&<video src={mediaFiles[0]._previewUrl} controls playsInline/>}{isPhotos&&<div className="thumbs">{mediaFiles.slice(0,6).map((f,i)=><img key={i} src={f._previewUrl} alt={'Foto '+(i+1)}/>)}</div>}<button className="primary" onClick={()=>setScreen('sound')}>Continuar →</button></div>}{isPhotos&&<div className="photoOptions"><label>Tempo por foto<select value={photoDuration} onChange={e=>setPhotoDuration(Number(e.target.value))}><option value={3}>3 segundos</option><option value={4}>4 segundos</option><option value={5}>5 segundos</option><option value={7}>7 segundos</option></select></label><label>Formato<select value={ratio} onChange={e=>setRatio(e.target.value)}><option value="9:16">Vertical 9:16</option><option value="1:1">Quadrado 1:1</option></select></label></div>}</main>}
-        {screen==='sound'&&<main className="screen"><div className="intro"><small>PASSO 02</small><h1>Como queres o teu vídeo?</h1><p>Escolhe se queres manter apenas o som original ou adicionar música.</p></div><button type="button" className={'soundChoice'+(soundMode==='silent'?' selectedChoice':'')} onClick={() => { if (!busy) setSoundMode('silent'); }} disabled={busy} aria-pressed={soundMode==='silent'}><span>🔇</span><div><b>Sem som</b><small>{isVideo?'Criar uma cópia sem áudio':'Criar apresentação sem música'}</small></div><i>{soundMode==='silent'?'✓':'○'}</i></button><button type="button" className={'soundChoice gold'+(soundMode==='music'?' selectedChoice':'')} onClick={() => { if (!busy) { setSoundMode('music'); if (previewRef.current) { previewRef.current.pause(); previewRef.current.currentTime = 0; } setPreviewId(''); setScreen('library'); } }} disabled={busy} aria-pressed={soundMode==='music'}><span>🔊</span><div><b>Com som</b><small>Abrir a Biblioteca de músicas TALAZA</small></div><i>→</i></button>{soundMode==='silent'&&<button type="button" className="primary" onClick={createSilentVideo} disabled={busy}>{busy?'A criar vídeo…':'Seguinte →'}</button>}{isVideo&&<p className="note">Podes manter o som original do vídeo ou adicionar uma música e ajustar os dois volumes.</p>}</main>}
+        {screen==='sound'&&<main className="screen"><div className="intro"><small>PASSO 02</small><h1>Como queres o teu vídeo?</h1><p>Mantém o áudio original do ficheiro escolhido, sem alterações, ou acrescenta uma música de fundo.</p></div><button type="button" className={'soundChoice'+(soundMode==='silent'?' selectedChoice':'')} onClick={() => { if (!busy) setSoundMode('silent'); }} disabled={busy} aria-pressed={soundMode==='silent'}><span>🔇</span><div><b>Sem som</b><small>{isVideo?'Mantém o som original do vídeo exatamente como está, sem adicionar música.':'Cria a apresentação sem música adicionada.'}</small></div><i>{soundMode==='silent'?'✓':'○'}</i></button><button type="button" className={'soundChoice gold'+(soundMode==='music'?' selectedChoice':'')} onClick={() => { if (!busy) { setSoundMode('music'); if (previewRef.current) { previewRef.current.pause(); previewRef.current.currentTime = 0; } setPreviewId(''); setScreen('library'); } }} disabled={busy} aria-pressed={soundMode==='music'}><span>🔊</span><div><b>Com som</b><small>Abrir a Biblioteca de músicas TALAZA</small></div><i>→</i></button>{soundMode==='silent'&&<button type="button" className="primary" onClick={createSilentVideo} disabled={busy}>{busy?'A criar vídeo…':'Seguinte →'}</button>}{isVideo&&<p className="note">«Sem som» significa sem música adicional: o áudio original do vídeo permanece intacto. «Com som» permite misturar a faixa escolhida com o áudio original e ajustar cada volume separadamente.</p>}</main>}
         {screen==='library'&&<main className="screen library"><div className="search"><span>⌕</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Pesquisar músicas..."/></div><div className="sectionTitle"><b>Géneros</b><small>{musicTracks.length} músicas</small></div><div className="genres">{genreOptions.map((g,i)=><button key={g} className={'genre g'+(i%6)+(genre===g?' active':'')} onClick={()=>setGenre(g)}>{g}</button>)}</div><div className="sectionTitle"><b>{genre==='Todos'?'Todas as músicas':genre}</b><small>{visibleTracks.length} faixas</small></div>{musicLoading&&<p className="empty">A carregar biblioteca…</p>}{!musicLoading&&!visibleTracks.length&&<p className="empty">Nenhuma música encontrada.</p>}<div className="tracks">{visibleTracks.map(track=><article className="track" key={track.id}><div className="cover">♫</div><div className="trackName"><b>{track.titulo}</b><small>{track.genero} · {formatTime(track.duracao_seg||0)}</small></div><button className="round" onClick={()=>playTrack(track)}>{previewId===track.id&&previewRef.current&&!previewRef.current.paused?'Ⅱ':'▶'}</button><button className={'heart'+(favorites.includes(track.id)?' liked':'')} onClick={()=>setFavorites(v=>v.includes(track.id)?v.filter(id=>id!==track.id):[...v,track.id])}>{favorites.includes(track.id)?'♥':'♡'}</button><button className="add" onClick={()=>useTrack(track)}>＋</button></article>)}</div><audio ref={previewRef} preload="none" onTimeUpdate={e=>setPreviewTime(e.currentTarget.currentTime||0)} onEnded={()=>{setPreviewId('');setPreviewTime(0);}}/>{previewId&&<div className="preview"><b>Prévia</b><div><i style={{width:Math.min(100,previewTime/Math.max(1,musicTracks.find(t=>t.id===previewId)?.duracao_seg||150)*100)+'%'}}/></div><small>{formatTime(previewTime)}</small></div>}</main>}
-        {screen==='adjust'&&<main className="screen"><div className="intro"><small>PASSO 03</small><h1>Ajusta a tua música</h1><p>Escolhe o trecho e controla o volume.</p></div><div className="chosen"><div className="cover big">♫</div><div><b>{musicTracks.find(t=>t.id===selectedMusicId)?.titulo}</b><small>{musicTracks.find(t=>t.id===selectedMusicId)?.genero} · {formatTime(musicDuration)}</small></div><button type="button" onClick={()=>setScreen('library')}>Alterar</button></div>{isVideo&&<div className="sourcePreview"><b>Vídeo original</b><video src={mediaFiles[0]._previewUrl} controls muted playsInline preload="metadata"/></div>}{isPhotos&&<div className="sourcePreview"><b>Fotografias selecionadas</b><div className="thumbs">{mediaFiles.slice(0,8).map((f,i)=><img key={i} src={f._previewUrl} alt={'Foto '+(i+1)}/>)}</div></div>}<audio controls preload="metadata" src={musicUrl} onLoadedMetadata={e=>{setMusicDuration(e.currentTarget.duration||musicDuration);setSegmentDuration(Math.min(30,e.currentTarget.duration||30));}}/><div className="adjust"><div><b>Início do trecho</b><strong>{formatTime(musicStart)}</strong></div><input type="range" min="0" max={Math.max(0,musicDuration-segmentDuration)} value={Math.min(musicStart,Math.max(0,musicDuration-segmentDuration))} onChange={e=>setMusicStart(Number(e.target.value))}/></div><div className="adjust"><b>Duração</b><div className="durations">{[15,30,60].map(n=><button key={n} className={segmentDuration===n?'active':''} disabled={musicDuration>0&&musicDuration<n} onClick={()=>setSegmentDuration(Math.min(n,musicDuration||n))}>{n}s</button>)}</div></div><div className="adjust"><div><b>Volume da música</b><strong>{Math.round(musicVolume*100)}%</strong></div><input type="range" min="0" max="1" step=".05" value={musicVolume} onChange={e=>setMusicVolume(Number(e.target.value))}/></div>{isVideo&&<div className="adjust"><div><b>Som original</b><strong>{Math.round(originalVolume*100)}%</strong></div><input type="range" min="0" max="1" step=".05" value={originalVolume} onChange={e=>setOriginalVolume(Number(e.target.value))}/></div>}<button className="primary" onClick={createVideo} disabled={busy||!musicUrl}>{busy?'A criar vídeo…':'Concluído ✓'}</button></main>}
+        {screen==='adjust'&&<main className="screen"><div className="intro"><small>PASSO 03</small><h1>Ajusta a tua música</h1><p>Escolhe o trecho e controla o volume.</p></div><div className="chosen"><div className="cover big">♫</div><div><b>{musicTracks.find(t=>t.id===selectedMusicId)?.titulo}</b><small>{musicTracks.find(t=>t.id===selectedMusicId)?.genero} · {formatTime(musicDuration)}</small></div><button type="button" onClick={()=>setScreen('library')}>Alterar</button></div>{isVideo&&<div className="sourcePreview"><b>Vídeo original</b><video ref={sourceVideoPreviewRef} src={mediaFiles[0]._previewUrl} controls playsInline preload="metadata"/></div>}{isPhotos&&<div className="sourcePreview"><b>Fotografias selecionadas</b><div className="thumbs">{mediaFiles.slice(0,8).map((f,i)=><img key={i} src={f._previewUrl} alt={'Foto '+(i+1)}/>)}</div></div>}<audio ref={selectedMusicPreviewRef} controls crossOrigin="anonymous" preload="metadata" src={musicUrl} onLoadedMetadata={e=>{setMusicDuration(e.currentTarget.duration||musicDuration);setSegmentDuration(Math.min(30,e.currentTarget.duration||30));}}/><div className="adjust"><div><b>Início do trecho</b><strong>{formatTime(musicStart)}</strong></div><input type="range" min="0" max={Math.max(0,musicDuration-segmentDuration)} value={Math.min(musicStart,Math.max(0,musicDuration-segmentDuration))} onChange={e=>setMusicStart(Number(e.target.value))}/></div><div className="adjust"><b>Duração</b><div className="durations">{[15,30,60].map(n=><button key={n} className={segmentDuration===n?'active':''} disabled={musicDuration>0&&musicDuration<n} onClick={()=>setSegmentDuration(Math.min(n,musicDuration||n))}>{n}s</button>)}</div></div>{isVideo&&<button type="button" className="primary" onClick={playMixedPreview}>▶ Pré-visualizar vídeo com os dois sons</button>}<div className="adjust"><div><b>Volume da música escolhida (som de fundo)</b><strong>{Math.round(musicVolume*100)}%</strong></div><input type="range" min="0" max="1" step=".05" value={musicVolume} onChange={e=>setMusicVolume(Number(e.target.value))}/></div>{isVideo&&<div className="adjust"><div><b>Som original do vídeo da galeria</b><strong>{Math.round(originalVolume*100)}%</strong></div><input type="range" min="0" max="1" step=".05" value={originalVolume} onChange={e=>setOriginalVolume(Number(e.target.value))}/></div>}<button className="primary" onClick={createVideo} disabled={busy||!musicUrl}>{busy?'A criar vídeo…':'Concluído ✓'}</button></main>}
         {error&&<p className="error" role="alert">{error}</p>}{progress&&<p className="progressMsg" role="status">{progress}</p>}<style jsx>{css}</style>
       </section>
     </div>
