@@ -569,7 +569,7 @@ export default function Seller() {
     });
   }
 
-  async function addPanelImages(files) {
+  async function addPanelImages(files, metadata = null) {
     const batch = files.slice(0, 10);
     return await runGallery(async () => {
       let done = 0;
@@ -578,7 +578,7 @@ export default function Seller() {
           const { url, path, mediaType } = await uploadGalleryFile(file, false);
           const { error: insertError } = await supabase
             .from('business_images')
-            .insert({ business_id: business.id, kind: 'panel', image_url: mediaType === 'video' ? null : url, video_url: mediaType === 'video' ? url : null, media_type: mediaType || 'image', storage_path: path });
+            .insert({ business_id: business.id, kind: 'panel', image_url: mediaType === 'video' ? null : url, video_url: mediaType === 'video' ? url : null, media_type: mediaType || 'image', storage_path: path, ...(mediaType === 'video' && metadata ? { name: metadata.name || null, description: metadata.description || null, price: metadata.price ?? null } : {}) });
           if (insertError) {
             await removeStored(path);
             throw insertError;
@@ -885,7 +885,7 @@ export default function Seller() {
 
       <input id="talaza-logo-upload" type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) uploadBrandAsset(file, 'logo_url'); }} />
       <input id="talaza-cover-upload" type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) uploadBrandAsset(file, 'cover_url'); }} />
-      {musicEditorOpen && <MusicEditor initialMediaUrl={musicTargetItem?.video_url || ''} initialMediaName={musicTargetItem?.name ? musicTargetItem.name + '.mp4' : 'video-original.mp4'} videoOnly onClose={() => { setMusicEditorOpen(false); setMusicTargetItem(null); }} onExport={async file => { const saved = musicTargetItem ? await replaceImage(musicTargetItem, file) : await addPanelImages([file]); if (!saved) throw new Error('Não foi possível guardar o vídeo com música.'); setMusicEditorOpen(false); setMusicTargetItem(null); return true; }} />}
+      {musicEditorOpen && <MusicEditor initialMediaUrl={musicTargetItem?.video_url || ''} initialMediaName={musicTargetItem?.name ? musicTargetItem.name + '.mp4' : 'video-original.mp4'} videoOnly onClose={() => { setMusicEditorOpen(false); setMusicTargetItem(null); }} onExport={async (file, metadata) => { const saved = await addPanelImages([file], metadata || null); if (!saved) throw new Error('Não foi possível publicar o vídeo.'); setMusicEditorOpen(false); setMusicTargetItem(null); return true; }} />}
       <main
         style={{
           maxWidth: 1000,
@@ -1219,10 +1219,10 @@ export default function Seller() {
             {sheet.type === 'text' && (
               <form onSubmit={submitText}>
                 <h3>Nome e descrição</h3>
-                <label htmlFor="talaza-nome">Nome do produto</label>
-                <input id="talaza-nome" maxLength={40} placeholder="Ex.: Cesta romântica" value={sheetName} onChange={(event) => setSheetName(event.target.value)} autoFocus />
+                <label htmlFor="talaza-nome">Título</label>
+                <input id="talaza-nome" maxLength={80} placeholder="Ex.: Cesta romântica" value={sheetName} onChange={(event) => setSheetName(event.target.value)} autoFocus />
                 <label htmlFor="talaza-desc">Descrição</label>
-                <textarea id="talaza-desc" maxLength={140} placeholder="Ex.: Flores, vinho e chocolates" value={sheetDesc} onChange={(event) => setSheetDesc(event.target.value)} />
+                <textarea id="talaza-desc" maxLength={500} placeholder="Ex.: Flores, vinho e chocolates" value={sheetDesc} onChange={(event) => setSheetDesc(event.target.value)} />
                 <div className="acoes">
                   <button type="button" className="cancelar" onClick={() => setSheet(null)}>Cancelar</button>
                   <button type="submit" className="guardar">Guardar</button>
