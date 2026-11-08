@@ -15,6 +15,26 @@ const MODES = [
 export default function ProductsView({ items = [], mode = 'normal', onModeChange, editable = false, onEdit, onDelete, businessName = '', businessId = '', sellerId = '', showNextCard = true }) {
   const [open, setOpen] = useState(null);
   const viewerVideoRef = useRef(null);
+  const viewerHistoryRef = useRef(false);
+  function openViewer(item) {
+    if (isVideo(item)) {
+      try {
+        window.history.pushState({ ...(window.history.state || {}), talazaVideoViewer: true }, '', window.location.href);
+        viewerHistoryRef.current = true;
+      } catch (_) {}
+    }
+    setOpen(item.id);
+  }
+  function closeViewer() {
+    if (viewerHistoryRef.current && window.history.state?.talazaVideoViewer) {
+      viewerHistoryRef.current = false;
+      window.history.back();
+      setOpen(null);
+      return;
+    }
+    viewerHistoryRef.current = false;
+    setOpen(null);
+  }
   const [mediaFilter, setMediaFilter] = useState('all');
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
@@ -34,9 +54,19 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
   }, [openItem?.id]);
   useEffect(() => {
     if (!openItem) return;
-    const onKeyDown = (event) => { if (event.key === 'Escape') setOpen(null); };
+    const onKeyDown = (event) => { if (event.key === 'Escape') closeViewer(); };
+    const onPopState = () => {
+      if (viewerHistoryRef.current) {
+        viewerHistoryRef.current = false;
+        setOpen(null);
+      }
+    };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('popstate', onPopState);
+    };
   }, [openItem?.id]);
   const isVideo = (item) => item?.media_type === 'video' || Boolean(item?.video_url); 
   const mediaUrl = (item) => isVideo(item) ? (item.video_url || item.image_url || '') : (item.image_url || '');
@@ -49,7 +79,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         playsInline
         preload="auto"
         aria-label={alt}
-        onClick={() => setOpen(item.id)}
+        onClick={() => openViewer(item)}
         style={{display:'block',width:'100%',height:'100%',minHeight:180,background:'#080808',objectFit:'contain',cursor:'pointer'}}
         onError={(event) => { event.currentTarget.style.display = 'none'; const fallback = event.currentTarget.nextElementSibling; if (fallback) fallback.style.display = 'grid'; }}
       />
@@ -119,11 +149,11 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         {isVideo(item) ? <div className="videoCard gridVideo"><div className="open"><Media item={item} alt={item.name || 'Vídeo'} /></div><span className="playHint" aria-hidden="true">▶</span>{editable && <button type="button" className="cardMore" onClick={() => onEdit?.(item)} aria-label="Opções do vídeo">⋮</button>}</div> : <MediaOptions url={mediaUrl(item)} fileName={item.name} storagePath={item.storage_path} className="mediaOptionsFill"><button type="button" className="open" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button></MediaOptions>}
         {isVideo(item) ? <div className="videoMeta gridMeta"><b>{item.name || ''}</b>{item.description && <span>{item.description}</span>}{item.price !== null && item.price !== undefined && item.price !== '' && <strong>{formatKz(item.price)}</strong>}</div> : <>{item.price !== null && item.price !== undefined && item.price !== '' && <span className="tag">{formatKz(item.price)}</span>}{editable && <div className="sellerActions gridActions"><button type="button" onClick={() => onEdit?.(item)}>Editar preço e descrição</button><button type="button" className="delete" onClick={() => onDelete?.(item)}>Eliminar</button></div>}</>}
       </div>)}</div>}
-      {openItem && <div className={'veu'+(isVideo(openItem)?' videoViewer':'')} onClick={(event) => { if (event.target === event.currentTarget) setOpen(null); }}>
+      {openItem && <div className={'veu'+(isVideo(openItem)?' videoViewer':'')} onClick={(event) => { if (event.target === event.currentTarget) closeViewer(); }}>
         <div className={isVideo(openItem)?'videoSheet':'sheet'} role="dialog" aria-modal="true" aria-label={openItem.name || 'Produto'}>
           {isVideo(openItem) ? <>
             <video ref={viewerVideoRef} className="viewerVideo" src={mediaUrl(openItem)} autoPlay loop muted playsInline controls preload="auto" onClick={(event)=>{const v=event.currentTarget;if(v.paused)v.play().catch(()=>{});}} />
-            <button type="button" className="viewerClose" onClick={()=>setOpen(null)} aria-label="Fechar vídeo">×</button>
+            <button type="button" className="viewerClose" onClick={closeViewer} aria-label="Fechar vídeo">×</button>
             <div className="viewerCaption">{openItem.name&&<b>{openItem.name}</b>}{openItem.description&&<p>{openItem.description}</p>}<strong>{businessName}</strong>{openItem.price!==null&&openItem.price!==undefined&&openItem.price!==''&&<span>{formatKz(openItem.price)}</span>}</div>
             {downloadError&&<p role="alert" className="downloadError viewerError">{downloadError}</p>}
           </> : <>
@@ -131,7 +161,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
             {openItem.price !== null && openItem.price !== undefined && openItem.price !== '' && <div className="bigprice">{formatKz(openItem.price)}</div>}
             {openItem.name && <h3>{openItem.name}</h3>}
             {openItem.description && <p>{openItem.description}</p>}
-            <div className="acts"><button type="button" className="download" onClick={downloadOpenMedia} disabled={downloading}>{downloading ? 'A preparar ficheiro…' : 'Transferir imagem'}</button><button type="button" className="close" onClick={() => setOpen(null)}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}><span className="messageIcon" aria-hidden="true">▣</span><span>Enviar mensagem</span><span className="messageArrow" aria-hidden="true">›</span></button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
+            <div className="acts"><button type="button" className="download" onClick={downloadOpenMedia} disabled={downloading}>{downloading ? 'A preparar ficheiro…' : 'Transferir imagem'}</button><button type="button" className="close" onClick={closeViewer}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}><span className="messageIcon" aria-hidden="true">▣</span><span>Enviar mensagem</span><span className="messageArrow" aria-hidden="true">›</span></button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
             {downloadError && <p role="alert" className="downloadError">{downloadError}</p>}
           </>}
         </div>
