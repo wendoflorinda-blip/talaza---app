@@ -1083,7 +1083,7 @@ export default function Seller() {
           <div className="gal-head">
             <h2>Conteúdo do painel</h2>
             <span className="gal-count">{panelImages.length}</span>
-            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button type="button" className="gal-add" disabled={locked} onClick={() => pickImages('media', addPanelImages)}>+ Adicionar imagens/vídeos</button><button type="button" className="gal-add" disabled={locked} onClick={() => { setMusicTargetItem(null); setMusicEditorOpen(true); }}>♫ Criar vídeo com música</button></div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button type="button" className="gal-add" disabled={locked} onClick={() => { setMusicTargetItem(null); setMusicEditorOpen(true); }}>＋ Adicionar vídeos/fotografias</button></div>
           </div>
           <div className="gal-rot">Escolha Todos, Imagens ou Vídeos; depois seleccione a forma de visualização.</div>
           <ProductsView
