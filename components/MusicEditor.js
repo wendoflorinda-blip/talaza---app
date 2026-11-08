@@ -263,13 +263,19 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
     let videoElement;
     let animationFrame;
     let maxDurationTimer;
+    let progressTimer;
+    let startedAt = 0;
     let startPhotoRender = () => {};
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       audioContext = new AudioContextClass();
       await audioContext.resume();
-      const music = new Audio(musicUrl);
+      const music = new Audio();
+      // O atributo CORS tem de ser definido antes do src; caso contrário,
+      // o Web Audio pode receber silêncio ao misturar faixas do Storage.
+      music.crossOrigin = 'anonymous';
       music.preload = 'auto';
+      music.src = musicUrl;
       music.loop = false;
       music.onended = () => {};
       await new Promise((resolve, reject) => {
@@ -349,6 +355,11 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
         recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
       });
       recorder.start(500);
+      startedAt = Date.now();
+      progressTimer = window.setInterval(() => {
+        const pct = Math.min(99, Math.floor(((Date.now() - startedAt) / (segmentDuration * 1000)) * 100));
+        setProgress('A misturar… ' + pct + '%');
+      }, 250);
       if (!isVideo) startPhotoRender();
       music.currentTime = Math.min(musicStart, Math.max(0, musicDuration - 0.1));
       await music.play();
@@ -373,7 +384,9 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
       if (!blob?.size) throw new Error('O vídeo foi criado sem conteúdo.');
       const outputMime = mimeType.split(';')[0];
       const output = new File([blob], outputMime === 'video/mp4' ? 'talaza-com-musica.mp4' : 'talaza-com-musica.webm', { type: outputMime });
-      setProgress('A guardar o vídeo na galeria…');
+      if (progressTimer) window.clearInterval(progressTimer);
+      progressTimer = null;
+      setProgress('A misturar… 100% · A guardar o vídeo na galeria…');
       await onExport(output);
       onClose?.();
     } catch (err) {
@@ -381,6 +394,7 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
       setError(err.message || 'Não foi possível criar o vídeo.');
     } finally {
       try { if (maxDurationTimer) window.clearTimeout(maxDurationTimer); } catch (_) {}
+      try { if (progressTimer) window.clearInterval(progressTimer); } catch (_) {}
       try { recorder?.stream?.getTracks().forEach(track => track.stop()); } catch (_) {}
       try { await audioContext?.close(); } catch (_) {}
       setBusy(false); setProgress('');
