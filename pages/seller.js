@@ -1201,7 +1201,7 @@ export default function Seller() {
                 <h3>{sheetItem.kind === 'main' ? 'Imagem principal ' + ((sheetItem.slot ?? 0) + 1) : (sheetItem.name || 'Imagem de painel')}</h3>
                 <button type="button" className="op" onClick={() => openPrice(sheetItem)}>Alterar preço</button>
                 <button type="button" className="op" onClick={() => openText(sheetItem)}>Alterar título e descrição</button>
-                {sheetItem.kind === 'panel' && ((sheetItem.media_type === 'video') || Boolean(sheetItem.video_url)) && <button type="button" className="op" onClick={() => { const item = sheetItem; setSheet(null); downloadGalleryItem(item); }}>Transferir vídeo</button>}
+                {sheetItem.kind === 'panel' && ((sheetItem.media_type === 'video') || Boolean(sheetItem.video_url)) ? <button type="button" className="op" onClick={() => { const item = sheetItem; setSheet(null); downloadGalleryItem(item); }}>Transferir vídeo</button> : <button type="button" className="op" onClick={() => { const item = sheetItem; setSheet(null); pickImages('media', (files) => replaceImage(item, files[0])); }}>Trocar imagem</button>}
                 <button type="button" className="op perigo" onClick={() => { const item = sheetItem; setSheet(null); removeImage(item); }}>Eliminar</button>
               </>
             )}
