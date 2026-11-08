@@ -611,7 +611,7 @@ export default function Seller() {
   }
 
   async function removeImage(item) {
-    if (typeof window !== 'undefined' && !window.confirm('Remover esta imagem?')) return;
+    if (typeof window !== 'undefined' && !window.confirm('Tens a certeza?')) return;
     await runGallery(async () => {
       const { data: deleted, error: deleteError } = await supabase
         .from('business_images')
@@ -1170,15 +1170,9 @@ export default function Seller() {
             {sheet.type === 'menu' && (
               <>
                 <h3>{sheetItem.kind === 'main' ? 'Imagem principal ' + ((sheetItem.slot ?? 0) + 1) : (sheetItem.name || 'Imagem de painel')}</h3>
-                <button type="button" className="op" onClick={() => openPrice(sheetItem)}>Alterar ou adicionar preço</button>
-                <button type="button" className="op" onClick={() => openText(sheetItem)}>Editar nome e descrição</button>
-                {sheetItem.kind === 'panel' && (
-                  <>
-                    {((sheetItem.media_type === 'video') || Boolean(sheetItem.video_url)) && <button type="button" className="op" onClick={() => { setMusicTargetItem(sheetItem); setMusicEditorOpen(true); setSheet(null); }}>♫ Adicionar música ao vídeo</button>}
-                  </>
-                )}
-                <button type="button" className="op" onClick={() => { const item = sheetItem; setSheet(null); pickImages('media', (files) => replaceImage(item, files[0])); }}>Trocar imagem/vídeo</button>
-                <button type="button" className="op perigo" onClick={() => { const item = sheetItem; setSheet(null); removeImage(item); }}>Remover</button>
+                <button type="button" className="op" onClick={() => openPrice(sheetItem)}>Alterar preço</button>
+                <button type="button" className="op" onClick={() => openText(sheetItem)}>Alterar título e descrição</button>
+                <button type="button" className="op perigo" onClick={() => { const item = sheetItem; setSheet(null); removeImage(item); }}>Eliminar</button>
               </>
             )}
             {sheet.type === 'price' && (
