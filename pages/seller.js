@@ -610,6 +610,35 @@ export default function Seller() {
     });
   }
 
+  async function downloadGalleryItem(item) {
+    if (!item) return;
+    try {
+      let blob = null;
+      const url = item.video_url || item.image_url || '';
+      if (item.storage_path) {
+        const { data, error: storageError } = await supabase.storage.from('business-media').download(item.storage_path);
+        if (!storageError && data) blob = data;
+      }
+      if (!blob && url) {
+        const response = await fetch(url, { mode: 'cors', credentials: 'omit' });
+        if (!response.ok) throw new Error('Não foi possível obter o ficheiro.');
+        blob = await response.blob();
+      }
+      if (!blob?.size) throw new Error('O ficheiro está indisponível.');
+      const objectUrl = URL.createObjectURL(blob);
+      const isVideo = item.media_type === 'video' || Boolean(item.video_url);
+      const ext = blob.type.includes('webm') ? 'webm' : blob.type.includes('quicktime') ? 'mov' : isVideo ? 'mp4' : 'jpg';
+      const name = (item.name || (isVideo ? 'video-talaza' : 'imagem-talaza')).replace(/[^a-z0-9-_ ]/gi, '').trim() || 'talaza-media';
+      const link = document.createElement('a');
+      link.href = objectUrl; link.download = name + '.' + ext; link.rel = 'noopener';
+      document.body.appendChild(link); link.click(); link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
+      setNotice('Transferência iniciada.');
+    } catch (downloadError) {
+      setError(downloadError.message || 'Não foi possível transferir o vídeo.');
+    }
+  }
+
   async function removeImage(item) {
     if (typeof window !== 'undefined' && !window.confirm('Tens a certeza?')) return;
     await runGallery(async () => {
@@ -1172,6 +1201,7 @@ export default function Seller() {
                 <h3>{sheetItem.kind === 'main' ? 'Imagem principal ' + ((sheetItem.slot ?? 0) + 1) : (sheetItem.name || 'Imagem de painel')}</h3>
                 <button type="button" className="op" onClick={() => openPrice(sheetItem)}>Alterar preço</button>
                 <button type="button" className="op" onClick={() => openText(sheetItem)}>Alterar título e descrição</button>
+                {sheetItem.kind === 'panel' && ((sheetItem.media_type === 'video') || Boolean(sheetItem.video_url)) && <button type="button" className="op" onClick={() => { const item = sheetItem; setSheet(null); downloadGalleryItem(item); }}>Transferir vídeo</button>}
                 <button type="button" className="op perigo" onClick={() => { const item = sheetItem; setSheet(null); removeImage(item); }}>Eliminar</button>
               </>
             )}
