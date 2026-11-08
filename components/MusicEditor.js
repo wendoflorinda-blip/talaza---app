@@ -57,6 +57,13 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
   const [screen,setScreen]=useState('media'),[search,setSearch]=useState(''),[genre,setGenre]=useState('Todos'),[favorites,setFavorites]=useState([]),[previewId,setPreviewId]=useState(''),[previewTime,setPreviewTime]=useState(0); const previewRef=useRef(null);
 
   useEffect(() => {
+    // Evita que vídeos da galeria continuem a tocar por trás do editor.
+    document.querySelectorAll('video, audio').forEach(media => {
+      try { media.pause(); } catch (_) {}
+    });
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     async function loadMusicCatalog() {
       setMusicLoading(true);
@@ -146,7 +153,7 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
   const genreOptions=['Todos','Afrobeat','Amapiano','Gospel','Zouk','House','Ambiente','Romântica','Instrumental','Motivacional',...musicTracks.map(t=>t.genero).filter(Boolean)].filter((v,i,a)=>a.indexOf(v)===i);
   const visibleTracks=musicTracks.filter(t=>(genre==='Todos'||t.genero===genre)&&[t.titulo,t.artista,t.genero,t.humor].some(v=>String(v||'').toLowerCase().includes(search.toLowerCase())));
   function playTrack(track){const a=previewRef.current;if(!a)return;if(previewId===track.id&&!a.paused){a.pause();return;}setPreviewId(track.id);a.src=track.audioUrl;a.currentTime=0;a.play().catch(()=>setError('Não foi possível reproduzir a prévia.'));}
-  function useTrack(track){setSelectedMusicId(track.id);setMusicUrl(track.audioUrl);setMusicDuration(Number(track.duracao_seg)||0);setMusicStart(0);setSegmentDuration(Math.min(30,Number(track.duracao_seg)||30));if(previewRef.current)previewRef.current.pause();setPreviewId('');setScreen('adjust');}
+  function useTrack(track){setSelectedMusicId(track.id);setMusicUrl(track.audioUrl);setMusicDuration(Number(track.duracao_seg)||0);setMusicStart(0);setSegmentDuration(Math.min(30,Number(track.duracao_seg)||30));if(previewRef.current){previewRef.current.pause();previewRef.current.currentTime=0;}setPreviewId('');setPreviewTime(0);setScreen('adjust');}
   async function createSilentVideo(){if(!mediaFiles.length||busy)return;if(isVideo){setBusy(true);try{await onExport(mediaFiles[0]);onClose?.();}catch(e){setError(e.message||'Não foi possível guardar o vídeo.');}finally{setBusy(false);}return;}setBusy(true);setError('');setProgress('A criar vídeo sem som…');let stream,recorder,frame;try{const canvas=document.createElement('canvas'),size=ratio==='1:1'?[720,720]:[720,1280];canvas.width=size[0];canvas.height=size[1];const ctx=canvas.getContext('2d');if(!ctx||!canvas.captureStream||typeof MediaRecorder==='undefined')throw new Error('Este navegador não suporta a criação de vídeo.');const images=await Promise.all(mediaFiles.map(file=>new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('Não foi possível abrir uma fotografia.'));img.src=file._previewUrl;})));stream=canvas.captureStream(30);const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4'].find(v=>MediaRecorder.isTypeSupported(v));if(!mime)throw new Error('Formato de vídeo não suportado.');const chunks=[];recorder=new MediaRecorder(stream,{mimeType:mime});const done=new Promise((resolve,reject)=>{recorder.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data);};recorder.onerror=()=>reject(new Error('Falha ao criar vídeo.'));recorder.onstop=()=>resolve(new Blob(chunks,{type:mime}));});const total=images.length*photoDuration*1000;let start=0;const render=now=>{if(!start)start=now;const elapsed=now-start,index=Math.min(images.length-1,Math.floor(elapsed/(photoDuration*1000)));drawCover(ctx,images[index],canvas.width,canvas.height);if(elapsed<total&&recorder.state==='recording')frame=requestAnimationFrame(render);else if(recorder.state==='recording')recorder.stop();};recorder.start(500);frame=requestAnimationFrame(render);const blob=await done;if(!blob.size)throw new Error('O vídeo ficou vazio.');const type=mime.split(';')[0];await onExport(new File([blob],type==='video/mp4'?'talaza-sem-som.mp4':'talaza-sem-som.webm',{type}));onClose?.();}catch(e){setError(e.message||'Não foi possível criar o vídeo sem som.');}finally{if(frame)cancelAnimationFrame(frame);stream?.getTracks().forEach(t=>t.stop());setBusy(false);setProgress('');}}
 
   async function createVideo() {
@@ -160,6 +167,7 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
     let recorder;
     let videoElement;
     let animationFrame;
+    let maxDurationTimer;
     let startPhotoRender = () => {};
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -168,7 +176,7 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
       const music = new Audio(musicUrl);
       music.preload = 'auto';
       music.loop = false;
-      music.onended = () => { music.currentTime = musicStart; music.play().catch(() => {}); };
+      music.onended = () => {};
       await new Promise((resolve, reject) => {
         music.oncanplay = resolve;
         music.onerror = () => reject(new Error('Não foi possível abrir a faixa de música.'));
@@ -181,9 +189,8 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
       const mixedAudio = audioContext.createMediaStreamDestination();
       musicSource.connect(musicGain);
       musicGain.connect(mixedAudio);
-      musicGain.connect(audioContext.destination);
       music.ontimeupdate = () => {
-        if (music.currentTime >= musicStart + segmentDuration) music.currentTime = musicStart;
+        if (music.currentTime >= musicStart + segmentDuration) music.pause();
       };
 
       let videoTracks = [];
@@ -193,6 +200,7 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
         videoElement.src = mediaFiles[0]._previewUrl;
         videoElement.playsInline = true;
         videoElement.preload = 'auto';
+        videoElement.controls = false;
         await new Promise((resolve, reject) => {
           videoElement.onloadedmetadata = resolve;
           videoElement.onerror = () => reject(new Error('Não foi possível abrir o vídeo escolhido.'));
@@ -207,7 +215,6 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
         originalGain.gain.value = originalVolume;
         originalSource.connect(originalGain);
         originalGain.connect(mixedAudio);
-        originalGain.connect(audioContext.destination);
         stopPlayback = () => videoElement.pause();
       } else {
         const canvas = document.createElement('canvas');
@@ -223,7 +230,7 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
         })));
         videoTracks = canvas.captureStream(30).getVideoTracks();
         let startedAt = 0;
-        const durationMs = mediaFiles.length * photoDuration * 1000;
+        const durationMs = Math.min(mediaFiles.length * photoDuration * 1000, segmentDuration * 1000);
         const render = now => {
           if (!startedAt) startedAt = now;
           const elapsed = now - startedAt;
@@ -250,8 +257,14 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
       if (!isVideo) startPhotoRender();
       music.currentTime = Math.min(musicStart, Math.max(0, musicDuration - 0.1));
       await music.play();
+      maxDurationTimer = window.setTimeout(() => {
+        if (recorder?.state === 'recording') recorder.stop();
+        videoElement?.pause();
+        music.pause();
+      }, segmentDuration * 1000);
       if (isVideo) {
         setProgress('A misturar o som original com a música…');
+        videoElement.currentTime = 0;
         await videoElement.play();
         videoElement.onended = () => { if (recorder.state === 'recording') recorder.stop(); };
         videoElement.onerror = () => { if (recorder.state === 'recording') recorder.stop(); };
@@ -259,6 +272,7 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
         setProgress('A criar a apresentação de fotografias…');
       }
       const blob = await completed;
+      window.clearTimeout(maxDurationTimer);
       stopPlayback();
       music.pause();
       if (!blob?.size) throw new Error('O vídeo foi criado sem conteúdo.');
@@ -271,6 +285,7 @@ export default function MusicEditor({ onExport, onClose, initialMediaFile = null
       console.error('Erro no editor de música:', err);
       setError(err.message || 'Não foi possível criar o vídeo.');
     } finally {
+      try { if (maxDurationTimer) window.clearTimeout(maxDurationTimer); } catch (_) {}
       try { recorder?.stream?.getTracks().forEach(track => track.stop()); } catch (_) {}
       try { await audioContext?.close(); } catch (_) {}
       setBusy(false); setProgress('');
