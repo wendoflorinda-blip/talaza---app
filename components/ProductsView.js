@@ -12,7 +12,7 @@ const MODES = [
   { id: 'normal', title: 'Normal', hint: 'Opção 3 · grade' }
 ];
 
-export default function ProductsView({ items = [], mode = 'normal', onModeChange, editable = false, onEdit, businessName = '', businessId = '', sellerId = '', showNextCard = true }) {
+export default function ProductsView({ items = [], mode = 'normal', onModeChange, editable = false, onEdit, onDelete, businessName = '', businessId = '', sellerId = '', showNextCard = true }) {
   const [open, setOpen] = useState(null);
   const [mediaFilter, setMediaFilter] = useState('all');
   const [downloading, setDownloading] = useState(false);
@@ -87,6 +87,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
           <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : ''}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
           {isVideo(item) ? <MediaOptions url={mediaUrl(item)} isVideo fileName={item.name} storagePath={item.storage_path} className="mediaOptionsFill"><div className="videoWrap"><div className="im r916"><Media item={item} alt={item.name || 'Vídeo'} /></div></div></MediaOptions> : <MediaOptions url={mediaUrl(item)} fileName={item.name} storagePath={item.storage_path} className="mediaOptionsFill"><button type="button" className="im r916" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button></MediaOptions>}
           <div className="cap"><span className="dash">–</span><span><b>{item.name || ''}</b>{item.description ? ' · ' + item.description : ''}</span></div>
+          {editable && <div className="sellerActions"><button type="button" onClick={() => onEdit?.(item)}>Editar preço e descrição</button><button type="button" className="delete" onClick={() => onDelete?.(item)}>Eliminar</button></div>}
         </article>)}
       </div>}
       {visibleItems.length > 0 && current === 'deslize' && <>
@@ -95,12 +96,13 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
           <div className="row"><span className="price">{item.price !== null && item.price !== undefined && item.price !== '' ? formatKz(item.price) : ''}</span>{editable && <button type="button" className="more" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}</div>
           {isVideo(item) ? <MediaOptions url={mediaUrl(item)} isVideo fileName={item.name} storagePath={item.storage_path} className="mediaOptionsFill"><div className="videoWrap"><div className="im r11"><Media item={item} alt={item.name || 'Vídeo'} /></div></div></MediaOptions> : <MediaOptions url={mediaUrl(item)} fileName={item.name} storagePath={item.storage_path} className="mediaOptionsFill"><button type="button" className="im r11" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button></MediaOptions>}
           <div className="cap"><span className="dash">–</span><span>{item.name && <b>{item.name}</b>}{item.description ? ' · ' + item.description : ''}</span></div>
+          {editable && <div className="sellerActions"><button type="button" onClick={() => onEdit?.(item)}>Editar preço e descrição</button><button type="button" className="delete" onClick={() => onDelete?.(item)}>Eliminar</button></div>}
         </article>)}{showNextCard && <div className="next">Próximo negócio<small>Continue a deslizar</small></div>}</div>
       </>}
       {visibleItems.length > 0 && current === 'normal' && <div className="grid">{visibleItems.map((item) => <div className="cell" key={item.id}>
         {isVideo(item) ? <MediaOptions url={mediaUrl(item)} isVideo fileName={item.name} storagePath={item.storage_path} className="mediaOptionsFill"><div className="videoWrap gridVideo"><div className="open"><Media item={item} alt={item.name || 'Vídeo'} /></div></div></MediaOptions> : <MediaOptions url={mediaUrl(item)} fileName={item.name} storagePath={item.storage_path} className="mediaOptionsFill"><button type="button" className="open" onClick={() => setOpen(item.id)} aria-label={'Ampliar ' + (item.name || 'imagem')}><Media item={item} alt={item.name || 'Produto'} /></button></MediaOptions>}
         {item.price !== null && item.price !== undefined && item.price !== '' && <span className="tag">{formatKz(item.price)}</span>}
-        {editable && <button type="button" className="more abs" onClick={() => onEdit?.(item)} aria-label="Opções do produto">⋮</button>}
+        {editable && <div className="sellerActions gridActions"><button type="button" onClick={() => onEdit?.(item)}>Editar preço e descrição</button><button type="button" className="delete" onClick={() => onDelete?.(item)}>Eliminar</button></div>}
       </div>)}</div>}
       {openItem && <div className="veu" onClick={(event) => { if (event.target === event.currentTarget) setOpen(null); }}>
         <div className="sheet" role="dialog" aria-modal="true" aria-label={openItem.name || 'Produto'}>
@@ -114,7 +116,8 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
       </div>}
       <style jsx>{`
         .pv button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}.pv :global(.mediaOptionsFill){width:100%;height:100%}.pv :global(.modalMediaOptions){width:100%;margin-bottom:10px}.pv :global(.modalMediaOptions .big){margin-bottom:0}
-        .mediaFilters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:10px}.filter{padding:10px 7px!important;border:1px solid #D9E3DF!important;border-radius:10px!important;background:#fff!important;color:#36564B!important;font-weight:800!important;font-size:12px!important}.filter.selected{background:#0F6E5C!important;border-color:#0F6E5C!important;color:#fff!important}
+  .sellerActions{display:flex;gap:7px;padding:8px 0 4px}.sellerActions button{flex:1;min-height:36px;border:1px solid #0a5b45;border-radius:9px;background:#fff;color:#075b4e;font-size:12px;font-weight:800;padding:7px}.sellerActions button.delete{border-color:#c83c35;color:#b42318}.gridActions{grid-column:1/-1;padding:0 4px 8px}
+      .mediaFilters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:10px}.filter{padding:10px 7px!important;border:1px solid #D9E3DF!important;border-radius:10px!important;background:#fff!important;color:#36564B!important;font-weight:800!important;font-size:12px!important}.filter.selected{background:#0F6E5C!important;border-color:#0F6E5C!important;color:#fff!important}
         .modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px}
         .mode{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-align:left;padding:11px 9px!important;border-radius:13px;border:2px solid #DBE4E0!important;background:#F8FAF9!important;min-height:80px;color:#075B4E}
         .mode b{font-size:13px;line-height:1.1}.mode small{color:#5A6A64;font-size:10.5px;line-height:1.2}
