@@ -1045,7 +1045,11 @@ export default function Seller() {
                     <button type="button" className="kb" aria-label="Opções da imagem" disabled={galleryBusy} onClick={() => setSheet({ type: 'menu', id: item.id })}>⋮</button>
                   )}
                   {!subscriptionPending && (
-                    <button type="button" className="edit" disabled={galleryBusy} onClick={() => openPrice(item)}>✎ Alterar ou adicionar preço</button>
+                    <div className="mainActions">
+                      <button type="button" className="edit" disabled={galleryBusy} onClick={() => openPrice(item)}>✎ Preço</button>
+                      <button type="button" className="edit" disabled={galleryBusy} onClick={() => openText(item)}>✎ Descrição</button>
+                      <button type="button" className="deleteAction" disabled={galleryBusy} onClick={() => removeImage(item)}>Eliminar</button>
+                    </div>
                   )}
                 </article>
               ) : (
@@ -1167,9 +1171,9 @@ export default function Seller() {
               <>
                 <h3>{sheetItem.kind === 'main' ? 'Imagem principal ' + ((sheetItem.slot ?? 0) + 1) : (sheetItem.name || 'Imagem de painel')}</h3>
                 <button type="button" className="op" onClick={() => openPrice(sheetItem)}>Alterar ou adicionar preço</button>
+                <button type="button" className="op" onClick={() => openText(sheetItem)}>Editar nome e descrição</button>
                 {sheetItem.kind === 'panel' && (
                   <>
-                    <button type="button" className="op" onClick={() => openText(sheetItem)}>Editar nome e descrição</button>
                     {((sheetItem.media_type === 'video') || Boolean(sheetItem.video_url)) && <button type="button" className="op" onClick={() => { setMusicTargetItem(sheetItem); setMusicEditorOpen(true); setSheet(null); }}>♫ Adicionar música ao vídeo</button>}
                   </>
                 )}
@@ -1222,6 +1226,7 @@ export default function Seller() {
         .gal-content{padding:14px;border-top:1px solid #EDF2EF}
         .gal-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
         .gal-head h2{margin:0;font-size:19px;color:#075B4E;flex:1}
+.mainActions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.mainActions .edit{flex:1;min-width:0;padding:8px 7px;font-size:11px}.deleteAction{border:1px solid #c83c35;background:#fff;color:#b42318;border-radius:9px;padding:8px 10px;font-weight:800;font-size:11px;cursor:pointer}.deleteAction:disabled{opacity:.55}
         .gal-count{font-weight:700;color:#5A6A64;font-size:14px}
         .gal-add{background:#075B4E;color:#fff;font-weight:700;font-size:13px;padding:8px 12px;border-radius:10px;border:0;cursor:pointer}
         .gal-add:disabled{opacity:.5;cursor:not-allowed}
