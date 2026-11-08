@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { formatKz } from '../lib/imageTools';
 import { supabase } from '../lib/supabaseClient';
@@ -14,6 +14,7 @@ const MODES = [
 
 export default function ProductsView({ items = [], mode = 'normal', onModeChange, editable = false, onEdit, onDelete, businessName = '', businessId = '', sellerId = '', showNextCard = true }) {
   const [open, setOpen] = useState(null);
+  const viewerVideoRef = useRef(null);
   const [mediaFilter, setMediaFilter] = useState('all');
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
@@ -21,6 +22,19 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
   const current = VIEW_MODES.includes(mode) ? mode : 'normal';
   const visibleItems = useMemo(() => items.filter((item) => mediaFilter === 'all' || (mediaFilter === 'video' ? (item?.media_type === 'video' || Boolean(item?.video_url)) : !(item?.media_type === 'video' || Boolean(item?.video_url)))), [items, mediaFilter]);
   const openItem = open ? visibleItems.find((item) => item.id === open) : null;
+  useEffect(() => {
+    if (!openItem || !isVideo(openItem) || !viewerVideoRef.current) return;
+    const video = viewerVideoRef.current;
+    video.currentTime = 0;
+    video.play().catch(() => {});
+    return () => { video.pause(); video.removeAttribute('src'); video.load(); };
+  }, [openItem?.id]);
+  useEffect(() => {
+    if (!openItem) return;
+    const onKeyDown = (event) => { if (event.key === 'Escape') setOpen(null); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [openItem?.id]);
   const isVideo = (item) => item?.media_type === 'video' || Boolean(item?.video_url); 
   const mediaUrl = (item) => isVideo(item) ? (item.video_url || item.image_url || '') : (item.image_url || '');
   const Media = ({ item, alt = 'Produto', className = '' }) => isVideo(item)
@@ -28,13 +42,14 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         key={item.id}
         className={className}
         src={mediaUrl(item)}
-        controls
+        muted
         playsInline
-        preload="auto"
+        preload="metadata"
         aria-label={alt}
-        style={{display:'block',width:'100%',height:'100%',minHeight:180,background:'#080808',objectFit:'contain'}}
+        onClick={() => setOpen(item.id)}
+        style={{display:'block',width:'100%',height:'100%',minHeight:180,background:'#080808',objectFit:'contain',cursor:'pointer'}}
         onError={(event) => { event.currentTarget.style.display = 'none'; const fallback = event.currentTarget.nextElementSibling; if (fallback) fallback.style.display = 'grid'; }}
-      ><source src={mediaUrl(item)} type="video/mp4" /></video>
+      />
     : <img className={className} src={mediaUrl(item)} alt={alt} loading="lazy" />;
   async function downloadOpenMedia() {
     if (!openItem || downloading) return;
@@ -104,14 +119,22 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         {item.price !== null && item.price !== undefined && item.price !== '' && <span className="tag">{formatKz(item.price)}</span>}
         {editable && <div className="sellerActions gridActions"><button type="button" onClick={() => onEdit?.(item)}>Editar preço e descrição</button><button type="button" className="delete" onClick={() => onDelete?.(item)}>Eliminar</button></div>}
       </div>)}</div>}
-      {openItem && <div className="veu" onClick={(event) => { if (event.target === event.currentTarget) setOpen(null); }}>
-        <div className="sheet" role="dialog" aria-modal="true" aria-label={openItem.name || 'Produto'}>
-          <MediaOptions url={mediaUrl(openItem)} isVideo={isVideo(openItem)} fileName={openItem.name} storagePath={openItem.storage_path} className="modalMediaOptions"><Media item={openItem} className="big" alt={openItem.name || 'Produto'} /></MediaOptions>
-          {openItem.price !== null && openItem.price !== undefined && openItem.price !== '' && <div className="bigprice">{formatKz(openItem.price)}</div>}
-          {openItem.name && <h3>{openItem.name}</h3>}
-          {openItem.description && <p>{openItem.description}</p>}
-          <div className="acts"><button type="button" className="download" onClick={downloadOpenMedia} disabled={downloading}>{downloading ? 'A preparar ficheiro…' : 'Transferir ' + (isVideo(openItem) ? 'vídeo' : 'imagem')}</button><button type="button" className="close" onClick={() => setOpen(null)}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}><span className="messageIcon" aria-hidden="true">▣</span><span>Enviar mensagem</span><span className="messageArrow" aria-hidden="true">›</span></button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
-          {downloadError && <p role="alert" className="downloadError">{downloadError}</p>}
+      {openItem && <div className={'veu'+(isVideo(openItem)?' videoViewer':'')} onClick={(event) => { if (event.target === event.currentTarget) setOpen(null); }}>
+        <div className={isVideo(openItem)?'videoSheet':'sheet'} role="dialog" aria-modal="true" aria-label={openItem.name || 'Produto'}>
+          {isVideo(openItem) ? <>
+            <video ref={viewerVideoRef} className="viewerVideo" src={mediaUrl(openItem)} autoPlay loop playsInline controls={false} preload="auto" onClick={(event)=>{const v=event.currentTarget;if(v.paused)v.play().catch(()=>{});else v.pause();}} />
+            <button type="button" className="viewerClose" onClick={()=>setOpen(null)} aria-label="Fechar vídeo">×</button>
+            {editable && <button type="button" className="viewerMore" onClick={()=>onEdit?.(openItem)} aria-label="Mais opções">⋮</button>}
+            <div className="viewerCaption">{openItem.name&&<b>{openItem.name}</b>}{openItem.description&&<p>{openItem.description}</p>}<strong>{businessName}</strong>{openItem.price!==null&&openItem.price!==undefined&&openItem.price!==''&&<span>{formatKz(openItem.price)}</span>}</div>
+            {downloadError&&<p role="alert" className="downloadError viewerError">{downloadError}</p>}
+          </> : <>
+            <MediaOptions url={mediaUrl(openItem)} fileName={openItem.name} storagePath={openItem.storage_path} className="modalMediaOptions"><Media item={openItem} className="big" alt={openItem.name || 'Produto'} /></MediaOptions>
+            {openItem.price !== null && openItem.price !== undefined && openItem.price !== '' && <div className="bigprice">{formatKz(openItem.price)}</div>}
+            {openItem.name && <h3>{openItem.name}</h3>}
+            {openItem.description && <p>{openItem.description}</p>}
+            <div className="acts"><button type="button" className="download" onClick={downloadOpenMedia} disabled={downloading}>{downloading ? 'A preparar ficheiro…' : 'Transferir imagem'}</button><button type="button" className="close" onClick={() => setOpen(null)}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}><span className="messageIcon" aria-hidden="true">▣</span><span>Enviar mensagem</span><span className="messageArrow" aria-hidden="true">›</span></button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
+            {downloadError && <p role="alert" className="downloadError">{downloadError}</p>}
+          </>}
         </div>
       </div>}
       <style jsx>{`
@@ -129,7 +152,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         .cap{display:flex;gap:8px;margin-top:7px;font-size:13px;line-height:1.4;color:#14201C}.dash{color:#075B4E;font-weight:800}.vert{display:grid;gap:20px}.vert article{width:min(82vw,320px);max-width:100%;margin-inline:auto}
         .hint{font-size:13px;font-weight:700;color:#075B4E;margin-bottom:8px}.slide{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:4px}.slide article{flex:0 0 min(78vw,340px);max-width:340px;scroll-snap-align:center}.slide .next{flex:0 0 150px;scroll-snap-align:center}.next{aspect-ratio:1/1;border-radius:14px;background:linear-gradient(135deg,#075B4E,#075B4E);color:#fff;display:grid;place-items:center;text-align:center;font-weight:700;padding:16px}.next small{display:block;font-weight:400;opacity:.85;margin-top:4px}
         .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.cell{position:relative;aspect-ratio:1/1;border-radius:7px;overflow:visible;background:#E8F2EE}.cell .open{border-radius:7px;overflow:hidden}.cell .gridVideo .open{border-radius:7px;overflow:hidden}.open{display:block;width:100%;height:100%}.open img,.open video{width:100%;height:100%;object-fit:cover;display:block}.tag{position:absolute;left:4px;bottom:4px;background:rgba(15,22,20,.74);color:#fff;font-weight:800;font-size:10px;padding:2px 6px;border-radius:999px}
-        .veu{position:fixed;inset:0;background:rgba(10,20,17,.55);z-index:120;display:flex;align-items:flex-end;justify-content:center}.sheet{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}.sheet .big{width:100%;max-height:52vh;object-fit:contain;background:#E8F2EE;border-radius:14px;display:block;margin:0 0 10px;height:auto}.sheet video.big{width:100%;}.bigprice{font-weight:800;color:#075B4E;font-size:18px}.sheet h3{margin:2px 0;font-size:17px;color:#14201C}.sheet p{margin:2px 0 12px;font-size:13px;color:#5A6A64;line-height:1.5;white-space:pre-wrap}.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.acts .close,.acts .wa,.acts .download{padding:13px;border-radius:11px;font-weight:700;text-align:center;text-decoration:none}.acts .download{background:#DCEFE8;color:#075B4E;text-decoration:none;text-align:center;font-weight:800;border-radius:11px}.acts .close{background:#E9EEEC;color:#14201C}.acts .internalMessage{grid-column:1/-1;background:linear-gradient(180deg,#292929 0%,#000 100%)!important;color:#fff!important;border:1.5px solid #FFD700!important;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:50px;padding:0 17px!important;border-radius:9999px!important;font-size:14px;font-weight:800;box-shadow:0 2px 10px rgba(0,0,0,.3);box-sizing:border-box}.messageIcon{font-size:17px;line-height:1}.messageArrow{font-size:20px;line-height:1}.acts .download:disabled{opacity:.65;cursor:wait}.downloadError{grid-column:1/-1;color:#A12626!important;font-size:12px!important;margin:0!important}.acts .unavailableMessage{background:#EDF1EF;color:#7A8983;display:grid;place-items:center;padding:13px;border-radius:11px;font-size:12px;text-align:center}
+        .videoViewer{background:#000!important;align-items:center!important;justify-content:center!important}.videoSheet{position:relative;width:100%;height:100%;max-width:560px;background:#000;overflow:hidden}.viewerVideo{width:100%;height:100%;object-fit:contain;background:#000;display:block}.viewerClose,.viewerMore{position:absolute;z-index:3;top:calc(12px + env(safe-area-inset-top));width:42px;height:42px;border-radius:50%!important;background:#111b!important;color:#fff!important;font-size:28px!important;display:grid;place-items:center}.viewerClose{left:14px}.viewerMore{right:14px}.viewerCaption{position:absolute;left:0;right:0;bottom:0;padding:70px 18px calc(22px + env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.88));color:#fff;display:flex;flex-direction:column;gap:7px;pointer-events:none}.viewerCaption b{font-size:19px}.viewerCaption p{margin:0;color:#eee;font-size:14px;line-height:1.4;white-space:pre-wrap}.viewerCaption strong{font-size:13px;color:#f0d36c}.viewerCaption span{font-size:15px;font-weight:800}.viewerError{position:absolute;bottom:12px;z-index:4}.sheet{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}.sheet .big{width:100%;max-height:52vh;object-fit:contain;background:#E8F2EE;border-radius:14px;display:block;margin:0 0 10px;height:auto}.sheet video.big{width:100%;}.bigprice{font-weight:800;color:#075B4E;font-size:18px}.sheet h3{margin:2px 0;font-size:17px;color:#14201C}.sheet p{margin:2px 0 12px;font-size:13px;color:#5A6A64;line-height:1.5;white-space:pre-wrap}.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.acts .close,.acts .wa,.acts .download{padding:13px;border-radius:11px;font-weight:700;text-align:center;text-decoration:none}.acts .download{background:#DCEFE8;color:#075B4E;text-decoration:none;text-align:center;font-weight:800;border-radius:11px}.acts .close{background:#E9EEEC;color:#14201C}.acts .internalMessage{grid-column:1/-1;background:linear-gradient(180deg,#292929 0%,#000 100%)!important;color:#fff!important;border:1.5px solid #FFD700!important;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:50px;padding:0 17px!important;border-radius:9999px!important;font-size:14px;font-weight:800;box-shadow:0 2px 10px rgba(0,0,0,.3);box-sizing:border-box}.messageIcon{font-size:17px;line-height:1}.messageArrow{font-size:20px;line-height:1}.acts .download:disabled{opacity:.65;cursor:wait}.downloadError{grid-column:1/-1;color:#A12626!important;font-size:12px!important;margin:0!important}.acts .unavailableMessage{background:#EDF1EF;color:#7A8983;display:grid;place-items:center;padding:13px;border-radius:11px;font-size:12px;text-align:center}
       `}</style>
     </div>
   );
