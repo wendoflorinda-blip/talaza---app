@@ -91,6 +91,15 @@ export default function Login() {
         );
       }
 
+      const nextPath = typeof router.query.next === 'string' && router.query.next.startsWith('/') && !router.query.next.startsWith('//')
+        ? router.query.next
+        : '';
+
+      if (nextPath) {
+        await router.replace(nextPath);
+        return;
+      }
+
       if (ownedBusiness?.id) {
         await router.replace('/seller');
         return;
