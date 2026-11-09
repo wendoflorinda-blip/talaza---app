@@ -71,7 +71,10 @@ create table if not exists public.media_payment_submissions (
   reviewed_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   constraint media_payment_application_owner_match
-    check (char_length(btrim(proof_path)) > 0)
+    check (
+      char_length(btrim(proof_path)) > 0
+      and split_part(proof_path, '/', 1) = user_id::text
+    )
 );
 
 create unique index if not exists media_payment_one_pending_per_application
@@ -162,7 +165,9 @@ with check (
   user_id = (select auth.uid())
   and exists (
     select 1 from public.media_applications app
-    where app.id = application_id and app.user_id = (select auth.uid())
+    where app.id = application_id
+      and app.user_id = (select auth.uid())
+      and app.application_status in ('submitted','under_review')
   )
 );
 
