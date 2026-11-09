@@ -196,7 +196,7 @@ export default function AdminMedia() {
                 </div>
                 {app.bio && <p style={{ color: '#455366', fontSize: 13, lineHeight: 1.5 }}>{app.bio}</p>}
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 13 }}>
-                  {Object.entries(app.social_links || {}).filter(([, url]) => /^https?:\\/\\//i.test(String(url || ''))).map(([network,url]) => <a key={network} href={url} target="_blank" rel="noopener noreferrer" style={{ color: '#175B4D', fontWeight: 800 }}>{network}</a>)}
+                  {Object.entries(app.social_links || {}).filter(([, url]) => /^https?:\/\//i.test(String(url || ''))).map(([network,url]) => <a key={network} href={url} target="_blank" rel="noopener noreferrer" style={{ color: '#175B4D', fontWeight: 800 }}>{network}</a>)}
                 </div>
                 {appPayments.map((payment) => <div key={payment.id} style={{ marginTop: 12, padding: 12, background: '#F7F8FA', borderRadius: 10 }}>
                   <div style={{ color: '#465368', fontSize: 13 }}>Pagamento: <b>{Number(payment.amount).toLocaleString('pt-PT')} {payment.currency}</b> · {payment.status}{payment.payment_reference ? ' · Ref. ' + payment.payment_reference : ''}</div>
