@@ -40,7 +40,7 @@ export default function Start() {
             <div style={{ marginTop: 18, color: '#E6A900', fontWeight: 800, fontSize: 13 }}>Criar perfil de vendedor →</div>
           </Link>
 
-          <Link href="/media-creator-signup" style={{ ...card, background: 'linear-gradient(145deg,#151C35,#293C68)', border: '1px solid #B99A4A', color: '#FFFFFF' }}>
+          <Link href="/media-access" style={{ ...card, background: 'linear-gradient(145deg,#151C35,#293C68)', border: '1px solid #B99A4A', color: '#FFFFFF' }}>
             <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg,#F5D77A,#B8860B)', color: '#1E2945', display: 'grid', placeItems: 'center', fontSize: 22, marginBottom: 16 }}>▶</div>
             <h2 style={{ margin: '0 0 8px', fontSize: 20 }}>Criador de Conteúdos</h2>
             <p style={{ margin: 0, color: 'rgba(255,255,255,.82)', lineHeight: 1.55, fontSize: 13 }}>Entre na MÍDIA TALAZA para apresentar os seus conteúdos a uma audiência internacional.</p>
