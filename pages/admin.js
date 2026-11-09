@@ -1216,6 +1216,9 @@ export default function Admin() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => router.push('/admin/media')} style={styles.logout}>
+            Administração MÍDIA
+          </button>
           <button type="button" onClick={refreshAdminData} disabled={refreshing} style={{ ...styles.logout, opacity: refreshing ? .65 : 1 }}>
             {refreshing ? 'A atualizar…' : 'Atualizar painel'}
           </button>
