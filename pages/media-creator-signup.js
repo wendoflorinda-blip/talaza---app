@@ -67,6 +67,9 @@ export default function MediaCreatorSignup() {
         }
         activeUser = data?.user;
         if (!activeUser) throw new Error('Não foi possível criar a conta.');
+        if (Array.isArray(activeUser.identities) && activeUser.identities.length === 0) {
+          throw new Error('Este e-mail já está associado a uma conta TALAZA. Entre na sua conta existente para continuar, sem criar outro utilizador.');
+        }
         if (!data.session) {
           setNotice('A conta foi criada. Confirme o e-mail e depois entre na sua conta para concluir a candidatura. Os dados desta candidatura ainda não foram enviados.');
           setLoading(false);
