@@ -141,7 +141,7 @@ export default function MediaPayment() {
             {signedProof && <a href={signedProof} target="_blank" rel="noreferrer" style={{ color: '#155C4E', fontWeight: 800 }}>Ver comprovativo enviado</a>}
           </section>
 
-          {payment?.status !== 'approved' && application?.application_status !== 'rejected' && settings && (settings.bank_name || settings.account_number || settings.iban) && <section style={box}>
+          {(!payment || payment.status === 'rejected') && application?.application_status !== 'rejected' && settings && (settings.bank_name || settings.account_number || settings.iban) && <section style={box}>
             <h2 style={{ color: '#1B2744', margin: '0 0 8px', fontSize: 19 }}>Enviar comprovativo</h2>
             <form onSubmit={submitProof}>
               <label style={label} htmlFor="reference">Referência da transferência (opcional)</label>
