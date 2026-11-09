@@ -94,6 +94,10 @@ export default function AdminMedia() {
     if (!approve && !reason?.trim()) return;
     const payment = payments.find((item) => item.application_id === app.id && item.status === 'approved');
     if (approve && !payment) { alert('A candidatura só pode ser aprovada depois de um comprovativo ser validado.'); return; }
+    if (!approve && payments.some((item) => item.application_id === app.id && item.status === 'approved')) {
+      alert('Este criador já tem um pagamento confirmado. A política de reembolso ainda precisa de ser definida; não recuse a candidatura até a situação financeira ser resolvida.');
+      return;
+    }
     if (approve && !window.confirm('Aprovar a candidatura e ativar o perfil de Criador na MÍDIA TALAZA?')) return;
     setBusy(app.id);
     const { data: authData } = await supabase.auth.getUser();
