@@ -71,7 +71,14 @@ export default function AdminMedia() {
   async function reviewPayment(payment, status) {
     const note = status === 'rejected' ? window.prompt('Indique o motivo da rejeição do comprovativo:') : '';
     if (status === 'rejected' && !note?.trim()) return;
-    if (status === 'approved' && !window.confirm('Confirmar que a transferência foi recebida e corresponde ao valor do plano?')) return;
+    if (status === 'approved') {
+      const { data: plan, error: planError } = await supabase.from('media_plans').select('amount,currency').eq('id', payment.plan_id).maybeSingle();
+      if (planError || !plan || Number(plan.amount) !== Number(payment.amount) || plan.currency !== payment.currency) {
+        alert('O valor ou a moeda deste comprovativo não corresponde ao plano configurado. Não aprove o pagamento; verifique o registo.');
+        return;
+      }
+      if (!window.confirm('Confirmar que a transferência foi recebida e corresponde ao valor do plano?')) return;
+    }
     setBusy(payment.id);
     const { data: authData } = await supabase.auth.getUser();
     const { data, error } = await supabase.from('media_payment_submissions').update({
