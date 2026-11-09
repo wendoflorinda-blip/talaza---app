@@ -198,6 +198,15 @@ on public.media_subscriptions for all to authenticated
 using (exists (select 1 from public.admin_users a where a.id = (select auth.uid())))
 with check (exists (select 1 from public.admin_users a where a.id = (select auth.uid())));
 
+
+-- Explicit Data API privileges; row-level policies above remain the authorization boundary.
+grant select, insert, update, delete on public.media_plans to authenticated;
+grant select, insert, update, delete on public.media_applications to authenticated;
+grant select, insert, update, delete on public.media_payment_settings to authenticated;
+grant select, insert, update, delete on public.media_payment_submissions to authenticated;
+grant select, insert, update, delete on public.media_profiles to authenticated;
+grant select, insert, update, delete on public.media_subscriptions to authenticated;
+
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
   'media-payment-proofs',
