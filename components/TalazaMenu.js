@@ -79,6 +79,13 @@ function Icon({ type, color = COLORS.ink, size = 19 }) {
       </>
     ),
 
+    media: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="m10 9 5 3-5 3z" />
+      </>
+    ),
+
     logout: (
       <>
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -800,6 +807,17 @@ export default function TalazaMenu({
                     onClick={() => {
                       closeMenu();
                       router.push('/notificacoes');
+                    }}
+                  />
+
+                  <MenuItem
+                    icon="media"
+                    color="#B8860B"
+                    bg="#F8F0D9"
+                    label="MÍDIA TALAZA"
+                    onClick={() => {
+                      closeMenu();
+                      router.push('/media');
                     }}
                   />
 
