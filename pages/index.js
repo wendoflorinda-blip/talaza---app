@@ -129,7 +129,7 @@ export default function Home() {
 
           {/* Entrar: verde */}
           <Link
-            href="/login"
+            href="/account-entry"
             className="btn"
             style={{
               flex: 1,
@@ -147,7 +147,7 @@ export default function Home() {
               textDecoration: 'none',
             }}
           >
-            Entrar
+            Já tenho conta
           </Link>
         </div>
 
