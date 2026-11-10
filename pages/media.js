@@ -1,79 +1,102 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
+
+const tabs = ['Para si', 'Seguindo', 'Descobrir'];
 
 export default function MediaHome() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState(null);
-  const [subscription, setSubscription] = useState(null);
-  const [application, setApplication] = useState(null);
-  const [error, setError] = useState('');
+  const [user, setUser] = useState(null);
+  const [activeTab, setActiveTab] = useState('Para si');
 
-  useEffect(() => { load(); }, []);
-
-  async function load() {
-    const { data: authData } = await supabase.auth.getUser();
-    if (!authData?.user) { await router.replace('/login?next=/media'); return; }
-    const userId = authData.user.id;
-    const [{ data: creator, error: profileError }, { data: app, error: appError }] = await Promise.all([
-      supabase.from('media_profiles').select('user_id,display_name,country_id,content_category,languages,bio,status,activated_at').eq('user_id', userId).maybeSingle(),
-      supabase.from('media_applications').select('id,display_name,application_status,review_notes,created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    ]);
-    if (profileError || appError) setError((profileError || appError).message);
-    setProfile(creator || null);
-    setApplication(app || null);
-    if (creator) {
-      const { data: plan, error: planError } = await supabase.from('media_subscriptions').select('status,starts_at,expires_at,media_plans(name)').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (planError) setError(planError.message);
-      setSubscription(plan || null);
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      const { data, error } = await supabase.auth.getUser();
+      if (!mounted) return;
+      if (error || !data?.user) {
+        await router.replace('/login?next=/media');
+        return;
+      }
+      setUser(data.user);
+      setLoading(false);
     }
-    setLoading(false);
+    load();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) router.replace('/login?next=/media');
+      else setUser(session.user);
+    });
+    return () => {
+      mounted = false;
+      listener?.subscription?.unsubscribe();
+    };
+  }, [router]);
+
+  const metadata = user?.user_metadata || {};
+  const displayName = metadata.media_display_name || metadata.display_name || 'Criador';
+  const username = metadata.media_username ? '@' + String(metadata.media_username).replace(/^@+/, '') : '';
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    await router.replace('/login');
   }
 
-  const active = profile?.status === 'active' && subscription?.status === 'active' && new Date(subscription.expires_at).getTime() > Date.now();
-
-  if (loading) return <main style={{ padding: 30, color: '#243' }}>A carregar MÍDIA TALAZA…</main>;
+  if (loading) return <main style={{minHeight:'100vh',display:'grid',placeItems:'center',background:'#10172A',color:'#fff',fontFamily:'system-ui'}}>A preparar o seu Feed MÍDIA TALAZA…</main>;
 
   return (
     <>
-      <Head><title>MÍDIA TALAZA</title></Head>
-      <main style={{ minHeight: '100vh', padding: '28px 16px 60px', background: 'linear-gradient(150deg,#11182F,#24395D)', fontFamily: 'system-ui,sans-serif' }}>
-        <div style={{ maxWidth: 950, margin: '0 auto' }}>
-          <Link href="/" style={{ color: '#F2D77F', textDecoration: 'none', fontWeight: 800 }}>← TALAZA</Link>
-          <header style={{ margin: '30px 0 22px', color: '#FFF' }}>
-            <div style={{ color: '#E7C66D', letterSpacing: 2, fontSize: 12, fontWeight: 900 }}>PLATAFORMA INTERNACIONAL DE CRIADORES</div>
-            <h1 style={{ margin: '8px 0', fontSize: 36 }}>MÍDIA TALAZA</h1>
-            <p style={{ color: 'rgba(255,255,255,.75)', maxWidth: 600, lineHeight: 1.6 }}>O espaço independente para criadores, conteúdos e audiências de vários países.</p>
-          </header>
+      <Head>
+        <title>Feed | MÍDIA TALAZA</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1"/>
+      </Head>
+      <main style={{minHeight:'100vh',background:'#F4F6FA',color:'#182238',fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif"}}>
+        <header style={{background:'linear-gradient(120deg,#10172A,#24395D)',color:'#fff',padding:'18px 18px 0'}}>
+          <div style={{maxWidth:1120,margin:'0 auto'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,paddingBottom:18}}>
+              <div>
+                <div style={{fontSize:11,letterSpacing:2.5,fontWeight:900,color:'#E8C66A'}}>PLATAFORMA INTERNACIONAL DE CRIADORES</div>
+                <div style={{fontSize:25,fontWeight:950,letterSpacing:-.7,marginTop:4}}>MÍDIA <span style={{color:'#E8C66A'}}>TALAZA</span></div>
+              </div>
+              <button type="button" onClick={signOut} style={{border:'1px solid rgba(255,255,255,.28)',background:'rgba(255,255,255,.08)',color:'#fff',borderRadius:11,padding:'10px 13px',fontWeight:800,cursor:'pointer'}}>Terminar sessão</button>
+            </div>
+            <nav aria-label="Navegação do feed" style={{display:'flex',gap:8,overflowX:'auto'}}>
+              {tabs.map(tab=><button key={tab} type="button" onClick={()=>setActiveTab(tab)} style={{whiteSpace:'nowrap',border:0,borderBottom:activeTab===tab?'3px solid #E8C66A':'3px solid transparent',background:'transparent',color:activeTab===tab?'#E8C66A':'#D6DCE8',padding:'13px 16px',fontWeight:900,cursor:'pointer'}}>{tab}</button>)}
+            </nav>
+          </div>
+        </header>
 
-          {active ? <section style={{ background: '#FFF', borderRadius: 20, padding: 24 }}>
-            <div style={{ display: 'inline-block', padding: '6px 10px', borderRadius: 99, background: '#E8F5EF', color: '#17664F', fontWeight: 900, fontSize: 12 }}>CRIADOR ATIVO</div>
-            <h2 style={{ color: '#1B2744', fontSize: 28, margin: '12px 0 5px' }}>Bem-vindo, {profile.display_name}</h2>
-            <p style={{ color: '#647080', marginTop: 0 }}>{profile.content_category} · {(profile.languages || []).join(', ')}</p>
-            <div style={{ border: '1px solid #E4E8ED', borderRadius: 14, padding: 16, marginTop: 18 }}>
-              <b style={{ color: '#1B2744' }}>Plano anual</b>
-              <p style={{ color: '#647080', fontSize: 13 }}>Válido até {new Date(subscription.expires_at).toLocaleDateString('pt-PT')}</p>
+        <div style={{maxWidth:1120,margin:'0 auto',padding:'24px 16px 60px',display:'grid',gridTemplateColumns:'minmax(0,1fr) 290px',gap:20}}>
+          <section>
+            <div style={{background:'#fff',border:'1px solid #E5E9F0',borderRadius:18,padding:18,marginBottom:16}}>
+              <div style={{fontSize:12,color:'#758095',fontWeight:800}}>BEM-VINDO À MÍDIA TALAZA</div>
+              <h1 style={{fontSize:25,margin:'6px 0 3px',color:'#17233F'}}>Olá, {displayName}!</h1>
+              <div style={{fontSize:13,color:'#758095'}}>{username} {metadata.media_country ? '· '+metadata.media_country : ''}</div>
             </div>
-            <h3 style={{ color: '#1B2744', marginTop: 28 }}>O seu espaço de criador</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 }}>
-              {['Publicações e vídeos','EN LIVE','Estreias','O Povo Fala','Rede de parcerias'].map((item) => <div key={item} style={{ borderRadius: 13, background: '#F4F6F9', padding: 17, color: '#566276', fontWeight: 800 }}>{item}<div style={{ marginTop: 6, fontSize: 11, fontWeight: 500 }}>Área em preparação</div></div>)}
+            <div style={{background:'#fff',border:'1px solid #E5E9F0',borderRadius:18,padding:22,minHeight:300}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
+                <h2 style={{fontSize:19,margin:0,color:'#17233F'}}>{activeTab}</h2>
+                <span style={{fontSize:11,fontWeight:900,color:'#9A762A',background:'#FBF4E3',padding:'6px 9px',borderRadius:99}}>FEED MÍDIA</span>
+              </div>
+              <div style={{minHeight:230,display:'grid',placeItems:'center',textAlign:'center',padding:20}}>
+                <div style={{maxWidth:420}}>
+                  <div style={{width:58,height:58,borderRadius:18,margin:'0 auto 14px',display:'grid',placeItems:'center',background:'#F7F0DF',color:'#A77B20',fontSize:28}}>✦</div>
+                  <h3 style={{margin:'0 0 8px',fontSize:18,color:'#17233F'}}>O seu feed está a ser preparado</h3>
+                  <p style={{margin:0,color:'#758095',fontSize:14,lineHeight:1.7}}>A estrutura de navegação da MÍDIA TALAZA já está pronta. As publicações, vídeos e recomendações serão apresentados aqui quando a camada de conteúdos estiver ligada.</p>
+                </div>
+              </div>
             </div>
-          </section> : <section style={{ background: '#FFF', borderRadius: 20, padding: 24 }}>
-            <h2 style={{ color: '#1B2744', marginTop: 0 }}>A sua candidatura</h2>
-            {application ? <>
-              <p style={{ color: '#647080' }}>Estado: <b>{application.application_status}</b></p>
-              {application.review_notes && <p style={{ color: '#A12B36' }}>Observação: {application.review_notes}</p>}
-              <p style={{ color: '#647080', fontSize: 13 }}>O perfil de criador só será ativado após a confirmação do pagamento e a aprovação da candidatura.</p>
-              {application.application_status === 'submitted' && <Link href={'/media-payment?application=' + application.id} style={{ display: 'inline-block', marginTop: 12, background: '#1B3158', color: '#FFF', textDecoration: 'none', borderRadius: 10, padding: '12px 16px', fontWeight: 900 }}>Ver plano e pagamento</Link>}
-            </> : <>
-              <p style={{ color: '#647080' }}>Ainda não existe uma candidatura de Criador associada a esta conta.</p>
-              <Link href="/media-creator-signup" style={{ display: 'inline-block', marginTop: 12, background: '#1B3158', color: '#FFF', textDecoration: 'none', borderRadius: 10, padding: '12px 16px', fontWeight: 900 }}>Candidatar-me</Link>
-            </>}
-          </section>}
-          {error && <p role="alert" style={{ color: '#FFE0E0', marginTop: 14 }}>{error}</p>}
+          </section>
+
+          <aside style={{background:'#fff',border:'1px solid #E5E9F0',borderRadius:18,padding:18,height:'fit-content'}}>
+            <div style={{fontSize:11,letterSpacing:1.5,fontWeight:900,color:'#A77B20'}}>A SUA CONTA</div>
+            <h2 style={{fontSize:18,margin:'8px 0 4px',color:'#17233F'}}>{displayName}</h2>
+            {username && <div style={{fontSize:13,color:'#758095'}}>{username}</div>}
+            <div style={{height:1,background:'#E9EDF3',margin:'16px 0'}}/>
+            <div style={{fontSize:13,color:'#687386',lineHeight:1.7}}>Explore conteúdos de diferentes países, descubra criadores e acompanhe os perfis de que gosta.</div>
+            <div style={{marginTop:16,padding:12,borderRadius:12,background:'#F7F8FB',fontSize:12,color:'#687386'}}>Algumas ferramentas ainda estão em preparação. A conta já está ligada à área MÍDIA.</div>
+          </aside>
         </div>
       </main>
     </>
