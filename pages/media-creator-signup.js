@@ -82,14 +82,18 @@ export default function MediaCreatorSignup() {
   function toggle(list,setList,value) { setList(current => current.includes(value) ? current.filter(x=>x!==value) : [...current,value]); }
   function next() {
     setError(''); setNotice('');
+    // Recalcular diretamente no clique evita depender de estado derivado desatualizado.
+    const calculatedAge = ageOn(birthDay, birthMonth, birthYear);
     if (step===0) {
       if (!countryId || !provinceId || phone.replace(/\D/g,'').length < 6) return setError('Escolha o país, a província e introduza um número de telefone válido.');
       if (!dialCode) return setError('O indicativo deste país ainda não está configurado. Contacte o suporte.');
     }
     if (step===1) {
       if (!birthDay || !birthMonth || !birthYear || !gender) return setError('Preencha o dia, mês, ano de nascimento e género.');
-      if (age === null) return setError('A data de nascimento não é válida. Verifique o dia, mês e ano.');
-      if (age < 18) return setError('Cadastro bloqueado: é necessário ter pelo menos 18 anos completos para criar uma conta na MÍDIA TALAZA.');
+      if (calculatedAge === null) return setError('A data de nascimento não é válida. Verifique o dia, mês e ano.');
+      if (calculatedAge < 18) {
+        return setError(`Cadastro bloqueado: a data selecionada corresponde a ${calculatedAge} anos. É necessário ter pelo menos 18 anos completos para criar uma conta na MÍDIA TALAZA.`);
+      }
     }
     if (step===2 && selectedNiches.length===0) return setError('Escolha pelo menos um nicho de conteúdo.');
     if (step===3 && contentLanguages.length===0) return setError('Escolha pelo menos um idioma de publicação.');
@@ -190,7 +194,7 @@ export default function MediaCreatorSignup() {
               </select>
             </div>
             <p style={{fontSize:11,color:C.muted,margin:'7px 0 0'}}>Selecione o dia, o mês e o ano. A lista inclui todos os anos desde 1900.</p>
-            {dob && <p style={{fontSize:13,fontWeight:800,color:age>=18?C.green:C.red,margin:'8px 0'}}>Idade calculada: {age} anos {age>=18?'— pode continuar':'— cadastro bloqueado: mínimo de 18 anos'}</p>}
+            {dob && <p role="status" style={{fontSize:13,fontWeight:800,color:age>=18?C.green:C.red,margin:'8px 0'}}>{age===null?'Data inválida':age>=18?`Idade calculada: ${age} anos — pode continuar`:`Cadastro bloqueado: ${age} anos. A idade mínima é 18 anos completos.`}</p>}
             <label style={label}>Género</label>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:9}}>
               {['Homem','Mulher'].map(v=><button key={v} type="button" onClick={()=>setGender(v)} style={{padding:13,borderRadius:12,border:gender===v?'2px solid #B98B2E':'1px solid #DDE3EC',background:gender===v?'#FBF5E6':'#FFFFFF',color:C.ink,fontWeight:800,cursor:'pointer'}}>{v}</button>)}
@@ -236,7 +240,7 @@ export default function MediaCreatorSignup() {
           {notice && <div role="status" style={{marginTop:17,padding:14,borderRadius:11,background:'#EAF5F0',color:'#155B49',fontSize:13,lineHeight:1.6}}>{notice}{!user && <p style={{margin:'10px 0 0'}}><Link href="/login?next=/media" style={{color:'#155B49',fontWeight:900}}>Ir para entrar</Link></p>}</div>}
           <div style={{display:'flex',gap:10,marginTop:24}}>
             {step>0 && <button type="button" disabled={loading} onClick={()=>{setError('');setStep(s=>s-1)}} style={{padding:'14px 18px',borderRadius:13,border:'1px solid #DDE3EC',background:'#FFFFFF',color:C.navy,fontWeight:900,cursor:'pointer'}}>Voltar</button>}
-            <button type="button" disabled={loading || !!notice} onClick={next} style={{flex:1,padding:15,border:0,borderRadius:13,background:'linear-gradient(100deg,#D5B15A,#F1D98F)',color:'#1B2540',fontWeight:900,fontSize:15,cursor:loading?'wait':'pointer',opacity:loading||notice?.5:1}}>{loading?'A guardar…':step===5?'Concluir cadastro':'Seguinte'}</button>
+            <button type="button" disabled={loading || !!notice || (step===1 && age !== null && age < 18)} onClick={next} style={{flex:1,padding:15,border:0,borderRadius:13,background:'linear-gradient(100deg,#D5B15A,#F1D98F)',color:'#1B2540',fontWeight:900,fontSize:15,cursor:loading?'wait':'pointer',opacity:loading||notice?.5:1}}>{loading?'A guardar…':step===5?'Concluir cadastro':'Seguinte'}</button>
           </div>
           <p style={{textAlign:'center',fontSize:11,color:C.muted,margin:'18px 0 0'}}>MÍDIA TALAZA · Cadastro de Criador</p>
         </section>
