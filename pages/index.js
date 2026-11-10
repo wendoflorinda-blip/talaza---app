@@ -129,7 +129,7 @@ export default function Home() {
 
           {/* Entrar: verde */}
           <Link
-            href="/account-entry"
+            href="/login"
             className="btn"
             style={{
               flex: 1,
