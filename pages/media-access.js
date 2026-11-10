@@ -12,8 +12,6 @@ export default function MediaAccess() {
           <h1 style={{fontSize:34,color:'#182238',margin:'12px 0 8px'}}>MÍDIA TALAZA</h1>
           <p style={{fontSize:14,color:'#687386',lineHeight:1.65,margin:'0 0 24px'}}>Crie o seu perfil de criador e faça parte de uma comunidade internacional de conteúdos.</p>
           <Link href="/media-creator-signup" style={{display:'block',padding:16,borderRadius:13,background:'linear-gradient(100deg,#D5B15A,#F1D98F)',color:'#1B2540',fontWeight:900,textDecoration:'none'}}>Criar conta de Criador</Link>
-          <p style={{fontSize:13,color:'#687386',margin:'22px 0 8px'}}>Já tem uma conta de Criador?</p>
-          <Link href="/login?next=/media" style={{color:'#155B49',fontWeight:900,textDecoration:'none'}}>Entrar na MÍDIA TALAZA</Link>
         </section>
       </div>
     </main>
