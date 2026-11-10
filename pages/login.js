@@ -115,7 +115,7 @@ export default function Login() {
         return;
       }
 
-      if (ownedBusiness?.id) {
+      if (ownedBusiness?.id && router.query.account !== 'explorer') {
         await router.replace('/seller');
         return;
       }
