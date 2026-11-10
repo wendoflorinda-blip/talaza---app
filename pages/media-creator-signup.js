@@ -16,6 +16,15 @@ const niches = [
 ];
 const dialCodes = { Angola:'+244', Brasil:'+55', 'Portugal':'+351', 'Moçambique':'+258', 'Cabo Verde':'+238', 'Guiné-Bissau':'+245', 'São Tomé e Príncipe':'+239', 'Estados Unidos':'+1', 'Canadá':'+1', 'Reino Unido':'+44', França:'+33', Itália:'+39', Alemanha:'+49', Espanha:'+34', 'África do Sul':'+27', Nigéria:'+234', 'Quénia':'+254', Índia:'+91', China:'+86', Japão:'+81' };
 const languages = ['Português','Inglês','Francês','Espanhol','Italiano','Árabe','Mandarim','Suaíli','Lingala','Umbundu','Kimbundu','Kikongo'];
+function usernameSuggestions(name) {
+  const words = String(name || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().match(/[a-z0-9]+/g) || [];
+  if (!words.length) return [];
+  const joined = words.join('').slice(0, 24);
+  const dotted = words.join('.').slice(0, 24);
+  const candidates = [joined, dotted].filter(v => v.length >= 3 && /^[a-z0-9._]{3,24}$/.test(v));
+  return [...new Set(candidates)].slice(0, 2);
+}
+
 function ageOn(day, month, year) {
   if (!day || !month || !year) return null;
   const d = Number(day), m = Number(month), y = Number(year);
@@ -44,6 +53,7 @@ export default function MediaCreatorSignup() {
   const [interests,setInterests] = useState([]);
   const [displayName,setDisplayName] = useState('');
   const [username,setUsername] = useState('');
+  const [usernameEdited,setUsernameEdited] = useState(false);
   const [email,setEmail] = useState('');
   const [password,setPassword] = useState('');
   const [loading,setLoading] = useState(false);
@@ -69,6 +79,7 @@ export default function MediaCreatorSignup() {
   }, [countryId]);
 
   const countryName = countries.find(c => c.id === countryId)?.name || '';
+  const suggestedUsernames = useMemo(() => usernameSuggestions(displayName), [displayName]);
   const dialCode = dialCodes[countryName] || '';
   const dob = birthYear && birthMonth && birthDay
     ? `${birthYear}-${String(birthMonth).padStart(2,'0')}-${String(birthDay).padStart(2,'0')}`
@@ -96,7 +107,11 @@ export default function MediaCreatorSignup() {
     }
     if (step===2 && selectedNiches.length===0) return setError('Escolha pelo menos um nicho de conteúdo.');
     if (step===3 && contentLanguages.length===0) return setError('Escolha pelo menos um idioma de publicação.');
-    if (step===4 && (!displayName.trim() || !username.trim())) return setError('Preencha o nome público e o nome de utilizador.');
+    if (step===4) {
+      const cleanUsername = username.trim().replace(/^@+/, '').toLowerCase();
+      if (!displayName.trim()) return setError('Preencha o nome público.');
+      if (!/^[a-z0-9._]{3,24}$/.test(cleanUsername)) return setError('Escolha uma sugestão ou introduza um nome de utilizador válido com 3 a 24 caracteres.');
+    }
     if (step===5) {
       if (!user && (!email.trim() || password.length<8)) return setError('Introduza um email válido e uma palavra-passe com pelo menos 8 caracteres.');
       if (!/^[a-zA-Z0-9._]{3,24}$/.test(username)) return setError('O nome de utilizador deve ter 3 a 24 caracteres: letras, números, ponto ou underscore.');
@@ -220,13 +235,21 @@ export default function MediaCreatorSignup() {
           {step===4 && <>
             <h2 style={{fontSize:23,color:C.ink,margin:'0 0 6px'}}>Crie a sua identidade</h2>
             <p style={{fontSize:13,color:C.muted,lineHeight:1.55}}>Estes dados formam a apresentação pública do seu perfil de criador.</p>
-            <label style={label}>Nome público</label><input value={displayName} onChange={e=>setDisplayName(e.target.value)} maxLength={80} placeholder="Nome que as pessoas vão ver" style={input}/>
-            <label style={label}>Nome de utilizador</label>
+            <label style={label}>Nome público</label><input value={displayName} onChange={e=>{const value=e.target.value;setDisplayName(value);if(!usernameEdited){const first=usernameSuggestions(value)[0]||'';setUsername(first);}}} maxLength={80} placeholder="Nome que as pessoas vão ver" style={input}/>
+            <label style={label}>Escolha uma das sugestões automáticas</label>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:9,marginBottom:12}}>
+              {suggestedUsernames.map((suggestion,index)=><button key={suggestion} type="button" onClick={()=>{setUsername(suggestion);setUsernameEdited(true);setError('');}} aria-pressed={username.toLowerCase()===suggestion} style={{padding:'13px 12px',borderRadius:12,border:username.toLowerCase()===suggestion?'2px solid #B98B2E':'1px solid #DDE3EC',background:username.toLowerCase()===suggestion?'#FBF3DF':'#FFFFFF',color:C.navy,fontWeight:900,cursor:'pointer',textAlign:'left'}}>
+                <span style={{display:'block',fontSize:10,color:C.muted,marginBottom:5}}>OPÇÃO {index+1}</span>
+                <span style={{fontSize:15}}>@{suggestion}</span>
+                <span style={{display:'block',fontSize:10,color:C.green,marginTop:5}}>{username.toLowerCase()===suggestion?'✓ Selecionado':'Toque para escolher'}</span>
+              </button>)}
+            </div>
+            <label style={label}>Ou personalize o nome de utilizador</label>
             <div style={{display:'flex',alignItems:'center',border:'1px solid #DDE3EC',borderRadius:12,background:'#FFFFFF',overflow:'hidden'}}>
               <span aria-hidden="true" style={{padding:'13px 0 13px 14px',fontSize:16,fontWeight:900,color:C.navy}}>@</span>
-              <input aria-label="Nome de utilizador" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={username} onChange={e=>setUsername(e.target.value.replace(/^@+/, '').replace(/[^a-zA-Z0-9._]/g,'').slice(0,24))} maxLength={24} placeholder="seunome" style={{...input,border:0,boxShadow:'none',background:'transparent'}}/>
+              <input aria-label="Nome de utilizador" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={username} onChange={e=>{setUsernameEdited(true);setUsername(e.target.value.replace(/^@+/, '').replace(/[^a-zA-Z0-9._]/g,'').slice(0,24));}} maxLength={24} placeholder="seunome" style={{...input,border:0,boxShadow:'none',background:'transparent'}}/>
             </div>
-            <p style={{fontSize:11,color:C.muted,marginTop:6}}>O @ aparece automaticamente. Escolha 3 a 24 caracteres: letras, números, ponto ou underscore. Exemplo: @seunome.</p>
+            <p style={{fontSize:11,color:C.muted,marginTop:6}}>O @ é acrescentado automaticamente. Não precisa de o escrever. Escolha uma das opções ou personalize com 3 a 24 caracteres: letras, números, ponto ou underscore.</p>
             {username.length>0 && <p style={{fontSize:12,color:C.green,fontWeight:800,marginTop:7}}>O seu identificador será @{username.toLowerCase()}</p>}
           </>}
           {step===5 && <>
