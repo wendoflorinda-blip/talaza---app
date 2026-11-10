@@ -142,3 +142,51 @@ Criar salvaguardas para impedir discriminação ou segmentação indevida, sobre
 - `lib/media/moderation/policy.js` e `lib/media/recommendations/ranking.js` existem como bases de lógica, mas não constituem por si só um serviço completo de IA, moderação persistente ou recomendação em produção.
 
 Nenhuma alteração de schema, autenticação, perfil comercial, pagamento ou produção é autorizada por este documento.
+
+
+## 11. Integração futura com os três cadastros do ecossistema
+
+A recolha de dados comuns deve ser integrada nos três percursos sem substituir nem reescrever os fluxos atuais da TALAZA Comercial:
+
+- Explorador TALAZA Comercial.
+- Vendedor TALAZA Comercial.
+- Criador de Conteúdos MÍDIA TALAZA.
+
+### Dados comuns a recolher
+
+- Data de nascimento (guardar a data completa em área privada; calcular idade/faixa etária no servidor).
+- Género autodeclarado, com opção explícita "Prefiro não informar".
+- País.
+- Província.
+- Idioma preferido.
+- E-mail ou telefone verificado, conforme o método de autenticação.
+
+A data de nascimento e o género não são campos públicos. Não disponibilizar estes valores a vendedores, criadores, outros utilizadores ou anunciantes. Não inferir género através de nome, fotografia, voz, vídeo ou comportamento.
+
+### Interesses por tipo de conta
+
+- Explorador: temas e categorias que deseja descobrir/seguir na MÍDIA e, separadamente, preferências de descoberta da TALAZA Comercial. Não misturar os dois conjuntos.
+- Vendedor: categorias e subcategorias comerciais já existentes permanecem a fonte da classificação do negócio. Acrescentar, em área separada e opcional, interesses de conteúdo da MÍDIA, se o vendedor também utilizar a MÍDIA.
+- Criador: múltiplos nichos/temas de criação, sem limite artificial; idioma(s) do conteúdo são independentes do país e do idioma da interface.
+
+Os interesses selecionados pelo utilizador são diferentes dos sinais de comportamento recolhidos pelo feed (visualização, conclusão, repetição, gostos, guardados, partilhas, comentários, pesquisas e "não tenho interesse"). Manter estas fontes distintas.
+
+### Contas existentes
+
+Não bloquear nem interromper contas atuais para exigir imediatamente novos dados. Criar um fluxo progressivo de completar perfil, com explicação da finalidade e pedido de consentimento quando aplicável. Não sobrescrever os valores atuais de país/província nem alterar a província principal da TALAZA Comercial por causa de filtros de exploração da MÍDIA.
+
+### Compatibilidade e proteção
+
+- Não alterar `profiles.account_type`, políticas RLS, tabelas comerciais, login ou formulários existentes como parte da simples recolha de requisitos.
+- Não reutilizar `professional_profiles.age/gender` como dados demográficos de MÍDIA.
+- A implementação deverá ser aditiva, com tabelas próprias de dados privados e relações ao utilizador autenticado.
+- Definir validação de idade, consentimento, finalidade, retenção, correção e eliminação antes de publicar os novos campos.
+- A regra de maioridade já definida para MÍDIA aplica-se ao cadastro MÍDIA. Não impor automaticamente a mesma regra às contas comerciais existentes.
+
+## 12. Shopping Internacional no menu global
+
+O **Shopping Internacional** ficará no menu global da TALAZA, no mesmo menu onde já aparecem opções como "Suporte TALAZA" e "Terminar sessão". Não será um item da navegação principal do feed MÍDIA nem uma opção escondida apenas dentro do perfil do criador.
+
+A entrada do menu abre uma área própria de Shopping Internacional, com navegação, catálogo, vendedores, produtos, pedidos, pagamentos e regras comerciais independentes. A integração visual no menu não mistura os dados nem os sistemas da TALAZA Comercial e da MÍDIA.
+
+A inclusão do item no menu deve ser feita de forma aditiva, preservando todas as opções existentes, a ordem e o comportamento atual de logout e suporte. Antes de editar o menu real, inspecionar o componente partilhado e confirmar os destinos e permissões.
