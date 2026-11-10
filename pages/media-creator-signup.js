@@ -115,7 +115,7 @@ export default function MediaCreatorSignup() {
       if (!/^[a-z0-9._]{3,24}$/.test(cleanUsername)) return setError('Escolha uma sugestão ou introduza um nome de utilizador válido com 3 a 24 caracteres.');
     }
     if (step===5) {
-      if (!user && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(email.trim())) return setError('Introduza um endereço de email válido, por exemplo nome@email.com.');
+      if (!user && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) return setError('Introduza um endereço de email válido, por exemplo nome@email.com.');
       if (!user && password.length < 8) return setError('A palavra-passe deve ter pelo menos 8 caracteres.');
       if (!/^[a-zA-Z0-9._]{3,24}$/.test(username)) return setError('O nome de utilizador deve ter 3 a 24 caracteres: letras, números, ponto ou underscore.');
       return submit();
