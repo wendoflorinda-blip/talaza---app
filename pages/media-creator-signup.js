@@ -57,6 +57,7 @@ export default function MediaCreatorSignup() {
   const [usernameEdited,setUsernameEdited] = useState(false);
   const [email,setEmail] = useState('');
   const [password,setPassword] = useState('');
+  const [showPassword,setShowPassword] = useState(false);
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState('');
   const [notice,setNotice] = useState('');
@@ -114,7 +115,8 @@ export default function MediaCreatorSignup() {
       if (!/^[a-z0-9._]{3,24}$/.test(cleanUsername)) return setError('Escolha uma sugestão ou introduza um nome de utilizador válido com 3 a 24 caracteres.');
     }
     if (step===5) {
-      if (!user && (!email.trim() || password.length<8)) return setError('Introduza um email válido e uma palavra-passe com pelo menos 8 caracteres.');
+      if (!user && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(email.trim())) return setError('Introduza um endereço de email válido, por exemplo nome@email.com.');
+      if (!user && password.length < 8) return setError('A palavra-passe deve ter pelo menos 8 caracteres.');
       if (!/^[a-zA-Z0-9._]{3,24}$/.test(username)) return setError('O nome de utilizador deve ter 3 a 24 caracteres: letras, números, ponto ou underscore.');
       return submit();
     }
@@ -258,7 +260,15 @@ export default function MediaCreatorSignup() {
             {user ? <p style={{fontSize:13,color:C.muted,lineHeight:1.6}}>Vai associar este perfil à conta já autenticada. Não será criada uma segunda identidade de acesso.</p> : <>
               <p style={{fontSize:13,color:C.muted,lineHeight:1.6}}>Durante os testes, o acesso será criado com email e palavra-passe. A autenticação por telefone/SMS será ligada apenas quando a versão for preparada para produção.</p>
               <label style={label}>Email</label><input type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="voce@email.com" style={input}/>
-              <label style={label}>Palavra-passe</label><input type="password" autoComplete="new-password" minLength={8} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Pelo menos 8 caracteres" style={input}/>
+              <label style={label}>Palavra-passe</label>
+              <div style={{position:'relative'}}>
+                <input type={showPassword?'text':'password'} autoComplete="new-password" minLength={8} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Pelo menos 8 caracteres" style={{...input,paddingRight:54}}/>
+                <button type="button" aria-label={showPassword?'Ocultar palavra-passe':'Mostrar palavra-passe'} aria-pressed={showPassword} onClick={()=>setShowPassword(v=>!v)} style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',width:40,height:40,border:0,borderRadius:10,background:'transparent',color:C.navy,display:'grid',placeItems:'center',cursor:'pointer'}}>
+                  <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    {showPassword ? <><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></> : <><path d="M3 3l18 18"/><path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a15.8 15.8 0 0 1-3.1 3.9M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7c1.4 0 2.7-.3 3.8-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></>}
+                  </svg>
+                </button>
+              </div>
             </>}
             <div style={{marginTop:18,padding:13,borderRadius:12,background:'#F5F7FA',fontSize:12,color:C.muted,lineHeight:1.6}}>Ao continuar, confirma que os dados fornecidos são verdadeiros e aceita os Termos e a Política de Privacidade da MÍDIA TALAZA. A data de nascimento e o género são privados. A personalização de anúncios deverá respeitar a legislação aplicável e as suas escolhas de privacidade.</div>
           </>}
