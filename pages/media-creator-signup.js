@@ -102,10 +102,8 @@ export default function MediaCreatorSignup() {
         media_country_id: countryId,
         media_country: countryName,
         media_province_id: provinceId,
-        media_phone: fullPhone,
-        media_phone_verified: false,
-        date_of_birth: dob,
-        gender,
+        // Phone, date of birth and gender are deliberately not placed in Auth metadata.
+        // They require a private Media-only profile table with owner-only RLS.
         media_niches: selectedNiches,
         media_content_languages: contentLanguages,
         media_interface_language: interfaceLanguage,
