@@ -53,6 +53,27 @@ export default function Login() {
         throw new Error('Não foi possível confirmar a sua conta.');
       }
 
+      // O criador deve entrar diretamente na MÍDIA. Esta decisão é feita
+      // antes de consultar profiles/businesses, pois uma falha de RLS nessas
+      // tabelas comerciais não pode bloquear uma sessão válida de criador.
+      const nextPath = typeof router.query.next === 'string' && router.query.next.startsWith('/') && !router.query.next.startsWith('//')
+        ? router.query.next
+        : '';
+      if (nextPath) {
+        await router.replace(nextPath);
+        return;
+      }
+
+      const metadata = user.user_metadata || {};
+      const isMediaCreator =
+        metadata.media_account_type === 'creator' ||
+        metadata.media_creator_onboarding === true;
+
+      if (isMediaCreator) {
+        await router.replace('/media');
+        return;
+      }
+
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -89,28 +110,6 @@ export default function Login() {
         throw new Error(
           'Não foi possível confirmar o seu perfil de negócio. Verifique as permissões e tente novamente.'
         );
-      }
-
-      // Um destino explícito solicitado por uma área interna tem prioridade.
-      const nextPath = typeof router.query.next === 'string' && router.query.next.startsWith('/') && !router.query.next.startsWith('//')
-        ? router.query.next
-        : '';
-
-      if (nextPath) {
-        await router.replace(nextPath);
-        return;
-      }
-
-      // A área inicial é determinada pelo tipo de conta registado.
-      // Criadores entram na MÍDIA; vendedores no painel; restantes na Vitrine.
-      const metadata = user.user_metadata || {};
-      const isMediaCreator =
-        metadata.media_account_type === 'creator' ||
-        metadata.media_creator_onboarding === true;
-
-      if (isMediaCreator) {
-        await router.replace('/media');
-        return;
       }
 
       if (ownedBusiness?.id) {
