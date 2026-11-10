@@ -17,11 +17,12 @@ const niches = [
 const dialCodes = { Angola:'+244', Brasil:'+55', 'Portugal':'+351', 'Moçambique':'+258', 'Cabo Verde':'+238', 'Guiné-Bissau':'+245', 'São Tomé e Príncipe':'+239', 'Estados Unidos':'+1', 'Canadá':'+1', 'Reino Unido':'+44', França:'+33', Itália:'+39', Alemanha:'+49', Espanha:'+34', 'África do Sul':'+27', Nigéria:'+234', 'Quénia':'+254', Índia:'+91', China:'+86', Japão:'+81' };
 const languages = ['Português','Inglês','Francês','Espanhol','Italiano','Árabe','Mandarim','Suaíli','Lingala','Umbundu','Kimbundu','Kikongo'];
 function usernameSuggestions(name) {
-  const words = String(name || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().match(/[a-z0-9]+/g) || [];
+  const words = String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().match(/[a-z0-9]+/g) || [];
   if (!words.length) return [];
   const joined = words.join('').slice(0, 24);
   const dotted = words.join('.').slice(0, 24);
-  const candidates = [joined, dotted].filter(v => v.length >= 3 && /^[a-z0-9._]{3,24}$/.test(v));
+  const second = dotted !== joined ? dotted : (joined.length <= 16 ? `${joined}.oficial` : `${joined.slice(0, 22)}_1`);
+  const candidates = [joined, second].filter(v => v.length >= 3 && v.length <= 24 && /^[a-z0-9._]+$/.test(v));
   return [...new Set(candidates)].slice(0, 2);
 }
 
