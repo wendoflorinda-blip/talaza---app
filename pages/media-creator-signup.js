@@ -182,7 +182,6 @@ export default function MediaCreatorSignup() {
     <Head><title>Criar conta de Criador | MÍDIA TALAZA</title><meta name="viewport" content="width=device-width, initial-scale=1"/></Head>
     <main style={{minHeight:'100vh',padding:'28px 16px 56px',background:'radial-gradient(circle at top,#34466F 0,#17233F 44%,#10172A 100%)',fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif"}}>
       <div style={{maxWidth:680,margin:'0 auto'}}>
-        <Link href="/media-access" style={{color:C.gold,textDecoration:'none',fontWeight:800}}>← Voltar</Link>
         <header style={{textAlign:'center',color:C.white,margin:'26px 0 22px'}}>
           <div style={{fontSize:11,letterSpacing:3,fontWeight:900,color:C.gold}}>TALAZA • ECOSSISTEMA DE CRIADORES</div>
           <h1 style={{fontSize:'clamp(28px,5vw,38px)',margin:'10px 0 7px'}}>Entre para a MÍDIA TALAZA</h1>
