@@ -16,13 +16,14 @@ const niches = [
 ];
 const dialCodes = { Angola:'+244', Brasil:'+55', 'Portugal':'+351', 'Moçambique':'+258', 'Cabo Verde':'+238', 'Guiné-Bissau':'+245', 'São Tomé e Príncipe':'+239', 'Estados Unidos':'+1', 'Canadá':'+1', 'Reino Unido':'+44', França:'+33', Itália:'+39', Alemanha:'+49', Espanha:'+34', 'África do Sul':'+27', Nigéria:'+234', 'Quénia':'+254', Índia:'+91', China:'+86', Japão:'+81' };
 const languages = ['Português','Inglês','Francês','Espanhol','Italiano','Árabe','Mandarim','Suaíli','Lingala','Umbundu','Kimbundu','Kikongo'];
-function ageOn(dateString) {
-  if (!dateString) return null;
-  const dob = new Date(dateString + 'T00:00:00');
-  if (Number.isNaN(dob.getTime())) return null;
+function ageOn(day, month, year) {
+  if (!day || !month || !year) return null;
+  const d = Number(day), m = Number(month), y = Number(year);
+  const test = new Date(y, m - 1, d);
+  if (test.getFullYear() !== y || test.getMonth() !== m - 1 || test.getDate() !== d) return null;
   const now = new Date();
-  let age = now.getFullYear() - dob.getFullYear();
-  if (now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())) age--;
+  let age = now.getFullYear() - y;
+  if (now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d)) age--;
   return age;
 }
 
@@ -73,7 +74,7 @@ export default function MediaCreatorSignup() {
   const dob = birthYear && birthMonth && birthDay
     ? `${birthYear}-${String(birthMonth).padStart(2,'0')}-${String(birthDay).padStart(2,'0')}`
     : '';
-  const age = useMemo(() => ageOn(dob),[dob]);
+  const age = useMemo(() => ageOn(birthDay, birthMonth, birthYear),[birthDay,birthMonth,birthYear]);
   const currentYear = new Date().getFullYear();
   const birthYears = Array.from({length: currentYear - 1900 + 1}, (_,i) => currentYear - i);
   const daysInBirthMonth = birthYear && birthMonth ? new Date(Number(birthYear), Number(birthMonth), 0).getDate() : 31;
@@ -86,8 +87,9 @@ export default function MediaCreatorSignup() {
       if (!dialCode) return setError('O indicativo deste país ainda não está configurado. Contacte o suporte.');
     }
     if (step===1) {
-      if (!dob || !gender) return setError('Indique o dia, mês e ano de nascimento e escolha o género.');
-      if (age === null || age < 28) return setError('A MÍDIA TALAZA está disponível para criadores com 28 anos ou mais.');
+      if (!birthDay || !birthMonth || !birthYear || !gender) return setError('Preencha o dia, mês, ano de nascimento e género.');
+      if (age === null) return setError('A data de nascimento não é válida. Verifique o dia, mês e ano.');
+      if (age < 28) return setError('Cadastro bloqueado: é necessário ter pelo menos 28 anos completos para criar uma conta na MÍDIA TALAZA.');
     }
     if (step===2 && selectedNiches.length===0) return setError('Escolha pelo menos um nicho de conteúdo.');
     if (step===3 && contentLanguages.length===0) return setError('Escolha pelo menos um idioma de publicação.');
@@ -180,18 +182,18 @@ export default function MediaCreatorSignup() {
               <select aria-label="Dia de nascimento" value={birthDay} onChange={e=>setBirthDay(e.target.value)} style={input}>
                 <option value="">Dia</option>{Array.from({length:daysInBirthMonth},(_,i)=>i+1).map(d=><option key={d} value={d}>{d}</option>)}
               </select>
-              <select aria-label="Mês de nascimento" value={birthMonth} onChange={e=>{setBirthMonth(e.target.value);setBirthDay('');}} style={input}>
+              <select aria-label="Mês de nascimento" value={birthMonth} onChange={e=>setBirthMonth(e.target.value)} style={input}>
                 <option value="">Mês</option>{['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'].map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}
               </select>
-              <select aria-label="Ano de nascimento" value={birthYear} onChange={e=>{setBirthYear(e.target.value);setBirthDay('');}} style={input}>
+              <select aria-label="Ano de nascimento" value={birthYear} onChange={e=>setBirthYear(e.target.value)} style={input}>
                 <option value="">Ano</option>{birthYears.map(y=><option key={y} value={y}>{y}</option>)}
               </select>
             </div>
             <p style={{fontSize:11,color:C.muted,margin:'7px 0 0'}}>Selecione o dia, o mês e o ano. A lista inclui todos os anos desde 1900.</p>
-            {dob && <p style={{fontSize:13,fontWeight:800,color:age>=28?C.green:C.red,margin:'8px 0'}}>Idade calculada: {age} anos {age>=28?'— pode continuar':'— é necessário ter 28 anos completos'}</p>}
+            {dob && <p style={{fontSize:13,fontWeight:800,color:age>=28?C.green:C.red,margin:'8px 0'}}>Idade calculada: {age} anos {age>=28?'— pode continuar':'— cadastro bloqueado: mínimo de 28 anos'}</p>}
             <label style={label}>Género</label>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:9}}>
-              {['Feminino','Masculino','Outro','Prefiro não informar'].map(v=><button key={v} type="button" onClick={()=>setGender(v)} style={{padding:13,borderRadius:12,border:gender===v?'2px solid #B98B2E':'1px solid #DDE3EC',background:gender===v?'#FBF5E6':'#FFFFFF',color:C.ink,fontWeight:800,cursor:'pointer'}}>{v}</button>)}
+              {['Homem','Mulher'].map(v=><button key={v} type="button" onClick={()=>setGender(v)} style={{padding:13,borderRadius:12,border:gender===v?'2px solid #B98B2E':'1px solid #DDE3EC',background:gender===v?'#FBF5E6':'#FFFFFF',color:C.ink,fontWeight:800,cursor:'pointer'}}>{v}</button>)}
             </div>
           </>}
           {step===2 && <>
