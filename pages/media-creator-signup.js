@@ -33,7 +33,9 @@ export default function MediaCreatorSignup() {
   const [countryId,setCountryId] = useState('');
   const [provinceId,setProvinceId] = useState('');
   const [phone,setPhone] = useState('');
-  const [dob,setDob] = useState('');
+  const [birthDay,setBirthDay] = useState('');
+  const [birthMonth,setBirthMonth] = useState('');
+  const [birthYear,setBirthYear] = useState('');
   const [gender,setGender] = useState('');
   const [selectedNiches,setSelectedNiches] = useState([]);
   const [contentLanguages,setContentLanguages] = useState(['Português']);
@@ -68,9 +70,13 @@ export default function MediaCreatorSignup() {
 
   const countryName = countries.find(c => c.id === countryId)?.name || '';
   const dialCode = dialCodes[countryName] || '';
+  const dob = birthYear && birthMonth && birthDay
+    ? `${birthYear}-${String(birthMonth).padStart(2,'0')}-${String(birthDay).padStart(2,'0')}`
+    : '';
   const age = useMemo(() => ageOn(dob),[dob]);
-  const minDate = new Date(new Date().getFullYear()-28,new Date().getMonth(),new Date().getDate()).toISOString().slice(0,10);
-  const maxDate = new Date(new Date().getFullYear()-100,new Date().getMonth(),new Date().getDate()).toISOString().slice(0,10);
+  const currentYear = new Date().getFullYear();
+  const birthYears = Array.from({length: currentYear - 1900 + 1}, (_,i) => currentYear - i);
+  const daysInBirthMonth = birthYear && birthMonth ? new Date(Number(birthYear), Number(birthMonth), 0).getDate() : 31;
 
   function toggle(list,setList,value) { setList(current => current.includes(value) ? current.filter(x=>x!==value) : [...current,value]); }
   function next() {
@@ -80,7 +86,7 @@ export default function MediaCreatorSignup() {
       if (!dialCode) return setError('O indicativo deste país ainda não está configurado. Contacte o suporte.');
     }
     if (step===1) {
-      if (!dob || !gender) return setError('Indique a data de nascimento e escolha o género.');
+      if (!dob || !gender) return setError('Indique o dia, mês e ano de nascimento e escolha o género.');
       if (age === null || age < 28) return setError('A MÍDIA TALAZA está disponível para criadores com 28 anos ou mais.');
     }
     if (step===2 && selectedNiches.length===0) return setError('Escolha pelo menos um nicho de conteúdo.');
@@ -170,7 +176,18 @@ export default function MediaCreatorSignup() {
             <h2 style={{fontSize:23,color:C.ink,margin:'0 0 6px'}}>Sobre si</h2>
             <p style={{fontSize:13,color:C.muted,lineHeight:1.55}}>A MÍDIA TALAZA aceita criadores a partir dos 28 anos. A data de nascimento não será exibida no perfil público.</p>
             <label style={label}>Data de nascimento</label>
-            <input type="date" value={dob} min={maxDate} max={minDate} onChange={e=>setDob(e.target.value)} style={input}/>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1.3fr 1.2fr',gap:8}}>
+              <select aria-label="Dia de nascimento" value={birthDay} onChange={e=>setBirthDay(e.target.value)} style={input}>
+                <option value="">Dia</option>{Array.from({length:daysInBirthMonth},(_,i)=>i+1).map(d=><option key={d} value={d}>{d}</option>)}
+              </select>
+              <select aria-label="Mês de nascimento" value={birthMonth} onChange={e=>{setBirthMonth(e.target.value);setBirthDay('');}} style={input}>
+                <option value="">Mês</option>{['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'].map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}
+              </select>
+              <select aria-label="Ano de nascimento" value={birthYear} onChange={e=>{setBirthYear(e.target.value);setBirthDay('');}} style={input}>
+                <option value="">Ano</option>{birthYears.map(y=><option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+            <p style={{fontSize:11,color:C.muted,margin:'7px 0 0'}}>Selecione o dia, o mês e o ano. A lista inclui todos os anos desde 1900.</p>
             {dob && <p style={{fontSize:13,fontWeight:800,color:age>=28?C.green:C.red,margin:'8px 0'}}>Idade calculada: {age} anos {age>=28?'— pode continuar':'— é necessário ter 28 anos completos'}</p>}
             <label style={label}>Género</label>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:9}}>
