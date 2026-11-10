@@ -212,10 +212,6 @@ export default function Login() {
 
       <main style={styles.page}>
         <div style={styles.container}>
-          <Link href="/" style={styles.back}>
-            ← Voltar
-          </Link>
-
           <div style={styles.brand}>
             <span style={styles.brandIcon}>T</span>
             <span>TALAZA</span>
