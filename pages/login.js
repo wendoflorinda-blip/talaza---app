@@ -91,6 +91,21 @@ export default function Login() {
         );
       }
 
+      const selectedAccount = typeof router.query.account === 'string' ? router.query.account : '';
+      if (selectedAccount === 'creator') {
+        await router.replace('/media');
+        return;
+      }
+      if (selectedAccount === 'seller') {
+        if (!ownedBusiness?.id) {
+          setError('Esta conta ainda não tem um perfil de vendedor associado.');
+          await supabase.auth.signOut();
+          return;
+        }
+        await router.replace('/seller');
+        return;
+      }
+
       const nextPath = typeof router.query.next === 'string' && router.query.next.startsWith('/') && !router.query.next.startsWith('//')
         ? router.query.next
         : '';
