@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
@@ -38,6 +39,7 @@ function ageOn(day, month, year) {
 }
 
 export default function MediaCreatorSignup() {
+  const router = useRouter();
   const [step,setStep] = useState(0);
   const [countries,setCountries] = useState([]);
   const [provinces,setProvinces] = useState([]);
@@ -115,8 +117,9 @@ export default function MediaCreatorSignup() {
       if (!/^[a-z0-9._]{3,24}$/.test(cleanUsername)) return setError('Escolha uma sugestão ou introduza um nome de utilizador válido com 3 a 24 caracteres.');
     }
     if (step===5) {
-      if (!user && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) return setError('Introduza um endereço de email válido, por exemplo nome@email.com.');
-      if (!user && password.length < 8) return setError('A palavra-passe deve ter pelo menos 8 caracteres.');
+      if (user) return setError('Este email já está associado a uma conta TALAZA. Não precisa criar outra conta por esta porta. Utilize “Já tenho conta” para entrar.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) return setError('Introduza um endereço de email válido, por exemplo nome@email.com.');
+      if (password.length < 8) return setError('A palavra-passe deve ter pelo menos 8 caracteres.');
       if (!/^[a-zA-Z0-9._]{3,24}$/.test(username)) return setError('O nome de utilizador deve ter 3 a 24 caracteres: letras, números, ponto ou underscore.');
       return submit();
     }
@@ -142,23 +145,35 @@ export default function MediaCreatorSignup() {
         media_account_type: 'creator',
       };
       if (user) {
-        const {error:updateError} = await supabase.auth.updateUser({data:metadata});
-        if (updateError) throw updateError;
-        setNotice('Informações guardadas na sua conta. A verificação por SMS e a ativação do perfil serão ligadas numa fase posterior.');
-      } else {
-        const {data,error:signupError} = await supabase.auth.signUp({
-          email:email.trim().toLowerCase(), password,
-          options:{data:metadata}
-        });
-        if (signupError) throw signupError;
-        if (!data?.user) throw new Error('Não foi possível criar a conta.');
-        setNotice(data.session
-          ? 'Conta criada. O cadastro inicial da MÍDIA TALAZA foi recebido. A verificação por SMS ficará desativada durante os testes.'
-          : 'Conta criada. Confirme o email enviado para concluir o acesso. A verificação por SMS ficará desativada durante os testes.');
+        throw new Error('Este email já está associado a uma conta TALAZA. Utilize “Já tenho conta” para entrar.');
       }
+      const {data,error:signupError} = await supabase.auth.signUp({
+        email:email.trim().toLowerCase(), password,
+        options:{
+          data:metadata,
+          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/media` : undefined
+        }
+      });
+      if (signupError) throw signupError;
+      if (!data?.user) throw new Error('Não foi possível criar a conta.');
+      // Supabase pode devolver um utilizador sem identidades quando o email já existe,
+      // para evitar expor diretamente a existência de contas.
+      if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setError('Este email já está associado a uma conta TALAZA (Explorador, Vendedor ou Criador). Não é necessário criar outra conta, mesmo que tenha entrado por outra porta. Utilize “Já tenho conta”.');
+        return;
+      }
+      if (data.session) {
+        setNotice('Conta criada com sucesso. A entrar na MÍDIA TALAZA…');
+        await router.replace('/media');
+        return;
+      }
+      setNotice('O cadastro foi iniciado. Enviámos um link de confirmação para o seu email. Abra a mensagem e confirme o endereço; depois será encaminhado diretamente para a MÍDIA TALAZA. Se não encontrar a mensagem, verifique o spam.');
     } catch(err) {
       const msg=String(err?.message||'');
-      setError(msg.toLowerCase().includes('already registered') ? 'Este email já tem uma conta. Entre na sua conta para continuar.' : msg || 'Não foi possível guardar o cadastro.');
+      const lower = msg.toLowerCase();
+      setError((lower.includes('already registered') || lower.includes('already been registered') || lower.includes('user already exists') || lower.includes('email_exists'))
+        ? 'Este email já está associado a uma conta TALAZA (Explorador, Vendedor ou Criador). Não é necessário criar outra conta, mesmo que tenha entrado por outra porta. Utilize “Já tenho conta”.'
+        : msg || 'Não foi possível guardar o cadastro.');
     } finally { setLoading(false); }
   }
 
@@ -257,7 +272,7 @@ export default function MediaCreatorSignup() {
           </>}
           {step===5 && <>
             <h2 style={{fontSize:23,color:C.ink,margin:'0 0 6px'}}>Proteja o seu acesso</h2>
-            {user ? <p style={{fontSize:13,color:C.muted,lineHeight:1.6}}>Vai associar este perfil à conta já autenticada. Não será criada uma segunda identidade de acesso.</p> : <>
+            {user ? <div role="alert" style={{padding:14,borderRadius:12,background:'#FFF0F1',color:C.red,fontSize:13,lineHeight:1.6}}>Esta conta já está autenticada na TALAZA. Não crie outra conta por esta porta. Utilize <strong>Já tenho conta</strong> para continuar com a sua conta existente.</div> : <>
               <p style={{fontSize:13,color:C.muted,lineHeight:1.6}}>Durante os testes, o acesso será criado com email e palavra-passe. A autenticação por telefone/SMS será ligada apenas quando a versão for preparada para produção.</p>
               <label style={label}>Email</label><input type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="voce@email.com" style={input}/>
               <label style={label}>Palavra-passe</label>
@@ -273,10 +288,10 @@ export default function MediaCreatorSignup() {
             <div style={{marginTop:18,padding:13,borderRadius:12,background:'#F5F7FA',fontSize:12,color:C.muted,lineHeight:1.6}}>Ao continuar, confirma que os dados fornecidos são verdadeiros e aceita os Termos e a Política de Privacidade da MÍDIA TALAZA. A data de nascimento e o género são privados. A personalização de anúncios deverá respeitar a legislação aplicável e as suas escolhas de privacidade.</div>
           </>}
           {error && <div role="alert" style={{marginTop:17,padding:12,borderRadius:11,background:'#FFF0F1',color:C.red,fontSize:13,lineHeight:1.5}}>{error}</div>}
-          {notice && <div role="status" style={{marginTop:17,padding:14,borderRadius:11,background:'#EAF5F0',color:'#155B49',fontSize:13,lineHeight:1.6}}>{notice}{!user && <p style={{margin:'10px 0 0'}}><Link href="/login?next=/media" style={{color:'#155B49',fontWeight:900}}>Ir para entrar</Link></p>}</div>}
+          {notice && <div role="status" style={{marginTop:17,padding:14,borderRadius:11,background:'#EAF5F0',color:'#155B49',fontSize:13,lineHeight:1.6}}>{notice}</div>}
           <div style={{display:'flex',gap:10,marginTop:24}}>
             {step>0 && <button type="button" disabled={loading} onClick={()=>{setError('');setStep(s=>s-1)}} style={{padding:'14px 18px',borderRadius:13,border:'1px solid #DDE3EC',background:'#FFFFFF',color:C.navy,fontWeight:900,cursor:'pointer'}}>Voltar</button>}
-            <button type="button" disabled={loading || !!notice || (step===1 && age !== null && age < 18)} onClick={next} style={{flex:1,padding:15,border:0,borderRadius:13,background:'linear-gradient(100deg,#D5B15A,#F1D98F)',color:'#1B2540',fontWeight:900,fontSize:15,cursor:loading?'wait':'pointer',opacity:loading||notice?.5:1}}>{loading?'A guardar…':step===5?'Concluir cadastro':'Seguinte'}</button>
+            <button type="button" disabled={loading || !!notice || (step===1 && age !== null && age < 18) || (step===5 && !!user)} onClick={next} style={{flex:1,padding:15,border:0,borderRadius:13,background:'linear-gradient(100deg,#D5B15A,#F1D98F)',color:'#1B2540',fontWeight:900,fontSize:15,cursor:loading?'wait':'pointer',opacity:loading||notice?.5:1}}>{loading?'A guardar…':step===5?'Concluir cadastro':'Seguinte'}</button>
           </div>
           <p style={{textAlign:'center',fontSize:11,color:C.muted,margin:'18px 0 0'}}>MÍDIA TALAZA · Cadastro de Criador</p>
         </section>
