@@ -44,7 +44,6 @@ export default function MediaCreatorSignup() {
   const [interests,setInterests] = useState([]);
   const [displayName,setDisplayName] = useState('');
   const [username,setUsername] = useState('');
-  const [bio,setBio] = useState('');
   const [email,setEmail] = useState('');
   const [password,setPassword] = useState('');
   const [loading,setLoading] = useState(false);
@@ -122,7 +121,6 @@ export default function MediaCreatorSignup() {
         media_interests: interests,
         media_display_name: displayName.trim(),
         media_username: username.trim().replace(/^@/,'').toLowerCase(),
-        media_bio: bio.trim(),
         media_account_type: 'creator',
       };
       if (user) {
@@ -223,9 +221,13 @@ export default function MediaCreatorSignup() {
             <h2 style={{fontSize:23,color:C.ink,margin:'0 0 6px'}}>Crie a sua identidade</h2>
             <p style={{fontSize:13,color:C.muted,lineHeight:1.55}}>Estes dados formam a apresentação pública do seu perfil de criador.</p>
             <label style={label}>Nome público</label><input value={displayName} onChange={e=>setDisplayName(e.target.value)} maxLength={80} placeholder="Nome que as pessoas vão ver" style={input}/>
-            <label style={label}>Nome de utilizador</label><input value={username} onChange={e=>setUsername(e.target.value.replace(/[^a-zA-Z0-9._]/g,''))} maxLength={24} placeholder="ex.: @criador" style={input}/>
-            <p style={{fontSize:11,color:C.muted,marginTop:6}}>3 a 24 caracteres. Letras, números, ponto e underscore. Sem links externos.</p>
-            <label style={label}>Breve apresentação (opcional)</label><textarea value={bio} onChange={e=>setBio(e.target.value)} maxLength={500} rows={4} placeholder="Conte à comunidade o que cria e o que a inspira." style={{...input,resize:'vertical'}}/>
+            <label style={label}>Nome de utilizador</label>
+            <div style={{display:'flex',alignItems:'center',border:'1px solid #DDE3EC',borderRadius:12,background:'#FFFFFF',overflow:'hidden'}}>
+              <span aria-hidden="true" style={{padding:'13px 0 13px 14px',fontSize:16,fontWeight:900,color:C.navy}}>@</span>
+              <input aria-label="Nome de utilizador" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={username} onChange={e=>setUsername(e.target.value.replace(/^@+/, '').replace(/[^a-zA-Z0-9._]/g,'').slice(0,24))} maxLength={24} placeholder="seunome" style={{...input,border:0,boxShadow:'none',background:'transparent'}}/>
+            </div>
+            <p style={{fontSize:11,color:C.muted,marginTop:6}}>O @ aparece automaticamente. Escolha 3 a 24 caracteres: letras, números, ponto ou underscore. Exemplo: @seunome.</p>
+            {username.length>0 && <p style={{fontSize:12,color:C.green,fontWeight:800,marginTop:7}}>O seu identificador será @{username.toLowerCase()}</p>}
           </>}
           {step===5 && <>
             <h2 style={{fontSize:23,color:C.ink,margin:'0 0 6px'}}>Proteja o seu acesso</h2>
