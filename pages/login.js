@@ -91,21 +91,7 @@ export default function Login() {
         );
       }
 
-      const selectedAccount = typeof router.query.account === 'string' ? router.query.account : '';
-      if (selectedAccount === 'creator') {
-        await router.replace('/media');
-        return;
-      }
-      if (selectedAccount === 'seller') {
-        if (!ownedBusiness?.id) {
-          setError('Esta conta ainda não tem um perfil de vendedor associado.');
-          await supabase.auth.signOut();
-          return;
-        }
-        await router.replace('/seller');
-        return;
-      }
-
+      // Um destino explícito solicitado por uma área interna tem prioridade.
       const nextPath = typeof router.query.next === 'string' && router.query.next.startsWith('/') && !router.query.next.startsWith('//')
         ? router.query.next
         : '';
@@ -115,7 +101,19 @@ export default function Login() {
         return;
       }
 
-      if (ownedBusiness?.id && router.query.account !== 'explorer') {
+      // A área inicial é determinada pelo tipo de conta registado.
+      // Criadores entram na MÍDIA; vendedores no painel; restantes na Vitrine.
+      const metadata = user.user_metadata || {};
+      const isMediaCreator =
+        metadata.media_account_type === 'creator' ||
+        metadata.media_creator_onboarding === true;
+
+      if (isMediaCreator) {
+        await router.replace('/media');
+        return;
+      }
+
+      if (ownedBusiness?.id) {
         await router.replace('/seller');
         return;
       }
