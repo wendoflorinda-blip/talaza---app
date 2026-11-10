@@ -89,7 +89,7 @@ export default function MediaCreatorSignup() {
     if (step===1) {
       if (!birthDay || !birthMonth || !birthYear || !gender) return setError('Preencha o dia, mês, ano de nascimento e género.');
       if (age === null) return setError('A data de nascimento não é válida. Verifique o dia, mês e ano.');
-      if (age < 28) return setError('Cadastro bloqueado: é necessário ter pelo menos 28 anos completos para criar uma conta na MÍDIA TALAZA.');
+      if (age < 18) return setError('Cadastro bloqueado: é necessário ter pelo menos 18 anos completos para criar uma conta na MÍDIA TALAZA.');
     }
     if (step===2 && selectedNiches.length===0) return setError('Escolha pelo menos um nicho de conteúdo.');
     if (step===3 && contentLanguages.length===0) return setError('Escolha pelo menos um idioma de publicação.');
@@ -176,7 +176,7 @@ export default function MediaCreatorSignup() {
           </>}
           {step===1 && <>
             <h2 style={{fontSize:23,color:C.ink,margin:'0 0 6px'}}>Sobre si</h2>
-            <p style={{fontSize:13,color:C.muted,lineHeight:1.55}}>A MÍDIA TALAZA aceita criadores a partir dos 28 anos. A data de nascimento não será exibida no perfil público.</p>
+            <p style={{fontSize:13,color:C.muted,lineHeight:1.55}}>A MÍDIA TALAZA aceita criadores a partir dos 18 anos. A data de nascimento não será exibida no perfil público.</p>
             <label style={label}>Data de nascimento</label>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1.3fr 1.2fr',gap:8}}>
               <select aria-label="Dia de nascimento" value={birthDay} onChange={e=>setBirthDay(e.target.value)} style={input}>
@@ -190,7 +190,7 @@ export default function MediaCreatorSignup() {
               </select>
             </div>
             <p style={{fontSize:11,color:C.muted,margin:'7px 0 0'}}>Selecione o dia, o mês e o ano. A lista inclui todos os anos desde 1900.</p>
-            {dob && <p style={{fontSize:13,fontWeight:800,color:age>=28?C.green:C.red,margin:'8px 0'}}>Idade calculada: {age} anos {age>=28?'— pode continuar':'— cadastro bloqueado: mínimo de 28 anos'}</p>}
+            {dob && <p style={{fontSize:13,fontWeight:800,color:age>=18?C.green:C.red,margin:'8px 0'}}>Idade calculada: {age} anos {age>=18?'— pode continuar':'— cadastro bloqueado: mínimo de 18 anos'}</p>}
             <label style={label}>Género</label>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:9}}>
               {['Homem','Mulher'].map(v=><button key={v} type="button" onClick={()=>setGender(v)} style={{padding:13,borderRadius:12,border:gender===v?'2px solid #B98B2E':'1px solid #DDE3EC',background:gender===v?'#FBF5E6':'#FFFFFF',color:C.ink,fontWeight:800,cursor:'pointer'}}>{v}</button>)}
