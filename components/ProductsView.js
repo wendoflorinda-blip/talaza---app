@@ -77,7 +77,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         src={mediaUrl(item)}
         muted
         playsInline
-        preload="auto"
+        preload="none"
         aria-label={alt}
         onClick={() => openViewer(item)}
         style={{display:'block',width:'100%',height:'100%',minHeight:180,background:'#080808',objectFit:'contain',cursor:'pointer'}}
@@ -88,32 +88,48 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
     if (!openItem || downloading) return;
     setDownloading(true); setDownloadError('');
     try {
-      let blob;
-      let storagePath = openItem.storage_path || '';
+      const storagePath = openItem.storage_path || '';
       const sourceUrl = mediaUrl(openItem) || '';
-      // Recupera também o caminho de ficheiros públicos do Supabase quando o registo
-      // só guardou a URL, permitindo transferir em computadores e telemóveis.
-      if (!storagePath && sourceUrl.includes('/storage/v1/object/public/business-media/')) {
-        storagePath = decodeURIComponent(sourceUrl.split('/storage/v1/object/public/business-media/')[1].split('?')[0]);
+      let downloadUrl = sourceUrl;
+      let bucket = 'business-media';
+      let path = storagePath;
+
+      if (!path && sourceUrl.includes('/storage/v1/object/')) {
+        try {
+          const parsed = new URL(sourceUrl);
+          const marker = '/storage/v1/object/';
+          const markerIndex = parsed.pathname.indexOf(marker);
+          if (markerIndex >= 0) {
+            const remainder = parsed.pathname.slice(markerIndex + marker.length);
+            const segments = remainder.split('/');
+            const visibility = segments.shift();
+            if (['public', 'sign', 'authenticated'].includes(visibility) && segments.length >= 2) {
+              bucket = segments.shift();
+              path = decodeURIComponent(segments.join('/'));
+            }
+          }
+        } catch (_) {}
       }
-      if (storagePath) {
-        const { data, error } = await supabase.storage.from('business-media').download(storagePath);
-        if (!error && data) blob = data;
+
+      if (path) {
+        const { data, error } = await supabase.storage
+          .from(bucket)
+          .createSignedUrl(path, 120, { download: (openItem.name || (isVideo(openItem) ? 'video-talaza' : 'imagem-talaza')) });
+        if (!error && data?.signedUrl) downloadUrl = data.signedUrl;
       }
-      if (!blob) {
-        const response = await fetch(sourceUrl, { mode: 'cors', credentials: 'omit', cache: 'no-store' });
-        if (!response.ok) throw new Error('O servidor não autorizou a transferência deste ficheiro.');
-        blob = await response.blob();
-      }
-      if (!blob || !blob.size) throw new Error('O ficheiro está vazio ou indisponível.');
-      const objectUrl = URL.createObjectURL(blob);
-      const extension = isVideo(openItem) ? (blob.type.includes('webm') ? 'webm' : blob.type.includes('quicktime') ? 'mov' : 'mp4') : (blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg');
-      const baseName = (openItem.name || (isVideo(openItem) ? 'video' : 'imagem')).replace(/[^a-z0-9-_ ]/gi, '').trim() || (isVideo(openItem) ? 'video' : 'imagem');
+
+      if (!downloadUrl) throw new Error('O ficheiro está indisponível.');
+      const baseName = String(openItem.name || (isVideo(openItem) ? 'video' : 'imagem'))
+        .replace(/[^a-z0-9-_ ]/gi, '').trim() || (isVideo(openItem) ? 'video' : 'imagem');
+      const extension = isVideo(openItem) ? 'mp4' : 'jpg';
       const link = document.createElement('a');
-      link.href = objectUrl; link.download = baseName + '.' + extension; link.rel = 'noopener';
-      document.body.appendChild(link); link.click(); link.remove();
-      // Em telemóveis, revogar o URL imediatamente pode cancelar a transferência.
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
+      link.href = downloadUrl;
+      link.download = baseName.toLowerCase().endsWith('.' + extension) ? baseName : baseName + '.' + extension;
+      link.rel = 'noopener noreferrer';
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } catch (error) {
       console.error('Erro ao transferir mídia:', error);
       setDownloadError('Não foi possível transferir este ficheiro. Tente novamente.');
@@ -152,7 +168,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
       {openItem && <div className={'veu'+(isVideo(openItem)?' videoViewer':'')} onClick={(event) => { if (event.target === event.currentTarget) closeViewer(); }}>
         <div className={isVideo(openItem)?'videoSheet':'sheet'} role="dialog" aria-modal="true" aria-label={openItem.name || 'Produto'}>
           {isVideo(openItem) ? <>
-            <video ref={viewerVideoRef} className="viewerVideo" src={mediaUrl(openItem)} autoPlay loop muted playsInline controls preload="auto" onClick={(event)=>{const v=event.currentTarget;if(v.paused)v.play().catch(()=>{});}} />
+            <video ref={viewerVideoRef} className="viewerVideo" src={mediaUrl(openItem)} autoPlay loop muted playsInline controls preload="metadata" onClick={(event)=>{const v=event.currentTarget;if(v.paused)v.play().catch(()=>{});}} />
             <button type="button" className="viewerClose" onClick={closeViewer} aria-label="Fechar vídeo">×</button>
             <div className="viewerCaption">{openItem.name&&<b>{openItem.name}</b>}{openItem.description&&<p>{openItem.description}</p>}<strong>{businessName}</strong>{openItem.price!==null&&openItem.price!==undefined&&openItem.price!==''&&<span>{formatKz(openItem.price)}</span>}</div>
             {downloadError&&<p role="alert" className="downloadError viewerError">{downloadError}</p>}

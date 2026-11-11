@@ -145,16 +145,20 @@ export default function Admin() {
     }
 
     setAuthorized(true);
-    await loadBusinesses();
-    await loadSubscriptionRequests();
-    await loadCommunityReports();
-    await loadPendingCommunityPosts();
-    await loadSupportMessages();
-    await loadAdminNotifications();
-    await loadProfiles();
-    await loadEvents();
-    await loadJobPosts();
-    await loadOfficialArchive();
+    // Estas leituras independentes podem correr em paralelo: reduz o tempo
+    // de espera do painel sem aumentar o volume total de dados consultados.
+    await Promise.all([
+      loadBusinesses(),
+      loadSubscriptionRequests(),
+      loadCommunityReports(),
+      loadPendingCommunityPosts(),
+      loadSupportMessages(),
+      loadAdminNotifications(),
+      loadProfiles(),
+      loadEvents(),
+      loadJobPosts(),
+      loadOfficialArchive(),
+    ]);
 
     setLoading(false);
   }
@@ -441,7 +445,7 @@ export default function Admin() {
   async function loadOfficialArchive() {
     const [motivationResult, themeResult] = await Promise.all([
       supabase.from('community_motivation').select('id, title, created_at, duration_days, expires_at, is_active').order('created_at', { ascending: false }),
-      supabase.from('community_monthly_themes').select('id, month_title, created_at, duration_days, starts_at, ends_at, is_active').order('created_at', { ascending: false }),
+      supabase.from('community_monthly_themes').select('id, month_title, created_at, duration_days, starts_at, ends_at, week_expires_at, is_active').order('created_at', { ascending: false }),
     ]);
     if (motivationResult.error || themeResult.error) {
       console.error('Não foi possível carregar o histórico editorial:', motivationResult.error || themeResult.error);
@@ -640,7 +644,12 @@ export default function Admin() {
         return;
       }
 
-      const expiresAt = new Date(Date.now() + officialDuration * 24 * 60 * 60 * 1000).toISOString();
+      // Motivação mantém a duração escolhida. O Tema do Mês dura 30 dias;
+      // o Título da Semana tem validade independente de 7 dias.
+      const contentDuration = officialKind === 'motivation'
+        ? officialDuration
+        : officialKind === 'weekly_question' ? 7 : 30;
+      const expiresAt = new Date(Date.now() + contentDuration * 24 * 60 * 60 * 1000).toISOString();
 
       if (officialKind === 'motivation') {
         const { error } = await supabase.from('community_motivation').insert({
@@ -666,8 +675,9 @@ export default function Admin() {
         const now = new Date();
         const { data: activeTheme, error: activeError } = await supabase
           .from('community_monthly_themes')
-          .select('id, month_title, week_title, week_description, week_number, starts_at, ends_at')
+          .select('id, month_title, week_title, week_description, week_number, starts_at, ends_at, week_expires_at')
           .eq('is_active', true)
+          .gt('ends_at', now.toISOString())
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -691,6 +701,7 @@ export default function Admin() {
               week_title: officialTitle.trim(),
               week_description: officialBody.trim(),
               week_number: weekNumber,
+              week_expires_at: expiresAt,
             })
             .eq('id', activeTheme.id);
 
@@ -710,7 +721,7 @@ export default function Admin() {
             week_number: weekNumber,
             starts_at: now.toISOString(),
             ends_at: expiresAt,
-            duration_days: officialDuration,
+            duration_days: 30,
             is_active: true,
             background_color: officialBackgroundColor,
             background_gradient: officialBackgroundGradient,
@@ -1216,6 +1227,9 @@ export default function Admin() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => router.push('/admin/countries')} style={styles.logout}>
+            Países e pagamentos
+          </button>
           <button type="button" onClick={() => router.push('/admin/media')} style={styles.logout}>
             Administração MÍDIA
           </button>
@@ -1466,11 +1480,13 @@ export default function Admin() {
             <select value={officialKind} onChange={event => setOfficialKind(event.target.value)} style={styles.input}>
               <option value="motivation">Motivação</option><option value="theme">Tema do mês</option><option value="weekly_question">Título da semana</option>
             </select>
-            <label style={styles.label}>Duração da motivação / tema</label>
-            <select value={officialDuration} onChange={event => setOfficialDuration(Number(event.target.value))} style={styles.input}>
-              <option value={7}>7 dias</option><option value={15}>15 dias</option><option value={30}>30 dias</option>
-            </select>
-            <p style={styles.meta}>Quando a duração terminar, o conteúdo deixa de aparecer ao público, mas permanece guardado no histórico para consulta e reutilização futura.</p>
+            {officialKind === 'motivation' ? <>
+              <label style={styles.label}>Duração da motivação</label>
+              <select value={officialDuration} onChange={event => setOfficialDuration(Number(event.target.value))} style={styles.input}>
+                <option value={7}>7 dias</option><option value={15}>15 dias</option><option value={30}>30 dias</option>
+              </select>
+            </> : <p style={styles.meta}><strong>{officialKind === 'weekly_question' ? 'Validade fixa: 7 dias.' : 'Validade fixa: 30 dias.'}</strong> O Título da Semana e o Tema do Mês têm prazos independentes.</p>}
+            <p style={styles.meta}>Quando a validade terminar, o conteúdo e a imagem associada serão eliminados automaticamente. O Título da Semana expira separadamente, sem apagar o Tema do Mês.</p>
             <label style={styles.label}>Título / tema</label>
             <input value={officialTitle} onChange={event => setOfficialTitle(event.target.value)} placeholder={officialKind === 'motivation' ? 'Ex.: A força de recomeçar' : officialKind === 'theme' ? 'Ex.: O valor de recomeçar' : 'Ex.: O que aprendeste esta semana?'} style={styles.input} />
             {officialKind !== 'theme' && <>
@@ -1501,7 +1517,7 @@ export default function Admin() {
               {officialKind==='weekly_question' && <span style={{ marginTop:8, fontSize:14 }}>{officialBody || 'A descrição da semana aparecerá aqui.'}</span>}
             </div>
             <div style={styles.actions}><button type="button" disabled={officialSaving} style={styles.approve} onClick={publishOfficialCommunityContent}>{officialSaving ? 'A publicar…' : 'Publicar conteúdo oficial'}</button></div>
-            <p style={styles.meta}>Motivação e temas ficam guardados nas tabelas oficiais, mesmo depois de expirarem. A expiração apenas os retira da apresentação pública.</p>
+            <p style={styles.meta}>Quando a validade termina, o conteúdo e a imagem associada são eliminados automaticamente. O Título da Semana é limpo após 7 dias, sem eliminar o Tema do Mês, que dura 30 dias.</p>
             <div style={{ marginTop: 22 }}>
               <h3 style={{ ...styles.title, fontSize: 20 }}>Histórico de motivações e temas</h3>
               {officialArchive.length === 0 ? <div style={styles.empty}><p>Ainda não existem conteúdos guardados.</p></div> : <div style={styles.list}>{officialArchive.map(item => {

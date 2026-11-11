@@ -24,29 +24,36 @@ export default function MediaOptions({ url, isVideo = false, fileName = '', stor
     if (busy || !url) return;
     setBusy(true); setError('');
     try {
-      let blob = null;
       const parsedLocation = resolveStorageLocation(url);
-      const location = storagePath && parsedLocation ? { bucket: parsedLocation.bucket, path: storagePath } : parsedLocation || (storagePath ? { bucket: 'business-media', path: storagePath } : null);
+      const location = storagePath && parsedLocation
+        ? { bucket: parsedLocation.bucket, path: storagePath }
+        : parsedLocation || (storagePath ? { bucket: 'business-media', path: storagePath } : null);
+      const safeName = String(fileName || (isVideo ? 'video-talaza' : 'imagem-talaza'))
+        .replace(/[^a-z0-9-_ ]/gi, '').trim() || 'talaza-media';
+      const extension = (() => {
+        const fromName = String(fileName || '').match(/\.([a-z0-9]{2,5})$/i)?.[1];
+        return fromName || (isVideo ? 'mp4' : 'jpg');
+      })();
+      const downloadName = safeName + (safeName.toLowerCase().endsWith('.' + extension.toLowerCase()) ? '' : '.' + extension);
+      let downloadUrl = url;
+
+      // Supabase gera um URL de transferência; o navegador descarrega o ficheiro
+      // diretamente, sem criar um Blob gigante na memória do telemóvel.
       if (location?.bucket && location?.path) {
-        const { data, error: storageError } = await supabase.storage.from(location.bucket).download(location.path);
-        if (!storageError && data) blob = data;
+        const { data, error: signedError } = await supabase.storage
+          .from(location.bucket)
+          .createSignedUrl(location.path, 120, { download: downloadName });
+        if (!signedError && data?.signedUrl) downloadUrl = data.signedUrl;
       }
-      if (!blob) {
-        const response = await fetch(url, { mode: 'cors', credentials: 'omit', cache: 'no-store' });
-        if (!response.ok) throw new Error('O servidor não autorizou a transferência.');
-        blob = await response.blob();
-      }
-      if (!blob?.size) throw new Error('O ficheiro está vazio ou indisponível.');
-      const objectUrl = URL.createObjectURL(blob);
-      const type = blob.type || '';
-      const extension = isVideo
-        ? (type.includes('webm') ? 'webm' : type.includes('quicktime') ? 'mov' : 'mp4')
-        : (type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : type.includes('gif') ? 'gif' : 'jpg');
-      const safeName = String(fileName || (isVideo ? 'video-talaza' : 'imagem-talaza')).replace(/[^a-z0-9-_ ]/gi, '').trim() || 'talaza-media';
+
       const anchor = document.createElement('a');
-      anchor.href = objectUrl; anchor.download = safeName + '.' + extension; anchor.rel = 'noopener';
-      document.body.appendChild(anchor); anchor.click(); anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 45000);
+      anchor.href = downloadUrl;
+      anchor.download = downloadName;
+      anchor.rel = 'noopener noreferrer';
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
       setOpen(false);
     } catch (err) {
       console.error('Erro ao transferir mídia Talaza:', err);
