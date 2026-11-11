@@ -704,7 +704,7 @@ export default function Subcategory() {
               {premiumPromotions.map((item, index) => (
                 <article className="premiumFeedItem" key={item.id}>
                   {item.media_type === 'video'
-                    ? <MediaOptions url={item.media_url} isVideo fileName="destaque-premium" storagePath={item.storage_path}><video className="premiumFeedMedia" src={item.media_url} controls playsInline preload="auto" autoPlay muted={false} onPlay={(event) => {
+                    ? <MediaOptions url={item.media_url} isVideo fileName="destaque-premium" storagePath={item.storage_path}><video className="premiumFeedMedia" src={item.media_url} controls playsInline preload="none" autoPlay muted={false} onPlay={(event) => {
                       const currentVideo = event.currentTarget;
                       const scroller = currentVideo.closest('.premiumFeedScroller');
                       scroller?.querySelectorAll('video').forEach((video) => {
