@@ -145,16 +145,20 @@ export default function Admin() {
     }
 
     setAuthorized(true);
-    await loadBusinesses();
-    await loadSubscriptionRequests();
-    await loadCommunityReports();
-    await loadPendingCommunityPosts();
-    await loadSupportMessages();
-    await loadAdminNotifications();
-    await loadProfiles();
-    await loadEvents();
-    await loadJobPosts();
-    await loadOfficialArchive();
+    // Estas leituras independentes podem correr em paralelo: reduz o tempo
+    // de espera do painel sem aumentar o volume total de dados consultados.
+    await Promise.all([
+      loadBusinesses(),
+      loadSubscriptionRequests(),
+      loadCommunityReports(),
+      loadPendingCommunityPosts(),
+      loadSupportMessages(),
+      loadAdminNotifications(),
+      loadProfiles(),
+      loadEvents(),
+      loadJobPosts(),
+      loadOfficialArchive(),
+    ]);
 
     setLoading(false);
   }
