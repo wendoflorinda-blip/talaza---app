@@ -640,7 +640,10 @@ export default function Admin() {
         return;
       }
 
-      const expiresAt = new Date(Date.now() + officialDuration * 24 * 60 * 60 * 1000).toISOString();
+      // Motivação mantém a duração escolhida; Tema do Mês e Título da Semana
+      // têm ambos 30 dias, mas o título semanal usa um prazo independente.
+      const contentDuration = officialKind === 'motivation' ? officialDuration : 30;
+      const expiresAt = new Date(Date.now() + contentDuration * 24 * 60 * 60 * 1000).toISOString();
 
       if (officialKind === 'motivation') {
         const { error } = await supabase.from('community_motivation').insert({
@@ -711,7 +714,7 @@ export default function Admin() {
             week_number: weekNumber,
             starts_at: now.toISOString(),
             ends_at: expiresAt,
-            duration_days: officialDuration,
+            duration_days: 30,
             is_active: true,
             background_color: officialBackgroundColor,
             background_gradient: officialBackgroundGradient,
@@ -1467,10 +1470,12 @@ export default function Admin() {
             <select value={officialKind} onChange={event => setOfficialKind(event.target.value)} style={styles.input}>
               <option value="motivation">Motivação</option><option value="theme">Tema do mês</option><option value="weekly_question">Título da semana</option>
             </select>
-            <label style={styles.label}>Duração do conteúdo</label>
-            <select value={officialDuration} onChange={event => setOfficialDuration(Number(event.target.value))} style={styles.input}>
-              <option value={7}>7 dias</option><option value={15}>15 dias</option><option value={30}>30 dias</option>
-            </select>
+            {officialKind === 'motivation' ? <>
+              <label style={styles.label}>Duração da motivação</label>
+              <select value={officialDuration} onChange={event => setOfficialDuration(Number(event.target.value))} style={styles.input}>
+                <option value={7}>7 dias</option><option value={15}>15 dias</option><option value={30}>30 dias</option>
+              </select>
+            </> : <p style={styles.meta}><strong>Validade fixa: 30 dias.</strong> O Tema do Mês e o Título da Semana expiram separadamente.</p>}
             <p style={styles.meta}>Quando a duração terminar, o conteúdo deixa de aparecer ao público, mas permanece guardado no histórico para consulta e reutilização futura.</p>
             <label style={styles.label}>Título / tema</label>
             <input value={officialTitle} onChange={event => setOfficialTitle(event.target.value)} placeholder={officialKind === 'motivation' ? 'Ex.: A força de recomeçar' : officialKind === 'theme' ? 'Ex.: O valor de recomeçar' : 'Ex.: O que aprendeste esta semana?'} style={styles.input} />
