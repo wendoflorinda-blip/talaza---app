@@ -45,6 +45,7 @@ export default function Seller() {
 
   // ---- galeria (imagens principais + imagens de painel) ----
   const [images, setImages] = useState([]);
+  const [hasMoreImages, setHasMoreImages] = useState(false);
   const [galleryError, setGalleryError] = useState('');
   const [galleryBusy, setGalleryBusy] = useState(false);
   const [viewMode, setViewMode] = useState('normal');
@@ -461,12 +462,13 @@ export default function Seller() {
      GALERIA · imagens principais (3 lugares) e imagens de painel
      ===================================================================== */
 
-  async function loadImages(businessId) {
+  async function loadImages(businessId, pageToLoad = 0) {
     const { data, error: imagesError } = await supabase
       .from('business_images')
-      .select('*')
+      .select('id,business_id,kind,slot,image_url,video_url,media_url,media_type,name,description,price,created_at,storage_path')
       .eq('business_id', businessId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(pageToLoad * 60, pageToLoad * 60 + 59);
 
     if (imagesError) {
       console.error('Erro ao carregar a galeria:', imagesError);
@@ -475,7 +477,8 @@ export default function Seller() {
       return null;
     }
     setGalleryError('');
-    setImages(data || []);
+    setHasMoreImages((data || []).length === 60);
+    setImages((previous) => pageToLoad === 0 ? (data || []) : [...previous, ...(data || []).filter((row) => !previous.some((item) => item.id === row.id))]);
     return data || [];
   }
 
@@ -1156,6 +1159,11 @@ export default function Seller() {
             whatsapp={business.phone}
             businessName={business.name}
           />
+          {hasMoreImages && (
+            <button type="button" disabled={galleryBusy} onClick={() => loadImages(business.id, Math.ceil(images.length / 60))} style={{ display: 'block', margin: '16px auto', padding: '11px 18px', border: '1px solid #0F6E5C', borderRadius: 10, background: '#0F6E5C', color: '#FFFFFF', fontWeight: 800 }}>
+              Carregar mais conteúdo
+            </button>
+          )}
           </div>
         </details>
 
