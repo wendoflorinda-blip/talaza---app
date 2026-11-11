@@ -1,5 +1,7 @@
 import '../styles/globals.css';
 import { useRouter } from 'next/router';
+import Head from 'next/head';
+import { useEffect } from 'react';
 import MessageDock from '../components/MessageDock';
 import AppErrorBoundary from '../components/AppErrorBoundary';
 
@@ -13,6 +15,16 @@ const DOCK_ROUTES = [
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+    const register = () => navigator.serviceWorker.register('/service-worker.js').catch((error) => {
+      if (process.env.NODE_ENV !== 'production') console.warn('TALAZA PWA: não foi possível registar o service worker.', error);
+    });
+    if (document.readyState === 'complete') register();
+    else window.addEventListener('load', register, { once: true });
+    return () => window.removeEventListener('load', register);
+  }, []);
 
   const isVitrineArea = DOCK_ROUTES.some(
     (route) =>
@@ -30,6 +42,16 @@ export default function App({ Component, pageProps }) {
 
   return (
     <>
+      <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta name="theme-color" content="#075B4E" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="TALAZA" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="icon" href="/icons/talaza-icon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/icons/talaza-icon.svg" />
+      </Head>
       <AppErrorBoundary>
         <Component {...pageProps} />
         {showDockOnPage && <MessageDock />}
