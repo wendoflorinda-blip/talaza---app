@@ -1405,18 +1405,9 @@ export default function Comunidade() {
                 <Panel key={item.id} style={{ marginBottom: 16, padding: 0, overflow: 'hidden', aspectRatio: item.aspect_ratio === '9:16' ? '9 / 16' : '9 / 16', width: '100%', maxWidth: 480, marginLeft: 'auto', marginRight: 'auto', minHeight: 420, display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'space-between', color: item.text_color || '#FFFFFF', fontFamily: item.font_family || 'Georgia', backgroundColor: item.background_color || '#173B35', backgroundImage: item.background_image_url ? 'linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,.12)),url(' + item.background_image_url + ')' : (item.background_gradient || undefined), backgroundSize: 'cover', backgroundPosition: 'center' }}>
                   <div style={{ width: '100%', height: '100%', minHeight: 180, boxSizing: 'border-box', padding: 'clamp(16px,4vw,32px)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 12 }}>
                     <h3 style={{ margin: 0, fontSize: 'clamp(22px,4.5vw,36px)', lineHeight: 1.3, overflowWrap: 'anywhere' }}>{item.title || item.content}</h3>
-                    <small style={{ opacity: .9 }}>{new Date(item.created_at).toLocaleDateString('pt-AO')}</small>
                   </div>
-                  <div style={{ padding: '0 clamp(16px,4vw,28px) 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-                      <button type="button" onClick={() => toggleOfficialLike(item, 'motivation')} style={{ ...buttonStyle, background: officialInteractions[item.id]?.liked ? C.purpleSoft : 'rgba(255,255,255,.92)', color: officialInteractions[item.id]?.liked ? C.purple : C.ink, border: '1px solid rgba(255,255,255,.6)' }}>{officialInteractions[item.id]?.liked ? '♥ Gostaste' : '♡ Gostar'} · {officialInteractions[item.id]?.likes || 0}</button>
-                      <button type="button" onClick={() => setOpenComments((prev) => ({ ...prev, [item.id]: !prev[item.id] }))} style={{ ...buttonStyle, background: 'rgba(255,255,255,.92)', color: C.ink, border: '1px solid rgba(255,255,255,.6)' }}>💬 Comentar · {(officialInteractions[item.id]?.comments || []).length}</button>
-                    </div>
-                    {openComments[item.id] ? <div style={{ background: 'rgba(255,255,255,.95)', color: C.ink, padding: 12, borderRadius: 12 }}>
-                      {(officialInteractions[item.id]?.comments || []).map((comment) => <div key={comment.id} style={{ padding: '8px 0', borderBottom: '1px solid ' + C.line }}><p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{comment.content}</p><small style={{ color: C.faint }}>{new Date(comment.created_at).toLocaleDateString('pt-AO')}</small></div>)}
-                      <textarea value={officialCommentDrafts[item.id] || ''} onChange={(event) => setOfficialCommentDrafts((prev) => ({ ...prev, [item.id]: event.target.value }))} rows={2} maxLength={2000} placeholder="Escreva o seu comentário…" style={{ width: '100%', marginTop: 10, padding: 11, border: '1px solid ' + C.line, borderRadius: 10, resize: 'vertical', boxSizing: 'border-box' }} />
-                      <button type="button" onClick={() => submitOfficialComment(item, 'motivation')} style={{ ...buttonStyle, marginTop: 8, background: C.green, color: C.white }}>Enviar comentário</button>
-                    </div> : null}
+                  <div style={{ padding: '0 clamp(16px,4vw,28px) 20px', display: 'flex', justifyContent: 'center' }}>
+                    <button type="button" onClick={() => toggleOfficialLike(item, 'motivation')} style={{ ...buttonStyle, background: officialInteractions[item.id]?.liked ? C.purpleSoft : 'rgba(255,255,255,.92)', color: officialInteractions[item.id]?.liked ? C.purple : C.ink, border: '1px solid rgba(255,255,255,.6)' }}>{officialInteractions[item.id]?.liked ? '♥ Gostaste' : '♡ Gostar'} · {officialInteractions[item.id]?.likes || 0}</button>
                   </div>
                 </Panel>
               ))
@@ -1424,29 +1415,30 @@ export default function Comunidade() {
               officialContent.length === 0 ? (
                 <Panel><p style={{ color: C.muted, margin: 0 }}>Ainda não há um tema oficial publicado pela administração.</p></Panel>
               ) : officialContent.map((item) => (
-                <Panel key={item.id} style={{ marginBottom: 12, overflow: 'hidden', padding: 0 }}>
-                  <div style={{ padding: 'clamp(18px,4vw,28px)', color: item.text_color || '#FFFFFF', fontFamily: item.font_family || 'Georgia', backgroundColor: item.background_color || '#173B35', backgroundImage: item.background_image_url ? 'linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,.12)),url(' + item.background_image_url + ')' : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8, opacity: .9 }}>TEMA DO MÊS</div>
-                    <h3 style={{ margin: 0, fontSize: 'clamp(30px,6vw,48px)', lineHeight: 1.12, fontWeight: 900, letterSpacing: '-.03em', overflowWrap: 'anywhere' }}>{item.month_title}</h3>
-                  </div>
-                  <div style={{ padding: '16px clamp(14px,3vw,24px) 22px' }}>
-                  {item.month_description ? <p style={{ color: C.muted, lineHeight: 1.6, margin: '0 0 14px' }}>{item.month_description}</p> : null}
-                  {item.week_expires_at && new Date(item.week_expires_at).getTime() > Date.now() ? (
-                    <div style={{ borderBottom: '1px solid ' + C.line, paddingBottom: 14 }}>
-                      <div style={{ fontSize: 12, color: C.green, fontWeight: 800, marginBottom: 7 }}>TEMA DA SEMANA · SEMANA {item.week_number}</div>
-                      <h3 style={{ color: C.dark, margin: '0 0 8px', fontSize: 23, lineHeight: 1.25 }}>{item.week_title}</h3>
-                      {item.week_description ? <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, margin: 0, color: C.ink }}>{item.week_description}</p> : null}
+                <Panel key={item.id} style={{ marginBottom: 20, padding: 0, overflow: 'visible', border: 0, background: 'transparent' }}>
+                  <div style={{ position: 'relative', overflow: 'hidden', minHeight: 285, borderRadius: '30px 30px 24px 24px', padding: 'clamp(24px,5vw,38px) clamp(20px,5vw,34px) 64px', boxSizing: 'border-box', color: item.text_color || '#FFFFFF', fontFamily: item.font_family || 'Arial, sans-serif', backgroundColor: item.background_color || '#303BD0', backgroundImage: item.background_image_url ? 'linear-gradient(rgba(30,45,190,.62),rgba(30,45,190,.62)),url(' + item.background_image_url + ')' : (item.background_gradient || 'radial-gradient(circle at 88% 18%, rgba(24,39,158,.9) 0 17%, transparent 17.2%), linear-gradient(125deg,#303BD0 0%,#2937C6 100%)'), backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: '0 12px 28px rgba(38,49,170,.13)' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '9px 19px', marginBottom: 34, background: '#FFD044', color: '#382B0A', fontSize: 15, fontWeight: 900, letterSpacing: '.01em', boxShadow: '0 3px 10px rgba(20,25,80,.12)' }}>
+                      {new Date(item.starts_at || item.created_at).toLocaleDateString('pt-AO', { month: 'long' }).replace(/^./, (letter) => letter.toLocaleUpperCase('pt-AO'))}
                     </div>
-                  ) : null}
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid ' + C.line, marginTop: 12, paddingTop: 12 }}>
-                    <button type="button" onClick={() => toggleOfficialLike(item, 'theme')} style={{ ...buttonStyle, background: officialInteractions[item.id]?.liked ? C.purpleSoft : C.bg, color: officialInteractions[item.id]?.liked ? C.purple : C.ink, border: '1px solid ' + C.line }}>{officialInteractions[item.id]?.liked ? '♥ Gostaste' : '♡ Gostar'} · {officialInteractions[item.id]?.likes || 0}</button>
-                    <button type="button" onClick={() => setOpenComments((prev) => ({ ...prev, [item.id]: !prev[item.id] }))} style={{ ...buttonStyle, background: C.bg, color: C.ink, border: '1px solid ' + C.line }}>💬 Comentar · {(officialInteractions[item.id]?.comments || []).length}</button>
+                    <h3 style={{ position: 'relative', zIndex: 1, maxWidth: 760, margin: 0, fontSize: 'clamp(29px,6.2vw,48px)', lineHeight: 1.13, fontWeight: 900, letterSpacing: '-.035em', overflowWrap: 'anywhere', textShadow: '0 1px 1px rgba(0,0,0,.08)' }}>{item.month_title}</h3>
                   </div>
-                  {openComments[item.id] ? <div style={{ marginTop: 12 }}>
-                    {(officialInteractions[item.id]?.comments || []).map((comment) => <div key={comment.id} style={{ background: C.bg, borderRadius: 12, padding: 10, marginBottom: 8 }}><p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5, fontSize: 13 }}>{comment.content}</p><small style={{ color: C.faint }}>{new Date(comment.created_at).toLocaleDateString('pt-PT')}</small></div>)}
-                    <textarea value={officialCommentDrafts[item.id] || ''} onChange={(event) => setOfficialCommentDrafts((prev) => ({ ...prev, [item.id]: event.target.value }))} rows={2} maxLength={2000} placeholder="Escreva o seu comentário…" style={{ width: '100%', padding: 11, border: '1px solid ' + C.line, borderRadius: 12, resize: 'vertical' }} />
-                    <button type="button" onClick={() => submitOfficialComment(item, 'theme')} style={{ ...buttonStyle, marginTop: 8, background: C.green, color: C.white }}>Enviar comentário</button>
-                  </div> : null}
+                  <div style={{ position: 'relative', zIndex: 2, width: 'calc(100% - clamp(24px,9vw,64px))', boxSizing: 'border-box', margin: '-27px auto 0', padding: 'clamp(22px,5vw,34px)', borderRadius: 28, background: '#FFFFFF', border: '1px solid #E2E5F4', boxShadow: '0 16px 34px rgba(24,32,85,.10)' }}>
+                    {item.week_expires_at && new Date(item.week_expires_at).getTime() > Date.now() ? (
+                      <div>
+                        <div style={{ color: '#303BD0', fontSize: 15, fontWeight: 900, marginBottom: 20 }}>Título da Semana</div>
+                        <h3 style={{ color: '#171B45', margin: 0, fontSize: 'clamp(24px,5vw,39px)', lineHeight: 1.28, fontWeight: 850, letterSpacing: '-.025em', overflowWrap: 'anywhere' }}>{item.week_title}</h3>
+                        {item.week_description ? <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, margin: '15px 0 0', color: '#4B506B', fontSize: 16 }}>{item.week_description}</p> : null}
+                      </div>
+                    ) : item.month_description ? <p style={{ color: '#4B506B', lineHeight: 1.65, margin: 0, fontSize: 16 }}>{item.month_description}</p> : null}
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 26 }}>
+                      <button type="button" onClick={() => toggleOfficialLike(item, 'theme')} style={{ ...buttonStyle, minWidth: 130, padding: '13px 22px', background: officialInteractions[item.id]?.liked ? '#E9EAFE' : '#303BD0', color: officialInteractions[item.id]?.liked ? '#303BD0' : '#FFFFFF', border: '1px solid #303BD0', fontSize: 15 }}>{officialInteractions[item.id]?.liked ? '♥ Gostaste' : '♡ Gostar'} · {officialInteractions[item.id]?.likes || 0}</button>
+                      <button type="button" onClick={() => setOpenComments((prev) => ({ ...prev, [item.id]: !prev[item.id] }))} style={{ ...buttonStyle, minWidth: 130, padding: '13px 22px', background: '#FFFFFF', color: '#171B45', border: '1px solid #E2E5F4', fontSize: 15 }}>◯ Comentar · {(officialInteractions[item.id]?.comments || []).length}</button>
+                    </div>
+                    {openComments[item.id] ? <div style={{ marginTop: 16 }}>
+                      {(officialInteractions[item.id]?.comments || []).map((comment) => <div key={comment.id} style={{ background: '#F6F7FC', borderRadius: 12, padding: 10, marginBottom: 8 }}><p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5, fontSize: 13 }}>{comment.content}</p><small style={{ color: C.faint }}>{new Date(comment.created_at).toLocaleDateString('pt-AO')}</small></div>)}
+                      <textarea value={officialCommentDrafts[item.id] || ''} onChange={(event) => setOfficialCommentDrafts((prev) => ({ ...prev, [item.id]: event.target.value }))} rows={2} maxLength={2000} placeholder="Escreva o seu comentário…" style={{ width: '100%', padding: 11, border: '1px solid #E2E5F4', borderRadius: 12, resize: 'vertical', boxSizing: 'border-box' }} />
+                      <button type="button" onClick={() => submitOfficialComment(item, 'theme')} style={{ ...buttonStyle, marginTop: 8, background: C.green, color: C.white }}>Enviar comentário</button>
+                    </div> : null}
                   </div>
                 </Panel>
               ))
