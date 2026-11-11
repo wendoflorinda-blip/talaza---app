@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Head from 'next/head';
 import { supabase } from '../lib/supabaseClient';
+import { cachedQuery } from '../lib/queryCache';
 import MediaOptions from '../components/MediaOptions';
 
 const BUSINESS_PAGE_SIZE = 12;
@@ -148,6 +149,13 @@ export default function Subcategory() {
   }
 
   useEffect(() => {
+    setBusinessesPage(0);
+    setBusinesses([]);
+    setBusinessImagesById({});
+    setHasMoreBusinesses(false);
+  }, [id, country, province]);
+
+  useEffect(() => {
     if (!router.isReady || !id) return;
     try {
       const saved = localStorage.getItem(historyStorageKey);
@@ -191,11 +199,11 @@ export default function Subcategory() {
 
       try {
         const { data: subcategoryData, error: subcategoryError } =
-          await supabase
+          await cachedQuery('public-subcategory:' + id, () => supabase
             .from('subcategories')
             .select('id, name, description, category_id')
             .eq('id', id)
-            .single();
+            .single());
 
         if (subcategoryError) throw subcategoryError;
 
@@ -203,21 +211,21 @@ export default function Subcategory() {
         let foundProvinceName = '';
 
         if (country) {
-          const { data } = await supabase
+          const { data } = await cachedQuery('public-country-id:' + country, () => supabase
             .from('countries')
             .select('id, name')
             .eq('id', country)
-            .maybeSingle();
+            .maybeSingle());
 
           foundCountryName = data?.name || '';
         }
 
         if (province) {
-          const { data } = await supabase
+          const { data } = await cachedQuery('public-province-id:' + province, () => supabase
             .from('provinces')
             .select('id, name, country_id')
             .eq('id', province)
-            .maybeSingle();
+            .maybeSingle());
 
           if (data && (!country || data.country_id === country)) {
             foundProvinceName = data.name || '';
