@@ -77,7 +77,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         src={mediaUrl(item)}
         muted
         playsInline
-        preload="auto"
+        preload="none"
         aria-label={alt}
         onClick={() => openViewer(item)}
         style={{display:'block',width:'100%',height:'100%',minHeight:180,background:'#080808',objectFit:'contain',cursor:'pointer'}}
@@ -152,7 +152,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
       {openItem && <div className={'veu'+(isVideo(openItem)?' videoViewer':'')} onClick={(event) => { if (event.target === event.currentTarget) closeViewer(); }}>
         <div className={isVideo(openItem)?'videoSheet':'sheet'} role="dialog" aria-modal="true" aria-label={openItem.name || 'Produto'}>
           {isVideo(openItem) ? <>
-            <video ref={viewerVideoRef} className="viewerVideo" src={mediaUrl(openItem)} autoPlay loop muted playsInline controls preload="auto" onClick={(event)=>{const v=event.currentTarget;if(v.paused)v.play().catch(()=>{});}} />
+            <video ref={viewerVideoRef} className="viewerVideo" src={mediaUrl(openItem)} autoPlay loop muted playsInline controls preload="metadata" onClick={(event)=>{const v=event.currentTarget;if(v.paused)v.play().catch(()=>{});}} />
             <button type="button" className="viewerClose" onClick={closeViewer} aria-label="Fechar vídeo">×</button>
             <div className="viewerCaption">{openItem.name&&<b>{openItem.name}</b>}{openItem.description&&<p>{openItem.description}</p>}<strong>{businessName}</strong>{openItem.price!==null&&openItem.price!==undefined&&openItem.price!==''&&<span>{formatKz(openItem.price)}</span>}</div>
             {downloadError&&<p role="alert" className="downloadError viewerError">{downloadError}</p>}
