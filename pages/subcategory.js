@@ -5,6 +5,8 @@ import Head from 'next/head';
 import { supabase } from '../lib/supabaseClient';
 import MediaOptions from '../components/MediaOptions';
 
+const BUSINESS_PAGE_SIZE = 12;
+
 const COLORS = {
   green: '#0F6E5C',
   darkGreen: '#083F35',
@@ -59,6 +61,8 @@ export default function Subcategory() {
 
   const [subcategory, setSubcategory] = useState(null);
   const [businesses, setBusinesses] = useState([]);
+  const [businessesPage, setBusinessesPage] = useState(0);
+  const [hasMoreBusinesses, setHasMoreBusinesses] = useState(false);
   const [businessImagesById, setBusinessImagesById] = useState({});
   const [premiumPromotions, setPremiumPromotions] = useState([]);
   const [savedPromotionIds, setSavedPromotionIds] = useState([]);
@@ -235,7 +239,8 @@ export default function Subcategory() {
           )
           .eq('subcategory_id', id)
           .eq('is_active', true)
-          .eq('approval_status', 'approved');
+          .eq('approval_status', 'approved')
+          .range(businessesPage * BUSINESS_PAGE_SIZE, businessesPage * BUSINESS_PAGE_SIZE + BUSINESS_PAGE_SIZE - 1);
 
         if (country) businessQuery = businessQuery.eq('country_id', country);
         if (province) businessQuery = businessQuery.eq('province_id', province);
@@ -247,11 +252,15 @@ export default function Subcategory() {
 
         if (cancelled) return;
 
-        setBusinesses(businessData || []);
+        setHasMoreBusinesses((businessData || []).length === BUSINESS_PAGE_SIZE);
+        setBusinesses((previous) => businessesPage === 0 ? (businessData || []) : [...previous, ...(businessData || []).filter((row) => !previous.some((item) => item.id === row.id))]);
         const { data: authData } = await supabase.auth.getUser();
         if (authData?.user?.id) {
-          const { data: savedRows, error: savedError } = await supabase.from('saved_businesses').select('business_id').eq('user_id', authData.user.id);
-          if (!savedError && !cancelled) { setCurrentUserId(authData.user.id); setSavedBusinessIds((savedRows || []).map(row => row.business_id)); }
+          const currentPageIds = (businessData || []).map((business) => business.id);
+          const { data: savedRows, error: savedError } = currentPageIds.length
+            ? await supabase.from('saved_businesses').select('business_id').eq('user_id', authData.user.id).in('business_id', currentPageIds)
+            : { data: [], error: null };
+          if (!savedError && !cancelled) { setCurrentUserId(authData.user.id); setSavedBusinessIds((previous) => businessesPage === 0 ? (savedRows || []).map(row => row.business_id) : [...new Set([...previous, ...(savedRows || []).map(row => row.business_id)])]); }
         }
 
         // Carrega separadamente as três imagens principais de cada negócio.
@@ -289,7 +298,7 @@ export default function Subcategory() {
           const { data: promoRows, error: promoError } = await supabase.from('premium_promotions')
             .select('id,business_id,plan_id,media_url,media_type,description,starts_at,expires_at,status')
             .in('plan_id',subcategoryPlanIds).eq('status','active').gt('expires_at',new Date().toISOString())
-            .order('starts_at',{ascending:false});
+            .order('starts_at',{ascending:false}).limit(60);
           if(promoError) console.warn('Não foi possível carregar promoções da subcategoria:',promoError);
           const promoBusinessIds=[...new Set((promoRows||[]).map(item=>item.business_id).filter(Boolean))];
           const {data:promoAuth}=await supabase.auth.getUser();
@@ -306,7 +315,7 @@ export default function Subcategory() {
             return b && String(b.subcategory_id)===String(id) && (!country || String(b.country_id)===String(country)) && (!province || String(b.province_id)===String(province));
           }).map(item=>({...item,business:businessMap[item.business_id],duration_days:Number((premiumPlanRows||[]).find(plan=>String(plan.id)===String(item.plan_id))?.duration_days||0)}));
           if(!cancelled) {
-            setPremiumPromotions(visible);
+            setPremiumPromotions(visible.slice(0, 60));
             setSavedPromotionIds((promoSaved.data||[]).map(row=>row.promotion_id));
           }
         } else if(!cancelled) setPremiumPromotions([]);
@@ -335,7 +344,7 @@ export default function Subcategory() {
     return () => {
       cancelled = true;
     };
-  }, [router.isReady, id, country, province]);
+  }, [router.isReady, id, country, province, businessesPage]);
 
   async function toggleSavedPromotion(promotion) {
     if(!currentUserId) { setSaveNotice('Inicia sessão na Talaza para guardar esta publicação.'); return; }
@@ -683,6 +692,11 @@ export default function Subcategory() {
                       );
                     })}
                   </div>
+                )}
+                {!loading && !error && hasMoreBusinesses && (
+                  <button type="button" disabled={loading} onClick={() => setBusinessesPage((page) => page + 1)} style={{ display: 'block', margin: '20px auto', padding: '12px 20px', border: '1px solid #0F6E5C', borderRadius: 12, background: '#0F6E5C', color: '#FFFFFF', fontWeight: 800, cursor: 'pointer' }}>
+                    Carregar mais negócios
+                  </button>
                 )}
               </section>
             </>
