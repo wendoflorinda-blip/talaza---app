@@ -3,6 +3,8 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 
+const OPPORTUNITY_PAGE_SIZE = 12;
+
 const OPPORTUNITY_PLAN_ID =
   '0fff05f6-c619-4c72-ba3e-3a0028eafef7';
 
@@ -107,6 +109,8 @@ export default function Oportunidades() {
   const [hasAccess, setHasAccess] = useState(false);
 
   const [opportunities, setOpportunities] = useState([]);
+  const [opportunitiesPage, setOpportunitiesPage] = useState(0);
+  const [hasMoreOpportunities, setHasMoreOpportunities] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -238,7 +242,7 @@ export default function Oportunidades() {
     }
   }
 
-  async function loadOpportunities() {
+  async function loadOpportunities(pageToLoad = 0) {
     setLoading(true);
     setError('');
 
@@ -251,25 +255,29 @@ export default function Oportunidades() {
 
       const { data, error: queryError } = await supabase
         .from('job_posts')
-        .select('*')
+        .select('id,created_at,user_id,country_id,province_id,title,description,requirements,municipality,neighborhood,whatsapp,salary,professional_competence,work_availability,image_url,area,profession,expires_at')
         .eq('country_id', country)
         .eq('province_id', province)
         .eq('is_active', true)
         .eq('status', 'published')
         .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(pageToLoad * OPPORTUNITY_PAGE_SIZE, pageToLoad * OPPORTUNITY_PAGE_SIZE + OPPORTUNITY_PAGE_SIZE - 1);
 
       if (queryError) {
         throw queryError;
       }
 
-      setOpportunities(data || []);
+      setHasMoreOpportunities((data || []).length === OPPORTUNITY_PAGE_SIZE);
+      setOpportunitiesPage(pageToLoad);
+      setOpportunities((previous) => pageToLoad === 0 ? (data || []) : [...previous, ...(data || []).filter((row) => !previous.some((item) => item.id === row.id))]);
     } catch (err) {
       console.error(err);
       setError(
         'Não foi possível carregar as oportunidades.'
       );
-      setOpportunities([]);
+      if (pageToLoad === 0) setOpportunities([]);
+      setHasMoreOpportunities(false);
     } finally {
       setLoading(false);
     }
@@ -542,6 +550,11 @@ export default function Oportunidades() {
                   </Link>
                 </div>
               )}
+            {!loading && !error && hasMoreOpportunities && (
+              <button type="button" disabled={loading} onClick={() => loadOpportunities(opportunitiesPage + 1)} style={{ display: 'block', margin: '20px auto', padding: '12px 20px', border: 0, borderRadius: 12, background: COLORS.brand, color: '#FFFFFF', fontWeight: 800, cursor: 'pointer' }}>
+                Carregar mais oportunidades
+              </button>
+            )}
 
             {!loading &&
               !error &&
