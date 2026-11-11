@@ -365,7 +365,8 @@ export default function Comunidade() {
           .select('id, created_at, title, content, image_url, background_color, background_gradient, background_image_url, text_color, font_family, aspect_ratio, duration_days, expires_at')
           .eq('is_active', true)
           .gt('expires_at', new Date().toISOString())
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(30);
 
         if (cancelled) return;
 
@@ -687,8 +688,8 @@ export default function Comunidade() {
     if (!items || !items.length) { setOfficialInteractions({}); return; }
     const ids = items.map((item) => item.id);
     const [likesResult, commentsResult] = await Promise.all([
-      supabase.from('community_official_likes').select('id, official_id, user_id').eq('official_type', kind).in('official_id', ids),
-      supabase.from('community_official_comments').select('id, official_type, official_id, user_id, content, created_at').eq('official_type', kind).in('official_id', ids).order('created_at', { ascending: true }),
+      supabase.from('community_official_likes').select('id, official_id, user_id').eq('official_type', kind).in('official_id', ids).limit(600),
+      supabase.from('community_official_comments').select('id, official_type, official_id, user_id, content, created_at').eq('official_type', kind).in('official_id', ids).order('created_at', { ascending: true }).limit(120),
     ]);
     if (likesResult.error || commentsResult.error) {
       setMessage('Não foi possível carregar os gostos ou comentários oficiais: ' + (likesResult.error?.message || commentsResult.error?.message || 'erro de acesso'));
@@ -1580,6 +1581,8 @@ export default function Comunidade() {
 
                   {post.image_url && (
                     <img
+                      loading="lazy"
+                      decoding="async"
                       src={post.image_url}
                       alt="Imagem da publicação"
                       style={{
