@@ -39,6 +39,7 @@ export default function Admin() {
   const [authorized, setAuthorized] = useState(false);
   const [businesses, setBusinesses] = useState([]);
   const [subscriptionRequests, setSubscriptionRequests] = useState([]);
+  const [opportunityAccessLoadError, setOpportunityAccessLoadError] = useState('');
   const [girassolReactivations, setGirassolReactivations] = useState([]);
   const [girassolProofUrls, setGirassolProofUrls] = useState({});
   const [reviewingGirassolId, setReviewingGirassolId] = useState('');
@@ -229,24 +230,53 @@ export default function Admin() {
   }
 
   async function loadSubscriptionRequests() {
-    const { data, error } = await supabase
-      .from('payment_submissions')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) {
-      console.error('Erro ao carregar pagamentos:', error);
-      setMessage('Perfis carregados. Não foi possível carregar pedidos de pagamento: ' + error.message);
-      setSubscriptionRequests([]);
-      return;
+    setOpportunityAccessLoadError('');
+
+    // Carrega a fila geral e, em separado, os pagamentos do plano de
+    // Oportunidades. Assim, um filtro ou erro na fila geral não esconde este
+    // comprovativo administrativo.
+    const [allPaymentsResult, opportunityPaymentsResult] = await Promise.all([
+      supabase
+        .from('payment_submissions')
+        .select('*')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('payment_submissions')
+        .select('*')
+        .eq('plan_id', OPPORTUNITY_ACCESS_PLAN_ID)
+        .order('created_at', { ascending: false }),
+    ]);
+
+    if (allPaymentsResult.error) {
+      console.error('Erro ao carregar pagamentos gerais:', allPaymentsResult.error);
+      setMessage('Perfis carregados. Não foi possível carregar a fila geral de pagamentos: ' + allPaymentsResult.error.message);
     }
-    // Os pedidos de acesso às Oportunidades são pagamentos de plano:
-    // não têm business_id, event_id, job_post_id nem premium_promotion_id.
-    const requests = (data || []).filter((item) =>
-      String(item.proof_url || '').trim() &&
-      (item.business_id || item.event_id || item.job_post_id || item.premium_promotion_id ||
-        item.plan_id === OPPORTUNITY_ACCESS_PLAN_ID)
-    );
+
+    if (opportunityPaymentsResult.error) {
+      console.error('Erro ao carregar pagamentos de acesso às Oportunidades:', opportunityPaymentsResult.error);
+      setOpportunityAccessLoadError('Não foi possível consultar os comprovativos de acesso às Oportunidades: ' + opportunityPaymentsResult.error.message);
+    }
+
+    const combinedRows = [
+      ...(allPaymentsResult.data || []),
+      ...(opportunityPaymentsResult.data || []),
+    ];
+    const uniqueRows = [...new Map(combinedRows.map(item => [item.id, item])).values()];
+
+    // Não exigir business_id/event_id/job_post_id para os planos de acesso.
+    // Mesmo um registo sem URL continua visível para permitir diagnóstico.
+    const requests = uniqueRows.filter((item) => {
+      const isOpportunityAccess = String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase();
+      const hasOtherPaymentLink = item.business_id || item.event_id || item.job_post_id || item.premium_promotion_id;
+      return isOpportunityAccess || (String(item.proof_url || '').trim() && hasOtherPaymentLink);
+    });
     setSubscriptionRequests(requests);
+
+    const opportunityPending = requests.some(item =>
+      String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase() &&
+      String(item.status || '').trim().toLowerCase() === 'pending'
+    );
+    if (opportunityPending) setActiveAdminSection('acessos-oportunidades');
 
     const businessIds = [...new Set(requests.map(item => item.business_id).filter(Boolean))];
     const planIds = [...new Set(requests.map(item => item.plan_id).filter(Boolean))];
@@ -1252,7 +1282,7 @@ export default function Admin() {
             {[
               ['vendedores', 'Vendedores', businesses.length],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
-              ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => item.plan_id === OPPORTUNITY_ACCESS_PLAN_ID && String(item.status || '').toLowerCase() === 'pending').length],
+              ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase() && String(item.status || '').trim().toLowerCase() === 'pending').length],
               ['girassol', 'Reactivação Girassol', girassolReactivations.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['destaques-premium', 'Destaques Premium', subscriptionRequests.filter(item => item.premium_promotion_id && String(item.status || '').toLowerCase() === 'pending').length],
               ['eventos', 'Eventos', events.filter(item => String(item.status || '').toLowerCase() === 'pending_payment').length],
@@ -1661,6 +1691,7 @@ export default function Admin() {
         </section>
 
         <section id="acessos-oportunidades" style={{ marginTop: 0, display: activeAdminSection === 'acessos-oportunidades' ? 'block' : 'none' }}>
+          {opportunityAccessLoadError && <div role="alert" style={styles.errorBox}>{opportunityAccessLoadError}</div>}
           <div style={styles.titleRow}>
             <div>
               <h2 style={styles.title}>Comprovativos de acesso às Oportunidades</h2>
@@ -1668,11 +1699,11 @@ export default function Admin() {
             </div>
             <div style={styles.counter}>{subscriptionRequests.filter(item => item.plan_id === OPPORTUNITY_ACCESS_PLAN_ID && String(item.status || '').toLowerCase() === 'pending').length} por analisar</div>
           </div>
-          {subscriptionRequests.filter(item => item.plan_id === OPPORTUNITY_ACCESS_PLAN_ID).length === 0 ? (
+          {subscriptionRequests.filter(item => String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase()).length === 0 ? (
             <div style={styles.empty}><div style={styles.emptyIcon}>◇</div><h2>Sem comprovativos de acesso</h2><p>Os comprovativos enviados para o plano de Oportunidades aparecerão aqui.</p></div>
           ) : (
             <div style={styles.list}>
-              {subscriptionRequests.filter(item => item.plan_id === OPPORTUNITY_ACCESS_PLAN_ID).map(request => {
+              {subscriptionRequests.filter(item => String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase()).map(request => {
                 const pending = String(request.status || '').toLowerCase() === 'pending';
                 const paths = getPaymentProofPaths(request);
                 const imageUrl = paymentProofUrls[request.id + ':image'];
