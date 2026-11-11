@@ -1,0 +1,29 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# Next.js
+/.next/
+/out/
+/build/
+
+# Vercel local project metadata
+.vercel
+
+# Local environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and local runtime data
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.log
+
+# OS/editor files
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json
