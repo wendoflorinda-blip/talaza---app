@@ -79,7 +79,7 @@ export default function PlanosOportunidades() {
           <div role="alert" style={{ padding: 24, background: C.card, border: '1px solid #E8B5B5', borderRadius: 18, color: '#8A2525' }}>{error}</div>
         ) : plan ? (
           <section style={{ background: C.card, border: '1px solid ' + C.line, borderRadius: 22, padding: 'clamp(16px,4vw,28px)' }}>
-            <PlanCards plans={[plan]} order={['dourado']} onChoose={choosePlan} ctaLabel="Continuar para pagamento" />
+            <PlanCards plans={[plan]} order={['dourado']} onChoose={choosePlan} ctaLabel="Prosseguir para pagamento" />
             <p style={{ color: C.muted, fontSize: 12, lineHeight: 1.6, margin: '18px 0 0' }}>O acesso é ativado após a confirmação do pagamento. Os benefícios apresentados acima vêm do plano registado no Talaza.</p>
           </section>
         ) : null}
