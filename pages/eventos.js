@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import CommentThread from '../components/CommentThread';
 
 const BUCKET = 'event-images';
+const EVENT_PAGE_SIZE = 12;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -126,6 +127,8 @@ export default function Eventos() {
   const [historyItems, setHistoryItems] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [events, setEvents] = useState([]);
+  const [eventsPage, setEventsPage] = useState(0);
+  const [hasMoreEvents, setHasMoreEvents] = useState(false);
   const [likesByEvent, setLikesByEvent] = useState({});
   const [likedByMe, setLikedByMe] = useState({});
   const [commentsByEvent, setCommentsByEvent] = useState({});
@@ -318,7 +321,7 @@ export default function Eventos() {
         .not('expires_at', 'is', null)
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
-        .limit(60);
+        .range(eventsPage * EVENT_PAGE_SIZE, eventsPage * EVENT_PAGE_SIZE + EVENT_PAGE_SIZE - 1);
       if (countryId) query = query.eq('country_id', countryId);
       const { data, error: eventsError } = await query;
       if (eventsError) throw eventsError;
@@ -347,7 +350,8 @@ export default function Eventos() {
         if (bi === -1) return 1;
         return bi - ai;
       });
-      setEvents(rows);
+      setHasMoreEvents(rows.length === EVENT_PAGE_SIZE);
+      setEvents((previous) => eventsPage === 0 ? rows : [...previous, ...rows.filter((row) => !previous.some((item) => item.id === row.id))]);
       if (user?.id && rows.length) {
         try {
           const key = 'talaza_events_seen_ids_' + user.id;
@@ -364,8 +368,8 @@ export default function Eventos() {
       }
       const ids = rows.map(row => row.id);
       const [{ data: likes, error: likesError }, { data: comments, error: commentsError }] = await Promise.all([
-        supabase.from('event_likes').select('event_id,user_id').in('event_id', ids),
-        supabase.from('event_comments').select('id,event_id,user_id,content,created_at,parent_id').in('event_id', ids).eq('status', 'published').order('created_at', { ascending: true })
+        supabase.from('event_likes').select('event_id,user_id').in('event_id', ids).limit(600),
+        supabase.from('event_comments').select('id,event_id,user_id,content,created_at,parent_id').in('event_id', ids).eq('status', 'published').order('created_at', { ascending: true }).limit(180)
       ]);
       if (likesError) throw likesError;
       if (commentsError) throw commentsError;
@@ -375,12 +379,13 @@ export default function Eventos() {
         counts[row.event_id] = (counts[row.event_id] || 0) + 1;
         if (user && row.user_id === user.id) mine[row.event_id] = true;
       });
-      setLikesByEvent(counts);
-      setLikedByMe(mine);
-      setCommentsByEvent((comments || []).reduce((acc, row) => {
+      setLikesByEvent((previous) => ({ ...previous, ...counts }));
+      setLikedByMe((previous) => ({ ...previous, ...mine }));
+      const nextComments = (comments || []).reduce((acc, row) => {
         (acc[row.event_id] ||= []).push(row);
         return acc;
-      }, {}));
+      }, {});
+      setCommentsByEvent((previous) => ({ ...previous, ...nextComments }));
     } catch (err) {
       setFeedError(err.message || 'Não foi possível carregar os eventos. Confirme as políticas RLS.');
     } finally {
@@ -391,7 +396,7 @@ export default function Eventos() {
   useEffect(() => {
     if (!router.isReady || loading) return;
     loadEvents();
-  }, [router.isReady, loading, provinceId, countryId, user?.id]);
+  }, [router.isReady, loading, provinceId, countryId, user?.id, eventsPage]);
 
   function trackEventAction(item) {
     if (!item?.id) return;
@@ -696,7 +701,7 @@ export default function Eventos() {
                 <article id={'evento-' + item.id} key={item.id} style={{ ...styles.eventCard, borderColor: categoryTheme(item.event_type).color + '45', background: '#FFFFFF', boxShadow: '0 6px 22px rgba(24,39,34,.07)' }} onClick={() => trackEventAction(item)}>
                   {(item.video_url || item.image_url) && <div style={styles.eventMedia}>
                     {item.video_url
-                      ? <video src={item.video_url} controls playsInline preload="metadata" poster={item.image_url || undefined} style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} />
+                      ? <video src={item.video_url} controls playsInline preload="none" poster={item.image_url || undefined} style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} />
                       : <img src={item.image_url} alt={item.title} style={styles.eventImage} />}
                   </div>}
                   <div style={styles.eventBody}>
@@ -724,6 +729,11 @@ export default function Eventos() {
                 </article>
               ))}
             </div>
+            {hasMoreEvents && (
+              <button type="button" disabled={feedLoading} onClick={() => setEventsPage((page) => page + 1)} style={{ ...styles.historyButton, display: 'block', margin: '18px auto' }}>
+                {feedLoading ? 'A carregar…' : 'Carregar mais eventos'}
+              </button>
+            )}
           </section>
         )}
 
