@@ -579,9 +579,18 @@ export default function Admin() {
   }
 
   async function notifyUser(userId, title, body, type = 'admin_review') {
-    if (!userId) return;
-    const { error } = await supabase.from('notifications').insert({ user_id: userId, title, body, type: 'individual' });
-    if (error) console.error('A alteração foi feita, mas a notificação falhou:', error.message);
+    if (!userId) return { ok: false, error: 'Utilizador destinatário não identificado.' };
+    const { error } = await supabase.from('notifications').insert({
+      user_id: userId,
+      title,
+      content: body,
+      type,
+    });
+    if (error) {
+      console.error('Não foi possível criar a notificação:', error.message);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
   }
 
   async function moderateEvent(event, approved) {
@@ -1171,14 +1180,18 @@ export default function Admin() {
     const notificationBody = approved
       ? 'O seu pagamento para ' + areaLabel + ' foi aprovado.' + activationMessage
       : 'O comprovativo do seu pagamento para ' + areaLabel + ' foi recusado. Motivo: ' + rejectionReason.trim() + ' Pode corrigir e enviar novamente.';
-    await notifyUser(request.user_id, notificationTitle, notificationBody, 'payment_review');
+    const notificationResult = await notifyUser(request.user_id, notificationTitle, notificationBody, 'payment_review');
 
     await loadSubscriptionRequests();
     await loadBusinesses();
     await loadEvents();
     await loadJobPosts();
     setReviewingPaymentId('');
-    alert(approved ? 'Pagamento aprovado.' + activationMessage : 'Pagamento recusado e motivo enviado nas notificações.');
+    if (!notificationResult.ok) {
+      alert((approved ? 'Pagamento aprovado' : 'Pagamento recusado') + ', mas a notificação não foi enviada: ' + notificationResult.error);
+    } else {
+      alert(approved ? 'Pagamento aprovado.' + activationMessage : 'Pagamento recusado e notificação enviada ao utilizador.');
+    }
   }
 
   async function refreshAdminData() {
