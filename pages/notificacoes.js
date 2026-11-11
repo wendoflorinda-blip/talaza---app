@@ -137,7 +137,16 @@ export default function Notificacoes() {
     if (type.includes('community_comment')) {
       return { pathname: '/comunidade', query: { postId: id } };
     }
-    if (type.includes('comment') || type.includes('reaction') || type.includes('reply')) {
+    if (type.includes('comment_reply')) {
+      // Os triggers guardam o ID da publicação/evento (não o ID da resposta).
+      const { data: communityPost } = await supabase.from('community_posts')
+        .select('id').eq('id', id).maybeSingle();
+      if (communityPost?.id) return { pathname: '/comunidade', query: { postId: communityPost.id } };
+      const { data: eventRecord } = await supabase.from('events')
+        .select('id').eq('id', id).maybeSingle();
+      if (eventRecord?.id) return { pathname: '/eventos', query: { eventId: eventRecord.id } };
+    }
+    if (type.includes('comment') || type.includes('reaction')) {
       const { data: communityComment } = await supabase.from('community_comments')
         .select('post_id').eq('id', id).maybeSingle();
       if (communityComment?.post_id) {
