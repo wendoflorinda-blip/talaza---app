@@ -689,7 +689,7 @@ export default function Comunidade() {
     const ids = items.map((item) => item.id);
     const [likesResult, commentsResult] = await Promise.all([
       supabase.from('community_official_likes').select('id, official_id, user_id').eq('official_type', kind).in('official_id', ids).limit(600),
-      supabase.from('community_official_comments').select('id, official_type, official_id, user_id, content, created_at').eq('official_type', kind).in('official_id', ids).order('created_at', { ascending: true }).limit(120),
+      kind === 'theme' ? supabase.from('community_official_comments').select('id, official_type, official_id, user_id, content, created_at').eq('official_type', kind).in('official_id', ids).order('created_at', { ascending: true }).limit(120) : Promise.resolve({ data: [], error: null }),
     ]);
     if (likesResult.error || commentsResult.error) {
       setMessage('Não foi possível carregar os gostos ou comentários oficiais: ' + (likesResult.error?.message || commentsResult.error?.message || 'erro de acesso'));
