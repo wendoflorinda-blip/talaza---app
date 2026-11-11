@@ -1227,6 +1227,9 @@ export default function Admin() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => router.push('/admin/countries')} style={styles.logout}>
+            Países e pagamentos
+          </button>
           <button type="button" onClick={() => router.push('/admin/media')} style={styles.logout}>
             Administração MÍDIA
           </button>
