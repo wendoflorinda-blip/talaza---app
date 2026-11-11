@@ -365,7 +365,7 @@ export default function Comunidade() {
         const now = new Date().toISOString();
         const { data, error } = await supabase
           .from('community_monthly_themes')
-          .select('id, created_at, month_title, month_description, week_title, week_description, week_number, starts_at, ends_at, background_color, background_gradient, background_image_url, text_color, font_family, duration_days')
+          .select('id, created_at, month_title, month_description, week_title, week_description, week_number, week_expires_at, starts_at, ends_at, background_color, background_gradient, background_image_url, text_color, font_family, duration_days')
           .eq('is_active', true)
           .lte('starts_at', now)
           .gt('ends_at', now)
@@ -1409,12 +1409,14 @@ export default function Comunidade() {
                     <h3 style={{ margin: 0, fontSize: 'clamp(30px,6vw,48px)', lineHeight: 1.12, fontWeight: 900, letterSpacing: '-.03em', overflowWrap: 'anywhere' }}>{item.month_title}</h3>
                   </div>
                   <div style={{ padding: '16px clamp(14px,3vw,24px) 22px' }}>
-                  <div style={{ borderBottom: '1px solid ' + C.line, paddingBottom: 14 }}>
-                    <div style={{ fontSize: 12, color: C.green, fontWeight: 800, marginBottom: 7 }}>TEMA DA SEMANA · SEMANA {item.week_number}</div>
-                    <h3 style={{ color: C.dark, margin: '0 0 8px', fontSize: 23, lineHeight: 1.25 }}>{item.week_title}</h3>
-                    {item.month_description ? <p style={{ color: C.muted, lineHeight: 1.6, margin: '0 0 12px' }}>{item.month_description}</p> : null}
-                    {item.week_description ? <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, margin: 0, color: C.ink }}>{item.week_description}</p> : null}
-                  </div>
+                  {item.month_description ? <p style={{ color: C.muted, lineHeight: 1.6, margin: '0 0 14px' }}>{item.month_description}</p> : null}
+                  {item.week_expires_at && new Date(item.week_expires_at).getTime() > Date.now() ? (
+                    <div style={{ borderBottom: '1px solid ' + C.line, paddingBottom: 14 }}>
+                      <div style={{ fontSize: 12, color: C.green, fontWeight: 800, marginBottom: 7 }}>TEMA DA SEMANA · SEMANA {item.week_number}</div>
+                      <h3 style={{ color: C.dark, margin: '0 0 8px', fontSize: 23, lineHeight: 1.25 }}>{item.week_title}</h3>
+                      {item.week_description ? <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, margin: 0, color: C.ink }}>{item.week_description}</p> : null}
+                    </div>
+                  ) : null}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid ' + C.line, marginTop: 12, paddingTop: 12 }}>
                     <button type="button" onClick={() => toggleOfficialLike(item, 'theme')} style={{ ...buttonStyle, background: officialInteractions[item.id]?.liked ? C.purpleSoft : C.bg, color: officialInteractions[item.id]?.liked ? C.purple : C.ink, border: '1px solid ' + C.line }}>{officialInteractions[item.id]?.liked ? '♥ Gostaste' : '♡ Gostar'} · {officialInteractions[item.id]?.likes || 0}</button>
                     <button type="button" onClick={() => setOpenComments((prev) => ({ ...prev, [item.id]: !prev[item.id] }))} style={{ ...buttonStyle, background: C.bg, color: C.ink, border: '1px solid ' + C.line }}>💬 Comentar · {(officialInteractions[item.id]?.comments || []).length}</button>
