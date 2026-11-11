@@ -293,6 +293,15 @@ export default function Eventos() {
     };
   }, [router.isReady, router.query]);
 
+  useEffect(() => {
+    setEventsPage(0);
+    setEvents([]);
+    setHasMoreEvents(false);
+    setLikesByEvent({});
+    setLikedByMe({});
+    setCommentsByEvent({});
+  }, [provinceId, countryId]);
+
   async function loadEvents() {
     setFeedLoading(true);
     setFeedError('');
@@ -356,7 +365,7 @@ export default function Eventos() {
         try {
           const key = 'talaza_events_seen_ids_' + user.id;
           const previous = JSON.parse(localStorage.getItem(key) || '[]');
-          const nextSeen = [...new Set([...(Array.isArray(previous) ? previous.map(String) : []), ...rows.map(item => String(item.id))])];
+          const nextSeen = [...new Set([...(Array.isArray(previous) ? previous.map(String) : []), ...rows.map(item => String(item.id))])].slice(-100);
           localStorage.setItem(key, JSON.stringify(nextSeen));
         } catch (_) { /* a navegação continua mesmo sem armazenamento local */ }
       }
