@@ -308,7 +308,7 @@ export default function Subcategory() {
         const subcategoryPlanIds=(premiumPlanRows||[]).map(item=>item.id);
         if(subcategoryPlanIds.length) {
           const { data: promoRows, error: promoError } = await supabase.from('premium_promotions')
-            .select('id,business_id,plan_id,media_url,media_type,description,starts_at,expires_at,status')
+            .select('id,business_id,plan_id,media_url,media_type,description,starts_at,expires_at,status,storage_path')
             .in('plan_id',subcategoryPlanIds).eq('status','active').gt('expires_at',new Date().toISOString())
             .order('starts_at',{ascending:false}).range(0, PREMIUM_PAGE_SIZE - 1);
           if(promoError) console.warn('Não foi possível carregar promoções da subcategoria:',promoError);
