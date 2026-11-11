@@ -675,6 +675,7 @@ export default function Admin() {
           .from('community_monthly_themes')
           .select('id, month_title, week_title, week_description, week_number, starts_at, ends_at, week_expires_at')
           .eq('is_active', true)
+          .gt('ends_at', now.toISOString())
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
