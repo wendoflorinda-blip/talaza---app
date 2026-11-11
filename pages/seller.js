@@ -465,7 +465,7 @@ export default function Seller() {
   async function loadImages(businessId, pageToLoad = 0) {
     const { data, error: imagesError } = await supabase
       .from('business_images')
-      .select('id,business_id,kind,slot,image_url,video_url,media_url,media_type,name,description,price,created_at,storage_path')
+      .select('id,business_id,kind,slot,image_url,video_url,media_type,name,description,price,created_at,storage_path')
       .eq('business_id', businessId)
       .order('created_at', { ascending: false })
       .range(pageToLoad * 60, pageToLoad * 60 + 59);
