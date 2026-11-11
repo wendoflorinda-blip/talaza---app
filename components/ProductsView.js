@@ -97,10 +97,16 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
       if (!path && sourceUrl.includes('/storage/v1/object/')) {
         try {
           const parsed = new URL(sourceUrl);
-          const match = parsed.pathname.match(/\\/storage\\/v1\\/object\\/(?:public|sign|authenticated)\\/([^/]+)\\/(.+)$/);
-          if (match) {
-            bucket = match[1];
-            path = decodeURIComponent(match[2].split('?')[0]);
+          const marker = '/storage/v1/object/';
+          const markerIndex = parsed.pathname.indexOf(marker);
+          if (markerIndex >= 0) {
+            const remainder = parsed.pathname.slice(markerIndex + marker.length);
+            const segments = remainder.split('/');
+            const visibility = segments.shift();
+            if (['public', 'sign', 'authenticated'].includes(visibility) && segments.length >= 2) {
+              bucket = segments.shift();
+              path = decodeURIComponent(segments.join('/'));
+            }
           }
         } catch (_) {}
       }
