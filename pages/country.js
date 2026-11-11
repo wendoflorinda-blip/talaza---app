@@ -133,9 +133,9 @@ export default function Country() {
               return (
                 <button
                   key={country.id}
-                  className={`country ${isAngola ? 'countryAvailable' : 'countryUnavailable'}`}
+                  className={`country ${isAvailable ? 'countryAvailable' : 'countryUnavailable'}`}
                   onClick={() => chooseCountry(country)}
-                  aria-label={isAngola ? `Entrar em ${country.name}` : `${country.name}, país indisponível`}
+                  aria-label={isAvailable ? `Entrar em ${country.name}` : `${country.name}, país indisponível`}
                 >
                   <span className="flag">{info.flag}</span>
                   <span className="country-details">
