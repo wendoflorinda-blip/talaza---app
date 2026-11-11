@@ -63,9 +63,63 @@ export default function MediaHome() {
     await router.replace('/login');
   }
 
-  function openCommercial() {
+  async function openCommercial() {
     setMenuOpen(false);
-    router.push('/explore');
+    try {
+      // Primeiro reutiliza o contexto enviado pelo Menu Comercial.
+      let country = Array.isArray(router.query.country) ? router.query.country[0] : router.query.country;
+      let province = Array.isArray(router.query.province) ? router.query.province[0] : router.query.province;
+      let homeCountry = Array.isArray(router.query.homeCountry) ? router.query.homeCountry[0] : router.query.homeCountry;
+      let homeProvince = Array.isArray(router.query.homeProvince) ? router.query.homeProvince[0] : router.query.homeProvince;
+
+      // Acesso direto à MÍDIA TALAZA: recupera a localização principal da conta.
+      if (!country || !province) {
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        const userId = authData?.user?.id;
+        if (userId) {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('country_id,province_id')
+            .eq('id', userId)
+            .maybeSingle();
+          if (profileError) throw profileError;
+          homeCountry = homeCountry || profile?.country_id || '';
+          homeProvince = homeProvince || profile?.province_id || '';
+          country = country || homeCountry;
+          province = province || homeProvince;
+
+          // Se a conta for de vendedor e não tiver localização pessoal,
+          // usa a localização do negócio associado à conta.
+          if (!country || !province) {
+            const { data: business, error: businessError } = await supabase
+              .from('businesses')
+              .select('country_id,province_id')
+              .eq('owner_id', userId)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (businessError) throw businessError;
+            country = country || business?.country_id || '';
+            province = province || business?.province_id || '';
+          }
+        }
+      }
+
+      await router.push({
+        pathname: '/explore',
+        query: {
+          ...(country ? { country } : {}),
+          ...(province ? { province } : {}),
+          ...(homeCountry ? { homeCountry } : {}),
+          ...(homeProvince ? { homeProvince } : {}),
+        },
+      });
+    } catch (error) {
+      console.error('Não foi possível recuperar a localização ao regressar à TALAZA Comercial:', error);
+      // Não perde o acesso à Vitrine se o serviço de localização estiver temporariamente indisponível.
+      await router.push('/explore');
+    }
   }
 
   function selectNav(item) {
