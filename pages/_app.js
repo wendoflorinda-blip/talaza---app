@@ -1,6 +1,7 @@
 import '../styles/globals.css';
 import { useRouter } from 'next/router';
 import MessageDock from '../components/MessageDock';
+import AppErrorBoundary from '../components/AppErrorBoundary';
 
 const DOCK_ROUTES = [
   '/explore',
@@ -29,8 +30,10 @@ export default function App({ Component, pageProps }) {
 
   return (
     <>
-      <Component {...pageProps} />
-      {showDockOnPage && <MessageDock />}
+      <AppErrorBoundary>
+        <Component {...pageProps} />
+        {showDockOnPage && <MessageDock />}
+      </AppErrorBoundary>
     </>
   );
 }
