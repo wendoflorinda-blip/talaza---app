@@ -48,50 +48,67 @@ export default function Login() {
       if (loginError) throw loginError;
 
       const user = data?.user;
+      const session = data?.session;
 
-      if (!user) {
-        throw new Error('Não foi possível confirmar a sua conta.');
+      // Só considerar a autenticação concluída quando o Supabase devolver
+      // uma sessão real. A partir daqui, falhas de leitura do perfil não
+      // podem transformar um login válido numa mensagem de credenciais erradas.
+      if (!user || !session?.access_token) {
+        throw new Error('A autenticação não devolveu uma sessão válida. Tente novamente.');
       }
 
-      // O criador deve entrar diretamente na MÍDIA. Esta decisão é feita
-      // antes de consultar profiles/businesses, pois uma falha de RLS nessas
-      // tabelas comerciais não pode bloquear uma sessão válida de criador.
-      const nextPath = typeof router.query.next === 'string' && router.query.next.startsWith('/') && !router.query.next.startsWith('//')
-        ? router.query.next
-        : '';
+      // Um destino interno explícito (ex.: /media) tem prioridade.
+      const nextPath =
+        typeof router.query.next === 'string' &&
+        router.query.next.startsWith('/') &&
+        !router.query.next.startsWith('//')
+          ? router.query.next
+          : '';
+
       if (nextPath) {
         await router.replace(nextPath);
         return;
       }
 
       const metadata = user.user_metadata || {};
+      const appMetadata = user.app_metadata || {};
       const isMediaCreator =
         metadata.media_account_type === 'creator' ||
-        metadata.media_creator_onboarding === true;
+        metadata.media_creator_onboarding === true ||
+        appMetadata.media_account_type === 'creator';
 
       if (isMediaCreator) {
         await router.replace('/media');
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
+      // Consultas de perfil/negócio apenas escolhem o painel. Não são
+      // autenticação e, se falharem, não devem expulsar uma sessão válida.
+      let profile = null;
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id,name,country_id,province_id,account_type')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Login aceite; não foi possível ler o perfil:', {
+          code: profileError.code,
+          message: profileError.message,
+        });
+      } else {
+        profile = profileData;
+      }
 
-      /*
-       * A mesma conta pode ter perfil de Explorador e também ser proprietária
-       * de um negócio. A propriedade do negócio tem prioridade no login:
-       * se existir negócio associado ao utilizador, abrir o painel de vendedor.
-       *
-       * A política RLS "Owners can view own businesses" permite esta consulta
-       * sem expor negócios de outros utilizadores.
-       */
-      // Consultar o negócio do utilizador autenticado, tal como no cadastro
-      // do vendedor. A política RLS deve permitir ao proprietário ver o seu registo.
+      const accountType = String(
+        profile?.account_type ||
+        metadata.account_type ||
+        appMetadata.account_type ||
+        ''
+      ).trim().toLowerCase();
+
+      const sellerAccount = ['vendedor', 'seller', 'business'].includes(accountType);
+
       const { data: ownedBusiness, error: businessError } = await supabase
         .from('businesses')
         .select('id')
@@ -101,34 +118,36 @@ export default function Login() {
         .maybeSingle();
 
       if (businessError) {
-        console.error('Erro ao verificar o negócio associado:', {
+        console.error('Login aceite; não foi possível verificar o negócio:', {
           code: businessError.code,
           message: businessError.message,
-          details: businessError.details,
-          hint: businessError.hint,
         });
-        throw new Error(
-          'Não foi possível confirmar o seu perfil de negócio. Verifique as permissões e tente novamente.'
-        );
       }
 
-      if (ownedBusiness?.id) {
+      if (ownedBusiness?.id || sellerAccount) {
         await router.replace('/seller');
         return;
       }
 
-      if (!profile?.country_id || !profile?.province_id) {
+      if (!profile) {
+        // Se o perfil ainda não foi criado, manter o utilizador autenticado
+        // e encaminhá-lo para completar o cadastro, sem pedir novo login.
         await router.replace('/signup');
         return;
       }
 
-      // A localização principal fica definida pelo cadastro; não pedir novamente país/província.
+      if (!profile.country_id || !profile.province_id) {
+        await router.replace('/signup');
+        return;
+      }
+
       try {
         localStorage.setItem('talaza_country_id', String(profile.country_id));
         localStorage.setItem('talaza_province_id', String(profile.province_id));
         localStorage.setItem('talaza_home_country_id', String(profile.country_id));
         localStorage.setItem('talaza_home_province_id', String(profile.province_id));
       } catch {}
+
       await router.replace({
         pathname: '/explore',
         query: {
@@ -145,9 +164,10 @@ export default function Login() {
 
       if (
         message.includes('invalid login credentials') ||
-        message.includes('invalid credentials')
+        message.includes('invalid credentials') ||
+        err?.code === 'invalid_credentials'
       ) {
-        setError('E-mail ou palavra-passe incorretos.');
+        setError('O Supabase não encontrou uma combinação válida para este e-mail e palavra-passe. Confirme se o e-mail está escrito exatamente como foi usado no cadastro ou recupere a palavra-passe.');
       } else if (message.includes('email not confirmed')) {
         setError(
           'Confirme o seu e-mail através do link enviado antes de entrar.'
@@ -229,6 +249,9 @@ export default function Login() {
               id="email"
               type="email"
               autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
