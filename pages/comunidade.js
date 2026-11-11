@@ -65,9 +65,10 @@ const AREAS = [
   },
 ];
 
-function Panel({ children, style = {} }) {
+function Panel({ children, style = {}, id }) {
   return (
     <section
+      id={id}
       style={{
         background: C.white,
         border: `1px solid ${C.line}`,
@@ -134,6 +135,45 @@ export default function Comunidade() {
   const [officialCommentDrafts, setOfficialCommentDrafts] = useState({});
 
   const currentArea = AREAS.find((item) => item.id === area);
+
+  useEffect(() => {
+    if (!router.isReady || !router.query.area) return;
+    const requestedArea = String(router.query.area);
+    if (AREAS.some((item) => item.id === requestedArea)) {
+      setPanel('province');
+      setArea(requestedArea);
+    }
+  }, [router.isReady, router.query.area]);
+
+  useEffect(() => {
+    if (!router.isReady || !router.query.postId) return;
+    let cancelled = false;
+    async function resolveCommunityPost() {
+      const { data } = await supabase.from('community_posts')
+        .select('id, post_type').eq('id', String(router.query.postId)).maybeSingle();
+      if (cancelled || !data) return;
+      const matchingArea = AREAS.find(item => item.db === data.post_type);
+      setPanel('province');
+      if (matchingArea) setArea(matchingArea.id);
+    }
+    resolveCommunityPost();
+    return () => { cancelled = true; };
+  }, [router.isReady, router.query.postId]);
+
+  useEffect(() => {
+    if (!router.isReady || loading || !router.query.postId) return;
+    const postId = String(router.query.postId);
+    const timer = setTimeout(() => {
+      const target = document.getElementById('community-post-' + postId);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.style.outline = '3px solid #D4A017';
+        target.style.outlineOffset = '3px';
+        setTimeout(() => { target.style.outline = ''; target.style.outlineOffset = ''; }, 2800);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [router.isReady, router.query.postId, loading, posts.length, area]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -1497,7 +1537,7 @@ export default function Comunidade() {
               </Panel>
             ) : (
               posts.map((post) => (
-                <Panel key={post.id} style={{ marginBottom: 12 }}>
+                <Panel id={"community-post-" + post.id} key={post.id} style={{ marginBottom: 12 }}>
                   <div
                     style={{
                       display: 'flex',

@@ -783,7 +783,6 @@ export default function Eventos() {
             </>}
             {step === 3 && <>
               <h3 style={styles.wizardTitle}>Fase 3 — Escolhe como divulgar</h3>
-              <p style={styles.muted}>Seleciona o período que melhor corresponde ao teu evento. Depois vais ver as instruções de pagamento e poderás enviar o comprovativo.</p>
               {plans.length > 0 ? <div style={styles.planGrid}>{plans.map((plan) => { const name = String(plan.name || '').toLowerCase(); const key = name.includes('quinzenal') ? 'Quinzenal' : name.includes('trimestral') ? 'Trimestral' : 'Mensal'; const selected = planId === plan.id;
                   const themes = [
                     { color: '#08745F', soft: '#E3F4ED', border: '#B8E0D2', icon: '◈' },
