@@ -52,7 +52,7 @@ export default function Country() {
 
       const { data, error: queryError } = await supabase
         .from('countries')
-        .select('id, name')
+        .select('id, name, iso2, currency_code, currency_symbol, phone_code, is_enabled, rollout_status')
         .order('name', { ascending: true });
 
       if (!active) return;
@@ -64,7 +64,7 @@ export default function Country() {
         return;
       }
 
-      // Mostramos todos os países cadastrados, mas só permitimos entrar em Angola.
+      // Mostramos os países cadastrados, mas só permitimos entrar nos que foram activados pela administração.
       setCountries(data || []);
       setLoading(false);
     }
@@ -79,7 +79,7 @@ export default function Country() {
   function chooseCountry(country) {
     setUnavailableCountry('');
     const name = String(country.name || '').trim().toLocaleLowerCase('pt-AO');
-    if (name !== 'angola') {
+    if (country.is_enabled !== true || country.rollout_status !== 'active') {
       setUnavailableCountry(country.name);
       return;
     }
@@ -128,8 +128,8 @@ export default function Country() {
 
           <div className="countries">
             {countries.map((country) => {
-              const info = countryInfo(country.name);
-              const isAngola = String(country.name || '').trim().toLocaleLowerCase('pt-AO') === 'angola';
+              const info = {...countryInfo(country.name), dial: country.phone_code || countryInfo(country.name).dial};
+              const isAvailable = country.is_enabled === true && country.rollout_status === 'active';
               return (
                 <button
                   key={country.id}
@@ -142,7 +142,7 @@ export default function Country() {
                     <span className="country-name">{country.name}</span>
                     <span className="dial">{info.dial ? `Indicativo ${info.dial}` : 'Indicativo a configurar'}</span>
                   </span>
-                  <span className="country-status">{isAngola ? 'Disponível' : 'Em breve'}</span>
+                  <span className="country-status">{isAvailable ? 'Disponível' : 'Em breve'}</span>
                 </button>
               );
             })}
