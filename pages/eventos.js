@@ -711,7 +711,7 @@ export default function Eventos() {
                   {(item.video_url || item.image_url) && <div style={styles.eventMedia}>
                     {item.video_url
                       ? <video src={item.video_url} controls playsInline preload="none" poster={item.image_url || undefined} style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} />
-                      : <img src={item.image_url} alt={item.title} style={styles.eventImage} />}
+                      : <img src={item.image_url} alt={item.title} loading="lazy" decoding="async" style={styles.eventImage} />}
                   </div>}
                   <div style={styles.eventBody}>
                     <div style={styles.eventMeta}><span style={{ ...styles.eventCategoryBadge, color: categoryTheme(item.event_type).color, background: categoryTheme(item.event_type).soft }}>{item.event_type || 'Geral'}</span>{item.location ? <span style={styles.eventLocation}>📍 {item.location}</span> : null}</div>
