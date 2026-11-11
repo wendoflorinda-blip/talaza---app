@@ -87,28 +87,27 @@ export default function MediaHome() {
       </Head>
       <main style={{ height: '100dvh', minHeight: 540, width: '100%', overflow: 'hidden', position: 'relative', background: '#050706', color: '#fff', fontFamily: "'Plus Jakarta Sans',system-ui,sans-serif" }}>
         <style>{' * { box-sizing: border-box; } button { font: inherit; } button:focus-visible { outline: 2px solid #19A875; outline-offset: 3px; } .media-tabs::-webkit-scrollbar { display:none; } .media-tabs { scrollbar-width:none; } @media (min-width:700px) { .media-shell { max-width:520px; margin:0 auto; border-left:1px solid #17221d; border-right:1px solid #17221d; } }'}</style>
-        <div className="media-shell" style={{ height: '100%', width: '100%', position: 'relative', overflow: 'hidden', background: 'radial-gradient(ellipse at 52% 38%, rgba(17,91,62,.24), transparent 48%), linear-gradient(160deg,#0a100d 0%,#050706 55%,#020302 100%)' }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(0,0,0,.58) 0%,transparent 27%,transparent 58%,rgba(0,0,0,.78) 100%)', pointerEvents: 'none' }} />
+        <div className="media-shell" style={{ height: '100%', width: '100%', position: 'relative', overflow: 'hidden', background: '#050706' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(0,0,0,.42) 0%,transparent 22%,transparent 58%,rgba(0,0,0,.76) 100%)', pointerEvents: 'none' }} />
 
-          <header style={{ position: 'absolute', zIndex: 3, top: 0, left: 0, right: 0, padding: 'max(13px, env(safe-area-inset-top)) 16px 0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 38 }}>
-              <div style={{ fontSize: 13, letterSpacing: 1.5, fontWeight: 950, textShadow: '0 1px 8px #000' }}>MÍDIA <span style={{ color: '#20B47A' }}>TALAZA</span></div>
-              <button type="button" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 7, border: '1px solid rgba(255,255,255,.34)', background: 'rgba(0,0,0,.28)', color: '#fff', borderRadius: 20, padding: '7px 11px', fontSize: 12, fontWeight: 800, cursor: 'pointer', backdropFilter: 'blur(8px)' }}>
-                <Icon name="menu" size={17} /> Menu
+          <header style={{ position: 'absolute', zIndex: 3, top: 0, left: 0, right: 0, padding: 'max(12px, env(safe-area-inset-top)) 13px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', minHeight: 34 }}>
+              <button type="button" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid rgba(255,255,255,.3)', background: 'rgba(0,0,0,.24)', color: '#fff', borderRadius: 20, padding: '6px 10px', fontSize: 11, fontWeight: 800, cursor: 'pointer', backdropFilter: 'blur(8px)' }}>
+                <Icon name="menu" size={16} /> Menu
               </button>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 17 }}>
-              <nav className="media-tabs" aria-label="Navegação do feed" style={{ display: 'flex', alignItems: 'center', gap: 19, overflowX: 'auto', flex: 1, whiteSpace: 'nowrap', padding: '0 0 9px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+              <nav className="media-tabs" aria-label="Navegação do feed" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 17, overflowX: 'auto', flex: 1, whiteSpace: 'nowrap', padding: '0 0 8px' }}>
                 {feedTabs.map(tab => (
-                  <button key={tab} type="button" onClick={() => { setActiveTab(tab); setActiveNav('Início'); setNotice(''); }} style={{ position: 'relative', flex: '0 0 auto', border: 0, borderBottom: activeTab === tab ? '2px solid #20B47A' : '2px solid transparent', padding: '7px 0 9px', background: 'transparent', color: activeTab === tab ? '#fff' : 'rgba(255,255,255,.68)', fontSize: 12, fontWeight: activeTab === tab ? 900 : 700, cursor: 'pointer' }}>{tab}</button>
+                  <button key={tab} type="button" onClick={() => { setActiveTab(tab); setActiveNav('Início'); setNotice(''); }} style={{ position: 'relative', flex: '0 0 auto', border: 0, borderBottom: activeTab === tab ? '2px solid #fff' : '2px solid transparent', padding: '6px 0 8px', background: 'transparent', color: activeTab === tab ? '#fff' : 'rgba(255,255,255,.72)', fontSize: 11, fontWeight: activeTab === tab ? 900 : 700, cursor: 'pointer', textShadow: '0 1px 5px #000' }}>{tab}</button>
                 ))}
               </nav>
-              <button type="button" aria-label="Pesquisar" onClick={() => setSearchOpen(v => !v)} style={{ flex: '0 0 auto', width: 34, height: 34, display: 'grid', placeItems: 'center', border: 0, borderRadius: 50, color: '#fff', background: 'rgba(0,0,0,.35)', cursor: 'pointer' }}><Icon name="search" size={21} /></button>
+              <button type="button" aria-label="Pesquisar" onClick={() => setSearchOpen(v => !v)} style={{ flex: '0 0 auto', width: 31, height: 31, display: 'grid', placeItems: 'center', border: 0, borderRadius: 50, color: '#fff', background: 'rgba(0,0,0,.25)', cursor: 'pointer' }}><Icon name="search" size={19} /></button>
             </div>
-            {searchOpen && <input autoFocus value={searchValue} onChange={e => setSearchValue(e.target.value)} placeholder="Pesquisar criadores e conteúdos" aria-label="Pesquisar criadores e conteúdos" style={{ width: '100%', marginTop: 5, padding: '11px 14px', border: '1px solid rgba(32,180,122,.7)', borderRadius: 12, background: 'rgba(0,0,0,.82)', color: '#fff', outline: 'none', fontSize: 13 }} />}
+            {searchOpen && <input autoFocus value={searchValue} onChange={e => setSearchValue(e.target.value)} placeholder="Pesquisar criadores e conteúdos" aria-label="Pesquisar criadores e conteúdos" style={{ width: '100%', marginTop: 5, padding: '10px 13px', border: '1px solid rgba(32,180,122,.8)', borderRadius: 12, background: 'rgba(0,0,0,.88)', color: '#fff', outline: 'none', fontSize: 13 }} />}
           </header>
 
-          <section aria-label="Feed vertical de vídeos" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '120px 26px 112px', textAlign: 'center' }}>
+          <section aria-label="Feed vertical de vídeos" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 18px 96px', textAlign: 'center' }}>
             {notice ? (
               <div style={{ maxWidth: 300 }}>
                 <div style={{ width: 58, height: 58, borderRadius: 50, margin: '0 auto 15px', display: 'grid', placeItems: 'center', border: '1px solid rgba(32,180,122,.6)', color: '#20B47A', background: 'rgba(10,40,27,.5)' }}><Icon name={activeNav === 'Mensagens' ? 'message' : activeNav === 'Perfil' ? 'user' : 'people'} size={26} /></div>
@@ -117,23 +116,19 @@ export default function MediaHome() {
                 <button type="button" onClick={() => { setActiveNav('Início'); setNotice(''); }} style={{ border: '1px solid #20B47A', borderRadius: 22, background: 'rgba(32,180,122,.12)', color: '#fff', padding: '9px 18px', fontWeight: 800, cursor: 'pointer' }}>Voltar ao feed</button>
               </div>
             ) : (
-              <div style={{ maxWidth: 310 }}>
-                <div style={{ width: 68, height: 68, margin: '0 auto 17px', borderRadius: 50, border: '1px solid rgba(32,180,122,.62)', display: 'grid', placeItems: 'center', color: '#20B47A', background: 'rgba(9,43,29,.42)', boxShadow: '0 0 35px rgba(18,150,95,.12)' }}>
-                  <svg width="27" height="27" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.8c0-.8.9-1.3 1.6-.9l9.1 6.2c.6.4.6 1.3 0 1.7l-9.1 6.2c-.7.5-1.6 0-1.6-.9V5.8z" /></svg>
-                </div>
-                <div style={{ fontSize: 17, fontWeight: 900, letterSpacing: -.2 }}>O seu feed está pronto para receber vídeos</div>
-                <p style={{ margin: '9px 0 0', fontSize: 13, color: 'rgba(255,255,255,.62)', lineHeight: 1.65 }}>Assim que a publicação de conteúdos estiver ligada, os vídeos verticais dos criadores aparecerão aqui.</p>
+              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 'calc(94px + env(safe-area-inset-bottom))', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
+                <span style={{ padding: '7px 12px', borderRadius: 20, background: 'rgba(0,0,0,.28)', color: 'rgba(255,255,255,.72)', fontSize: 11, fontWeight: 600 }}>Os vídeos aparecerão aqui</span>
               </div>
             )}
           </section>
 
-          <div style={{ position: 'absolute', zIndex: 2, left: 18, right: 82, bottom: 'calc(82px + env(safe-area-inset-bottom))', textAlign: 'left', pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', zIndex: 2, left: 18, right: 82, bottom: 'calc(78px + env(safe-area-inset-bottom))', textAlign: 'left', pointerEvents: 'none' }}>
             <div style={{ fontSize: 14, fontWeight: 900, textShadow: '0 2px 8px #000' }}>{displayName}</div>
             {username && <div style={{ fontSize: 12, color: 'rgba(255,255,255,.72)', marginTop: 3 }}>{username}</div>}
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,.82)', marginTop: 7 }}>Descubra conteúdos de Angola e de todo o mundo.</div>
           </div>
 
-          <nav aria-label="Navegação principal" style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, bottom: 0, minHeight: 'calc(65px + env(safe-area-inset-bottom))', padding: '8px 7px max(8px, env(safe-area-inset-bottom))', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', alignItems: 'center', background: 'rgba(0,0,0,.94)', borderTop: '1px solid rgba(255,255,255,.09)' }}>
+          <nav aria-label="Navegação principal" style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, bottom: 0, minHeight: 'calc(65px + env(safe-area-inset-bottom))', padding: '8px 7px max(8px, env(safe-area-inset-bottom))', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', alignItems: 'center', background: 'rgba(0,0,0,.94)', borderTop: '1px solid rgba(255,255,255,.07)' }}>
             <button type="button" onClick={() => selectNav('Início')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Início' ? '#fff' : 'rgba(255,255,255,.58)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="home" size={22} />Início</button>
             <button type="button" onClick={() => selectNav('Seguindo')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Seguindo' ? '#20B47A' : 'rgba(255,255,255,.58)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="people" size={22} />Seguindo</button>
             <button type="button" aria-label="Criar publicação" onClick={() => setCreateOpen(true)} style={{ justifySelf: 'center', width: 39, height: 31, display: 'grid', placeItems: 'center', border: '1px solid #20B47A', borderRadius: 8, background: '#fff', color: '#07110c', boxShadow: '3px 0 0 rgba(32,180,122,.55)', cursor: 'pointer' }}><Icon name="plus" size={23} /></button>
