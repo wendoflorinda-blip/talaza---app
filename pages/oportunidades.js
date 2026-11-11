@@ -550,12 +550,6 @@ export default function Oportunidades() {
                   </Link>
                 </div>
               )}
-            {!loading && !error && hasMoreOpportunities && (
-              <button type="button" disabled={loading} onClick={() => loadOpportunities(opportunitiesPage + 1)} style={{ display: 'block', margin: '20px auto', padding: '12px 20px', border: 0, borderRadius: 12, background: COLORS.brand, color: '#FFFFFF', fontWeight: 800, cursor: 'pointer' }}>
-                Carregar mais oportunidades
-              </button>
-            )}
-
             {!loading &&
               !error &&
               opportunities.length > 0 && (
@@ -704,6 +698,11 @@ export default function Oportunidades() {
                   ))}
                 </div>
               )}
+            {!loading && !error && hasMoreOpportunities && (
+              <button type="button" disabled={loading} onClick={() => loadOpportunities(opportunitiesPage + 1)} style={{ display: 'block', margin: '20px auto', padding: '12px 20px', border: 0, borderRadius: 12, background: COLORS.brand, color: '#FFFFFF', fontWeight: 800, cursor: 'pointer' }}>
+                Carregar mais oportunidades
+              </button>
+            )}
           </>
         )}
       </div>
