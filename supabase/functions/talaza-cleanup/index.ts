@@ -213,14 +213,42 @@ Deno.serve(async (req: Request) => {
       if (rows.length < PAGE_SIZE) break;
     }
 
-    // 5) Official Motivation and monthly themes expire and are deleted.
-    // The weekly title is part of its monthly-theme row, so it expires with it.
+    // 5) A weekly title has its own expiry. Clear only the weekly fields;
+    // the monthly theme and its interactions remain until ends_at.
+    while (true) {
+      const { data: expiredWeeks, error: weekReadError } = await admin
+        .from("community_monthly_themes")
+        .select("id")
+        .not("week_expires_at", "is", null)
+        .lte("week_expires_at", now)
+        .neq("week_title", "Título da semana por definir")
+        .limit(PAGE_SIZE);
+      if (weekReadError) throw weekReadError;
+      if (!expiredWeeks?.length) break;
+      const weekIds = expiredWeeks.map((row: { id: string }) => row.id);
+      const { error: weekUpdateError } = await admin
+        .from("community_monthly_themes")
+        .update({
+          week_title: "Título da semana por definir",
+          week_description: null,
+          week_expires_at: null
+        })
+        .in("id", weekIds);
+      if (weekUpdateError) throw weekUpdateError;
+      if (expiredWeeks.length < PAGE_SIZE) break;
+    }
+
+    // 6) Official Motivation and monthly themes expire and are deleted.
+    // The weekly title has already been independently cleared above.
     for (const table of ["community_motivation", "community_monthly_themes"] as const) {
       const dateColumn = table === "community_motivation" ? "expires_at" : "ends_at";
       while (true) {
+        const selectFields = table === "community_motivation"
+          ? "id,background_image_url,image_url"
+          : "id,background_image_url";
         const { data: rows, error } = await admin
           .from(table)
-          .select("id,background_image_url")
+          .select(selectFields)
           .not(dateColumn, "is", null)
           .lte(dateColumn, now)
           .limit(PAGE_SIZE);
@@ -230,6 +258,9 @@ Deno.serve(async (req: Request) => {
         for (const row of rows) {
           if (row.background_image_url) {
             await removeOfficialBackgroundIfUnused(row.background_image_url, table, ids);
+          }
+          if (table === "community_motivation" && row.image_url) {
+            await removeOfficialBackgroundIfUnused(row.image_url, table, ids);
           }
         }
         for (const officialType of [table === "community_motivation" ? "motivation" : "theme"]) {
