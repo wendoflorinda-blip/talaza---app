@@ -572,18 +572,18 @@ export default function Pagamento() {
             <Card>
               <div style={{ padding: '5px 0 8px' }}>
                 <div style={{ display: 'inline-block', padding: '7px 11px', borderRadius: 999, background: '#FFF1C2', color: '#5B4300', fontSize: 11, fontWeight: 900, marginBottom: 12 }}>PAGAMENTO EM VERIFICAÇÃO</div>
-                <h1 style={{ margin: '0 0 10px', color: C.ink, fontSize: 25 }}>{premiumPromotion ? 'A sua publicação está em verificação' : eventRecord ? 'O seu evento está em verificação' : 'O seu negócio está em verificação'}</h1>
-                <p style={{ color: C.muted, lineHeight: 1.65 }}>{premiumPromotion ? 'O comprovativo já foi enviado. Não precisa enviar novamente. A publicação só entrará nas vitrines depois da aprovação e o prazo começará nesse momento.' : eventRecord ? 'O comprovativo já foi enviado. O anúncio ficará ativo assim que o pagamento for aprovado. Aguarde; não envie outro comprovativo.' : 'O comprovativo já foi enviado. Esta página mostra os dados do plano escolhido para sua consulta. Não precisa enviar novamente e não pode mudar de plano nem editar o perfil enquanto a equipa Talaza verifica o pagamento e a ativação.'}</p>
+                <h1 style={{ margin: '0 0 10px', color: C.ink, fontSize: 25 }}>{premiumPromotion ? 'A sua publicação está em verificação' : eventRecord ? 'O seu evento está em verificação' : isOpportunitySubscription ? 'O seu acesso às Oportunidades está em verificação' : 'O seu negócio está em verificação'}</h1>
+                <p style={{ color: C.muted, lineHeight: 1.65 }}>{premiumPromotion ? 'O comprovativo já foi enviado. Não precisa enviar novamente. A publicação só entrará nas vitrines depois da aprovação e o prazo começará nesse momento.' : eventRecord ? 'O comprovativo já foi enviado. O anúncio ficará ativo assim que o pagamento for aprovado. Aguarde; não envie outro comprovativo.' : isOpportunitySubscription ? 'O comprovativo foi recebido e está em análise pela equipa Talaza. O acesso ao plano será ativado após a confirmação do pagamento. Não precisa enviar outro comprovativo.' : 'O comprovativo já foi enviado. Esta página mostra os dados do plano escolhido para sua consulta. Não precisa enviar novamente e não pode mudar de plano nem editar o perfil enquanto a equipa Talaza verifica o pagamento e a ativação.'}</p>
               </div>
               <div style={{ marginTop: 12, padding: 16, borderRadius: 14, background: C.soft, border: `1px solid ${C.line}` }}>
-                <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>NEGÓCIO</p>
-                <strong style={{ display: 'block', color: C.ink, marginBottom: 14 }}>{cleanText(eventRecord?.title || business?.name || 'Anúncio Talaza')}</strong>
+                <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>{isOpportunitySubscription ? 'SERVIÇO' : 'NEGÓCIO'}</p>
+                <strong style={{ display: 'block', color: C.ink, marginBottom: 14 }}>{isOpportunitySubscription ? 'Acesso ao Plano de Oportunidades' : cleanText(eventRecord?.title || business?.name || 'Anúncio Talaza')}</strong>
                 <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>PLANO ESCOLHIDO</p>
                 <strong style={{ display: 'block', color: C.ink, marginBottom: 14 }}>Plano {termName(plan.duration_days)} · {durationLabel(plan.duration_days)}</strong>
                 <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>VALOR DO PLANO</p>
                 <strong style={{ display: 'block', color: C.ink, fontSize: 23, marginBottom: 14 }}>{formatKz(plan.price)}</strong>
-                <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>REFERÊNCIA DO PEDIDO</p>
-                <strong style={{ display: 'block', color: C.ink, overflowWrap: 'anywhere' }}>{pendingPaymentReference?.id || 'Pedido registado'}</strong>
+                <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>ESTADO DA SOLICITAÇÃO</p>
+                <strong style={{ display: 'block', color: C.ink }}>Comprovativo recebido · Em análise</strong>
               </div>
               <div style={{ marginTop: 14, padding: 18, borderRadius: 16, background: 'linear-gradient(145deg,#075B4E,#0B7563)', color: '#FFFFFF' }}>
                 <p style={{ margin: '0 0 6px', color: '#CDE8DF', fontSize: 12 }}>REFERÊNCIA MULTICAIXA EXPRESS</p>
@@ -598,7 +598,7 @@ export default function Pagamento() {
                 </div>
               </div>
               <p style={{ margin: '14px 0 0', color: C.muted, fontSize: 13, lineHeight: 1.6 }}>Não envie outro comprovativo nem faça um novo pagamento por causa desta mensagem. Aguarde a verificação da equipa Talaza.</p>
-              <Link href={panelHref} style={{ display: 'block', marginTop: 20, padding: 15, borderRadius: 12, background: C.green, color: '#fff', textAlign: 'center', textDecoration: 'none', fontWeight: 800 }}>{eventRecord ? 'Voltar à área de Eventos' : 'Ir para o meu painel de negócio'}</Link>
+              <Link href={panelHref} style={{ display: 'block', marginTop: 20, padding: 15, borderRadius: 12, background: C.green, color: '#fff', textAlign: 'center', textDecoration: 'none', fontWeight: 800 }}>{eventRecord ? 'Voltar à área de Eventos' : isOpportunitySubscription ? 'Voltar às Oportunidades' : 'Ir para o meu painel de negócio'}</Link>
             </Card>
           ) : (
           <div style={{ minWidth: 0 }}>
