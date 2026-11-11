@@ -289,14 +289,29 @@ export default function Seller() {
   async function loadBusinessUpdates(businessId) {
     const { data, error: updatesError } = await supabase.from('business_updates')
       .select('id,media_path,media_type,created_at,expires_at')
-      .eq('business_id', businessId).gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending:false });
+      .eq('business_id', businessId)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(30);
     if (updatesError) { console.error(updatesError); setUpdateError('Não foi possível carregar as Novidades.'); return; }
-    const rows = await Promise.all((data || []).map(async item => {
-      const { data: signed, error } = await supabase.storage.from('business-updates').createSignedUrl(item.media_path, 3600);
-      return error ? null : { ...item, signedUrl:signed?.signedUrl };
-    }));
-    setBusinessUpdates(rows.filter(Boolean));
+    const items = data || [];
+    if (!items.length) { setBusinessUpdates([]); return; }
+
+    // Um único pedido de URLs assinadas para o lote, em vez de um pedido por ficheiro.
+    const { data: signedRows, error: signedError } = await supabase.storage
+      .from('business-updates')
+      .createSignedUrls(items.map((item) => item.media_path), 3600);
+    if (signedError) {
+      console.error(signedError);
+      setUpdateError('Não foi possível preparar as imagens e vídeos das Novidades.');
+      setBusinessUpdates([]);
+      return;
+    }
+    const urlsByPath = new Map((signedRows || []).map((item) => [item.path, item.signedUrl]));
+    setBusinessUpdates(items.map((item) => ({
+      ...item,
+      signedUrl: urlsByPath.get(item.media_path) || null
+    })).filter((item) => item.signedUrl));
   }
 
   async function publishBusinessUpdate(file) {
