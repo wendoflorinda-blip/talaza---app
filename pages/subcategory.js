@@ -7,6 +7,7 @@ import { cachedQuery } from '../lib/queryCache';
 import MediaOptions from '../components/MediaOptions';
 
 const BUSINESS_PAGE_SIZE = 12;
+const PREMIUM_PAGE_SIZE = 20;
 
 const COLORS = {
   green: '#0F6E5C',
@@ -66,6 +67,9 @@ export default function Subcategory() {
   const [hasMoreBusinesses, setHasMoreBusinesses] = useState(false);
   const [businessImagesById, setBusinessImagesById] = useState({});
   const [premiumPromotions, setPremiumPromotions] = useState([]);
+  const [premiumPage, setPremiumPage] = useState(0);
+  const [hasMorePremium, setHasMorePremium] = useState(false);
+  const [premiumLoadingMore, setPremiumLoadingMore] = useState(false);
   const [savedPromotionIds, setSavedPromotionIds] = useState([]);
   const [savingPromotionId, setSavingPromotionId] = useState('');
   const [countryName, setCountryName] = useState('');
@@ -306,7 +310,7 @@ export default function Subcategory() {
           const { data: promoRows, error: promoError } = await supabase.from('premium_promotions')
             .select('id,business_id,plan_id,media_url,media_type,description,starts_at,expires_at,status')
             .in('plan_id',subcategoryPlanIds).eq('status','active').gt('expires_at',new Date().toISOString())
-            .order('starts_at',{ascending:false}).limit(60);
+            .order('starts_at',{ascending:false}).range(0, PREMIUM_PAGE_SIZE - 1);
           if(promoError) console.warn('Não foi possível carregar promoções da subcategoria:',promoError);
           const promoBusinessIds=[...new Set((promoRows||[]).map(item=>item.business_id).filter(Boolean))];
           const {data:promoAuth}=await supabase.auth.getUser();
@@ -323,7 +327,9 @@ export default function Subcategory() {
             return b && String(b.subcategory_id)===String(id) && (!country || String(b.country_id)===String(country)) && (!province || String(b.province_id)===String(province));
           }).map(item=>({...item,business:businessMap[item.business_id],duration_days:Number((premiumPlanRows||[]).find(plan=>String(plan.id)===String(item.plan_id))?.duration_days||0)}));
           if(!cancelled) {
-            setPremiumPromotions(visible.slice(0, 60));
+            setPremiumPage(0);
+            setHasMorePremium((promoRows || []).length === PREMIUM_PAGE_SIZE);
+            setPremiumPromotions(visible);
             setSavedPromotionIds((promoSaved.data||[]).map(row=>row.promotion_id));
           }
         } else if(!cancelled) setPremiumPromotions([]);
@@ -353,6 +359,63 @@ export default function Subcategory() {
       cancelled = true;
     };
   }, [router.isReady, id, country, province, businessesPage]);
+
+  async function loadMorePremium() {
+    if (premiumLoadingMore || !hasMorePremium || !id) return;
+    setPremiumLoadingMore(true);
+    try {
+      const nextPage = premiumPage + 1;
+      const { data: plans, error: plansError } = await supabase.from('plans')
+        .select('id,duration_days')
+        .eq('plan_type', 'Destaque Premium')
+        .in('duration_days', [15, 30])
+        .eq('is_active', true);
+      if (plansError) throw plansError;
+      const planIds = (plans || []).map((plan) => plan.id);
+      if (!planIds.length) { setHasMorePremium(false); return; }
+
+      const { data: rows, error: rowsError } = await supabase.from('premium_promotions')
+        .select('id,business_id,plan_id,media_url,media_type,description,starts_at,expires_at,status,storage_path')
+        .in('plan_id', planIds)
+        .eq('status', 'active')
+        .gt('expires_at', new Date().toISOString())
+        .order('starts_at', { ascending: false })
+        .range(nextPage * PREMIUM_PAGE_SIZE, nextPage * PREMIUM_PAGE_SIZE + PREMIUM_PAGE_SIZE - 1);
+      if (rowsError) throw rowsError;
+      setHasMorePremium((rows || []).length === PREMIUM_PAGE_SIZE);
+      setPremiumPage(nextPage);
+      if (!rows?.length) return;
+
+      const businessIds = [...new Set(rows.map((item) => item.business_id).filter(Boolean))];
+      const { data: businesses, error: businessesError } = await supabase.from('businesses')
+        .select('id,name,owner_id,province_id,country_id,subcategory_id')
+        .in('id', businessIds);
+      if (businessesError) throw businessesError;
+      const businessMap = Object.fromEntries((businesses || []).map((item) => [item.id, item]));
+      const visible = rows.filter((item) => {
+        const business = businessMap[item.business_id];
+        return business &&
+          String(business.subcategory_id) === String(id) &&
+          (!country || String(business.country_id) === String(country)) &&
+          (!province || String(business.province_id) === String(province));
+      }).map((item) => ({
+        ...item,
+        business: businessMap[item.business_id],
+        duration_days: Number((plans || []).find((plan) => String(plan.id) === String(item.plan_id))?.duration_days || 0)
+      }));
+      setPremiumPromotions((previous) => [...previous, ...visible.filter((item) => !previous.some((old) => old.id === item.id))]);
+      if (currentUserId) {
+        const { data: saved } = await supabase.from('saved_premium_promotions')
+          .select('promotion_id').eq('user_id', currentUserId).in('promotion_id', visible.map((item) => item.id));
+        if (saved?.length) setSavedPromotionIds((previous) => [...new Set([...previous, ...saved.map((item) => item.promotion_id)])]);
+      }
+    } catch (error) {
+      console.error('Não foi possível carregar mais destaques Premium:', error);
+      setSaveNotice('Não foi possível carregar mais destaques. Tenta novamente.');
+    } finally {
+      setPremiumLoadingMore(false);
+    }
+  }
 
   async function toggleSavedPromotion(promotion) {
     if(!currentUserId) { setSaveNotice('Inicia sessão na Talaza para guardar esta publicação.'); return; }
@@ -755,6 +818,11 @@ export default function Subcategory() {
                   </div>
                 </article>
               ))}
+              {hasMorePremium && (
+                <button type="button" disabled={premiumLoadingMore} onClick={loadMorePremium} style={{ display: 'block', margin: '18px auto', padding: '12px 18px', border: '1px solid #DDA10A', borderRadius: 12, background: '#FFFFFF', color: '#083F35', fontWeight: 800 }}>
+                  {premiumLoadingMore ? 'A carregar…' : 'Carregar mais destaques'}
+                </button>
+              )}
             </div>
           </div>
         )}
