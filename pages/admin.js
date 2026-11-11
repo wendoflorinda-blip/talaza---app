@@ -2,6 +2,8 @@
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
+const OPPORTUNITY_ACCESS_PLAN_ID = '0fff05f6-c619-4c72-ba3e-3a0028eafef7';
+
 function getPaymentProofPaths(request) {
   const image = request?.proof_image_url || null;
   const file = request?.proof_file_url || null;
@@ -237,10 +239,12 @@ export default function Admin() {
       setSubscriptionRequests([]);
       return;
     }
-    // Destaques Premium não têm business_id no pagamento: usam premium_promotion_id.
+    // Os pedidos de acesso às Oportunidades são pagamentos de plano:
+    // não têm business_id, event_id, job_post_id nem premium_promotion_id.
     const requests = (data || []).filter((item) =>
       String(item.proof_url || '').trim() &&
-      (item.business_id || item.event_id || item.job_post_id || item.premium_promotion_id)
+      (item.business_id || item.event_id || item.job_post_id || item.premium_promotion_id ||
+        item.plan_id === OPPORTUNITY_ACCESS_PLAN_ID)
     );
     setSubscriptionRequests(requests);
 
@@ -902,6 +906,7 @@ export default function Admin() {
     ).toLowerCase();
 
     if (request?.premium_promotion_id) return 'Destaques Premium';
+    if (request?.plan_id === OPPORTUNITY_ACCESS_PLAN_ID) return 'Acesso às Oportunidades';
     if (request?.event_id || explicitArea.includes('evento')) return 'Eventos';
     if (request?.job_post_id || request?.opportunity_id || explicitArea.includes('oportunidade') || explicitArea.includes('vaga')) return 'Oportunidades';
     if (request?.business_id || explicitArea.includes('vitrine') || explicitArea.includes('hospedagem')) return 'Vitrine / Hospedagem';
@@ -1041,6 +1046,63 @@ export default function Admin() {
         }
       }
     }
+    
+    // Este pagamento compra acesso às oportunidades (não paga a publicação de uma vaga).
+    if (request.plan_id === OPPORTUNITY_ACCESS_PLAN_ID) {
+      if (approved) {
+        const [{ data: plan, error: planError }, { data: profile, error: profileError }] = await Promise.all([
+          supabase.from('plans').select('id, duration_days, is_active, plan_type, area')
+            .eq('id', request.plan_id).maybeSingle(),
+          supabase.from('profiles').select('country_id, province_id')
+            .eq('id', request.user_id).maybeSingle(),
+        ]);
+        const durationDays = Number(plan?.duration_days) || 0;
+        const validPlan = plan && plan.is_active === true &&
+          String(plan.plan_type || '').trim().toLowerCase() === 'opportunities' &&
+          String(plan.area || '').trim().toLowerCase() === 'oportunidades';
+        if (planError || profileError || !validPlan || durationDays <= 0) {
+          activationMessage += ' O pagamento foi aprovado, mas não foi possível validar o plano, a duração ou a localização da conta.';
+        } else {
+          const { data: existing, error: readError } = await supabase
+            .from('user_plan_subscriptions')
+            .select('id, starts_at, expires_at, status')
+            .eq('user_id', request.user_id)
+            .eq('plan_id', request.plan_id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (readError) {
+            activationMessage += ' O pagamento foi aprovado, mas não foi possível consultar o acesso anterior: ' + readError.message;
+          } else {
+            const now = new Date();
+            const previousExpiry = existing?.expires_at ? new Date(existing.expires_at) : null;
+            const baseDate = previousExpiry && !Number.isNaN(previousExpiry.getTime()) && previousExpiry > now
+              ? previousExpiry : now;
+            const expiresAt = new Date(baseDate.getTime() + durationDays * 86400000).toISOString();
+            const subscriptionData = {
+              user_id: request.user_id,
+              plan_id: request.plan_id,
+              country_id: request.country_id || profile?.country_id || null,
+              province_id: request.province_id || profile?.province_id || null,
+              status: 'active',
+              starts_at: existing?.starts_at || now.toISOString(),
+              expires_at: expiresAt,
+            };
+            const result = existing?.id
+              ? await supabase.from('user_plan_subscriptions').update(subscriptionData).eq('id', existing.id).select('id').maybeSingle()
+              : await supabase.from('user_plan_subscriptions').insert(subscriptionData).select('id').maybeSingle();
+            if (result.error || !result.data) {
+              activationMessage += ' O pagamento foi aprovado, mas não foi possível ativar o acesso às Oportunidades: ' + (result.error?.message || 'O Supabase não confirmou a assinatura.');
+            } else {
+              activationMessage += ' O acesso às Oportunidades está ativo até ' + new Date(expiresAt).toLocaleDateString('pt-AO') + '.';
+            }
+          }
+        }
+      } else {
+        activationMessage += ' O pedido de acesso às Oportunidades foi recusado.';
+      }
+    }
+
 
     const opportunityId = request.job_post_id || request.opportunity_id || null;
     if (approved && opportunityId) {
@@ -1190,6 +1252,7 @@ export default function Admin() {
             {[
               ['vendedores', 'Vendedores', businesses.length],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
+              ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => item.plan_id === OPPORTUNITY_ACCESS_PLAN_ID && String(item.status || '').toLowerCase() === 'pending').length],
               ['girassol', 'Reactivação Girassol', girassolReactivations.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['destaques-premium', 'Destaques Premium', subscriptionRequests.filter(item => item.premium_promotion_id && String(item.status || '').toLowerCase() === 'pending').length],
               ['eventos', 'Eventos', events.filter(item => String(item.status || '').toLowerCase() === 'pending_payment').length],
@@ -1589,6 +1652,60 @@ export default function Admin() {
                   <div style={styles.actions}>
                     {pending && <><button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>
                     <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Confirmar pagamento'}</button></>}
+                    <button type="button" disabled={deletingPaymentId === request.id} style={styles.reject} onClick={() => deletePaymentProof(request)}>{deletingPaymentId === request.id ? 'A eliminar…' : 'Eliminar comprovativo'}</button>
+                  </div>
+                </article>;
+              })}
+            </div>
+          )}
+        </section>
+
+        <section id="acessos-oportunidades" style={{ marginTop: 0, display: activeAdminSection === 'acessos-oportunidades' ? 'block' : 'none' }}>
+          <div style={styles.titleRow}>
+            <div>
+              <h2 style={styles.title}>Comprovativos de acesso às Oportunidades</h2>
+              <p style={styles.description}>Analise os pagamentos do plano de acesso. Esta fila é independente da aprovação gratuita das vagas publicadas em Contratar.</p>
+            </div>
+            <div style={styles.counter}>{subscriptionRequests.filter(item => item.plan_id === OPPORTUNITY_ACCESS_PLAN_ID && String(item.status || '').toLowerCase() === 'pending').length} por analisar</div>
+          </div>
+          {subscriptionRequests.filter(item => item.plan_id === OPPORTUNITY_ACCESS_PLAN_ID).length === 0 ? (
+            <div style={styles.empty}><div style={styles.emptyIcon}>◇</div><h2>Sem comprovativos de acesso</h2><p>Os comprovativos enviados para o plano de Oportunidades aparecerão aqui.</p></div>
+          ) : (
+            <div style={styles.list}>
+              {subscriptionRequests.filter(item => item.plan_id === OPPORTUNITY_ACCESS_PLAN_ID).map(request => {
+                const pending = String(request.status || '').toLowerCase() === 'pending';
+                const paths = getPaymentProofPaths(request);
+                const imageUrl = paymentProofUrls[request.id + ':image'];
+                const fileUrl = paymentProofUrls[request.id + ':file'];
+                const owner = profiles.find(profile => profile.id === request.user_id);
+                return <article key={request.id} style={styles.card}>
+                  <div style={styles.cardTop}>
+                    <div style={styles.logoPlaceholder}>OP</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={styles.businessName}>Acesso às Oportunidades</h3>
+                      <div style={styles.meta}>Responsável: {owner?.name || request.user_id} · Plano: {planNames[request.plan_id] || 'Plano de Oportunidades'}</div>
+                    </div>
+                    <span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span>
+                  </div>
+                  <div style={styles.details}>
+                    <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
+                    <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
+                    <p><strong>Localização da conta:</strong> {owner?.country_id || request.country_id || 'País não identificado'} · {owner?.province_id || request.province_id || 'Província não identificada'}</p>
+                    <div style={{ marginTop: 12, padding: 12, border: '1px solid #DCE6E1', borderRadius: 12, background: '#FAFCFB' }}>
+                      <p style={{ marginTop: 0 }}><strong>Comprovativo enviado:</strong></p>
+                      {paths.image && (imageUrl
+                        ? <a href={imageUrl} target="_blank" rel="noreferrer"><img src={imageUrl} alt="Comprovativo de acesso às Oportunidades" style={{ display: 'block', maxWidth: '100%', width: 280, maxHeight: 360, objectFit: 'contain', border: '1px solid #DCE6E1', borderRadius: 8, background: '#fff' }} /></a>
+                        : <p>A preparar a imagem do comprovativo…</p>)}
+                      {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir/baixar comprovativo PDF ↗</button></p>}
+                      {!paths.image && !paths.file && <p style={{ color: '#9B3A28' }}>Este pedido não contém um comprovativo legível.</p>}
+                      {paths.image && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem em tamanho completo ↗</button></p>}
+                    </div>
+                  </div>
+                  <div style={styles.actions}>
+                    {pending && <>
+                      <button disabled={reviewingPaymentId === request.id} style={styles.reject} onClick={() => reviewPayment(request, false)}>Rejeitar pagamento</button>
+                      <button disabled={reviewingPaymentId === request.id} style={styles.approve} onClick={() => reviewPayment(request, true)}>Confirmar pagamento e ativar acesso</button>
+                    </>}
                     <button type="button" disabled={deletingPaymentId === request.id} style={styles.reject} onClick={() => deletePaymentProof(request)}>{deletingPaymentId === request.id ? 'A eliminar…' : 'Eliminar comprovativo'}</button>
                   </div>
                 </article>;
