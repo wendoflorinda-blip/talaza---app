@@ -441,7 +441,7 @@ export default function Admin() {
   async function loadOfficialArchive() {
     const [motivationResult, themeResult] = await Promise.all([
       supabase.from('community_motivation').select('id, title, created_at, duration_days, expires_at, is_active').order('created_at', { ascending: false }),
-      supabase.from('community_monthly_themes').select('id, month_title, created_at, duration_days, starts_at, ends_at, is_active').order('created_at', { ascending: false }),
+      supabase.from('community_monthly_themes').select('id, month_title, created_at, duration_days, starts_at, ends_at, week_expires_at, is_active').order('created_at', { ascending: false }),
     ]);
     if (motivationResult.error || themeResult.error) {
       console.error('Não foi possível carregar o histórico editorial:', motivationResult.error || themeResult.error);
@@ -666,7 +666,7 @@ export default function Admin() {
         const now = new Date();
         const { data: activeTheme, error: activeError } = await supabase
           .from('community_monthly_themes')
-          .select('id, month_title, week_title, week_description, week_number, starts_at, ends_at')
+          .select('id, month_title, week_title, week_description, week_number, starts_at, ends_at, week_expires_at')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(1)
@@ -691,6 +691,7 @@ export default function Admin() {
               week_title: officialTitle.trim(),
               week_description: officialBody.trim(),
               week_number: weekNumber,
+              week_expires_at: expiresAt,
             })
             .eq('id', activeTheme.id);
 
@@ -1466,7 +1467,7 @@ export default function Admin() {
             <select value={officialKind} onChange={event => setOfficialKind(event.target.value)} style={styles.input}>
               <option value="motivation">Motivação</option><option value="theme">Tema do mês</option><option value="weekly_question">Título da semana</option>
             </select>
-            <label style={styles.label}>Duração da motivação / tema</label>
+            <label style={styles.label}>Duração do conteúdo</label>
             <select value={officialDuration} onChange={event => setOfficialDuration(Number(event.target.value))} style={styles.input}>
               <option value={7}>7 dias</option><option value={15}>15 dias</option><option value={30}>30 dias</option>
             </select>
