@@ -93,15 +93,22 @@ Deno.serve(async (req: Request) => {
     await removePaths("event-images", [path]);
   }
 
-  async function removeOfficialBackgroundIfUnused(url: string, table: "community_motivation" | "community_monthly_themes", batchIds: string[]) {
+  async function removeOfficialBackgroundIfUnused(
+    url: string,
+    table: "community_motivation" | "community_monthly_themes",
+    batchIds: string[],
+    column: "background_image_url" | "image_url" = "background_image_url"
+  ) {
     const path = storagePathFromUrl(url, "business-media");
     // Only this dedicated folder belongs to editorial community backgrounds.
     if (!path || !path.startsWith("community-backgrounds/")) return;
     const otherTable = table === "community_motivation" ? "community_monthly_themes" : "community_motivation";
-    if (
-      await isReferencedOutside(table, "background_image_url", url, batchIds) ||
-      await isReferencedOutside(otherTable, "background_image_url", url, [])
-    ) {
+    const sameColumnRef = await isReferencedOutside(table, column, url, batchIds);
+    const sameBackgroundRef = column === "background_image_url"
+      ? false
+      : await isReferencedOutside(table, "background_image_url", url, batchIds);
+    const otherTableRef = await isReferencedOutside(otherTable, "background_image_url", url, []);
+    if (sameColumnRef || sameBackgroundRef || otherTableRef) {
       totals.preservedSharedFiles += 1;
       return;
     }
@@ -260,7 +267,7 @@ Deno.serve(async (req: Request) => {
             await removeOfficialBackgroundIfUnused(row.background_image_url, table, ids);
           }
           if (table === "community_motivation" && row.image_url) {
-            await removeOfficialBackgroundIfUnused(row.image_url, table, ids);
+            await removeOfficialBackgroundIfUnused(row.image_url, table, ids, "image_url");
           }
         }
         for (const officialType of [table === "community_motivation" ? "motivation" : "theme"]) {
