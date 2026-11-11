@@ -212,35 +212,37 @@ export default function Notificacoes() {
               <h2>Ainda não tens notificações</h2>
               <p>Quando houver novidades, vais ver aqui.</p>
             </div>
-          ) : groups.map(group => (
-            <section key={group.label} style={S.group}>
-              <h2 style={S.groupTitle}>{group.label}</h2>
-              <div style={S.list}>
-                {group.items.map(item => {
-                  const visual = notificationStyle(item.type);
-                  return (
-                    <div key={item.id} style={{ ...S.row, ...(item.is_read ? {} : S.unread), ...(swipeOpenId === item.id ? S.rowRevealed : {}) }}
-                      onTouchStart={event => handleTouchStart(event, item.id)}
-                      onTouchEnd={event => handleTouchEnd(event, item)}>
-                      <button type="button" onClick={() => openNotification(item)} style={S.rowButton}>
-                        <span style={{ ...S.icon, background: visual.color }}>{visual.icon}</span>
-                        <span style={S.copy}>
-                          <span style={S.title}>{item.title || 'Notificação Talaza'}</span>
-                          <span style={S.description}>{item.content || 'Há uma nova atividade na Talaza.'}</span>
-                          <span style={S.category}>{visual.label}</span>
-                        </span>
-                        <span style={S.right}>
-                          <time style={S.time}>{relativeTime(item.created_at)}</time>
-                          {!item.is_read && <span style={S.unreadDot} aria-label="Não lida" />}
-                        </span>
-                      </button>
-                      {swipeOpenId === item.id && <button type="button" onClick={() => { deleteNotification(item); setSwipeOpenId(''); }} style={S.delete} aria-label="Apagar notificação">Apagar</button>}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          ))
+          ) : (
+            <div style={S.list}>
+              {groups.map(group => (
+                <div key={group.label}>
+                  <h2 style={S.groupTitle}>{group.label}</h2>
+                  {group.items.map(item => {
+                    const visual = notificationStyle(item.type);
+                    return (
+                      <div key={item.id} style={{ ...S.row, ...(item.is_read ? {} : S.unread), ...(swipeOpenId === item.id ? S.rowRevealed : {}) }}
+                        onTouchStart={event => handleTouchStart(event, item.id)}
+                        onTouchEnd={event => handleTouchEnd(event, item)}>
+                        <button type="button" onClick={() => openNotification(item)} style={S.rowButton}>
+                          <span style={{ ...S.icon, background: visual.color }}>{visual.icon}</span>
+                          <span style={S.copy}>
+                            <span style={S.title}>{item.title || 'Notificação Talaza'}</span>
+                            <span style={S.description}>{item.content || 'Há uma nova atividade na Talaza.'}</span>
+                            <span style={S.category}>{visual.label}</span>
+                          </span>
+                          <span style={S.right}>
+                            <time style={S.time}>{relativeTime(item.created_at)}</time>
+                            {!item.is_read && <span style={S.unreadDot} aria-label="Não lida" />}
+                          </span>
+                        </button>
+                        {swipeOpenId === item.id && <button type="button" onClick={() => { deleteNotification(item); setSwipeOpenId(''); }} style={S.delete} aria-label="Apagar notificação">Apagar</button>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )
         }
       </section>
     </main>
@@ -260,15 +262,15 @@ const S = {
   subheading: { margin: '5px 0 0', color: 'rgba(255,255,255,.78)', fontSize: 12, lineHeight: 1.4 },
   content: { width: '100%', maxWidth: 900, boxSizing: 'border-box', margin: '0 auto', padding: '10px 14px 24px' },
   group: { marginTop: 13 },
-  groupTitle: { margin: '17px 4px 7px', fontSize: 11, letterSpacing: '.07em', color: C.muted, fontWeight: 800 },
+  groupTitle: { margin: '18px 16px 7px', fontSize: 11, letterSpacing: '.07em', color: C.muted, fontWeight: 800 },
   list: { overflow: 'hidden', background: C.white, border: '1px solid ' + C.line, borderRadius: 20 },
-  row: { position: 'relative', display: 'flex', alignItems: 'stretch', background: C.white, borderBottom: '1px solid ' + C.line, transition: 'background .15s ease', overflow: 'hidden' },
+  row: { position: 'relative', display: 'flex', alignItems: 'stretch', background: C.white, borderTop: '1px solid ' + C.line, transition: 'background .15s ease', overflow: 'hidden' },
   unread: { background: C.unread },
   rowButton: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', border: 0, textAlign: 'left', background: 'transparent', cursor: 'pointer' },
   icon: { width: 44, height: 44, flex: 'none', display: 'grid', placeItems: 'center', borderRadius: '50%', color: C.white, fontSize: 20 },
   copy: { minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 3 },
-  title: { color: C.ink, fontSize: 15, lineHeight: 1.25, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  description: { color: C.muted, fontSize: 13, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' },
+  title: { color: C.ink, fontSize: 16, lineHeight: 1.25, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  description: { color: C.muted, fontSize: 14, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' },
   category: { color: C.muted, fontSize: 11, lineHeight: 1.2 },
   right: { flex: 'none', minWidth: 42, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', alignSelf: 'stretch', gap: 8 },
   time: { color: C.muted, fontSize: 11, whiteSpace: 'nowrap' },
