@@ -7,10 +7,26 @@
   "start_url": "/explore",
   "scope": "/",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait",
   "background_color": "#F7F8F5",
   "theme_color": "#075B4E",
   "icons": [
+    {
+      "src": "/icons/talaza-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/talaza-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "/icons/talaza-icon.svg",
       "sizes": "any",
@@ -22,5 +38,6 @@
     "business",
     "shopping",
     "social"
-  ]
+  ],
+  "prefer_related_applications": false
 }
