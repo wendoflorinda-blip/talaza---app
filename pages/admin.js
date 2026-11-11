@@ -1480,7 +1480,7 @@ export default function Admin() {
                 <option value={7}>7 dias</option><option value={15}>15 dias</option><option value={30}>30 dias</option>
               </select>
             </> : <p style={styles.meta}><strong>Validade fixa: 30 dias.</strong> O Tema do Mês e o Título da Semana expiram separadamente.</p>}
-            <p style={styles.meta}>Quando a duração terminar, o conteúdo deixa de aparecer ao público, mas permanece guardado no histórico para consulta e reutilização futura.</p>
+            <p style={styles.meta}>Quando a validade terminar, o conteúdo e a imagem associada serão eliminados automaticamente. O Título da Semana expira separadamente, sem apagar o Tema do Mês.</p>
             <label style={styles.label}>Título / tema</label>
             <input value={officialTitle} onChange={event => setOfficialTitle(event.target.value)} placeholder={officialKind === 'motivation' ? 'Ex.: A força de recomeçar' : officialKind === 'theme' ? 'Ex.: O valor de recomeçar' : 'Ex.: O que aprendeste esta semana?'} style={styles.input} />
             {officialKind !== 'theme' && <>
