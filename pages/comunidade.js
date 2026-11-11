@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 import CommentThread from '../components/CommentThread';
 
+const COMMUNITY_PAGE_SIZE = 12;
+
 const C = {
   green: '#0F6E5C',
   dark: '#083F35',
@@ -115,6 +117,8 @@ export default function Comunidade() {
   const [panel, setPanel] = useState('province');
   const [area, setArea] = useState('question');
   const [posts, setPosts] = useState([]);
+  const [postsPage, setPostsPage] = useState(0);
+  const [hasMorePosts, setHasMorePosts] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState('');
@@ -243,7 +247,8 @@ export default function Comunidade() {
       .eq('status', 'published')
       .eq('moderation_status', 'approved')
       .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(postsPage * COMMUNITY_PAGE_SIZE, postsPage * COMMUNITY_PAGE_SIZE + COMMUNITY_PAGE_SIZE - 1);
 
     if (panel === 'province') {
       if (!provinceId) {
@@ -266,7 +271,8 @@ export default function Comunidade() {
       setPosts([]);
     } else {
       const visiblePosts = data || [];
-      setPosts(visiblePosts);
+      setHasMorePosts(visiblePosts.length === COMMUNITY_PAGE_SIZE);
+      setPosts((previous) => postsPage === 0 ? visiblePosts : [...previous, ...visiblePosts]);
 
       if (visiblePosts.length) {
         const ids = visiblePosts.map((post) => post.id);
@@ -276,7 +282,8 @@ export default function Comunidade() {
             supabase
               .from('community_likes')
               .select('id, post_id, user_id')
-              .in('post_id', ids),
+              .in('post_id', ids)
+              .limit(600),
 
             user
               ? supabase
@@ -291,7 +298,8 @@ export default function Comunidade() {
               .select('id, post_id, user_id, content, created_at, parent_id')
               .in('post_id', ids)
               .eq('status', 'published')
-              .order('created_at', { ascending: true }),
+              .order('created_at', { ascending: true })
+              .limit(120),
           ]);
 
         const nextExtras = {};
@@ -325,7 +333,7 @@ export default function Comunidade() {
     }
 
     setLoading(false);
-  }, [countryId, provinceId, panel, area, currentArea?.db, user]);
+  }, [countryId, provinceId, panel, area, currentArea?.db, user, postsPage]);
 
   useEffect(() => {
     if (router.isReady) loadPosts();
@@ -396,6 +404,10 @@ export default function Comunidade() {
   }, [router.isReady, area, user?.id]);
 
   function openArea(nextArea) {
+    setPostsPage(0);
+    setHasMorePosts(false);
+    setPosts([]);
+    setExtras({});
     setArea(nextArea);
     setShowComposer(false);
     setContent('');
@@ -1429,6 +1441,11 @@ export default function Comunidade() {
                   </div>
                 </Panel>
               ))
+            )}
+            {hasMorePosts && (
+              <button type="button" disabled={loading} onClick={() => setPostsPage((page) => page + 1)} style={{ ...buttonStyle, display: 'block', margin: '18px auto', background: C.green, color: C.white }}>
+                {loading ? 'A carregar…' : 'Carregar mais publicações'}
+              </button>
             )}
           </section>
         ) : (
