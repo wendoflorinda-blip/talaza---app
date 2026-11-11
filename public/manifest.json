@@ -1,14 +1,17 @@
 {
   "id": "/",
-  "name": "TALAZA Comercial",
-  "short_name": "TALAZA",
+  "name": "Talaza",
+  "short_name": "Talaza",
   "description": "Descubra negócios, serviços e oportunidades na sua comunidade.",
   "lang": "pt-AO",
   "dir": "ltr",
-  "start_url": "/explore",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait",
   "background_color": "#F7F8F5",
   "theme_color": "#075B4E",
@@ -23,9 +26,13 @@
       "src": "/icons/talaza-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ],
-  "categories": ["business", "shopping", "social"],
+  "categories": [
+    "business",
+    "shopping",
+    "social"
+  ],
   "prefer_related_applications": false
 }
