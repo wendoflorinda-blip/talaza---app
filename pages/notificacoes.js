@@ -43,10 +43,10 @@ function notificationStyle(type) {
   const value = String(type || '').toLowerCase();
   if (value.includes('motivation')) return { icon: '✦', color: C.green, label: 'Motivação' };
   if (value.includes('week_theme')) return { icon: '🏆', color: C.gold, label: 'Título da Semana' };
-  if (value.includes('reaction') || value.includes('like')) return { icon: '❤️', color: '#8B5CF6', label: 'Reação' };
-  if (value.includes('comment') || value.includes('reply')) return { icon: '💬', color: '#8B5CF6', label: 'Comentário' };
+  if (value.includes('reaction') || value.includes('like')) return { icon: '❤️', color: '#A78BFA', label: 'Reação' };
+  if (value.includes('comment') || value.includes('reply')) return { icon: '💬', color: '#A78BFA', label: 'Comentário' };
   if (value.includes('business')) return { icon: '✦', color: C.green, label: 'Negócios' };
-  return { icon: '🔔', color: '#8B5CF6', label: 'Atividade' };
+  return { icon: '🔔', color: '#A78BFA', label: 'Atividade' };
 }
 
 export default function Notificacoes() {
@@ -275,7 +275,7 @@ const S = {
   list: { overflow: 'hidden', background: C.white, border: '1px solid ' + C.line, borderRadius: 20 },
   row: { position: 'relative', display: 'flex', alignItems: 'stretch', background: C.white, borderTop: '1px solid ' + C.line, transition: 'background .15s ease', overflow: 'hidden' },
   unread: { background: C.unread },
-  rowButton: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', border: 0, textAlign: 'left', background: 'transparent', cursor: 'pointer' },
+  rowButton: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', border: 0, textAlign: 'left', background: 'transparent', cursor: 'pointer', touchAction: 'pan-y' },
   icon: { width: 44, height: 44, flex: 'none', display: 'grid', placeItems: 'center', borderRadius: '50%', color: C.white, fontSize: 20 },
   copy: { minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 3 },
   title: { color: C.ink, fontSize: 16, lineHeight: 1.25, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
