@@ -817,7 +817,18 @@ export default function TalazaMenu({
                     label="MÍDIA TALAZA"
                     onClick={() => {
                       closeMenu();
-                      router.push('/media');
+                      // Mantém a localização atual ao atravessar a MÍDIA TALAZA.
+                      // No painel vendedor, a Vitrine regressa à província do negócio.
+                      router.push({
+                        pathname: '/media',
+                        query: {
+                          ...(country || primaryCountry ? { country: currentArea === 'seller' ? (country || primaryCountry) : (country || primaryCountry) } : {}),
+                          ...(province || primaryProvince ? { province: currentArea === 'seller' ? (province || primaryProvince) : (province || primaryProvince) } : {}),
+                          ...(primaryCountry || country ? { homeCountry: primaryCountry || country } : {}),
+                          ...(primaryProvince || province ? { homeProvince: primaryProvince || province } : {}),
+                          ...(currentArea === 'seller' ? { returnArea: 'seller' } : {}),
+                        },
+                      });
                     }}
                   />
 
