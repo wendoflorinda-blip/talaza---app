@@ -1,0 +1,26 @@
+{
+  "name": "TALAZA Comercial",
+  "short_name": "TALAZA",
+  "description": "Descubra negócios, serviços e oportunidades na sua comunidade.",
+  "lang": "pt-AO",
+  "dir": "ltr",
+  "start_url": "/explore",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F8F5",
+  "theme_color": "#075B4E",
+  "icons": [
+    {
+      "src": "/icons/talaza-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "business",
+    "shopping",
+    "social"
+  ]
+}
