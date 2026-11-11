@@ -56,6 +56,7 @@ export default function Notificacoes() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState('');
+  const [swipeOpenId, setSwipeOpenId] = useState('');
   const touchStart = useRef({});
 
   useEffect(() => {
@@ -179,7 +180,8 @@ export default function Notificacoes() {
   function handleTouchEnd(event, item) {
     const start = touchStart.current[item.id];
     const end = event.changedTouches[0]?.clientX || start;
-    if (typeof start === 'number' && start - end > 55) deleteNotification(item);
+    if (typeof start === 'number' && start - end > 55) setSwipeOpenId(item.id);
+    if (typeof start === 'number' && end - start > 35) setSwipeOpenId('');
     delete touchStart.current[item.id];
   }
 
@@ -217,7 +219,7 @@ export default function Notificacoes() {
                 {group.items.map(item => {
                   const visual = notificationStyle(item.type);
                   return (
-                    <div key={item.id} style={{ ...S.row, ...(item.is_read ? {} : S.unread) }}
+                    <div key={item.id} style={{ ...S.row, ...(item.is_read ? {} : S.unread), ...(swipeOpenId === item.id ? S.rowRevealed : {}) }}
                       onTouchStart={event => handleTouchStart(event, item.id)}
                       onTouchEnd={event => handleTouchEnd(event, item)}>
                       <button type="button" onClick={() => openNotification(item)} style={S.rowButton}>
@@ -232,7 +234,7 @@ export default function Notificacoes() {
                           {!item.is_read && <span style={S.unreadDot} aria-label="Não lida" />}
                         </span>
                       </button>
-                      <button type="button" onClick={() => deleteNotification(item)} style={S.delete} aria-label="Apagar notificação">Apagar</button>
+                      {swipeOpenId === item.id && <button type="button" onClick={() => { deleteNotification(item); setSwipeOpenId(''); }} style={S.delete} aria-label="Apagar notificação">Apagar</button>}
                     </div>
                   );
                 })}
@@ -271,7 +273,8 @@ const S = {
   right: { flex: 'none', minWidth: 42, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', alignSelf: 'stretch', gap: 8 },
   time: { color: C.muted, fontSize: 11, whiteSpace: 'nowrap' },
   unreadDot: { width: 8, height: 8, borderRadius: '50%', background: C.gold },
-  delete: { flex: 'none', width: 72, border: 0, background: '#B42318', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
+  rowRevealed: { background: '#FFF9E6' },
+  delete: { flex: 'none', width: 76, border: 0, background: '#B42318', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
   loading: { background: C.white, borderRadius: 20, padding: 20, color: C.muted, textAlign: 'center' },
   empty: { marginTop: 10, padding: '36px 20px', borderRadius: 20, background: C.white, textAlign: 'center', color: C.muted },
   emptyIcon: { fontSize: 42, filter: 'grayscale(1)', marginBottom: 10 },
