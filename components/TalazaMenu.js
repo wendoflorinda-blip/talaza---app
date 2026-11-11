@@ -822,8 +822,8 @@ export default function TalazaMenu({
                       router.push({
                         pathname: '/media',
                         query: {
-                          ...(country || primaryCountry ? { country: currentArea === 'seller' ? (country || primaryCountry) : (country || primaryCountry) } : {}),
-                          ...(province || primaryProvince ? { province: currentArea === 'seller' ? (province || primaryProvince) : (province || primaryProvince) } : {}),
+                          ...(country || primaryCountry ? { country: country || primaryCountry } : {}),
+                          ...(province || primaryProvince ? { province: province || primaryProvince } : {}),
                           ...(primaryCountry || country ? { homeCountry: primaryCountry || country } : {}),
                           ...(primaryProvince || province ? { homeProvince: primaryProvince || province } : {}),
                           ...(currentArea === 'seller' ? { returnArea: 'seller' } : {}),
