@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
+import { cachedQuery } from '../lib/queryCache';
 import CommentThread from '../components/CommentThread';
 
 const COMMUNITY_PAGE_SIZE = 12;
@@ -155,12 +156,12 @@ export default function Comunidade() {
       setUser(authData?.user || null);
 
       if (countryParam) {
-        const { data } = await supabase
+        const { data } = await cachedQuery('public-country:' + countryParam, () => supabase
           .from('countries')
           .select('id, name')
           .or(`id.eq.${countryParam},name.eq.${countryParam}`)
           .limit(1)
-          .maybeSingle();
+          .maybeSingle());
 
         if (!cancelled && data) {
           setCountryId(data.id);
@@ -169,12 +170,12 @@ export default function Comunidade() {
       }
 
       if (provinceParam) {
-        const { data } = await supabase
+        const { data } = await cachedQuery('public-province:' + provinceParam, () => supabase
           .from('provinces')
           .select('id, name, country_id')
           .or(`id.eq.${provinceParam},name.eq.${provinceParam}`)
           .limit(1)
-          .maybeSingle();
+          .maybeSingle());
 
         if (!cancelled && data) {
           setProvinceId(data.id);
@@ -227,6 +228,13 @@ export default function Comunidade() {
       cancelled = true;
     };
   }, [router.isReady, countryParam, provinceParam]);
+
+  useEffect(() => {
+    setPostsPage(0);
+    setPosts([]);
+    setExtras({});
+    setHasMorePosts(false);
+  }, [panel, area, countryId, provinceId]);
 
   const loadPosts = useCallback(async () => {
     if (!countryId || !area || area === 'motivation' || area === 'theme') {
