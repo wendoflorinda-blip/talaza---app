@@ -26,6 +26,7 @@ export default function Seller() {
   const [supportDraft, setSupportDraft] = useState('');
   const [supportSending, setSupportSending] = useState(false);
   const [supportFeedback, setSupportFeedback] = useState('');
+  const [shareFeedback, setShareFeedback] = useState('');
   const [editHours, setEditHours] = useState('');
   const [editMunicipality, setEditMunicipality] = useState('');
   const [editNeighborhood, setEditNeighborhood] = useState('');
@@ -154,6 +155,55 @@ export default function Seller() {
     }, 6000);
     return () => clearTimeout(timer);
   }, [notice, error, business]);
+
+  function getBusinessPublicUrl() {
+    if (!business?.id || typeof window === 'undefined') return '';
+    return window.location.origin + '/businesses/' + encodeURIComponent(business.id);
+  }
+
+  async function copyBusinessPublicLink() {
+    const url = getBusinessPublicUrl();
+    if (!url) return;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const field = document.createElement('textarea');
+        field.value = url;
+        field.style.position = 'fixed';
+        field.style.opacity = '0';
+        document.body.appendChild(field);
+        field.select();
+        const copied = document.execCommand('copy');
+        field.remove();
+        if (!copied) throw new Error('O navegador não permitiu copiar o link.');
+      }
+      setShareFeedback('Link do negócio copiado. Já pode partilhá-lo.');
+    } catch (error) {
+      console.error('Erro ao copiar o link público do negócio:', error);
+      setShareFeedback('Não foi possível copiar automaticamente. Tente novamente.');
+    }
+  }
+
+  async function shareBusinessPublicProfile() {
+    const url = getBusinessPublicUrl();
+    if (!url) return;
+    const shareData = {
+      title: business?.name || 'Negócio na TALAZA',
+      text: 'Conheça este negócio na TALAZA Comercial.',
+      url,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        setShareFeedback('Perfil partilhado.');
+        return;
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+      }
+    }
+    await copyBusinessPublicLink();
+  }
 
   async function sendSellerSupport() {
     const message = supportDraft.trim();
@@ -1058,6 +1108,16 @@ export default function Seller() {
           </summary>
           <div style={{padding:'0 17px 17px',borderTop:'1px solid #EDF2EF'}}>
             <div style={{paddingTop:14}}>
+              <strong style={{display:'block',marginBottom:5,fontSize:13}}>Partilhar o seu negócio</strong>
+              <p style={{margin:'0 0 12px',color:'#65756E',fontSize:12,lineHeight:1.55}}>Envie o perfil público da sua loja aos clientes ou copie o link para publicar nas suas redes sociais.</p>
+              <div style={{display:'flex',gap:9,flexWrap:'wrap'}}>
+                <button type="button" onClick={shareBusinessPublicProfile} disabled={!business?.id} style={{padding:'11px 14px',border:0,borderRadius:10,background:'#075B4E',color:'#FFFFFF',fontSize:12,fontWeight:850,cursor:'pointer'}}>↗ Partilhar perfil</button>
+                <button type="button" onClick={copyBusinessPublicLink} disabled={!business?.id} style={{padding:'11px 14px',border:'1px solid #DDA10A',borderRadius:10,background:'#FFF8E5',color:'#5B4300',fontSize:12,fontWeight:850,cursor:'pointer'}}>▣ Copiar link do negócio</button>
+              </div>
+              {shareFeedback && <p role="status" style={{margin:'9px 0 0',fontSize:12,color:'#08745F'}}>{shareFeedback}</p>}
+              <p style={{margin:'8px 0 0',fontSize:11,color:'#89948F',lineHeight:1.5}}>O perfil público depende da aprovação do negócio e da validade da hospedagem.</p>
+            </div>
+            <div style={{marginTop:17,paddingTop:14,borderTop:'1px solid #EDF2EF'}}>
               <strong style={{display:'block',marginBottom:5,fontSize:13}}>Privacidade do e-mail</strong>
               <p style={{margin:'0 0 12px',color:'#65756E',fontSize:12,lineHeight:1.55}}>Escolha se pretende apresentar o e-mail de contacto no perfil público. O e-mail de acesso à sua conta Talaza continua privado.</p>
               <label style={{display:'flex',alignItems:'center',gap:10,cursor:subscriptionPending||emailVisibilitySaving?'not-allowed':'pointer',fontSize:13,lineHeight:1.5}}>
