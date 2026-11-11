@@ -644,9 +644,11 @@ export default function Admin() {
         return;
       }
 
-      // Motivação mantém a duração escolhida; Tema do Mês e Título da Semana
-      // têm ambos 30 dias, mas o título semanal usa um prazo independente.
-      const contentDuration = officialKind === 'motivation' ? officialDuration : 30;
+      // Motivação mantém a duração escolhida. O Tema do Mês dura 30 dias;
+      // o Título da Semana tem validade independente de 7 dias.
+      const contentDuration = officialKind === 'motivation'
+        ? officialDuration
+        : officialKind === 'weekly_question' ? 7 : 30;
       const expiresAt = new Date(Date.now() + contentDuration * 24 * 60 * 60 * 1000).toISOString();
 
       if (officialKind === 'motivation') {
@@ -1480,7 +1482,7 @@ export default function Admin() {
               <select value={officialDuration} onChange={event => setOfficialDuration(Number(event.target.value))} style={styles.input}>
                 <option value={7}>7 dias</option><option value={15}>15 dias</option><option value={30}>30 dias</option>
               </select>
-            </> : <p style={styles.meta}><strong>Validade fixa: 30 dias.</strong> O Tema do Mês e o Título da Semana expiram separadamente.</p>}
+            </> : <p style={styles.meta}><strong>{officialKind === 'weekly_question' ? 'Validade fixa: 7 dias.' : 'Validade fixa: 30 dias.'}</strong> O Título da Semana e o Tema do Mês têm prazos independentes.</p>}
             <p style={styles.meta}>Quando a validade terminar, o conteúdo e a imagem associada serão eliminados automaticamente. O Título da Semana expira separadamente, sem apagar o Tema do Mês.</p>
             <label style={styles.label}>Título / tema</label>
             <input value={officialTitle} onChange={event => setOfficialTitle(event.target.value)} placeholder={officialKind === 'motivation' ? 'Ex.: A força de recomeçar' : officialKind === 'theme' ? 'Ex.: O valor de recomeçar' : 'Ex.: O que aprendeste esta semana?'} style={styles.input} />
@@ -1512,7 +1514,7 @@ export default function Admin() {
               {officialKind==='weekly_question' && <span style={{ marginTop:8, fontSize:14 }}>{officialBody || 'A descrição da semana aparecerá aqui.'}</span>}
             </div>
             <div style={styles.actions}><button type="button" disabled={officialSaving} style={styles.approve} onClick={publishOfficialCommunityContent}>{officialSaving ? 'A publicar…' : 'Publicar conteúdo oficial'}</button></div>
-            <p style={styles.meta}>Motivação e temas ficam guardados nas tabelas oficiais, mesmo depois de expirarem. A expiração apenas os retira da apresentação pública.</p>
+            <p style={styles.meta}>Quando a validade termina, o conteúdo e a imagem associada são eliminados automaticamente. O Título da Semana é limpo após 7 dias, sem eliminar o Tema do Mês, que dura 30 dias.</p>
             <div style={{ marginTop: 22 }}>
               <h3 style={{ ...styles.title, fontSize: 20 }}>Histórico de motivações e temas</h3>
               {officialArchive.length === 0 ? <div style={styles.empty}><p>Ainda não existem conteúdos guardados.</p></div> : <div style={styles.list}>{officialArchive.map(item => {
