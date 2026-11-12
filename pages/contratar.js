@@ -804,31 +804,29 @@ function OpportunityForm({
         />
       </label>
 
-      {mode === 'manual' && (
-        <>
-          <label style={styles.label}>
-            Descrição *
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Descreva a oportunidade..."
-              style={styles.textarea}
-              rows={6}
-              required
-            />
-          </label>
+      <label style={styles.label}>
+        Descrição da oportunidade *
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Descreva a oportunidade, as funções e as informações importantes..."
+          style={styles.textarea}
+          rows={6}
+          required
+        />
+      </label>
 
-          <label style={styles.label}>
-            Competências e experiência
-            <textarea
-              value={requirements}
-              onChange={(e) => setRequirements(e.target.value)}
-              placeholder="Ex.: experiência de 2 anos, responsabilidade, disponibilidade..."
-              style={styles.textarea}
-              rows={4}
-            />
-          </label>
-        </>
+      {mode === 'manual' && (
+        <label style={styles.label}>
+          Competências e experiência
+          <textarea
+            value={requirements}
+            onChange={(e) => setRequirements(e.target.value)}
+            placeholder="Ex.: experiência de 2 anos, responsabilidade, disponibilidade..."
+            style={styles.textarea}
+            rows={4}
+          />
+        </label>
       )}
 
       <label style={styles.label}>
