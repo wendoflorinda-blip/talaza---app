@@ -1,5 +1,5 @@
 /* TALAZA PWA: cache apenas recursos estáticos públicos. */
-const CACHE_NAME = 'talaza-static-v3';
+const CACHE_NAME = 'talaza-static-v4';
 const APP_SHELL = ['/offline.html','/manifest.json','/icons/talaza-192.png','/icons/talaza-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
