@@ -1040,6 +1040,49 @@ export default function Seller() {
           </summary>
           <div style={{padding:'0 17px 17px',borderTop:'1px solid #EDF2EF'}}>
             <div style={{paddingTop:14}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+                <div>
+                  <strong style={{display:'block',fontSize:13}}>Dados e descrição do negócio</strong>
+                  <p style={{margin:'4px 0 0',fontSize:12,color:'#65756E',lineHeight:1.5}}>Atualize a apresentação e os contactos que aparecem no perfil público.</p>
+                </div>
+                {!editing && <button type="button" disabled={subscriptionPending} onClick={()=>{setEditName(business.name||'');setEditDescription(business.description||'');setEditPhone(business.phone||'');setEditHours(business.opening_hours||'');setEditMunicipality(business.municipality||'');setEditNeighborhood(business.neighborhood||'');setEditing(true);}} style={{padding:'9px 13px',border:0,borderRadius:9,background:subscriptionPending?'#BFC9C5':'#075B4E',color:'#FFFFFF',fontSize:12,fontWeight:850,cursor:subscriptionPending?'not-allowed':'pointer'}}>Editar dados</button>}
+              </div>
+              {editing && (
+                <form onSubmit={saveBusiness} style={{display:'grid',gap:11,marginTop:13}}>
+                  <label style={{display:'grid',gap:5,fontSize:12,fontWeight:800,color:'#29443B'}}>
+                    Nome do negócio *
+                    <input value={editName} onChange={e=>setEditName(e.target.value)} required maxLength={120} style={{width:'100%',boxSizing:'border-box',padding:11,border:'1px solid #D9E5DF',borderRadius:10,font:'inherit',fontSize:13}} />
+                  </label>
+                  <label style={{display:'grid',gap:5,fontSize:12,fontWeight:800,color:'#29443B'}}>
+                    Descrição do negócio
+                    <textarea value={editDescription} onChange={e=>setEditDescription(e.target.value)} rows={5} maxLength={1200} placeholder="Apresente o seu negócio, os produtos ou serviços que oferece e o que o distingue." style={{width:'100%',boxSizing:'border-box',padding:11,border:'1px solid #D9E5DF',borderRadius:10,font:'inherit',fontSize:13,resize:'vertical'}} />
+                  </label>
+                  <label style={{display:'grid',gap:5,fontSize:12,fontWeight:800,color:'#29443B'}}>
+                    Telefone
+                    <input type="tel" value={editPhone} onChange={e=>setEditPhone(e.target.value)} style={{width:'100%',boxSizing:'border-box',padding:11,border:'1px solid #D9E5DF',borderRadius:10,font:'inherit',fontSize:13}} />
+                  </label>
+                  <label style={{display:'grid',gap:5,fontSize:12,fontWeight:800,color:'#29443B'}}>
+                    Horário de funcionamento
+                    <input value={editHours} onChange={e=>setEditHours(e.target.value)} placeholder="Ex.: Segunda a sábado, 08h–18h" style={{width:'100%',boxSizing:'border-box',padding:11,border:'1px solid #D9E5DF',borderRadius:10,font:'inherit',fontSize:13}} />
+                  </label>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10}}>
+                    <label style={{display:'grid',gap:5,fontSize:12,fontWeight:800,color:'#29443B'}}>
+                      Município
+                      <input value={editMunicipality} onChange={e=>setEditMunicipality(e.target.value)} style={{width:'100%',boxSizing:'border-box',padding:11,border:'1px solid #D9E5DF',borderRadius:10,font:'inherit',fontSize:13}} />
+                    </label>
+                    <label style={{display:'grid',gap:5,fontSize:12,fontWeight:800,color:'#29443B'}}>
+                      Bairro
+                      <input value={editNeighborhood} onChange={e=>setEditNeighborhood(e.target.value)} style={{width:'100%',boxSizing:'border-box',padding:11,border:'1px solid #D9E5DF',borderRadius:10,font:'inherit',fontSize:13}} />
+                    </label>
+                  </div>
+                  <div style={{display:'flex',gap:9,flexWrap:'wrap'}}>
+                    <button type="submit" disabled={saving||subscriptionPending} style={{padding:'11px 16px',border:0,borderRadius:10,background:saving||subscriptionPending?'#BFC9C5':'#075B4E',color:'#FFFFFF',fontSize:12,fontWeight:850,cursor:saving||subscriptionPending?'not-allowed':'pointer'}}>{saving?'A guardar…':'Guardar alterações'}</button>
+                    <button type="button" disabled={saving} onClick={()=>{setEditName(business.name||'');setEditDescription(business.description||'');setEditPhone(business.phone||'');setEditHours(business.opening_hours||'');setEditMunicipality(business.municipality||'');setEditNeighborhood(business.neighborhood||'');setEditing(false);}} style={{padding:'11px 16px',border:'1px solid #D9E5DF',borderRadius:10,background:'#FFFFFF',color:'#40564D',fontSize:12,fontWeight:800}}>Cancelar</button>
+                  </div>
+                </form>
+              )}
+            </div>
+            <div style={{paddingTop:14,borderTop:'1px solid #EDF2EF',marginTop:14}}>
               <strong style={{display:'block',marginBottom:5,fontSize:13}}>Privacidade do e-mail</strong>
               <p style={{margin:'0 0 12px',color:'#65756E',fontSize:12,lineHeight:1.55}}>Escolha se pretende apresentar o e-mail de contacto no perfil público. O e-mail de acesso à sua conta Talaza continua privado.</p>
               <label style={{display:'flex',alignItems:'center',gap:10,cursor:subscriptionPending||emailVisibilitySaving?'not-allowed':'pointer',fontSize:13,lineHeight:1.5}}>
