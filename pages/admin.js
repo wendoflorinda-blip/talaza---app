@@ -272,11 +272,12 @@ export default function Admin() {
     });
     setSubscriptionRequests(requests);
 
-    const opportunityPending = requests.some(item =>
-      String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase() &&
-      String(item.status || '').trim().toLowerCase() === 'pending'
+    const hasOpportunityAccessRequest = requests.some(item =>
+      String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase()
     );
-    if (opportunityPending) setActiveAdminSection('acessos-oportunidades');
+    // Mantém a área acessível também depois de uma recusa, para consultar
+    // o histórico e receber um novo comprovativo sem a secção desaparecer.
+    if (hasOpportunityAccessRequest) setActiveAdminSection('acessos-oportunidades');
 
     const businessIds = [...new Set(requests.map(item => item.business_id).filter(Boolean))];
     const planIds = [...new Set(requests.map(item => item.plan_id).filter(Boolean))];
@@ -579,9 +580,18 @@ export default function Admin() {
   }
 
   async function notifyUser(userId, title, body, type = 'admin_review') {
-    if (!userId) return;
-    const { error } = await supabase.from('notifications').insert({ user_id: userId, title, body, type: 'individual' });
-    if (error) console.error('A alteração foi feita, mas a notificação falhou:', error.message);
+    if (!userId) return { ok: false, error: 'Utilizador destinatário não identificado.' };
+    const { error } = await supabase.from('notifications').insert({
+      user_id: userId,
+      title,
+      content: body,
+      type,
+    });
+    if (error) {
+      console.error('Não foi possível criar a notificação:', error.message);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
   }
 
   async function moderateEvent(event, approved) {
@@ -1171,14 +1181,18 @@ export default function Admin() {
     const notificationBody = approved
       ? 'O seu pagamento para ' + areaLabel + ' foi aprovado.' + activationMessage
       : 'O comprovativo do seu pagamento para ' + areaLabel + ' foi recusado. Motivo: ' + rejectionReason.trim() + ' Pode corrigir e enviar novamente.';
-    await notifyUser(request.user_id, notificationTitle, notificationBody, 'payment_review');
+    const notificationResult = await notifyUser(request.user_id, notificationTitle, notificationBody, 'payment_review');
 
     await loadSubscriptionRequests();
     await loadBusinesses();
     await loadEvents();
     await loadJobPosts();
     setReviewingPaymentId('');
-    alert(approved ? 'Pagamento aprovado.' + activationMessage : 'Pagamento recusado e motivo enviado nas notificações.');
+    if (!notificationResult.ok) {
+      alert((approved ? 'Pagamento aprovado' : 'Pagamento recusado') + ', mas a notificação não foi enviada: ' + notificationResult.error);
+    } else {
+      alert(approved ? 'Pagamento aprovado.' + activationMessage : 'Pagamento recusado e notificação enviada ao utilizador.');
+    }
   }
 
   async function refreshAdminData() {
@@ -1278,7 +1292,7 @@ export default function Admin() {
             </p>
           </div>
 
-          <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', gap: 10, margin: '0 -4px 10px', padding: '8px 4px 14px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+          <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'wrap', overflow: 'visible', gap: 10, margin: '0 -4px 10px', padding: '8px 4px 14px' }}>
             {[
               ['vendedores', 'Vendedores', businesses.length],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
