@@ -265,13 +265,18 @@ export default function Contratar() {
       return;
     }
 
-    if (!title.trim()) {
+    if (mode === 'manual' && !title.trim()) {
       setError('Informe o título da oportunidade.');
       return;
     }
 
-    if (!description.trim()) {
+    if (mode === 'manual' && !description.trim()) {
       setError('Escreva uma descrição da oportunidade.');
+      return;
+    }
+
+    if (mode === 'post' && !selectedImage) {
+      setError('Selecione a imagem ou o cartaz que pretende publicar.');
       return;
     }
 
@@ -298,8 +303,8 @@ export default function Contratar() {
             province_id: province,
             area: area,
             profession: profession.trim(),
-            title: title.trim(),
-            description: description.trim(),
+            title: mode === 'post' ? (title.trim() || profession.trim() || 'Publicação visual') : title.trim(),
+            description: mode === 'post' ? (description.trim() || 'Publicação visual enviada pelo responsável.') : description.trim(),
             requirements: requirements.trim() || null,
             whatsapp: whatsapp.trim(),
             work_availability: workAvailability.trim() || null,
@@ -785,36 +790,33 @@ function OpportunityForm({
         />
       </label>
 
-      <label style={styles.label}>
-        {mode === 'manual'
-          ? 'Título da oportunidade *'
-          : 'Título da publicação *'}
+      {mode === 'manual' && (
+        <>
+          <label style={styles.label}>
+            Título da oportunidade *
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ex.: Procura-se eletricista"
+              style={styles.input}
+              required
+            />
+          </label>
 
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder={
-            mode === 'manual'
-              ? 'Ex.: Procura-se eletricista'
-              : 'Ex.: Oportunidade de trabalho'
-          }
-          style={styles.input}
-          required
-        />
-      </label>
-
-      <label style={styles.label}>
-        Descrição da oportunidade *
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Descreva a oportunidade, as funções e as informações importantes..."
-          style={styles.textarea}
-          rows={6}
-          required
-        />
-      </label>
+          <label style={styles.label}>
+            Descrição da oportunidade *
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Descreva a oportunidade, as funções e as informações importantes..."
+              style={styles.textarea}
+              rows={6}
+              required
+            />
+          </label>
+        </>
+      )}
 
       {mode === 'manual' && (
         <label style={styles.label}>
