@@ -9,7 +9,6 @@ import {
   Field,
   ErrorBox,
   PrimaryButton,
-  ImagePicker,
   CountrySelect,
   PhoneField,
   PasswordField,
@@ -21,15 +20,10 @@ import {
   isAngola,
   validAngolanPhone,
   fullPhone,
-  resizeImage,
-  uploadPublicImage,
 } from '../lib/talaza';
 
 export default function Signup() {
   const router = useRouter();
-
-  const [avatarFile, setAvatarFile] = useState(null);
-  const [avatarPreview, setAvatarPreview] = useState('');
 
   const [fullName, setFullName] = useState('');
   const [countries, setCountries] = useState([]);
@@ -100,11 +94,6 @@ export default function Signup() {
     setProvinces(data || []);
   }
 
-  function pickAvatar(file) {
-    setAvatarFile(file);
-    setAvatarPreview(URL.createObjectURL(file));
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -150,121 +139,60 @@ export default function Signup() {
     setLoading(true);
 
     try {
+      const pendingExplorer = {
+        name: fullName.trim(),
+        country_id: countryId,
+        province_id: provinceId,
+        phone: fullPhone(dial, phone),
+      };
+
       const { data: authData, error: authError } =
         await supabase.auth.signUp({
           email: email.trim().toLowerCase(),
           password,
+          options: {
+            data: {
+              talaza_pending_signup_type: 'explorer',
+              talaza_pending_explorer: pendingExplorer,
+            },
+            emailRedirectTo: typeof window !== 'undefined'
+              ? `${window.location.origin}/auth/callback`
+              : undefined,
+          },
         });
 
       if (authError) {
         console.error(authError);
-
         setError(
           authError.message?.toLowerCase().includes('already registered')
             ? 'Este e-mail já tem uma conta. Volte à página inicial e toque em Entrar.'
             : authError.message || 'Não foi possível criar a conta.'
         );
-
-        setLoading(false);
         return;
       }
 
       if (!authData?.user) {
         setError('Não foi possível criar a conta. Tente novamente.');
-        setLoading(false);
         return;
       }
 
-      /* Se o Supabase exigir confirmação de e-mail, ainda não há sessão. */
-      if (!authData.session) {
-        setError(
-          'A conta foi criada. Confirme o seu e-mail e depois toque em Entrar na página inicial.'
-        );
-        setLoading(false);
+      if (Array.isArray(authData.user.identities) && authData.user.identities.length === 0) {
+        setError('Este e-mail já tem uma conta. Volte à página inicial e toque em Entrar.');
         return;
       }
 
-      const userId = authData.user.id;
-
-      /* Foto de perfil (opcional): quadrada, como no WhatsApp */
-      let avatarUrl = null;
-
-      if (avatarFile) {
-        try {
-          const blob = await resizeImage(avatarFile, {
-            max: 640,
-            square: true,
-          });
-
-          avatarUrl = await uploadPublicImage(
-            supabase,
-            'avatars',
-            `${userId}/avatar.jpg`,
-            blob
-          );
-        } catch (uploadError) {
-          console.warn('Não foi possível enviar a foto:', uploadError);
-        }
-      }
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert(
-          {
-            id: userId,
-            name: fullName.trim(),
-            country_id: countryId,
-            province_id: provinceId,
-            account_type: 'explorador',
-          },
-          { onConflict: 'id' }
-        );
-
-      if (profileError) {
-        console.error(profileError);
-
-        setError(
-          'A conta foi criada, mas não foi possível criar o seu perfil.'
-        );
-
-        setLoading(false);
+      if (authData.session) {
+        await router.replace('/auth/callback');
         return;
       }
 
-      /* Telefone e foto: guardados à parte para não bloquear o cadastro */
-      const { error: extraError } = await supabase
-        .from('profiles')
-        .update({
-          phone: fullPhone(dial, phone),
-          avatar_url: avatarUrl,
-        })
-        .eq('id', userId);
-
-      if (extraError) {
-        console.warn(
-          'Telefone/foto não guardados (faltam as colunas phone e avatar_url em profiles):',
-          extraError
-        );
-      }
-
-      try {
-        localStorage.setItem('talaza_country_id', String(countryId));
-        localStorage.setItem('talaza_province_id', String(provinceId));
-        localStorage.setItem('talaza_home_country_id', String(countryId));
-        localStorage.setItem('talaza_home_province_id', String(provinceId));
-      } catch {}
-      router.push({
-        pathname: '/explore',
-        query: {
-          country: countryId,
-          province: provinceId,
-          homeCountry: countryId,
-          homeProvince: provinceId,
-        },
-      });
+      setError(
+        'Verifica o teu email, enviámos um link para confirmares. Clica no link para ativares a conta.'
+      );
     } catch (err) {
       console.error(err);
-      setError('Ocorreu um erro. Tente novamente.');
+      setError(err?.message || 'Ocorreu um erro. Tente novamente.');
+    } finally {
       setLoading(false);
     }
   }
@@ -322,13 +250,6 @@ export default function Signup() {
         </p>
 
         <form onSubmit={handleSubmit} noValidate>
-          <ImagePicker
-            id="avatar"
-            preview={avatarPreview}
-            onFile={pickAvatar}
-            caption="Toque para adicionar a sua foto"
-          />
-
           <Field id="name" label="Nome" required>
             <input
               id="name"
