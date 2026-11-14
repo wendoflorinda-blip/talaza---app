@@ -339,17 +339,17 @@ export default function Subcategory() {
 
   async function toggleSavedPromotion(promotion) {
     if(!currentUserId) { setSaveNotice('Inicia sessão na Talaza para guardar esta publicação.'); return; }
+    if(savedPromotionIds.includes(promotion.id)) {
+      setSaveNotice('Já guardado.');
+      return;
+    }
     setSavingPromotionId(promotion.id); setSaveNotice('');
     try {
-      if(savedPromotionIds.includes(promotion.id)) {
-        const {error}=await supabase.from('saved_premium_promotions').delete().eq('user_id',currentUserId).eq('promotion_id',promotion.id);
-        if(error) throw error;
-        setSavedPromotionIds(prev=>prev.filter(id=>id!==promotion.id));
-      } else {
-        const {error}=await supabase.from('saved_premium_promotions').insert({user_id:currentUserId,promotion_id:promotion.id});
-        if(error) throw error;
-        setSavedPromotionIds(prev=>[...prev,promotion.id]);
-      }
+      const {error}=await supabase.from('saved_premium_promotions')
+        .insert({user_id:currentUserId,promotion_id:promotion.id});
+      if(error && error.code !== '23505') throw error;
+      setSavedPromotionIds(prev=>prev.includes(promotion.id)?prev:[...prev,promotion.id]);
+      setSaveNotice('Publicação guardada.');
     } catch(err) { setSaveNotice(err.message || 'Não foi possível guardar a publicação.'); }
     finally { setSavingPromotionId(''); }
   }
