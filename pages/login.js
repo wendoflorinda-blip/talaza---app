@@ -170,7 +170,7 @@ export default function Login() {
         setError('O Supabase não encontrou uma combinação válida para este e-mail e palavra-passe. Confirme se o e-mail está escrito exatamente como foi usado no cadastro ou recupere a palavra-passe.');
       } else if (message.includes('email not confirmed')) {
         setError(
-          'Confirme o seu e-mail através do link enviado antes de entrar.'
+          'Ainda não confirmaste o teu email. Verifica a tua caixa de entrada e clica no link.'
         );
       } else {
         setError(
