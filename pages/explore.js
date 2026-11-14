@@ -361,17 +361,17 @@ export default function Explore() {
 
   async function toggleSavedPromotion(promotion) {
     if(!currentUserId) { router.push('/login'); return; }
+    if(savedPromotionIds.includes(promotion.id)) {
+      setBusinessError('Já guardado.');
+      return;
+    }
     setSavingPromotionId(promotion.id);
     try {
-      if(savedPromotionIds.includes(promotion.id)) {
-        const {error}=await supabase.from('saved_premium_promotions').delete().eq('user_id',currentUserId).eq('promotion_id',promotion.id);
-        if(error) throw error;
-        setSavedPromotionIds(prev=>prev.filter(id=>id!==promotion.id));
-      } else {
-        const {error}=await supabase.from('saved_premium_promotions').insert({user_id:currentUserId,promotion_id:promotion.id});
-        if(error) throw error;
-        setSavedPromotionIds(prev=>[...prev,promotion.id]);
-      }
+      const {error}=await supabase.from('saved_premium_promotions')
+        .insert({user_id:currentUserId,promotion_id:promotion.id});
+      if(error && error.code !== '23505') throw error;
+      setSavedPromotionIds(prev=>prev.includes(promotion.id)?prev:[...prev,promotion.id]);
+      setBusinessError('Publicação guardada.');
     } catch(err) { setBusinessError(err.message||'Não foi possível guardar a publicação.'); }
     finally { setSavingPromotionId(''); }
   }
@@ -621,7 +621,7 @@ export default function Explore() {
                         <div className="premium-post-actions">
                           <button type="button" onClick={()=>router.push({pathname:'/mensagens',query:{to:item.business?.owner_id,source:'Vitrine',sourceId:item.business_id,box:'explore'}})} disabled={!item.business?.owner_id}>Enviar mensagem</button>
                           <Link href={{pathname:'/businesses/'+item.business_id,query:exploreQuery}} onClick={() => trackMainBusiness(item.business)}>Ver perfil</Link>
-                          {item.duration_days===30 && <button type="button" onClick={()=>toggleSavedPromotion(item)} disabled={savingPromotionId===item.id}>{savingPromotionId===item.id?'…':savedPromotionIds.includes(item.id)?'✓ Guardado':'☆ Guardar'}</button>}
+                          {item.duration_days===30 && <button type="button" onClick={()=>toggleSavedPromotion(item)} disabled={savingPromotionId===item.id || savedPromotionIds.includes(item.id)}>{savingPromotionId===item.id?'A guardar…':savedPromotionIds.includes(item.id)?'✓ Já guardado':'☆ Guardar'}</button>}
                         </div>
                       </div>
                     </article>
