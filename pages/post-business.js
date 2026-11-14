@@ -116,14 +116,29 @@ export default function PostBusiness() {
     setUser(session.user);
     setEmail(session.user.email || '');
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('name, country_id')
-      .eq('id', session.user.id)
-      .maybeSingle();
+    const isResume = typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('resume') === '1';
+    const pending = session.user.user_metadata?.talaza_pending_seller;
 
-    if (profile?.name) setProfileName(profile.name);
-    if (profile?.country_id) setCountryId(profile.country_id);
+    if (isResume) {
+      if (pending?.name) setProfileName(pending.name);
+      if (pending?.phone) setPhone(pending.phone);
+      if (pending?.country_id) setCountryId(pending.country_id);
+      if (!pending?.name || !pending?.phone || !pending?.country_id) {
+        setError('Não foi possível recuperar todos os dados do cadastro. Contacta o suporte Talaza.');
+      } else {
+        setStep(2);
+      }
+    } else {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('name, country_id')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (profile?.name) setProfileName(profile.name);
+      if (profile?.country_id) setCountryId(profile.country_id);
+    }
 
     // Se já existe um negócio, não repetir o cadastro: abrir diretamente o painel.
     const { data: existingBusiness, error: existingBusinessError } = await supabase
@@ -225,6 +240,19 @@ export default function PostBusiness() {
     const { data, error: signupError } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
+      options: {
+        data: {
+          talaza_pending_signup_type: 'seller',
+          talaza_pending_seller: {
+            name: profileName.trim(),
+            phone: fullPhone(dial, phone),
+            country_id: countryId,
+          },
+        },
+        emailRedirectTo: typeof window !== 'undefined'
+          ? `${window.location.origin}/auth/callback`
+          : undefined,
+      },
     });
 
     if (signupError) {
@@ -244,16 +272,20 @@ export default function PostBusiness() {
       return null;
     }
 
-    /* Se o Supabase exigir confirmação de e-mail, ainda não há sessão. */
+    if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      setError('Este e-mail já tem uma conta. Volte à página inicial e toque em Entrar.');
+      return null;
+    }
+
+    /* Sem sessão: o vendedor só continua depois de confirmar o link do email. */
     if (!data.session) {
       setError(
-        'A conta foi criada. Confirme o seu e-mail e depois toque em Entrar na página inicial para concluir o perfil do negócio.'
+        'Verifica o teu email, enviámos um link para confirmares. Clica no link para ativares a conta.'
       );
       return null;
     }
 
     setUser(data.user);
-
     return data.user;
   }
 
@@ -269,6 +301,11 @@ export default function PostBusiness() {
     /* Só Angola segue. Outro país vai para o ecrã "País indisponível". */
     if (!isAngola(country.name)) {
       setBlockedCountry(country.name);
+      return;
+    }
+
+    if (!profileName.trim()) {
+      setError('Digite o seu nome completo.');
       return;
     }
 
@@ -629,10 +666,7 @@ export default function PostBusiness() {
             lineHeight: 1.55,
           }}
         >
-          <strong style={{ display: 'block', marginBottom: 4 }}>
-            O seu perfil já foi criado
-          </strong>
-          Para ativar, precisa de pagar o plano de hospedagem.
+          O teu negócio foi guardado. Para ficar ativo, tens de pagar a hospedagem e aguardar a aprovação do administrador.
         </div>
 
         <Link
@@ -934,6 +968,21 @@ export default function PostBusiness() {
         </p>
 
         <form onSubmit={handleStep1} noValidate>
+          <Field id="profileName" label="Nome completo" required>
+            <input
+              id="profileName"
+              value={profileName}
+              onChange={(e) => setProfileName(e.target.value)}
+              placeholder="O seu nome completo"
+              autoComplete="name"
+              disabled={!!user}
+              style={{
+                ...inputStyle,
+                background: user ? '#F1F4F3' : '#FFFFFF',
+              }}
+            />
+          </Field>
+
           <Field id="email" label="E-mail" required>
             <input
               id="email"
