@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
 const OPPORTUNITY_ACCESS_PLAN_ID = '0fff05f6-c619-4c72-ba3e-3a0028eafef7';
+const ADMIN_READ_ONLY = process.env.NEXT_PUBLIC_TALAZA_ADMIN_READ_ONLY === 'true';
 
 function getPaymentProofPaths(request) {
   const image = request?.proof_image_url || null;
@@ -114,7 +115,7 @@ export default function Admin() {
   }, [subscriptionRequests]);
 
   useEffect(() => {
-    checkAdmin();
+    if (!ADMIN_READ_ONLY) checkAdmin();
   }, []);
 
   async function checkAdmin() {
@@ -1243,6 +1244,22 @@ export default function Admin() {
   async function logout() {
     await supabase.auth.signOut();
     router.replace('/login');
+  }
+
+  if (ADMIN_READ_ONLY) {
+    return (
+      <main style={styles.center}>
+        <section style={styles.restricted}>
+          <div style={styles.logo}>T</div>
+          <h1 style={{ margin: '0 0 12px', color: '#12332D' }}>Administração temporariamente em pausa</h1>
+          <p style={{ color: '#52635E', lineHeight: 1.6 }}>
+            A área administrativa da versão Dev está temporariamente em modo de segurança para proteger os dados reais da Talaza.
+            As operações administrativas serão reativadas quando a versão Dev tiver uma base Supabase independente.
+          </p>
+          <p style={{ color: '#8A6500', fontWeight: 700, marginBottom: 0 }}>A produção (Main) não foi alterada.</p>
+        </section>
+      </main>
+    );
   }
 
   if (loading) {
