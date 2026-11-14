@@ -97,7 +97,7 @@ create table if not exists public.media_profiles (
 
 create table if not exists public.media_subscriptions (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.auth.users(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
   media_profile_id uuid not null references public.media_profiles(user_id) on delete cascade,
   plan_id uuid not null references public.media_plans(id),
   starts_at timestamptz not null,
