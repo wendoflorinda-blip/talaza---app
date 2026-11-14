@@ -128,7 +128,6 @@ export default function MediaCreatorSignup() {
   async function submit() {
     setLoading(true); setError(''); setNotice('');
     try {
-      const fullPhone = dialCode + phone.replace(/\D/g,'');
       const metadata = {
         media_creator_onboarding: true,
         media_country_id: countryId,
@@ -150,8 +149,14 @@ export default function MediaCreatorSignup() {
       const {data,error:signupError} = await supabase.auth.signUp({
         email:email.trim().toLowerCase(), password,
         options:{
-          data:metadata,
-          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/media` : undefined
+          data: {
+            ...metadata,
+            talaza_pending_signup_type: 'creator',
+            talaza_pending_creator: metadata,
+          },
+          emailRedirectTo: typeof window !== 'undefined'
+            ? `${window.location.origin}/auth/callback`
+            : undefined
         }
       });
       if (signupError) throw signupError;
@@ -163,11 +168,10 @@ export default function MediaCreatorSignup() {
         return;
       }
       if (data.session) {
-        setNotice('Conta criada com sucesso. A entrar na MÍDIA TALAZA…');
-        await router.replace('/media');
+        await router.replace('/auth/callback');
         return;
       }
-      setNotice('O cadastro foi iniciado. Enviámos um link de confirmação para o seu email. Abra a mensagem e confirme o endereço; depois será encaminhado diretamente para a MÍDIA TALAZA. Se não encontrar a mensagem, verifique o spam.');
+      setNotice('Verifica o teu email, enviámos um link para confirmares. Clica no link para ativares a conta.');
     } catch(err) {
       const msg=String(err?.message||'');
       const lower = msg.toLowerCase();
