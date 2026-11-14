@@ -567,7 +567,7 @@ export default function Admin() {
   }
 
   async function loadJobPosts() {
-    const { data, error } = await supabase.from('job_posts').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('job_posts').select('*, province:provinces(name), country:countries(name)').order('created_at', { ascending: false });
     if (error) { console.error('Erro ao carregar oportunidades:', error); setMessage('Não foi possível carregar oportunidades: ' + error.message); setJobPosts([]); return; }
     // Os posts visuais podem não ter título nem descrição: a imagem é o conteúdo principal.
     setJobPosts((data || []).filter((item) =>
@@ -575,7 +575,11 @@ export default function Admin() {
       item.country_id &&
       item.province_id &&
       (item.image_url || (item.title?.trim() && item.description?.trim()))
-    ));
+    ).sort((a, b) => {
+      const aPending = String(a.status || '').toLowerCase() === 'pending_review' ? 0 : 1;
+      const bPending = String(b.status || '').toLowerCase() === 'pending_review' ? 0 : 1;
+      return aPending - bPending || new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    }));
   }
 
   async function notifyUser(userId, title, body, type = 'admin_review') {
@@ -1504,8 +1508,8 @@ export default function Admin() {
         </section>
 
         <section id="oportunidades" style={{ marginTop: 0, display: activeAdminSection === 'oportunidades' ? 'block' : 'none' }}>
-          <div style={styles.titleRow}><div><h2 style={styles.title}>Oportunidades</h2><p style={styles.description}>Revise as oportunidades/vagas publicadas e envie o motivo ao responsável se houver recusa.</p></div><div style={styles.counter}>{jobPosts.filter(item => !['rejected','closed','expired'].includes(String(item.status || '').toLowerCase())).length} por analisar · {jobPosts.length} total</div></div>
-          {jobPosts.length === 0 ? <div style={styles.empty}><h3>Sem oportunidades registadas</h3><p>As oportunidades enviadas aparecerão aqui.</p></div> : <div style={styles.list}>{jobPosts.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>OP</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || item.position || 'Publicação visual'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}>{item.image_url && <p><a href={item.image_url} target="_blank" rel="noreferrer">Ver cartaz / imagem ↗</a></p>}{(item.description || item.details) && <p>{item.description || item.details}</p>}<p><strong>Província:</strong> {item.province_id || '—'}</p><p><strong>Responsável:</strong> {profiles.find(profile => profile.id === (item.user_id || item.employer_id))?.name || 'Nome não disponível'}</p><p><strong>ID interno:</strong> {item.user_id || item.employer_id || '—'}</p></div>{!['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase()) && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateJob(item, false)}>Recusar oportunidade</button><button type="button" style={styles.approve} onClick={() => moderateJob(item, true)}>Aprovar oportunidade</button></div>}</article>)}</div>}
+          <div style={styles.titleRow}><div><h2 style={styles.title}>Revisão de Oportunidades</h2><p style={styles.description}>Leia os dados e veja o cartaz antes de decidir. Só as publicações aprovadas por si chegam à área Oportunidades.</p></div><div style={styles.counter}>{jobPosts.filter(item => String(item.status || '').toLowerCase() === 'pending_review').length} por analisar · {jobPosts.length} total</div></div>
+          {jobPosts.length === 0 ? <div style={styles.empty}><h3>Sem oportunidades registadas</h3><p>As oportunidades enviadas aparecerão aqui.</p></div> : <div style={styles.list}>{jobPosts.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>OP</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || item.position || 'Publicação visual'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}>{item.image_url && <div style={{ margin: '12px 0' }}><a href={item.image_url} target="_blank" rel="noreferrer"><img src={item.image_url} alt="Cartaz enviado para revisão" style={{ display: 'block', maxWidth: '100%', width: 360, maxHeight: 420, objectFit: 'contain', borderRadius: 12, border: '1px solid #D5E4DF', background: '#F7FAF9' }} /></a><p><a href={item.image_url} target="_blank" rel="noreferrer">Abrir cartaz em tamanho completo ↗</a></p></div>}{(item.description || item.details) && <p>{item.description || item.details}</p>}<p><strong>País:</strong> {item.country?.name || '—'}</p><p><strong>Província:</strong> {item.province?.name || '—'}</p><p><strong>Profissão:</strong> {item.profession || item.position || '—'}</p><p><strong>Responsável:</strong> {profiles.find(profile => profile.id === (item.user_id || item.employer_id))?.name || 'Nome não disponível'}</p></div>{String(item.status || '').toLowerCase() === 'pending_review' && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateJob(item, false)}>Recusar oportunidade</button><button type="button" style={styles.approve} onClick={() => moderateJob(item, true)}>Aprovar oportunidade</button></div>}</article>)}</div>}
         </section>
 
         <section id="conteudo-oficial" style={{ marginTop: 0, display: activeAdminSection === 'conteudo-oficial' ? 'block' : 'none' }}>
