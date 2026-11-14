@@ -49,6 +49,7 @@ export default function Perfil() {
   const [savedPremiumPromotions, setSavedPremiumPromotions] = useState([]);
   const [savedPromotionIds, setSavedPromotionIds] = useState([]);
   const [savingPromotionId, setSavingPromotionId] = useState('');
+  const [removingBusinessId, setRemovingBusinessId] = useState('');
   const [provinceEvents, setProvinceEvents] = useState([]);
   const [loadingSections, setLoadingSections] = useState(false);
   const [unreadEventCount, setUnreadEventCount] = useState(0);
@@ -195,6 +196,24 @@ export default function Perfil() {
       setError('Não foi possível carregar o perfil. Tente novamente.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function removeSavedBusiness(business) {
+    if (!user?.id || !business?.id) return;
+    setRemovingBusinessId(business.id);
+    setNotice('');
+    try {
+      const { error: removeError } = await supabase.from('saved_businesses')
+        .delete().eq('user_id', user.id).eq('business_id', business.id);
+      if (removeError) throw removeError;
+      setSavedBusinesses(prev => prev.filter(row => row.businesses?.id !== business.id));
+      setSavedBusinessUpdates(prev => prev.filter(item => item.business_id !== business.id));
+      setNotice('Perfil removido dos Guardados.');
+    } catch (err) {
+      setError(err.message || 'Não foi possível remover este perfil dos Guardados.');
+    } finally {
+      setRemovingBusinessId('');
     }
   }
 
@@ -507,14 +526,17 @@ export default function Perfil() {
             <p style={S.sectionIntro}>Os negócios que guardar na Vitrine ficam reunidos aqui, só para si. As publicações que guardar também permanecem aqui, mesmo quando o destaque terminar.</p>
             {savedPremiumPromotions.length > 0 && <><h3 style={{fontSize:16,color:C.dark,margin:'20px 0 12px'}}>Publicações guardadas</h3><div style={S.savedGrid}>{savedPremiumPromotions.map(row=>{const item=row.premium_promotions;return <article key={row.id} style={S.savedCard}>
               {item.media_type==='video'?<video src={item.media_url} controls playsInline style={S.savedImage}/>:<img src={item.media_url} alt="Publicação guardada" style={S.savedImage}/>}
-              <div style={{padding:14}}><strong>{item.businesses?.name || 'Negócio Talaza'}</strong><p style={S.cardDescription}>{item.description}</p>{item.expires_at && new Date(item.expires_at)<new Date() && <small style={{display:'block',color:C.muted,marginBottom:8}}>Destaque terminado — publicação mantida nos seus Guardados</small>}<Link href={{pathname:'/businesses/'+item.business_id,query:{returnTo:'/perfil?tab=guardados'}}} style={S.openBusiness}>Ver perfil</Link></div>
+              <div style={{padding:14}}><strong>{item.businesses?.name || 'Negócio Talaza'}</strong><p style={S.cardDescription}>{item.description}</p>{item.expires_at && new Date(item.expires_at)<new Date() && <small style={{display:'block',color:C.muted,marginBottom:8}}>Destaque terminado — publicação mantida nos seus Guardados</small>}<div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}><Link href={{pathname:'/businesses/'+item.business_id,query:{returnTo:'/perfil?tab=guardados'}}} style={S.openBusiness}>Ver perfil</Link><button type="button" disabled={savingPromotionId===item.id} onClick={()=>toggleSavedPromotion(item)} style={{border:'1px solid '+C.line,borderRadius:9,padding:'9px 12px',background:'#fff',color:C.red,fontWeight:700,cursor:'pointer'}}>{savingPromotionId===item.id?'A remover…':'Remover dos Guardados'}</button></div></div>
             </article>;})}</div></>}
 
             {loadingSections ? <p style={S.empty}>A carregar os seus guardados…</p> : savedBusinesses.length ? <div style={S.savedGrid}>
-              {savedBusinesses.map(row => { const business=row.businesses; return <Link key={row.id} href={{ pathname:'/businesses/'+business.id, query:{ returnTo:'/perfil?tab=guardados' } }} aria-label={'Ver perfil de '+(business.name || 'Negócio Talaza')} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,minHeight:58,padding:'13px 16px',border:'1px solid '+C.line,borderRadius:12,background:C.white,color:C.dark,textDecoration:'none',boxShadow:'0 3px 10px rgba(20,50,43,.035)'}}>
-                <strong style={{fontSize:14,fontWeight:800,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{business.name || 'Negócio Talaza'}</strong>
-                <span aria-hidden="true" style={{flex:'0 0 auto',display:'grid',placeItems:'center',width:30,height:30,borderRadius:'50%',background:C.goldSoft,color:C.dark,fontSize:21,fontWeight:900,lineHeight:1}}>›</span>
-              </Link>; })}
+              {savedBusinesses.map(row => { const business=row.businesses; return <div key={row.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,minHeight:58,padding:'10px 12px',border:'1px solid '+C.line,borderRadius:12,background:C.white,boxShadow:'0 3px 10px rgba(20,50,43,.035)'}}>
+                <Link href={{ pathname:'/businesses/'+business.id, query:{ returnTo:'/perfil?tab=guardados' } }} aria-label={'Ver perfil de '+(business.name || 'Negócio Talaza')} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flex:1,minWidth:0,color:C.dark,textDecoration:'none'}}>
+                  <strong style={{fontSize:14,fontWeight:800,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{business.name || 'Negócio Talaza'}</strong>
+                  <span aria-hidden="true" style={{flex:'0 0 auto',display:'grid',placeItems:'center',width:30,height:30,borderRadius:'50%',background:C.goldSoft,color:C.dark,fontSize:21,fontWeight:900,lineHeight:1}}>›</span>
+                </Link>
+                <button type="button" disabled={removingBusinessId===business.id} onClick={()=>removeSavedBusiness(business)} style={{flex:'0 0 auto',border:'1px solid '+C.line,borderRadius:9,padding:'8px 10px',background:'#fff',color:C.red,fontWeight:700,cursor:'pointer'}}>{removingBusinessId===business.id?'…':'Remover'}</button>
+              </div>; })}
             </div> : savedPremiumPromotions.length ? null : <div style={S.emptyCard}><span style={S.emptyIcon}>▱</span><strong>Ainda não guardou nenhum perfil ou publicação</strong><p>Quando tocar em Guardar num negócio ou numa publicação da Vitrine, o conteúdo aparecerá aqui.</p><Link href="/explore" style={S.openBusiness}>Explorar negócios</Link></div>}
           </>}
           {activeTab === 'novidades' && <>
