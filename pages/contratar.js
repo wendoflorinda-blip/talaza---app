@@ -128,6 +128,7 @@ export default function Contratar() {
   const [salary, setSalary] = useState('');
   const [municipality, setMunicipality] = useState('');
   const [neighborhood, setNeighborhood] = useState('');
+  const [durationDays, setDurationDays] = useState('');
 
   const [selectedImage, setSelectedImage] = useState(null);
 
@@ -195,6 +196,7 @@ export default function Contratar() {
     setSalary('');
     setMunicipality('');
     setNeighborhood('');
+    setDurationDays('');
     setSelectedImage(null);
     setMessage('');
     setError('');
@@ -285,13 +287,18 @@ export default function Contratar() {
       return;
     }
 
+    if (![7, 15, 30].includes(Number(durationDays))) {
+      setError('Selecione a duração da publicação: 7, 15 ou 30 dias.');
+      return;
+    }
+
     try {
       setLoading(true);
 
       const imageUrl = await uploadImageIfNeeded();
 
       const expiresAt = new Date(
-        Date.now() + 30 * 24 * 60 * 60 * 1000
+        Date.now() + Number(durationDays) * 24 * 60 * 60 * 1000
       ).toISOString();
 
       const { error: insertError } = await supabase
@@ -326,7 +333,7 @@ export default function Contratar() {
       }
 
       setMessage(
-        'Oportunidade enviada para análise da Talaza. Ficará visível depois da aprovação e terá duração de 30 dias.'
+        `Oportunidade enviada para análise da Talaza. Ficará visível depois da aprovação e terá duração de ${durationDays} dias, contados a partir do envio.`
       );
 
       resetForm();
@@ -611,8 +618,8 @@ export default function Contratar() {
                 </h2>
 
                 <p style={styles.sectionDescription}>
-                  Preencha os dados da oportunidade. A publicação ficará ativa
-                  por 30 dias.
+                  Preencha os dados da oportunidade e escolha por quanto tempo
+                  pretende mantê-la publicada.
                 </p>
               </div>
             </div>
@@ -639,6 +646,8 @@ export default function Contratar() {
               setMunicipality={setMunicipality}
               neighborhood={neighborhood}
               setNeighborhood={setNeighborhood}
+              durationDays={durationDays}
+              setDurationDays={setDurationDays}
               selectedImage={selectedImage}
               setSelectedImage={setSelectedImage}
               error={error}
@@ -743,6 +752,8 @@ function OpportunityForm({
   setMunicipality,
   neighborhood,
   setNeighborhood,
+  durationDays,
+  setDurationDays,
   selectedImage,
   setSelectedImage,
   error,
@@ -759,6 +770,21 @@ function OpportunityForm({
           Os campos marcados com <strong>*</strong> são obrigatórios.
         </span>
       </div>
+
+      <label style={styles.label}>
+        Duração da publicação *
+        <select
+          value={durationDays}
+          onChange={(e) => setDurationDays(e.target.value)}
+          style={styles.input}
+          required
+        >
+          <option value="">Escolha a duração</option>
+          <option value="7">7 dias</option>
+          <option value="15">15 dias</option>
+          <option value="30">30 dias</option>
+        </select>
+      </label>
 
       <label style={styles.label}>
         Área profissional *
