@@ -614,15 +614,39 @@ export default function Admin() {
   async function moderateJob(post, approved) {
     const reason = approved ? '' : window.prompt('Indique o motivo da recusa da oportunidade:');
     if (!approved && (!reason || !reason.trim())) return;
-    // Publicar uma vaga em Contratar é gratuito. O plano pago pertence a quem consulta Oportunidades.
+
+    // A duração começa no envio. A aprovação administrativa não reinicia nem prolonga o prazo.
+    const allowedDurations = [7, 15, 30];
+    const durationDays = allowedDurations.includes(Number(post.duration_days))
+      ? Number(post.duration_days)
+      : 30;
+    const submittedAt = post.created_at ? new Date(post.created_at) : new Date();
+    const expiresAt = new Date(submittedAt.getTime() + durationDays * 24 * 60 * 60 * 1000);
+    const now = new Date();
+
+    if (approved && expiresAt.getTime() <= now.getTime()) {
+      const { error: expireError } = await supabase
+        .from('job_posts')
+        .update({ status: 'expired', is_active: false, admin_approved: false, duration_days: durationDays, expires_at: expiresAt.toISOString() })
+        .eq('id', post.id);
+      if (expireError) {
+        alert('O prazo desta oportunidade terminou, mas não foi possível atualizar o estado: ' + expireError.message);
+      } else {
+        await loadJobPosts();
+        alert('Esta oportunidade já ultrapassou os ' + durationDays + ' dias desde o envio. Não pode ser aprovada; o responsável deverá enviar uma nova publicação.');
+      }
+      return;
+    }
+
+    // A vaga só fica visível após aprovação; o prazo original é respeitado sem reiniciar.
     const patch = approved
-      ? { status: 'published', is_active: true, admin_approved: true }
+      ? { status: 'published', is_active: true, admin_approved: true, duration_days: durationDays, expires_at: expiresAt.toISOString() }
       : { status: 'rejected', is_active: false, admin_approved: false };
     const { data, error } = await supabase.from('job_posts').update(patch).eq('id', post.id).select('id, user_id').maybeSingle();
     if (error || !data) { alert('Não foi possível atualizar a oportunidade: ' + (error?.message || 'Nenhuma linha foi alterada.')); return; }
-    await notifyUser(data.user_id || post.user_id, approved ? 'Oportunidade aprovada pela Talaza' : 'Oportunidade recusada', approved ? 'A sua oportunidade foi aprovada e publicada gratuitamente em Contratar. A consulta na área Oportunidades continua reservada a quem tem plano ativo na sua província principal.' : 'A sua oportunidade foi recusada. Motivo: ' + reason.trim(), 'opportunity_review');
+    await notifyUser(data.user_id || post.user_id, approved ? 'Oportunidade aprovada pela Talaza' : 'Oportunidade recusada', approved ? 'A sua oportunidade foi aprovada e publicada gratuitamente em Contratar. A publicação termina em ' + expiresAt.toLocaleDateString('pt-AO') + ', respeitando os ' + durationDays + ' dias contados desde o envio. A consulta na área Oportunidades continua reservada a quem tem plano ativo na sua província principal.' : 'A sua oportunidade foi recusada. Motivo: ' + reason.trim(), 'opportunity_review');
     await loadJobPosts();
-    alert(approved ? 'Oportunidade aprovada e publicada gratuitamente.' : 'Oportunidade recusada e motivo enviado nas notificações.');
+    alert(approved ? 'Oportunidade aprovada. Prazo de ' + durationDays + ' dias contado desde o envio.' : 'Oportunidade recusada e motivo enviado nas notificações.');
   }
 
   async function uploadOfficialBackground(file) {
@@ -1509,7 +1533,7 @@ export default function Admin() {
 
         <section id="oportunidades" style={{ marginTop: 0, display: activeAdminSection === 'oportunidades' ? 'block' : 'none' }}>
           <div style={styles.titleRow}><div><h2 style={styles.title}>Revisão de Oportunidades</h2><p style={styles.description}>Leia os dados e veja o cartaz antes de decidir. Só as publicações aprovadas por si chegam à área Oportunidades.</p></div><div style={styles.counter}>{jobPosts.filter(item => String(item.status || '').toLowerCase() === 'pending_review').length} por analisar · {jobPosts.length} total</div></div>
-          {jobPosts.length === 0 ? <div style={styles.empty}><h3>Sem oportunidades registadas</h3><p>As oportunidades enviadas aparecerão aqui.</p></div> : <div style={styles.list}>{jobPosts.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>OP</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || item.position || 'Publicação visual'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : ''}</div></div></div><div style={styles.details}>{item.image_url && <div style={{ margin: '12px 0' }}><a href={item.image_url} target="_blank" rel="noreferrer"><img src={item.image_url} alt="Cartaz enviado para revisão" style={{ display: 'block', maxWidth: '100%', width: 360, maxHeight: 420, objectFit: 'contain', borderRadius: 12, border: '1px solid #D5E4DF', background: '#F7FAF9' }} /></a><p><a href={item.image_url} target="_blank" rel="noreferrer">Abrir cartaz em tamanho completo ↗</a></p></div>}{(item.description || item.details) && <p>{item.description || item.details}</p>}<p><strong>País:</strong> {item.country?.name || '—'}</p><p><strong>Província:</strong> {item.province?.name || '—'}</p><p><strong>Profissão:</strong> {item.profession || item.position || '—'}</p><p><strong>Responsável:</strong> {profiles.find(profile => profile.id === (item.user_id || item.employer_id))?.name || 'Nome não disponível'}</p></div>{String(item.status || '').toLowerCase() === 'pending_review' && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateJob(item, false)}>Recusar oportunidade</button><button type="button" style={styles.approve} onClick={() => moderateJob(item, true)}>Aprovar oportunidade</button></div>}</article>)}</div>}
+          {jobPosts.length === 0 ? <div style={styles.empty}><h3>Sem oportunidades registadas</h3><p>As oportunidades enviadas aparecerão aqui.</p></div> : <div style={styles.list}>{jobPosts.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>OP</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || item.position || 'Publicação visual'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · Enviado: {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : '—'} · Duração: {item.duration_days || 30} dias · Termina: {item.expires_at ? new Date(item.expires_at).toLocaleString('pt-AO') : (item.created_at ? new Date(new Date(item.created_at).getTime() + Number(item.duration_days || 30) * 86400000).toLocaleString('pt-AO') : '—')}</div></div></div><div style={styles.details}>{item.image_url && <div style={{ margin: '12px 0' }}><a href={item.image_url} target="_blank" rel="noreferrer"><img src={item.image_url} alt="Cartaz enviado para revisão" style={{ display: 'block', maxWidth: '100%', width: 360, maxHeight: 420, objectFit: 'contain', borderRadius: 12, border: '1px solid #D5E4DF', background: '#F7FAF9' }} /></a><p><a href={item.image_url} target="_blank" rel="noreferrer">Abrir cartaz em tamanho completo ↗</a></p></div>}{(item.description || item.details) && <p>{item.description || item.details}</p>}<p><strong>País:</strong> {item.country?.name || '—'}</p><p><strong>Província:</strong> {item.province?.name || '—'}</p><p><strong>Profissão:</strong> {item.profession || item.position || '—'}</p><p><strong>Responsável:</strong> {profiles.find(profile => profile.id === (item.user_id || item.employer_id))?.name || 'Nome não disponível'}</p></div>{String(item.status || '').toLowerCase() === 'pending_review' && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateJob(item, false)}>Recusar oportunidade</button><button type="button" style={styles.approve} onClick={() => moderateJob(item, true)}>Aprovar oportunidade</button></div>}</article>)}</div>}
         </section>
 
         <section id="conteudo-oficial" style={{ marginTop: 0, display: activeAdminSection === 'conteudo-oficial' ? 'block' : 'none' }}>
