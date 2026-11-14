@@ -319,6 +319,7 @@ export default function Contratar() {
             municipality: municipality.trim() || null,
             neighborhood: neighborhood.trim() || null,
             image_url: imageUrl,
+            duration_days: Number(durationDays),
             status: 'pending_review',
             is_active: false,
             expires_at: expiresAt,
@@ -716,6 +717,8 @@ export default function Contratar() {
               setMunicipality={setMunicipality}
               neighborhood={neighborhood}
               setNeighborhood={setNeighborhood}
+              durationDays={durationDays}
+              setDurationDays={setDurationDays}
               selectedImage={selectedImage}
               setSelectedImage={setSelectedImage}
               error={error}
@@ -883,7 +886,7 @@ function OpportunityForm({
           </label>
 
           <label style={styles.label}>
-            Salário
+            Salário (opcional)
             <input
               type="text"
               value={salary}
