@@ -483,12 +483,6 @@ export default function Oportunidades() {
                 </p>
               </div>
 
-              <Link
-                href={contratarUrl}
-                style={styles.publishLink}
-              >
-                + Publicar
-              </Link>
             </section>
 
             {loading && (
@@ -534,12 +528,6 @@ export default function Oportunidades() {
                     província, ela aparecerá aqui.
                   </p>
 
-                  <Link
-                    href={contratarUrl}
-                    style={styles.emptyButton}
-                  >
-                    Publicar uma oportunidade
-                  </Link>
                 </div>
               )}
 
