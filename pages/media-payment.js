@@ -93,6 +93,9 @@ export default function MediaPayment() {
         }).select('*').single();
       }
       if (result.error) throw result.error;
+      const { error: profileBlockError } = await supabase.from('media_profiles')
+        .update({ status:'inactive' }).eq('user_id',user.id);
+      if (profileBlockError) console.warn('Não foi possível bloquear temporariamente o perfil MÍDIA:',profileBlockError.message);
       setPayment(result.data);
       const { data } = await supabase.storage.from('media-payment-proofs').createSignedUrl(path, 300);
       setSignedProof(data?.signedUrl || '');
