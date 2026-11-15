@@ -6,6 +6,7 @@ import ProductsView, { VIEW_MODES } from '../components/ProductsView';
 import { supabase } from '../lib/supabaseClient';
 import { prepareImage, formatKz } from '../lib/imageTools';
 import MusicEditor from '../components/MusicEditor';
+import NotificationsPanel from '../components/NotificationsPanel';
 
 export default function Seller() {
   const router = useRouter();
@@ -39,6 +40,12 @@ export default function Seller() {
   const [renewalPlans, setRenewalPlans] = useState([]);
   const [renewalLoading, setRenewalLoading] = useState(false);
   const [notice, setNotice] = useState('');
+  const [sellerReview, setSellerReview] = useState(null);
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
+  const [resubmissionPhone, setResubmissionPhone] = useState('');
+  const [resubmissionFile, setResubmissionFile] = useState(null);
+  const [resubmissionBusy, setResubmissionBusy] = useState(false);
+  const [resubmissionError, setResubmissionError] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -219,6 +226,9 @@ export default function Seller() {
 
     setBusiness(data);
     setShowEmail(data.show_email === true);
+    const { data: reviewStatus, error: reviewStatusError } = await supabase.from('seller_status').select('seller_id,status,reject_reason,created_at').eq('seller_id', session.user.id).maybeSingle();
+    if (reviewStatusError) console.warn('Não foi possível carregar o estado da análise:', reviewStatusError);
+    setSellerReview(reviewStatus || null);
     setEditName(data.name || '');
     setEditDescription(data.description || '');
     setEditPhone(data.phone || '');
@@ -283,6 +293,29 @@ export default function Seller() {
       setPendingPlan(null);
     }
     setLoading(false);
+  }
+
+  async function submitPaymentResubmission(event) {
+    event.preventDefault();
+    if (!user || !business || resubmissionBusy) return;
+    const phone = resubmissionPhone.trim(); const file = resubmissionFile;
+    if (!phone) { setResubmissionError('Indique o telefone atualizado.'); return; }
+    if (!file || !['application/pdf','image/jpeg','image/png','image/webp'].includes(file.type)) { setResubmissionError('Anexe uma imagem JPG, PNG, WebP ou PDF.'); return; }
+    if (file.size > 10 * 1024 * 1024) { setResubmissionError('O ficheiro deve ter no máximo 10 MB.'); return; }
+    setResubmissionBusy(true); setResubmissionError('');
+    try {
+      const extension = file.type === 'application/pdf' ? 'pdf' : (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = user.id + '/resubmission-' + Date.now() + '.' + extension;
+      const { error: uploadError } = await supabase.storage.from('payment-proofs').upload(path, file, { upsert:false, contentType:file.type, cacheControl:'3600' });
+      if (uploadError) throw uploadError;
+      const { error: insertError } = await supabase.from('payment_resubmissions').insert({ seller_id:user.id, phone, file_url:path, file_type:file.type === 'application/pdf' ? 'pdf' : 'image', status:'pending' });
+      if (insertError) { await supabase.storage.from('payment-proofs').remove([path]); throw insertError; }
+      const { error: statusError } = await supabase.from('seller_status').upsert({ seller_id:user.id, status:'pending', reject_reason:null, updated_at:new Date().toISOString() }, { onConflict:'seller_id' });
+      if (statusError) throw statusError;
+      setSellerReview({ seller_id:user.id, status:'pending', reject_reason:null }); setShowRejectionModal(false); setResubmissionPhone(''); setResubmissionFile(null);
+      setNotice('A correção foi enviada. A equipa Talaza irá verificar novamente.');
+    } catch (err) { console.error('Erro ao reenviar comprovativo:',err); setResubmissionError(err.message || 'Não foi possível enviar o comprovativo.'); }
+    finally { setResubmissionBusy(false); }
   }
 
   async function loadBusinessUpdates(businessId) {
@@ -873,6 +906,7 @@ export default function Seller() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <NotificationsPanel userId={user?.id} />
             <TalazaMenu
               country={business?.country_id || country}
               province={business?.province_id || province}
@@ -988,7 +1022,9 @@ export default function Seller() {
           </div>
         </section>
 
-          {subscriptionPending && pendingPlan?.id ? (
+          {String(sellerReview?.status || '').toLowerCase() === 'rejected' ? (
+            <button type="button" onClick={() => { setResubmissionPhone(business.phone || ''); setResubmissionError(''); setShowRejectionModal(true); }} style={{ display:'inline-flex', marginTop:18, padding:'10px 14px', borderRadius:999, background:'#FCEBED', color:'#A52F3B', border:'1px solid #E9B8BE', fontSize:12, fontWeight:900, cursor:'pointer' }}>Conta não ativa · Ver motivo da recusa →</button>
+          ) : (subscriptionPending && pendingPlan?.id ? (
             <Link
               href={{ pathname: '/Pagamento', query: { plan: pendingPlan.id, business: business.id, status: 'verification' } }}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 18, padding: '9px 13px', borderRadius: 999, background: '#FFF1C2', color: '#5B4300', fontSize: 12, fontWeight: 900, textDecoration: 'none', border: '1px solid #EBD58C' }}
@@ -1001,9 +1037,12 @@ export default function Seller() {
                 Perfil criado · aguarda validação
               </div>
             ) : null
-          )}
+          ))}
 
-        {subscriptionPending && (
+        {String(sellerReview?.status || '').toLowerCase() === 'pending' && <div style={{marginTop:18,padding:16,background:'#FFF5D6',border:'1px solid #EBD58C',borderRadius:14,color:'#5B4300'}}><strong>Em verificação</strong><div>A equipa Talaza está a analisar os dados e o comprovativo enviado.</div></div>}
+        {String(sellerReview?.status || '').toLowerCase() === 'approved' && <div style={{display:'inline-flex',marginTop:18,padding:'8px 13px',borderRadius:999,background:'#E6F5EC',color:'#17643B',fontSize:12,fontWeight:900}}>Perfil ativo</div>}
+
+        {subscriptionPending && String(sellerReview?.status || '').toLowerCase() !== 'rejected' && (
           <div style={{ marginTop: 18, padding: 16, background: '#FFF5D6', border: '1px solid #EBD58C', borderRadius: 14, color: '#5B4300' }}>
             <strong style={{ display: 'block', marginBottom: 6 }}>Em verificação para ativação do negócio</strong>
             <span>O comprovativo já foi enviado. Não é possível mudar de plano nem editar o perfil enquanto a equipa Talaza verifica o pagamento e a aprovação do negócio.</span>
@@ -1316,6 +1355,28 @@ export default function Seller() {
       )}
 
       {galleryBusy && <div className="busy" role="status">A guardar…</div>}
+
+      {showRejectionModal && (
+        <div role="presentation" onClick={() => !resubmissionBusy && setShowRejectionModal(false)} style={{position:'fixed',inset:0,zIndex:200,background:'rgba(7,24,19,.62)',display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+          <section role="dialog" aria-modal="true" aria-labelledby="seller-rejection-title" onClick={event=>event.stopPropagation()} style={{width:'100%',maxWidth:520,maxHeight:'92vh',overflowY:'auto',background:'#FFFFFF',borderRadius:18,padding:22}}>
+            <h2 id="seller-rejection-title" style={{margin:'0 0 10px',color:'#A52F3B'}}>Conta não ativa</h2>
+            <p style={{fontSize:13,color:'#52635E'}}>Motivo da recusa:</p>
+            <div style={{padding:13,borderRadius:12,background:'#FCEBED',color:'#7E2630',lineHeight:1.55,marginBottom:18}}>{sellerReview?.reject_reason || 'A equipa Talaza solicitou a correção dos dados ou do comprovativo.'}</div>
+            <form onSubmit={submitPaymentResubmission}>
+              <label htmlFor="seller-resubmission-phone">Telefone atualizado</label>
+              <input id="seller-resubmission-phone" type="tel" value={resubmissionPhone} onChange={event=>setResubmissionPhone(event.target.value)} required placeholder="Indique o número correto" />
+              <label htmlFor="seller-resubmission-file">Novo comprovativo (imagem ou PDF)</label>
+              <input id="seller-resubmission-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={event=>setResubmissionFile(event.target.files?.[0] || null)} required />
+              <p style={{fontSize:11,color:'#718079'}}>JPG, PNG, WebP ou PDF · Máximo 10 MB.</p>
+              {resubmissionError && <p role="alert" style={{color:'#A52F3B',fontSize:12}}>{resubmissionError}</p>}
+              <div style={{display:'flex',gap:10,marginTop:20}}>
+                <button type="button" disabled={resubmissionBusy} onClick={()=>setShowRejectionModal(false)} style={{flex:1,border:0,borderRadius:10,padding:12,background:'#E9EEEC',fontWeight:800}}>Fechar</button>
+                <button type="submit" disabled={resubmissionBusy} style={{flex:1,border:0,borderRadius:10,padding:12,background:'#075B4E',color:'#FFFFFF',fontWeight:800}}>{resubmissionBusy?'A enviar…':'Enviar correção'}</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
 
       <style jsx>{`
         button{font:inherit}
