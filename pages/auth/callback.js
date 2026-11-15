@@ -28,8 +28,22 @@ export default function AuthCallback() {
         }
 
         const user = session.user;
-        const metadata = user.user_metadata || {};
+        let metadata = user.user_metadata || {};
         const signupType = metadata.talaza_pending_signup_type;
+
+        // Persiste a data privada apenas depois de o servidor confirmar o email.
+        if (metadata.talaza_dob_proof) {
+          const { data: proofResult, error: proofError } = await supabase.functions.invoke('talaza-signup-proof', {
+            body: { action: 'finalize' },
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (proofError || !proofResult?.ok || !proofResult?.proof_removed) {
+            throw new Error('PRIVATE_DETAILS_NOT_FINALIZED');
+          }
+          const { data: refreshedUserData, error: refreshError } = await supabase.auth.getUser();
+          if (refreshError) throw refreshError;
+          metadata = refreshedUserData?.user?.user_metadata || {};
+        }
 
         if (signupType === 'seller') {
           const pending = metadata.talaza_pending_seller;
