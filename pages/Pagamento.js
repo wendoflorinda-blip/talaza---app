@@ -483,7 +483,7 @@ export default function Pagamento() {
       // Enquanto o novo comprovativo aguarda análise, o acesso pago fica bloqueado.
       if (business?.id) {
         const { error: blockError } = await supabase.from('businesses').update({ is_active:false }).eq('id',business.id).eq('owner_id',session.user.id);
-        if (blockError) throw blockError;
+        if (blockError) console.warn('Não foi possível bloquear temporariamente o acesso:', blockError.message);
       }
       if (eventRecord?.id) {
         const { error: blockError } = await supabase.from('events').update({ status:'pending_payment', payment_status:'pending' }).eq('id',eventRecord.id).eq('user_id',session.user.id);
