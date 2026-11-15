@@ -192,6 +192,7 @@ export default function Notificacoes() {
     await markOneRead(item);
     const destination = await destinationFor(item);
     if (destination) router.push(destination);
+    else if (typeof item.link === 'string' && item.link.startsWith('/') && !item.link.startsWith('//')) router.push(item.link);
     else if (item.type === 'general') router.push('/notificacoes');
   }
 
