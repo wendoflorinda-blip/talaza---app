@@ -257,8 +257,7 @@ export default function Perfil() {
     if (!user) { setError('A sua sessão expirou. Entre novamente na Talaza antes de alterar a fotografia.'); return; }
     setPhotoUploading(true); setError(''); setNotice('');
     try {
-      const ext = (selected.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-      const path = user.id + '/avatar-' + Date.now() + '.' + ext;
+      const path = user.id + '.jpg';
       const { error: uploadError } = await supabase.storage.from('avatars').upload(path, selected, { upsert:true, contentType:selected.type, cacheControl:'3600' });
       if (uploadError) {
         console.error('Falha no upload da fotografia de perfil:', uploadError);
@@ -268,7 +267,8 @@ export default function Perfil() {
         throw new Error('O Supabase recusou o envio da fotografia: ' + (uploadError.message || 'erro não identificado') + '. Verifique o bucket avatars e as respetivas políticas de Storage.');
       }
       const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(path);
-      const url = publicData?.publicUrl || '';
+      const baseUrl = publicData?.publicUrl || '';
+      const url = baseUrl ? baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'v=' + Date.now() : '';
       if (!url) throw new Error('A fotografia foi enviada, mas o Supabase não devolveu o endereço da imagem. Confirme se o bucket avatars é público ou configure uma URL assinada.');
       const photoColumn = profile && Object.prototype.hasOwnProperty.call(profile,'avatar_url') ? 'avatar_url'
         : profile && Object.prototype.hasOwnProperty.call(profile,'photo_url') ? 'photo_url'
@@ -426,9 +426,9 @@ export default function Perfil() {
 
       <section style={S.card}>
         <div style={S.avatarWrap}>
-          <button type="button" onClick={() => fileRef.current?.click()} style={{ ...S.avatar, cursor: 'pointer' }} aria-label="Adicionar ou alterar fotografia do perfil" title="Adicionar ou alterar fotografia">
+          <button type="button" disabled={photoUploading} onClick={() => fileRef.current?.click()} style={{ ...S.avatar, cursor: photoUploading ? 'wait' : 'pointer', opacity: photoUploading ? 0.75 : 1 }} aria-busy={photoUploading} aria-label={photoUploading ? 'A enviar fotografia do perfil' : 'Adicionar ou alterar fotografia do perfil'} title={photoUploading ? 'A enviar fotografia…' : 'Adicionar ou alterar fotografia'}>
             {photo ? <img src={photo} alt="Fotografia do perfil" style={S.photo} /> : <span style={S.avatarPlaceholder}>♙</span>}
-            <span style={S.photoBadge}>+</span>
+            <span style={S.photoBadge}>{photoUploading ? '…' : '+'}</span>
           </button>
           <input ref={fileRef} type="file" accept="image/*" onChange={uploadProfilePhotoImmediately} hidden />
           <strong style={S.profileName}>{profile?.name || profile?.full_name || user?.user_metadata?.full_name || 'Perfil Talaza'}</strong>
