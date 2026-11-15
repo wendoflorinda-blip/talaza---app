@@ -1243,6 +1243,18 @@ export default function Admin() {
       }
     }
 
+    if (!approved && request.event_id) {
+      const { error: eventBlockError } = await supabase.from('events')
+        .update({ status:'pending_payment', payment_status:'pending' }).eq('id',request.event_id);
+      if (eventBlockError) activationMessage += ' O evento não pôde ser bloqueado automaticamente; verifique a área de Eventos.';
+    }
+
+    if (!approved && request.plan_id === OPPORTUNITY_ACCESS_PLAN_ID) {
+      const { error: opportunityBlockError } = await supabase.from('user_plan_subscriptions')
+        .update({ status:'inactive' }).eq('user_id',request.user_id).eq('plan_id',request.plan_id);
+      if (opportunityBlockError) activationMessage += ' O acesso às Oportunidades não pôde ser bloqueado automaticamente.';
+    }
+
     if (!approved && request.business_id) {
       const { error: deactivateError } = await supabase.from('businesses').update({ is_active: false }).eq('id', request.business_id);
       if (deactivateError) console.error('O comprovativo foi recusado, mas não foi possível desativar o perfil:', deactivateError.message);
