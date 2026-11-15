@@ -87,6 +87,21 @@ export default function Notificacoes() {
     return () => { active = false; };
   }, [router]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase.channel('talaza-user-notifications-' + user.id)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'notifications',
+        filter: 'user_id=eq.' + user.id,
+      }, async () => {
+        const { data, error: refreshError } = await supabase.from('notifications')
+          .select('id, title, content, type, created_at, user_id, is_read, reference_id')
+          .eq('user_id', user.id).order('created_at', { ascending:false }).limit(150);
+        if (!refreshError) setItems(data || []);
+      }).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id]);
+
   const unreadCount = items.filter(item => !item.is_read).length;
   const groups = useMemo(() => {
     const result = [];
