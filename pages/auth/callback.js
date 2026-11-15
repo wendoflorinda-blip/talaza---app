@@ -125,6 +125,7 @@ export default function AuthCallback() {
           }
 
           // Recupera as imagens escolhidas antes da confirmação, apenas neste navegador.
+          let mediaUploadWarning = false;
           try {
             const savedMedia = localStorage.getItem('talaza_pending_seller_media');
             if (savedMedia) {
@@ -150,11 +151,13 @@ export default function AuthCallback() {
             }
           } catch (mediaError) {
             console.error('Não foi possível concluir o envio das imagens do negócio:', mediaError);
-            throw new Error('SELLER_MEDIA_UPLOAD_FAILED');
+            mediaUploadWarning = true;
           }
 
           await finishEnvelopeCleanup(session.access_token);
-          setMessage('Email confirmado. O teu negócio foi registado e está pendente de aprovação.');
+          setMessage(mediaUploadWarning
+            ? 'Email confirmado. O teu negócio foi registado e está pendente de aprovação. Podes adicionar as imagens do negócio no painel.'
+            : 'Email confirmado. O teu negócio foi registado e está pendente de aprovação.');
           await router.replace('/seller');
           return;
         }
