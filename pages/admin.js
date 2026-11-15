@@ -1540,6 +1540,7 @@ export default function Admin() {
                     </div>
                     <div style={styles.details}>
                       <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : '—'}</p>
+                    <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
 <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
                       {paths.image && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem do comprovativo ↗</button></p>}
                       {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir comprovativo PDF ↗</button></p>}
@@ -1708,6 +1709,7 @@ export default function Admin() {
                   </div>
                   <div style={styles.details}>
                     <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
+                    <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
 <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
                     <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
                     {(() => {
@@ -1785,6 +1787,7 @@ export default function Admin() {
                   </div>
                   <div style={styles.details}>
                     <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
+                    <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
                     <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
                     <p><strong>Localização da conta:</strong> {owner?.country_id || request.country_id || 'País não identificado'} · {owner?.province_id || request.province_id || 'Província não identificada'}</p>
                     <div style={{ marginTop: 12, padding: 12, border: '1px solid #DCE6E1', borderRadius: 12, background: '#FAFCFB' }}>
@@ -1827,6 +1830,7 @@ export default function Admin() {
                   <div style={styles.cardTop}><div style={styles.logoPlaceholder}>★</div><div style={{ flex: 1, minWidth: 0 }}><h3 style={styles.businessName}>{businessNames[request.business_id] || 'Destaque Premium'}</h3><div style={styles.meta}>Área: Destaques Premium · Plano: {planNames[request.plan_id] || 'A carregar plano…'}</div></div><span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span></div>
                   <div style={styles.details}>
                     <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
+                    <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
                     <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
                     {paths.image && imageUrl && <a href={imageUrl} target="_blank" rel="noreferrer"><img src={imageUrl} alt="Comprovativo Destaque Premium" style={{ display: 'block', maxWidth: '100%', width: 260, maxHeight: 320, objectFit: 'contain', border: '1px solid #DCE6E1', borderRadius: 8, background: '#fff' }} /></a>}
                     {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir/baixar comprovativo ↗</button></p>}
