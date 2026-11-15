@@ -174,17 +174,17 @@ export default function Admin() {
 
   async function loadPaymentResubmissions() {
     setResubmissionError('');
-    const { data: rows, error } = await supabase.from('payment_resubmissions').select('*').eq('status','pending').order('created_at',{ascending:false});
+    const { data: rows, error } = await supabase.from('payment_resubmissions').select('id,seller_id,phone,express_number,file_url,file_type,status,created_at').eq('status','pending').order('created_at',{ascending:false});
     if (error) { setResubmissionError('Não foi possível carregar os comprovativos corrigidos: '+error.message); setResubmissions([]); return; }
     const sellerIds=[...new Set((rows||[]).map(row=>row.seller_id).filter(Boolean))];
     const [{data:statuses,error:statusError},{data:businessRows,error:businessError}] = await Promise.all([
       sellerIds.length ? supabase.from('seller_status').select('seller_id,status,reject_reason').in('seller_id',sellerIds) : Promise.resolve({data:[],error:null}),
-      sellerIds.length ? supabase.from('businesses').select('id,owner_id,name,phone,approval_status,is_active').in('owner_id',sellerIds) : Promise.resolve({data:[],error:null})
+      sellerIds.length ? supabase.from('businesses').select('id,owner_id,name,phone,approval_status,is_active,created_at').in('owner_id',sellerIds).order('created_at',{ascending:false}) : Promise.resolve({data:[],error:null})
     ]);
     if(statusError) console.warn('Estado dos vendedores:',statusError);
     if(businessError) console.warn('Negócios dos vendedores:',businessError);
     const statusMap=Object.fromEntries((statuses||[]).map(item=>[item.seller_id,item]));
-    const businessMap=Object.fromEntries((businessRows||[]).map(item=>[item.owner_id,item]));
+    const businessMap={}; (businessRows||[]).forEach(item=>{ if(!businessMap[item.owner_id]) businessMap[item.owner_id]=item; });
     const enriched=await Promise.all((rows||[]).map(async row=>{
       const {data:signed,error:signedError}=await supabase.storage.from('payment-proofs').createSignedUrl(row.file_url,600);
       if(signedError) console.warn('Preview de comprovativo indisponível:',signedError.message);
@@ -204,7 +204,7 @@ export default function Admin() {
         const {data:subscriptions,error:subscriptionError}=await supabase.from('business_subscriptions').select('id,status,expires_at').eq('business_id',business.id).eq('status','active').gt('expires_at',new Date().toISOString()).order('expires_at',{ascending:false}).limit(1);
         if(subscriptionError) throw subscriptionError;
         const validHosting=Boolean(subscriptions&&subscriptions.length);
-        const businessPatch={approval_status:'approved'}; if(validHosting) businessPatch.is_active=true;
+        const businessPatch={approval_status:'approved',is_active:validHosting};
         const {error:updateBusinessError}=await supabase.from('businesses').update(businessPatch).eq('id',business.id);
         if(updateBusinessError) throw updateBusinessError;
         const {error:statusError}=await supabase.from('seller_status').upsert({seller_id:item.seller_id,status:'approved',reject_reason:null,updated_at:new Date().toISOString()},{onConflict:'seller_id'});
@@ -212,7 +212,7 @@ export default function Admin() {
         const {error:submissionError}=await supabase.from('payment_resubmissions').update({status:'approved'}).eq('id',item.id).eq('status','pending');
         if(submissionError) throw submissionError;
         const {error:notificationError}=await supabase.from('notifications').insert({user_id:item.seller_id,type:'seller_approved',audience:'seller',title:'O teu negócio foi aprovado!',content:validHosting?'O teu negócio foi aprovado e a hospedagem está válida.':'O teu negócio foi aprovado. Escolhe um plano de hospedagem para ativar o perfil.',link:'/seller',is_read:false});
-        if(notificationError) console.error('Aprovação feita, mas não foi possível notificar o vendedor:',notificationError);
+        if(notificationError) throw new Error('Negócio atualizado, mas a notificação do vendedor falhou: '+notificationError.message);
         alert(validHosting?'Negócio aprovado. A hospedagem válida foi mantida ativa.':'Negócio aprovado. O estado de is_active foi preservado porque não existe hospedagem válida.');
       } else {
         const {error:submissionError}=await supabase.from('payment_resubmissions').update({status:'rejected'}).eq('id',item.id).eq('status','pending');
@@ -1767,11 +1767,22 @@ export default function Admin() {
           <div style={styles.titleRow}><div><h2 style={styles.title}>Pagamentos recusados</h2><p style={styles.description}>Revê os novos comprovativos e telefones enviados pelos vendedores após uma recusa.</p></div><div style={styles.counter}>{resubmissions.length} por analisar</div></div>
           {resubmissionError&&<div role="alert" style={{marginBottom:14,padding:12,borderRadius:10,background:'#FCEBED',color:'#A52F3B',fontSize:13}}>{resubmissionError}</div>}
           {!resubmissions.length?<div style={styles.empty}><div style={styles.emptyIcon}>◇</div><h2>Sem novos comprovativos</h2><p>Os comprovativos corrigidos aparecerão aqui quando forem enviados.</p></div>:
-            <div style={styles.list}>{resubmissions.map(item=><article key={item.id} style={styles.card}>
-              <div style={styles.cardTop}><div style={styles.logoPlaceholder}>₭</div><div style={{flex:1,minWidth:0}}><h3 style={styles.businessName}>{item.business?.name||'Negócio sem nome associado'}</h3><p style={styles.description}>Telefone novo: <strong>{item.phone}</strong></p><p style={styles.description}>Estado: {item.sellerStatus?.status||'sem estado registado'} · Enviado: {new Date(item.created_at).toLocaleString('pt-PT')}</p></div></div>
-              {item.sellerStatus?.reject_reason&&<p style={{fontSize:12,color:'#A52F3B'}}>Motivo anterior: {item.sellerStatus.reject_reason}</p>}
+            <div style={styles.list}>{resubmissions.filter(item=>String(item.status||'').toLowerCase()==='pending').map(item=><article key={item.id} style={styles.card}>
+              <div style={styles.cardTop}><div style={styles.logoPlaceholder}>₭</div><div style={{flex:1,minWidth:0}}>
+                <h3 style={styles.businessName}>{item.business?.name||'Negócio sem nome associado'}</h3>
+                <p style={styles.description}>Telefone novo: <strong>{item.phone}</strong></p>
+                <div style={{margin:'10px 0 8px',padding:'12px 14px',borderRadius:12,background:'#FFF4D6',border:'2px solid #D4AF37'}}>
+                  <div style={{fontSize:11,fontWeight:900,letterSpacing:'.08em',color:'#6B4C00',textTransform:'uppercase'}}>Número do Express / Referência</div>
+                  <div style={{fontSize:24,fontWeight:950,letterSpacing:'.04em',color:'#173F32',overflowWrap:'anywhere'}}>{item.express_number||'NÃO INFORMADO'}</div>
+                </div>
+                <p style={styles.description}>Reenviado em: {new Date(item.created_at).toLocaleString('pt-AO')}</p>
+              </div></div>
+              <p style={{fontSize:12,color:'#A52F3B',marginTop:10}}><strong>Motivo da recusa anterior:</strong> {item.sellerStatus?.reject_reason||'Motivo anterior não registado.'}</p>
               <div style={{marginTop:12,padding:10,border:'1px solid #DCE6E1',borderRadius:12,background:'#F8FAF9'}}>
-                {item.previewUrl?(item.file_type==='pdf'?<iframe title={'Comprovativo PDF '+item.id} src={item.previewUrl} style={{width:'100%',height:360,border:0,borderRadius:8}}/>:<a href={item.previewUrl} target="_blank" rel="noreferrer"><img src={item.previewUrl} alt="Comprovativo reenviado" style={{display:'block',maxWidth:'100%',maxHeight:360,objectFit:'contain',margin:'0 auto',borderRadius:8}}/></a>):<p style={{fontSize:12,color:'#A52F3B'}}>Não foi possível gerar o preview do ficheiro. Verifica o bucket payment-proofs.</p>}
+                {item.previewUrl?(item.file_type==='pdf'
+                  ?<a href={item.previewUrl} target="_blank" rel="noreferrer" download style={{display:'inline-flex',alignItems:'center',gap:9,padding:'12px 16px',borderRadius:10,background:'#173F32',color:'#FFFFFF',fontWeight:900,textDecoration:'none'}}>Abrir / baixar comprovativo PDF ↗</a>
+                  :<a href={item.previewUrl} target="_blank" rel="noreferrer"><img src={item.previewUrl} alt="Comprovativo reenviado" style={{display:'block',maxWidth:'100%',maxHeight:360,objectFit:'contain',margin:'0 auto',borderRadius:8}}/></a>)
+                  :<p style={{fontSize:12,color:'#A52F3B'}}>Não foi possível gerar o preview do ficheiro. Verifica o bucket payment-proofs.</p>}
               </div>
               <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:14}}>
                 <button type="button" disabled={resubmissionBusyId===item.id} onClick={()=>reviewPaymentResubmission(item,true)} style={styles.approve}>{resubmissionBusyId===item.id?'A guardar…':'Aprovar'}</button>
