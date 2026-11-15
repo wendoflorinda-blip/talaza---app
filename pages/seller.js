@@ -228,7 +228,7 @@ export default function Seller() {
     setShowEmail(data.show_email === true);
     const { data: reviewStatus, error: reviewStatusError } = await supabase.from('seller_status').select('seller_id,status,reject_reason,created_at').eq('seller_id', session.user.id).maybeSingle();
     if (reviewStatusError) console.warn('Não foi possível carregar o estado da análise:', reviewStatusError);
-    setSellerReview(reviewStatus || null);
+    setSellerReview(String(data.approval_status || '').toLowerCase() === 'pending' && String(reviewStatus?.status || '').toLowerCase() === 'rejected' ? { ...reviewStatus, status: 'pending' } : (reviewStatus || null));
     setEditName(data.name || '');
     setEditDescription(data.description || '');
     setEditPhone(data.phone || '');
@@ -1356,29 +1356,7 @@ export default function Seller() {
 
       {galleryBusy && <div className="busy" role="status">A guardar…</div>}
 
-      {false && showRejectionModal && (\n
-        <div role="presentation" onClick={() => !resubmissionBusy && setShowRejectionModal(false)} style={{position:'fixed',inset:0,zIndex:200,background:'rgba(7,24,19,.62)',display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-          <section role="dialog" aria-modal="true" aria-labelledby="seller-rejection-title" onClick={event=>event.stopPropagation()} style={{width:'100%',maxWidth:520,maxHeight:'92vh',overflowY:'auto',background:'#FFFFFF',borderRadius:18,padding:22}}>
-            <h2 id="seller-rejection-title" style={{margin:'0 0 10px',color:'#A52F3B'}}>Conta não ativa</h2>
-            <p style={{fontSize:13,color:'#52635E'}}>Motivo da recusa:</p>
-            <div style={{padding:13,borderRadius:12,background:'#FCEBED',color:'#7E2630',lineHeight:1.55,marginBottom:18}}>{sellerReview?.reject_reason || 'A equipa Talaza solicitou a correção dos dados ou do comprovativo.'}</div>
-            <form onSubmit={submitPaymentResubmission}>
-              <label htmlFor="seller-resubmission-phone">Número Express que fez a transferência (telefone)</label>
-              <input id="seller-resubmission-phone" type="tel" value={resubmissionPhone} onChange={event=>setResubmissionPhone(event.target.value)} required placeholder="Indique o número correto" />
-              <label htmlFor="seller-resubmission-file">Novo comprovativo (imagem ou PDF)</label>
-              <input id="seller-resubmission-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={event=>setResubmissionFile(event.target.files?.[0] || null)} required />
-              <p style={{fontSize:11,color:'#718079'}}>JPG, PNG, WebP ou PDF · Máximo 10 MB.</p>
-              {resubmissionError && <p role="alert" style={{color:'#A52F3B',fontSize:12}}>{resubmissionError}</p>}
-              <div style={{display:'flex',gap:10,marginTop:20}}>
-                <button type="button" disabled={resubmissionBusy} onClick={()=>setShowRejectionModal(false)} style={{flex:1,border:0,borderRadius:10,padding:12,background:'#E9EEEC',fontWeight:800}}>Fechar</button>
-                <button type="submit" disabled={resubmissionBusy} style={{flex:1,border:0,borderRadius:10,padding:12,background:'#075B4E',color:'#FFFFFF',fontWeight:800}}>{resubmissionBusy?'A enviar…':'Enviar correção'}</button>
-              </div>
-            </form>
-          </section>
-        </div>
-      )}
-
-      )}\n\n      <style jsx>{`
+      <style jsx>{`
         button{font:inherit}
         .gal-sec{margin-top:12px;background:#fff;border:1px solid #E1EBE5;border-radius:13px;padding:0;scroll-margin-top:84px;box-shadow:none;overflow:hidden}
         .gal-summary{display:flex;align-items:center;gap:10px;padding:13px 15px;cursor:pointer;list-style:none;color:#075B4E;font-size:14px;font-weight:850}
