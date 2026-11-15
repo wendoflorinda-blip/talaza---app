@@ -312,6 +312,16 @@ export default function Seller() {
       if (insertError) { await supabase.storage.from('payment-proofs').remove([path]); throw insertError; }
       const { error: statusError } = await supabase.from('seller_status').upsert({ seller_id:user.id, status:'pending', reject_reason:null, updated_at:new Date().toISOString() }, { onConflict:'seller_id' });
       if (statusError) throw statusError;
+      const { error: sellerNotificationError } = await supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'seller_payment_resubmitted',
+        audience: 'seller',
+        title: 'Comprovativo reenviado',
+        content: 'Recebemos o teu novo telefone e comprovativo. A equipa Talaza vai fazer uma nova verificação.',
+        link: '/seller',
+        is_read: false,
+      });
+      if (sellerNotificationError) console.error('Comprovativo reenviado, mas não foi possível criar a notificação do vendedor:', sellerNotificationError);
       setSellerReview({ seller_id:user.id, status:'pending', reject_reason:null }); setShowRejectionModal(false); setResubmissionPhone(''); setResubmissionFile(null);
       setNotice('A correção foi enviada. A equipa Talaza irá verificar novamente.');
     } catch (err) { console.error('Erro ao reenviar comprovativo:',err); setResubmissionError(err.message || 'Não foi possível enviar o comprovativo.'); }
