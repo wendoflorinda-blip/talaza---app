@@ -128,6 +128,19 @@ export default function Notificacoes() {
     const id = item.reference_id;
     if (!id) return null;
 
+    if (type.includes('payment_review')) {
+      const { data: payment } = await supabase.from('payment_submissions')
+        .select('id,plan_id,business_id,event_id,premium_promotion_id,country_id,province_id,status')
+        .eq('id', id).eq('user_id', user?.id).maybeSingle();
+      if (!payment) return null;
+      if (payment.premium_promotion_id) return { pathname:'/Pagamento', query:{ plan:payment.plan_id, premium_promotion_id:payment.premium_promotion_id } };
+      if (payment.event_id) return { pathname:'/Pagamento', query:{ plan:payment.plan_id, event_id:payment.event_id } };
+      if (payment.business_id) return { pathname:'/Pagamento', query:{ plan:payment.plan_id, business:payment.business_id } };
+      return { pathname:'/Pagamento', query:{ plan:payment.plan_id, subscription:'opportunities', country_id:payment.country_id, province_id:payment.province_id } };
+    }
+    if (type.includes('media_payment_review')) {
+      return { pathname:'/media-payment', query:{ application:id } };
+    }
     if (type.includes('motivation') || type.includes('week_theme')) {
       return { pathname: '/comunidade', query: { area: type.includes('motivation') ? 'motivation' : 'theme' } };
     }
