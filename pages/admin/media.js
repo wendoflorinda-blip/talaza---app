@@ -14,6 +14,7 @@ export default function AdminMedia() {
   const [applications, setApplications] = useState([]);
   const [payments, setPayments] = useState([]);
   const [proofUrls, setProofUrls] = useState({});
+  const [paymentHistory, setPaymentHistory] = useState({});
   const [settings, setSettings] = useState({ bank_name: '', account_holder: '', account_number: '', iban: '', transfer_instructions: '' });
   const [savingSettings, setSavingSettings] = useState(false);
   const [busy, setBusy] = useState('');
@@ -46,6 +47,8 @@ export default function AdminMedia() {
     }
     setApplications(apps.data || []);
     setPayments(pays.data || []);
+    const historyResult = await supabase.from('payment_submission_history').select('*').eq('source_type','media').in('submission_id',(pays.data || []).map(x=>x.id)).order('created_at',{ascending:true});
+    if (!historyResult.error) setPaymentHistory((historyResult.data || []).reduce((acc,row)=>{(acc[row.submission_id] ||= []).push(row);return acc;},{}));
     setSettings({ bank_name: bank.data?.bank_name || '', account_holder: bank.data?.account_holder || '', account_number: bank.data?.account_number || '', iban: bank.data?.iban || '', transfer_instructions: bank.data?.transfer_instructions || '' });
     const urls = {};
     await Promise.all((pays.data || []).map(async (payment) => {
@@ -69,24 +72,80 @@ export default function AdminMedia() {
   }
 
   async function reviewPayment(payment, status) {
-    const note = status === 'rejected' ? window.prompt('Indique o motivo da rejeição do comprovativo:') : '';
-    if (status === 'rejected' && !note?.trim()) return;
+    let note = '';
+    if (status === 'rejected') {
+      const choice = window.prompt('Escolha o motivo obrigatório:\n1 - Número Express incompatível / errado\n2 - Imagem ilegível / borrada\n3 - Valor não bate com o extrato\n4 - Outro (escrever motivo)','2');
+      if (choice === null) return;
+      if (choice === '1') note = 'Número Express incompatível / errado';
+      else if (choice === '2') note = 'Imagem ilegível / borrada';
+      else if (choice === '3') note = 'Valor não bate com o extrato';
+      else if (choice === '4') {
+        note = window.prompt('Escreva o motivo da recusa:') || '';
+        if (!note.trim()) { alert('O motivo é obrigatório.'); return; }
+        note = 'Outro: ' + note.trim();
+      } else { alert('Escolha 1, 2, 3 ou 4.'); return; }
+    }
+    let plan = null;
     if (status === 'approved') {
-      const { data: plan, error: planError } = await supabase.from('media_plans').select('amount,currency').eq('id', payment.plan_id).maybeSingle();
-      if (planError || !plan || Number(plan.amount) !== Number(payment.amount) || plan.currency !== payment.currency) {
-        alert('O valor ou a moeda deste comprovativo não corresponde ao plano configurado. Não aprove o pagamento; verifique o registo.');
+      const result = await supabase.from('media_plans').select('*').eq('id', payment.plan_id).maybeSingle();
+      plan = result.data;
+      if (result.error || !plan || Number(plan.amount) !== Number(payment.amount) || plan.currency !== payment.currency) {
+        alert('O valor ou a moeda não corresponde ao plano configurado. Não aprove o pagamento.');
         return;
       }
-      if (!window.confirm('Confirmar que a transferência foi recebida e corresponde ao valor do plano?')) return;
+      if (!window.confirm('Confirmas que verificaste no extrato que o pagamento foi recebido?')) return;
     }
     setBusy(payment.id);
     const { data: authData } = await supabase.auth.getUser();
+    const reviewedAt = new Date().toISOString();
     const { data, error } = await supabase.from('media_payment_submissions').update({
-      status, review_notes: note.trim() || null, reviewed_at: new Date().toISOString(), reviewed_by: authData?.user?.id,
-    }).eq('id', payment.id).eq('status', 'pending').select('id').maybeSingle();
+      status, review_notes: status === 'rejected' ? note.trim() : null,
+      reviewed_at: reviewedAt, reviewed_by: authData?.user?.id,
+    }).eq('id', payment.id).eq('status','pending').select('id,application_id,user_id').maybeSingle();
+    if (error || !data) { setBusy(''); alert('Não foi possível atualizar o pagamento: ' + (error?.message || 'O pagamento já foi revisto.')); return; }
+
+    const { data: app, error: appError } = await supabase.from('media_applications')
+      .select('id,user_id,display_name,country_id,content_category,languages,bio,social_links,application_status')
+      .eq('id', payment.application_id).eq('user_id', payment.user_id).maybeSingle();
+    if (appError || !app) { setBusy(''); alert('Pagamento revisto, mas não foi possível localizar a candidatura associada.'); return; }
+
+    if (status === 'approved') {
+      const start = new Date();
+      const end = new Date(start.getTime() + Number(plan.duration_days) * 86400000);
+      const profileResult = await supabase.from('media_profiles').upsert({
+        user_id: app.user_id, application_id: app.id, display_name: app.display_name,
+        country_id: app.country_id, content_category: app.content_category,
+        languages: app.languages || [], bio: app.bio, social_links: app.social_links || {},
+        status: 'active', activated_at: start.toISOString(),
+      }, { onConflict:'user_id' });
+      if (profileResult.error) { setBusy(''); alert('Pagamento aprovado, mas não foi possível ativar o perfil: '+profileResult.error.message); return; }
+      const { data: existingSub, error: subReadError } = await supabase.from('media_subscriptions')
+        .select('id').eq('user_id',app.user_id).order('created_at',{ascending:false}).limit(1).maybeSingle();
+      if (subReadError) { setBusy(''); alert('Perfil ativado, mas não foi possível consultar a subscrição: '+subReadError.message); return; }
+      const subPatch = { user_id:app.user_id, media_profile_id:app.user_id, plan_id:plan.id,
+        starts_at:start.toISOString(), expires_at:end.toISOString(), status:'active', payment_submission_id:payment.id };
+      const subResult = existingSub?.id
+        ? await supabase.from('media_subscriptions').update(subPatch).eq('id',existingSub.id)
+        : await supabase.from('media_subscriptions').insert(subPatch);
+      if (subResult.error) { setBusy(''); alert('Perfil ativado, mas a subscrição não foi concluída: '+subResult.error.message); return; }
+      await supabase.from('media_applications').update({application_status:'approved',reviewed_at:reviewedAt,reviewed_by:authData?.user?.id,updated_at:reviewedAt}).eq('id',app.id);
+    } else {
+      await supabase.from('media_profiles').update({status:'inactive'}).eq('user_id',app.user_id);
+    }
+
+    const notification = {
+      user_id:app.user_id, type:'media_payment_review',
+      title: status === 'approved' ? 'Pagamento MÍDIA aprovado — Talaza' : 'Comprovativo MÍDIA recusado — Talaza',
+      content: status === 'approved'
+        ? 'O teu pagamento foi aprovado. O teu perfil de Criador já está ativo. Já podes abrir e usar a MÍDIA TALAZA.'
+        : 'O teu comprovativo foi recusado. Motivo: '+note+'. Corrige e reenvia o comprovativo na área de notificações.',
+      reference_id:app.id,
+    };
+    const { error: notificationError } = await supabase.from('notifications').insert(notification);
     setBusy('');
-    if (error || !data) { alert('Não foi possível atualizar o pagamento: ' + (error?.message || 'O pagamento já foi revisto.')); return; }
     await loadAll();
+    if (notificationError) alert('Pagamento revisto, mas a notificação não foi criada: '+notificationError.message);
+    else alert(status === 'approved' ? 'Pagamento aprovado e perfil de Criador ativado.' : 'Comprovativo recusado e motivo enviado nas notificações.');
   }
 
   async function reviewApplication(app, approve) {
@@ -205,6 +264,8 @@ export default function AdminMedia() {
                     <button disabled={!!busy} onClick={() => reviewPayment(payment,'approved')} style={{ border: 0, borderRadius: 9, padding: '9px 13px', background: '#17664F', color: '#FFF', fontWeight: 800 }}>Confirmar pagamento</button>
                     <button disabled={!!busy} onClick={() => reviewPayment(payment,'rejected')} style={{ border: 0, borderRadius: 9, padding: '9px 13px', background: '#A93A45', color: '#FFF', fontWeight: 800 }}>Rejeitar comprovativo</button>
                   </div>}
+                  {payment.user_response && <p style={{ color:'#35445A', fontSize:12 }}><b>Mensagem do criador:</b> {payment.user_response}</p>}
+                  {(paymentHistory[payment.id] || []).map(row => <div key={row.id} style={{fontSize:11,color:'#667080',marginTop:5}}>{row.action==='submitted'?'1.º envio':row.action==='rejected'?'Recusa: '+(row.reason||''):row.action==='resubmitted'?'Reenviado / Corrigido':'Aprovado'} · {new Date(row.created_at).toLocaleString('pt-AO')}</div>)}
                   {payment.review_notes && <p style={{ color: '#A12B36', fontSize: 12 }}>{payment.review_notes}</p>}
                 </div>)}
                 {app.application_status === 'submitted' || app.application_status === 'under_review' ? <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 13 }}>
