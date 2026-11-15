@@ -43,6 +43,7 @@ export default function Seller() {
   const [sellerReview, setSellerReview] = useState(null);
   const [showRejectionModal, setShowRejectionModal] = useState(false);
   const [resubmissionPhone, setResubmissionPhone] = useState('');
+  const [resubmissionExpressNumber, setResubmissionExpressNumber] = useState('');
   const [resubmissionFile, setResubmissionFile] = useState(null);
   const [resubmissionBusy, setResubmissionBusy] = useState(false);
   const [resubmissionError, setResubmissionError] = useState('');
@@ -298,8 +299,9 @@ export default function Seller() {
   async function submitPaymentResubmission(event) {
     event.preventDefault();
     if (!user || !business || resubmissionBusy) return;
-    const phone = resubmissionPhone.trim(); const file = resubmissionFile;
+    const phone = resubmissionPhone.trim(); const expressNumber = resubmissionExpressNumber.trim(); const file = resubmissionFile;
     if (!phone) { setResubmissionError('Indique o telefone atualizado.'); return; }
+    if (!expressNumber) { setResubmissionError('Indique o Número do Express / Referência da transação.'); return; }
     if (!file || !['application/pdf','image/jpeg','image/png','image/webp'].includes(file.type)) { setResubmissionError('Anexe uma imagem JPG, PNG, WebP ou PDF.'); return; }
     if (file.size > 10 * 1024 * 1024) { setResubmissionError('O ficheiro deve ter no máximo 10 MB.'); return; }
     setResubmissionBusy(true); setResubmissionError('');
@@ -308,11 +310,11 @@ export default function Seller() {
       const path = user.id + '/resubmission-' + Date.now() + '.' + extension;
       const { error: uploadError } = await supabase.storage.from('payment-proofs').upload(path, file, { upsert:false, contentType:file.type, cacheControl:'3600' });
       if (uploadError) throw uploadError;
-      const { error: insertError } = await supabase.from('payment_resubmissions').insert({ seller_id:user.id, phone, file_url:path, file_type:file.type === 'application/pdf' ? 'pdf' : 'image', status:'pending' });
+      const { error: insertError } = await supabase.from('payment_resubmissions').insert({ seller_id:user.id, phone, express_number:expressNumber, file_url:path, file_type:file.type === 'application/pdf' ? 'pdf' : 'image', status:'pending' });
       if (insertError) { await supabase.storage.from('payment-proofs').remove([path]); throw insertError; }
-      const { error: statusError } = await supabase.from('seller_status').upsert({ seller_id:user.id, status:'pending', reject_reason:null, updated_at:new Date().toISOString() }, { onConflict:'seller_id' });
+      const { error: statusError } = await supabase.from('seller_status').upsert({ seller_id:user.id, status:'pending', updated_at:new Date().toISOString() }, { onConflict:'seller_id' });
       if (statusError) throw statusError;
-      setSellerReview({ seller_id:user.id, status:'pending', reject_reason:null }); setShowRejectionModal(false); setResubmissionPhone(''); setResubmissionFile(null);
+      setSellerReview({ seller_id:user.id, status:'pending', reject_reason:sellerReview?.reject_reason || null }); setShowRejectionModal(false); setResubmissionPhone(''); setResubmissionExpressNumber(''); setResubmissionFile(null);
       setNotice('A correção foi enviada. A equipa Talaza irá verificar novamente.');
     } catch (err) { console.error('Erro ao reenviar comprovativo:',err); setResubmissionError(err.message || 'Não foi possível enviar o comprovativo.'); }
     finally { setResubmissionBusy(false); }
@@ -1023,7 +1025,7 @@ export default function Seller() {
         </section>
 
           {String(sellerReview?.status || '').toLowerCase() === 'rejected' ? (
-            <button type="button" onClick={() => { setResubmissionPhone(business.phone || ''); setResubmissionError(''); setShowRejectionModal(true); }} style={{ display:'inline-flex', marginTop:18, padding:'10px 14px', borderRadius:999, background:'#FCEBED', color:'#A52F3B', border:'1px solid #E9B8BE', fontSize:12, fontWeight:900, cursor:'pointer' }}>Conta não ativa · Ver motivo da recusa →</button>
+            <button type="button" onClick={() => { setResubmissionPhone(business.phone || ''); setResubmissionExpressNumber(''); setResubmissionError(''); setShowRejectionModal(true); }} style={{ display:'inline-flex', marginTop:18, padding:'10px 14px', borderRadius:999, background:'#FCEBED', color:'#A52F3B', border:'1px solid #E9B8BE', fontSize:12, fontWeight:900, cursor:'pointer' }}>Conta não ativa · Ver motivo da recusa →</button>
           ) : (subscriptionPending && pendingPlan?.id ? (
             <Link
               href={{ pathname: '/Pagamento', query: { plan: pendingPlan.id, business: business.id, status: 'verification' } }}
@@ -1365,6 +1367,8 @@ export default function Seller() {
             <form onSubmit={submitPaymentResubmission}>
               <label htmlFor="seller-resubmission-phone">Telefone atualizado</label>
               <input id="seller-resubmission-phone" type="tel" value={resubmissionPhone} onChange={event=>setResubmissionPhone(event.target.value)} required placeholder="Indique o número correto" />
+              <label htmlFor="seller-resubmission-express">Número do Express / Referência da transação</label>
+              <input id="seller-resubmission-express" type="text" value={resubmissionExpressNumber} onChange={event=>setResubmissionExpressNumber(event.target.value)} required placeholder="Ex.: EXP123456" />
               <label htmlFor="seller-resubmission-file">Novo comprovativo (imagem ou PDF)</label>
               <input id="seller-resubmission-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={event=>setResubmissionFile(event.target.files?.[0] || null)} required />
               <p style={{fontSize:11,color:'#718079'}}>JPG, PNG, WebP ou PDF · Máximo 10 MB.</p>
