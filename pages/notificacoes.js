@@ -272,6 +272,9 @@ export default function Notificacoes() {
                             {!item.is_read && <span style={S.unreadDot} aria-label="Não lida" />}
                           </span>
                         </button>
+                        {['payment_review','media_payment_review'].includes(String(item.type || '').toLowerCase()) && /recusado|recusada/i.test(String(item.content || '')) && (
+                          <button type="button" onClick={() => openNotification(item)} style={{ alignSelf:'center', margin:'0 12px 0 0', padding:'8px 10px', border:0, borderRadius:9, background:C.green, color:'#fff', fontSize:11, fontWeight:800, cursor:'pointer', whiteSpace:'nowrap' }}>Corrigir e reenviar</button>
+                        )}
                         {swipeOpenId === item.id && <button type="button" onClick={() => { deleteNotification(item); setSwipeOpenId(''); }} style={S.delete} aria-label="Apagar notificação">Apagar</button>}
                       </div>
                     );
