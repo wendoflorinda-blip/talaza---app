@@ -110,6 +110,12 @@ export default function Login() {
         return;
       }
 
+      // Retomar um cadastro de vendedor já autenticado sem o converter em explorador.
+      if (metadata.talaza_pending_signup_type === 'seller') {
+        await router.replace('/post-business?resume=1');
+        return;
+      }
+
       // Consultas de perfil/negócio apenas escolhem o painel. Não são
       // autenticação e, se falharem, não devem expulsar uma sessão válida.
       let profile = null;
@@ -124,6 +130,8 @@ export default function Login() {
           code: profileError.code,
           message: profileError.message,
         });
+        setError('A tua sessão foi iniciada, mas não foi possível consultar o teu perfil. Atualiza a página e tenta novamente.');
+        return;
       } else {
         profile = profileData;
       }
@@ -160,12 +168,12 @@ export default function Login() {
       if (!profile) {
         // Se o perfil ainda não foi criado, manter o utilizador autenticado
         // e encaminhá-lo para completar o cadastro, sem pedir novo login.
-        await router.replace('/signup');
+        await router.replace('/signup?mode=complete');
         return;
       }
 
       if (!profile.country_id || !profile.province_id) {
-        await router.replace('/signup');
+        await router.replace('/signup?mode=complete');
         return;
       }
 
