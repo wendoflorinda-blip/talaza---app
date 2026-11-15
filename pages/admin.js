@@ -593,13 +593,14 @@ export default function Admin() {
     }));
   }
 
-  async function notifyUser(userId, title, body, type = 'admin_review') {
+  async function notifyUser(userId, title, body, type = 'admin_review', referenceId = null) {
     if (!userId) return { ok: false, error: 'Utilizador destinatário não identificado.' };
     const { error } = await supabase.from('notifications').insert({
       user_id: userId,
       title,
       content: body,
       type,
+      reference_id: referenceId,
     });
     if (error) {
       console.error('Não foi possível criar a notificação:', error.message);
@@ -1251,7 +1252,7 @@ export default function Admin() {
     const notificationBody = approved
       ? 'O seu pagamento para ' + areaLabel + ' foi aprovado.' + activationMessage
       : 'O comprovativo do seu pagamento para ' + areaLabel + ' foi recusado. Motivo: ' + rejectionReason.trim() + ' Pode corrigir e enviar novamente.';
-    const notificationResult = await notifyUser(request.user_id, notificationTitle, notificationBody, 'payment_review');
+    const notificationResult = await notifyUser(request.user_id, notificationTitle, notificationBody, 'payment_review', request.id);
 
     await loadSubscriptionRequests();
     await loadBusinesses();
