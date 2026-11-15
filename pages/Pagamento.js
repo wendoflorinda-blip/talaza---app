@@ -801,7 +801,7 @@ export default function Pagamento() {
           </div>
 
           <div role="alert" style={{ marginTop: 18, padding: 15, borderRadius: 12, border: '2px solid #B42318', background: '#FFF1F0', color: '#9F1D16', fontWeight: 800, lineHeight: 1.6 }}>
-            ATENÇÃO: Coloca o número Express EXATO que fez a transferência. Se colocares um número errado, não vamos conseguir confirmar o teu pagamento no extrato e NÃO vais conseguir abrir / desbloquear o teu acesso. Verifica o número antes de enviar.
+            ATENÇÃO: Coloca o número Express EXATO que fez a transferência. Se colocares um número errado, não vamos conseguir confirmar o teu pagamento no extrato e NÃO vais conseguir abrir / desbloquear o teu acesso.
           </div>
           <label htmlFor="express-sender-phone" style={{ display:'block', marginTop:14, marginBottom:7, color:C.ink, fontWeight:800 }}>
             Número Express que fez a transferência
