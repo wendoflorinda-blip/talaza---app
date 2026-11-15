@@ -103,83 +103,60 @@ export default function MediaCreatorSignup() {
       if (!dialCode) return setError('O indicativo deste país ainda não está configurado. Contacte o suporte.');
     }
     if (step===1) {
-      if (!birthDay || !birthMonth || !birthYear || !gender) return setError('Preencha o dia, mês, ano de nascimento e género.');
+      if (!phone.trim() || phone.replace(/\\D/g,'').length < 6 || !dialCode) return setError('Introduza um telefone válido com o indicativo do país.');
+      if (!birthDay || !birthMonth || !birthYear || !gender) return setError('Preencha a data de nascimento e escolha Feminino ou Masculino.');
       if (calculatedAge === null) return setError('A data de nascimento não é válida. Verifique o dia, mês e ano.');
-      if (calculatedAge < 18) {
-        return setError(`Cadastro bloqueado: a data selecionada corresponde a ${calculatedAge} anos. É necessário ter pelo menos 18 anos completos para criar uma conta na MÍDIA TALAZA.`);
-      }
-    }
-    if (step===2 && selectedNiches.length===0) return setError('Escolha pelo menos um nicho de conteúdo.');
-    if (step===3 && contentLanguages.length===0) return setError('Escolha pelo menos um idioma de publicação.');
-    if (step===4) {
+      if (calculatedAge < 18) return setError('É necessário ter pelo menos 18 anos completos para criar uma conta na MÍDIA TALAZA.');
+      if (selectedNiches.length===0) return setError('Escolha pelo menos um nicho de conteúdo.');
+      if (contentLanguages.length===0) return setError('Escolha pelo menos um idioma de publicação.');
       const cleanUsername = username.trim().replace(/^@+/, '').toLowerCase();
-      if (!displayName.trim()) return setError('Preencha o nome público.');
-      if (!/^[a-z0-9._]{3,24}$/.test(cleanUsername)) return setError('Escolha uma sugestão ou introduza um nome de utilizador válido com 3 a 24 caracteres.');
+      if (!displayName.trim()) return setError('Preencha o nome completo.');
+      if (!/^[a-z0-9._]{3,24}$/.test(cleanUsername)) return setError('Escolha um nome de utilizador válido com 3 a 24 caracteres.');
     }
-    if (step===5) {
-      if (user) return setError('Não foi possível continuar. Verifica os dados e tenta novamente.');
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) return setError('Introduza um endereço de email válido, por exemplo nome@email.com.');
+    if (step===2) {
+      if (user) return setError('Utilize Já tenho conta para entrar com uma conta existente.');
+      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(email.trim())) return setError('Introduza um endereço de email válido.');
       if (password.length < 8) return setError('A palavra-passe deve ter pelo menos 8 caracteres.');
-      if (!/^[a-zA-Z0-9._]{3,24}$/.test(username)) return setError('O nome de utilizador deve ter 3 a 24 caracteres: letras, números, ponto ou underscore.');
+      if (!/^[a-zA-Z0-9._]{3,24}$/.test(username)) return setError('O nome de utilizador deve ter 3 a 24 caracteres.');
       return submit();
     }
-    setStep(s=>Math.min(s+1,5));
+    setStep(s=>Math.min(s+1,2));
   }
   async function submit() {
     setLoading(true); setError(''); setNotice('');
     try {
+      if (user) throw new Error('SIGNUP_ALREADY_EXISTS');
+      const normalizedEmail = email.trim().toLowerCase();
+      const fullPhone = `${dialCode}${phone.replace(/\\D/g,'')}`;
       const metadata = {
-        media_creator_onboarding: true,
-        media_country_id: countryId,
-        media_country: countryName,
-        media_province_id: provinceId,
-        // Phone, date of birth and gender are deliberately not placed in Auth metadata.
-        // They require a private Media-only profile table with owner-only RLS.
-        media_niches: selectedNiches,
-        media_content_languages: contentLanguages,
-        media_interface_language: interfaceLanguage,
-        media_interests: interests,
-        media_display_name: displayName.trim(),
-        media_username: username.trim().replace(/^@/,'').toLowerCase(),
-        media_account_type: 'creator',
+        media_creator_onboarding: true, media_country_id: countryId, media_country: countryName,
+        media_province_id: provinceId, media_niches: selectedNiches,
+        media_content_languages: contentLanguages, media_interface_language: interfaceLanguage,
+        media_interests: interests, media_display_name: displayName.trim(),
+        media_username: username.trim().replace(/^@/,'').toLowerCase(), media_account_type: 'creator',
       };
-      if (user) {
-        throw new Error('SIGNUP_ALREADY_EXISTS');
-      }
-      const {data,error:signupError} = await supabase.auth.signUp({
-        email:email.trim().toLowerCase(), password,
-        options:{
-          data: {
-            ...metadata,
-            talaza_pending_signup_type: 'creator',
-            talaza_pending_creator: metadata,
-          },
-          emailRedirectTo: typeof window !== 'undefined'
-            ? `${window.location.origin}/auth/callback`
-            : undefined
-        }
+      const { data: proofData, error: proofError } = await supabase.functions.invoke('talaza-signup-proof', {
+        body: { action:'encrypt', signup_type:'creator', country_id:countryId, province_id:provinceId,
+          name:displayName.trim(), phone:fullPhone, gender:gender.toLowerCase(), date_of_birth:dob, email:normalizedEmail },
       });
-      if (signupError) throw signupError;
-      if (!data?.user) throw new Error('Não foi possível criar a conta.');
-      // Supabase pode devolver um utilizador sem identidades quando o email já existe,
-      // para evitar expor diretamente a existência de contas.
-      if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-        setError('Não foi possível concluir o cadastro com estes dados. Verifica as informações ou entra na tua conta.');
-        return;
-      }
-      if (data.session) {
-        await router.replace('/auth/callback');
-        return;
-      }
-      setNotice('Verifica o teu email, enviámos um link para confirmares. Clica no link para ativares a conta.');
+      if (proofError || !proofData?.proof || proofData?.version !== 4) throw new Error('PROOF_FAILED');
+      const pendingCreator = { ...metadata, name:displayName.trim(), country_id:countryId, province_id:provinceId,
+        phone:fullPhone, gender:gender.toLowerCase() };
+      const {data,error:signupError} = await supabase.auth.signUp({
+        email:normalizedEmail, password,
+        options:{ data:{ ...metadata, talaza_pending_signup_type:'creator', talaza_pending_creator:pendingCreator,
+          talaza_dob_proof:proofData.proof }, emailRedirectTo:`${window.location.origin}/auth/callback` }
+      });
+      if (signupError || !data?.user || (Array.isArray(data.user.identities)&&data.user.identities.length===0)) throw new Error('SIGNUP_FAILED');
+      if (data.session) { await router.replace('/auth/callback'); return; }
+      setNotice('Verifica o teu email. Enviámos um link para confirmares e ativares a tua conta.');
     } catch(err) {
-      const msg=String(err?.message||'');
-      const lower = msg.toLowerCase();
+      console.error('Erro no cadastro de criador:', err);
       setError('Não foi possível concluir o cadastro neste momento. Verifica os dados e tenta novamente.');
     } finally { setLoading(false); }
   }
 
-  const stepNames = ['Localização','Sobre si','Nichos','Idiomas e interesses','Perfil público','Acesso'];
+  const stepNames = ['Localização','Dados pessoais e de criador','Acesso'];
   return <>
     <Head><title>Criar conta de Criador | MÍDIA TALAZA</title><meta name="viewport" content="width=device-width, initial-scale=1"/></Head>
     <main style={{minHeight:'100vh',padding:'28px 16px 56px',background:'radial-gradient(circle at top,#34466F 0,#17233F 44%,#10172A 100%)',fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif"}}>
@@ -191,10 +168,10 @@ export default function MediaCreatorSignup() {
         </header>
         <section style={{background:C.white,borderRadius:24,padding:'clamp(20px,4vw,34px)',boxShadow:'0 24px 70px rgba(0,0,0,.28)'}}>
           <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'center',marginBottom:12}}>
-            <span style={{fontSize:12,fontWeight:900,color:C.navy}}>{step+1} de 6 · {stepNames[step]}</span>
-            <span style={{fontSize:12,color:C.muted}}>{Math.round((step+1)/6*100)}%</span>
+            <span style={{fontSize:12,fontWeight:900,color:C.navy}}>{step+1} de 3 · {stepNames[step]}</span>
+            <span style={{fontSize:12,color:C.muted}}>{Math.round((step+1)/3*100)}%</span>
           </div>
-          <div style={{height:6,borderRadius:20,background:'#EDF0F5',overflow:'hidden',marginBottom:24}}><div style={{height:'100%',width:((step+1)/6*100)+'%',background:'linear-gradient(90deg,#B98B2E,#F0D889)',transition:'width .2s'}}/></div>
+          <div style={{height:6,borderRadius:20,background:'#EDF0F5',overflow:'hidden',marginBottom:24}}><div style={{height:'100%',width:((step+1)/3*100)+'%',background:'linear-gradient(90deg,#B98B2E,#F0D889)',transition:'width .2s'}}/></div>
 
           {step===0 && <>
             <h2 style={{fontSize:23,color:C.ink,margin:'0 0 6px'}}>Onde está?</h2>
@@ -203,16 +180,17 @@ export default function MediaCreatorSignup() {
             <select value={countryId} onChange={e=>{setCountryId(e.target.value);setPhone('');}} style={input}><option value="">Selecionar país</option>{countries.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
             <label style={label}>Província / região</label>
             <select value={provinceId} onChange={e=>setProvinceId(e.target.value)} disabled={!countryId} style={input}><option value="">Selecionar província</option>{provinces.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
-            <label style={label}>Número de telefone</label>
-            <div style={{display:'flex',gap:9}}>
-              <div style={{minWidth:82,padding:'14px 10px',border:'1px solid #DDE3EC',borderRadius:13,background:'#F5F7FA',fontWeight:900,color:C.navy,textAlign:'center'}}>{dialCode||'+'}</div>
-              <input type="tel" inputMode="tel" autoComplete="tel-national" value={phone} onChange={e=>setPhone(e.target.value.replace(/[^0-9\s()-]/g,''))} placeholder="Número sem indicativo" style={{...input,flex:1,minWidth:0}}/>
-            </div>
-            <p style={{fontSize:11,color:C.muted,lineHeight:1.5,marginTop:9}}>O número será guardado para contacto. A confirmação por SMS não será ativada durante os testes.</p>
           </>}
           {step===1 && <>
             <h2 style={{fontSize:23,color:C.ink,margin:'0 0 6px'}}>Sobre si</h2>
             <p style={{fontSize:13,color:C.muted,lineHeight:1.55}}>A MÍDIA TALAZA aceita criadores a partir dos 18 anos. A data de nascimento não será exibida no perfil público.</p>
+            <label style={label}>Nome completo</label>
+            <input value={displayName} onChange={e=>{const value=e.target.value;setDisplayName(value);if(!usernameEdited){const first=usernameSuggestions(value)[0]||'';setUsername(first);}}} maxLength={80} placeholder="O seu nome completo" style={input}/>
+            <label style={label}>Número de telefone</label>
+            <div style={{display:'flex',gap:9}}>
+              <div style={{minWidth:82,padding:'14px 10px',border:'1px solid #DDE3EC',borderRadius:13,background:'#F5F7FA',fontWeight:900,color:C.navy,textAlign:'center'}}>{dialCode||'+'}</div>
+              <input type="tel" inputMode="tel" autoComplete="tel-national" value={phone} onChange={e=>setPhone(e.target.value.replace(/[^0-9\\s()-]/g,''))} placeholder="Número sem indicativo" style={{...input,flex:1,minWidth:0}}/>
+            </div>
             <label style={label}>Data de nascimento</label>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1.3fr 1.2fr',gap:8}}>
               <select aria-label="Dia de nascimento" value={birthDay} onChange={e=>setBirthDay(e.target.value)} style={input}>
@@ -229,10 +207,10 @@ export default function MediaCreatorSignup() {
             {dob && <p role="status" style={{fontSize:13,fontWeight:800,color:age>=18?C.green:C.red,margin:'8px 0'}}>{age===null?'Data inválida':age>=18?`Idade calculada: ${age} anos — pode continuar`:`Cadastro bloqueado: ${age} anos. A idade mínima é 18 anos completos.`}</p>}
             <label style={label}>Género</label>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:9}}>
-              {['Homem','Mulher'].map(v=><button key={v} type="button" onClick={()=>setGender(v)} style={{padding:13,borderRadius:12,border:gender===v?'2px solid #B98B2E':'1px solid #DDE3EC',background:gender===v?'#FBF5E6':'#FFFFFF',color:C.ink,fontWeight:800,cursor:'pointer'}}>{v}</button>)}
+              {['Feminino','Masculino'].map(v=><button key={v} type="button" onClick={()=>setGender(v)} style={{padding:13,borderRadius:12,border:gender===v?'2px solid #B98B2E':'1px solid #DDE3EC',background:gender===v?'#FBF5E6':'#FFFFFF',color:C.ink,fontWeight:800,cursor:'pointer'}}>{v}</button>)}
             </div>
           </>}
-          {step===2 && <>
+          {step===1 && <>
             <h2 style={{fontSize:23,color:C.ink,margin:'0 0 6px'}}>Que conteúdos gosta de criar?</h2>
             <p style={{fontSize:13,color:C.muted,lineHeight:1.55}}>Escolha todos os nichos que combinam consigo. Esta seleção ajuda a organizar a descoberta e as recomendações.</p>
             {niches.map(group=><div key={group.group} style={{marginTop:17}}>
@@ -241,7 +219,7 @@ export default function MediaCreatorSignup() {
             </div>)}
             <p style={{fontSize:11,color:C.muted,marginTop:13}}>Pode selecionar vários nichos e alterá-los mais tarde no seu perfil.</p>
           </>}
-          {step===3 && <>
+          {step===1 && <>
             <h2 style={{fontSize:23,color:C.ink,margin:'0 0 6px'}}>Idiomas e interesses</h2>
             <p style={{fontSize:13,color:C.muted,lineHeight:1.55}}>O idioma em que publica pode ser diferente do idioma que prefere usar na aplicação.</p>
             <label style={label}>Idiomas em que pretende publicar</label>
@@ -251,10 +229,9 @@ export default function MediaCreatorSignup() {
             <label style={label}>Outros assuntos de que gosta (opcional)</label>
             <div style={{display:'flex',flexWrap:'wrap',gap:8}}>{['Tecnologia','Viagens','Moda','Desporto','Música','Educação','Negócios','Culinária','Cultura','Natureza','Atualidade','Família'].map(v=><button key={v} type="button" onClick={()=>toggle(interests,setInterests,v)} style={{border:interests.includes(v)?'1px solid #B98B2E':'1px solid #E1E6EE',background:interests.includes(v)?'#FBF3DF':'#FFFFFF',color:C.ink,borderRadius:25,padding:'9px 12px',fontSize:12,fontWeight:800}}>{interests.includes(v)?'✓ ':''}{v}</button>)}</div>
           </>}
-          {step===4 && <>
+          {step===1 && <>
             <h2 style={{fontSize:23,color:C.ink,margin:'0 0 6px'}}>Crie a sua identidade</h2>
             <p style={{fontSize:13,color:C.muted,lineHeight:1.55}}>Estes dados formam a apresentação pública do seu perfil de criador.</p>
-            <label style={label}>Nome público</label><input value={displayName} onChange={e=>{const value=e.target.value;setDisplayName(value);if(!usernameEdited){const first=usernameSuggestions(value)[0]||'';setUsername(first);}}} maxLength={80} placeholder="Nome que as pessoas vão ver" style={input}/>
             <label style={label}>Escolha uma das sugestões automáticas</label>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:9,marginBottom:12}}>
               {suggestedUsernames.map((suggestion,index)=><button key={suggestion} type="button" onClick={()=>{setUsername(suggestion);setUsernameEdited(true);setError('');}} aria-pressed={username.toLowerCase()===suggestion} style={{padding:'13px 12px',borderRadius:12,border:username.toLowerCase()===suggestion?'2px solid #B98B2E':'1px solid #DDE3EC',background:username.toLowerCase()===suggestion?'#FBF3DF':'#FFFFFF',color:C.navy,fontWeight:900,cursor:'pointer',textAlign:'left'}}>
@@ -271,7 +248,7 @@ export default function MediaCreatorSignup() {
             <p style={{fontSize:11,color:C.muted,marginTop:6}}>O @ é acrescentado automaticamente. Não precisa de o escrever. Escolha uma das opções ou personalize com 3 a 24 caracteres: letras, números, ponto ou underscore.</p>
             {username.length>0 && <p style={{fontSize:12,color:C.green,fontWeight:800,marginTop:7}}>O seu identificador será @{username.toLowerCase()}</p>}
           </>}
-          {step===5 && <>
+          {step===2 && <>
             <h2 style={{fontSize:23,color:C.ink,margin:'0 0 6px'}}>Proteja o seu acesso</h2>
             {user ? <div role="alert" style={{padding:14,borderRadius:12,background:'#FFF0F1',color:C.red,fontSize:13,lineHeight:1.6}}>Esta conta já está autenticada na TALAZA. Não crie outra conta por esta porta. Utilize <strong>Já tenho conta</strong> para continuar com a sua conta existente.</div> : <>
               <p style={{fontSize:13,color:C.muted,lineHeight:1.6}}>Durante os testes, o acesso será criado com email e palavra-passe. A autenticação por telefone/SMS será ligada apenas quando a versão for preparada para produção.</p>
@@ -292,7 +269,7 @@ export default function MediaCreatorSignup() {
           {notice && <div role="status" style={{marginTop:17,padding:14,borderRadius:11,background:'#EAF5F0',color:'#155B49',fontSize:13,lineHeight:1.6}}>{notice}</div>}
           <div style={{display:'flex',gap:10,marginTop:24}}>
             {step>0 && <button type="button" disabled={loading} onClick={()=>{setError('');setStep(s=>s-1)}} style={{padding:'14px 18px',borderRadius:13,border:'1px solid #DDE3EC',background:'#FFFFFF',color:C.navy,fontWeight:900,cursor:'pointer'}}>Voltar</button>}
-            <button type="button" disabled={loading || !!notice || (step===1 && age !== null && age < 18) || (step===5 && !!user)} onClick={next} style={{flex:1,padding:15,border:0,borderRadius:13,background:'linear-gradient(100deg,#D5B15A,#F1D98F)',color:'#1B2540',fontWeight:900,fontSize:15,cursor:loading?'wait':'pointer',opacity:loading||notice?.5:1}}>{loading?'A guardar…':step===5?'Concluir cadastro':'Seguinte'}</button>
+            <button type="button" disabled={loading || !!notice || (step===1 && age !== null && age < 18) || (step===2 && !!user)} onClick={next} style={{flex:1,padding:15,border:0,borderRadius:13,background:'linear-gradient(100deg,#D5B15A,#F1D98F)',color:'#1B2540',fontWeight:900,fontSize:15,cursor:loading?'wait':'pointer',opacity:loading||notice?.5:1}}>{loading?'A guardar…':step===2?'Concluir cadastro':'Seguinte'}</button>
           </div>
           <p style={{textAlign:'center',fontSize:11,color:C.muted,margin:'18px 0 0'}}>MÍDIA TALAZA · Cadastro de Criador</p>
         </section>
