@@ -1,3 +1,4 @@
+import DateOfBirthFields from '../components/DateOfBirthFields';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
@@ -118,7 +119,7 @@ export default function Signup() {
           <Field id="name" label="Nome completo" required><input id="name" value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="O teu nome completo" autoComplete="name" style={inputStyle}/></Field>
           <Field id="phone" label="Número de telefone (+244)" required><PhoneField id="phone" countryName={country?.name} value={phone} onChange={setPhone}/></Field>
           <Field id="gender" label="Género" required><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>{['Feminino','Masculino'].map(v=><button key={v} type="button" onClick={()=>setGender(v)} aria-pressed={gender===v} style={{padding:14,borderRadius:12,border:gender===v?'2px solid #B98B2E':'1px solid #DDE3EC',background:gender===v?'#FBF5E6':'#FFFFFF',color:C.ink,fontWeight:800}}>{v}</button>)}</div></Field>
-          <Field id="dob" label="Data de nascimento" required><input id="dob" type="date" value={dateOfBirth} max={new Date().toISOString().slice(0,10)} onChange={e=>setDateOfBirth(e.target.value)} style={inputStyle}/></Field>
+          <Field id="dob" label="Data de nascimento" required><DateOfBirthFields value={dateOfBirth} onChange={setDateOfBirth} inputStyle={inputStyle}/></Field>
           {dateOfBirth && <p role="status" style={{fontSize:13,fontWeight:800,color:age!==null&&age>=18?C.green:C.red,margin:'8px 0 12px'}}>{age===null?'Data inválida':age>=18?`Idade calculada: ${age} anos`:`Tens ${age} anos. É necessário ter pelo menos 18 anos completos.`}</p>}
         </>}
         {step===3 && <>
