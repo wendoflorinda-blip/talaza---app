@@ -119,6 +119,7 @@ export default function AdminMedia() {
     if (appError || !app) { setBusy(''); alert('Pagamento revisto, mas não foi possível localizar a candidatura associada.'); return; }
 
     if (status === 'approved') {
+      if (!Number(plan.duration_days) || Number(plan.duration_days) <= 0) { setBusy(''); alert('O plano não tem uma duração válida configurada.'); return; }
       const start = new Date();
       const end = new Date(start.getTime() + Number(plan.duration_days) * 86400000);
       const profileResult = await supabase.from('media_profiles').upsert({
@@ -267,7 +268,7 @@ export default function AdminMedia() {
                   {Object.entries(app.social_links || {}).filter(([, url]) => /^https?:\/\//i.test(String(url || ''))).map(([network,url]) => <a key={network} href={url} target="_blank" rel="noopener noreferrer" style={{ color: '#175B4D', fontWeight: 800 }}>{network}</a>)}
                 </div>
                 {appPayments.map((payment) => <div key={payment.id} style={{ marginTop: 12, padding: 12, background: '#F7F8FA', borderRadius: 10 }}>
-                  <div style={{ color: '#465368', fontSize: 13 }}>Pagamento: <b>{Number(payment.amount).toLocaleString('pt-PT')} {payment.currency}</b> · {payment.status}{payment.payment_reference ? ' · Ref. ' + payment.payment_reference : ''}</div>
+                  <div style={{ color: '#465368', fontSize: 13 }}>Pagamento: <b>{Number(payment.amount).toLocaleString('pt-PT')} {payment.currency}</b> · {payment.resubmitted_from_id ? 'Reenviado / Corrigido · ' : ''}{payment.status}{payment.payment_reference ? ' · Ref. ' + payment.payment_reference : ''}</div>
                   {proofUrls[payment.id] && <p style={{ margin: '8px 0' }}><a href={proofUrls[payment.id]} target="_blank" rel="noreferrer" style={{ color: '#175B4D', fontWeight: 900 }}>Abrir comprovativo privado</a></p>}
                   {payment.status === 'pending' && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                     <button disabled={!!busy} onClick={() => reviewPayment(payment,'approved')} style={{ border: 0, borderRadius: 9, padding: '9px 13px', background: '#17664F', color: '#FFF', fontWeight: 800 }}>Confirmar pagamento</button>
