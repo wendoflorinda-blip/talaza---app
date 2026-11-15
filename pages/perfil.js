@@ -333,8 +333,7 @@ export default function Perfil() {
       let photoUrl = photo;
 
       if (file) {
-        const extension = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-        const path = user.id + '/' + Date.now() + '.' + extension;
+        const path = user.id + '.jpg';
         const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type });
         if (uploadError) throw new Error('Não foi possível enviar a foto. Confirme se o bucket “avatars” está configurado no Supabase.');
         const { data } = supabase.storage.from('avatars').getPublicUrl(path);
