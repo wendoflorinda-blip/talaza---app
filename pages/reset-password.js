@@ -69,7 +69,7 @@ export default function ResetPassword() {
       setDone(true);
     } catch (err) {
       console.error('Falha ao atualizar palavra-passe:', err);
-      setError('Não foi possível guardar a nova palavra-passe. O link pode ter expirado; peça outro e tente novamente.');
+      setError('Não foi possível guardar a nova palavra-passe. O link pode ter expirado. Solicita um novo link e tenta novamente.');
     } finally {
       setLoading(false);
     }
