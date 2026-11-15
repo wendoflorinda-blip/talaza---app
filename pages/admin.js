@@ -201,9 +201,42 @@ export default function Admin() {
       if(businessError) throw businessError;
       if(!business) throw new Error('Não foi encontrado um negócio associado a este vendedor.');
       if(approved){
-        const {data:subscriptions,error:subscriptionError}=await supabase.from('business_subscriptions').select('id,status,expires_at').eq('business_id',business.id).eq('status','active').gt('expires_at',new Date().toISOString()).order('expires_at',{ascending:false}).limit(1);
-        if(subscriptionError) throw subscriptionError;
-        const validHosting=Boolean(subscriptions&&subscriptions.length);
+        const {data:rejectedPayment,error:rejectedPaymentError}=await supabase.from('payment_submissions')
+          .select('id,plan_id,amount,created_at')
+          .eq('user_id',item.seller_id).eq('business_id',business.id).eq('status','rejected')
+          .order('created_at',{ascending:false}).limit(1).maybeSingle();
+        if(rejectedPaymentError) throw rejectedPaymentError;
+        let validHosting=false;
+        if(rejectedPayment){
+          const {data:plan,error:planError}=await supabase.from('plans').select('id,price,duration_days').eq('id',rejectedPayment.plan_id).maybeSingle();
+          if(planError) throw planError;
+          if(!plan || Number(plan.price)!==Number(rejectedPayment.amount)) throw new Error('O valor do pagamento original não corresponde ao preço atual do plano. Verifica o plano antes de aprovar.');
+          const now=new Date();
+          const {data:existingSubscription,error:subscriptionError}=await supabase.from('business_subscriptions')
+            .select('id,starts_at,expires_at').eq('business_id',business.id)
+            .order('created_at',{ascending:false}).limit(1).maybeSingle();
+          if(subscriptionError) throw subscriptionError;
+          const currentExpiry=existingSubscription?.expires_at?new Date(existingSubscription.expires_at):null;
+          const baseDate=currentExpiry&&!Number.isNaN(currentExpiry.getTime())&&currentExpiry>now?currentExpiry:now;
+          const durationDays=Number(plan.duration_days)||0;
+          if(durationDays<=0) throw new Error('A duração do plano não está configurada.');
+          const expiresAt=new Date(baseDate.getTime()+durationDays*86400000).toISOString();
+          const subscriptionData={business_id:business.id,plan_id:plan.id,starts_at:existingSubscription?.starts_at||now.toISOString(),status:'active',expires_at:expiresAt};
+          const subscriptionResult=existingSubscription?.id
+            ?await supabase.from('business_subscriptions').update(subscriptionData).eq('id',existingSubscription.id).select('id').maybeSingle()
+            :await supabase.from('business_subscriptions').insert(subscriptionData).select('id').maybeSingle();
+          if(subscriptionResult.error||!subscriptionResult.data) throw new Error('Não foi possível ativar a hospedagem: '+(subscriptionResult.error?.message||'sem confirmação do Supabase'));
+          const {error:paymentUpdateError}=await supabase.from('payment_submissions').update({
+            status:'approved',reviewed_at:now.toISOString(),notes:null,
+            express_sender_phone:item.phone,proof_file_url:item.file_url,proof_type:item.file_type
+          }).eq('id',rejectedPayment.id).eq('status','rejected');
+          if(paymentUpdateError) throw paymentUpdateError;
+          validHosting=true;
+        } else {
+          const {data:subscriptions,error:subscriptionError}=await supabase.from('business_subscriptions').select('id,status,expires_at').eq('business_id',business.id).eq('status','active').gt('expires_at',new Date().toISOString()).order('expires_at',{ascending:false}).limit(1);
+          if(subscriptionError) throw subscriptionError;
+          validHosting=Boolean(subscriptions&&subscriptions.length);
+        }
         const businessPatch={approval_status:'approved',is_active:validHosting};
         const {error:updateBusinessError}=await supabase.from('businesses').update(businessPatch).eq('id',business.id);
         if(updateBusinessError) throw updateBusinessError;
@@ -217,7 +250,7 @@ export default function Admin() {
       } else {
         const {error:submissionError}=await supabase.from('payment_resubmissions').update({status:'rejected'}).eq('id',item.id).eq('status','pending');
         if(submissionError) throw submissionError;
-        const {error:statusError}=await supabase.from('seller_status').upsert({seller_id:item.seller_id,status:'rejected',updated_at:new Date().toISOString()},{onConflict:'seller_id'});
+        const {error:statusError}=await supabase.from('seller_status').upsert({seller_id:item.seller_id,status:'rejected',reject_reason:item.sellerStatus?.reject_reason||'Comprovativo corrigido ainda não aceite.',updated_at:new Date().toISOString()},{onConflict:'seller_id'});
         if(statusError) throw statusError;
         const {error:businessUpdateError}=await supabase.from('businesses').update({approval_status:'rejected'}).eq('id',business.id);
         if(businessUpdateError) throw businessUpdateError;
@@ -1091,6 +1124,18 @@ export default function Admin() {
       return;
     }
 
+    if (!approved && request.business_id) {
+      const { error: sellerStatusError } = await supabase.from('seller_status').upsert({
+        seller_id: request.user_id, status: 'rejected',
+        reject_reason: rejectionReason.trim(), updated_at: reviewedAt
+      }, { onConflict: 'seller_id' });
+      if (sellerStatusError) console.error('Não foi possível atualizar seller_status após recusa:', sellerStatusError.message);
+      const { error: businessReviewError } = await supabase.from('businesses')
+        .update({ approval_status: 'rejected', is_active: false })
+        .eq('id', request.business_id).eq('owner_id', request.user_id);
+      if (businessReviewError) console.error('Não foi possível atualizar o estado do perfil após recusa:', businessReviewError.message);
+    }
+
     let activationMessage = '';
     const areaLabel = getPaymentAreaLabel(request);
 
@@ -1441,6 +1486,7 @@ export default function Admin() {
             {[
               ['vendedores', 'Vendedores', pendingBusinessCount],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
+              ['pagamentos-recusados', 'Pagamentos recusados', resubmissions.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase() && String(item.status || '').trim().toLowerCase() === 'pending').length],
               ['girassol', 'Reactivação Girassol', girassolReactivations.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['destaques-premium', 'Destaques Premium', subscriptionRequests.filter(item => item.premium_promotion_id && String(item.status || '').toLowerCase() === 'pending').length],
@@ -1499,36 +1545,7 @@ export default function Admin() {
                 )}
               </button>
             ))}
-              <button
-                key="pagamentos-recusados"
-                type="button"
-                onClick={() => {
-                  setActiveAdminSection('pagamentos-recusados');
-                  loadPaymentResubmissions();
-                }}
-                aria-pressed={activeAdminSection === 'pagamentos-recusados'}
-                style={{
-                  order: 2,
-                  flex: '0 0 auto',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '13px 18px',
-                  borderRadius: 999,
-                  border: '2px solid #C62828',
-                  background: activeAdminSection === 'pagamentos-recusados' ? '#9E1B1B' : '#FFF5F5',
-                  color: activeAdminSection === 'pagamentos-recusados' ? '#FFFFFF' : '#9E1B1B',
-                  fontWeight: 900,
-                  cursor: 'pointer',
-                  fontSize: 14,
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                Pagamentos recusados
-                <span style={{ minWidth: 25, height: 25, padding: '0 7px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, background: '#C62828', color: '#FFFFFF', fontWeight: 900 }}>
-                  {resubmissions.filter(item => String(item.status || '').toLowerCase() === 'pending').length}
-                </span>
-              </button>
+
           </nav>
           <p style={{ margin: '0 0 24px', color: '#64756F', fontSize: 13, textAlign: 'center' }}>→ Deslize para ver mais áreas</p>
           <div style={styles.counter}>
@@ -1699,9 +1716,9 @@ export default function Admin() {
                     <div style={styles.details}>
                       <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : '—'}</p>
                     <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
-                      {request.user_response && String(request.user_response).trim() !== String(request.express_sender_phone || '').trim() && <p><strong>Mensagem de correção:</strong> {request.user_response}</p>}
+                      {request.user_response && String(request.user_response).replace(/\D/g, '') !== String(request.express_sender_phone || '').replace(/\D/g, '') && <p><strong>Mensagem de correção:</strong> {request.user_response}</p>}
                       {(paymentHistoryById[request.id] || []).map(entry => <div key={entry.id} style={{fontSize:11,color:'#68736F',margin:'6px 0',padding:'7px',background:'#F7F8F7',borderRadius:8}}>
-                        <div>{entry.action==='submitted'?'1.º envio':entry.action==='rejected'?'Recusa: '+(entry.reason||''):entry.action==='resubmitted'?'Reenviado / Corrigido':'Aprovado'} · {new Date(entry.created_at).toLocaleString('pt-AO')}{entry.user_response && String(entry.user_response).trim() !== String(request.express_sender_phone || '').trim() ? ' · '+entry.user_response : ''}</div>
+                        <div>{entry.action==='submitted'?'1.º envio':entry.action==='rejected'?'Recusa: '+(entry.reason||''):entry.action==='resubmitted'?'Reenviado / Corrigido':'Aprovado'} · {new Date(entry.created_at).toLocaleString('pt-AO')}{entry.user_response && String(entry.user_response).replace(/\D/g, '') !== String(request.express_sender_phone || '').replace(/\D/g, '') ? ' · '+entry.user_response : ''}</div>
                         {(entry.proof_image_url || entry.proof_file_url || entry.proof_url) && <button type="button" style={styles.proofLink} onClick={()=>openProof(entry.proof_image_url || entry.proof_file_url || entry.proof_url)}>Abrir comprovativo desta etapa ↗</button>}
                       </div>)}
                       {paths.image && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem do comprovativo ↗</button></p>}
