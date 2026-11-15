@@ -260,7 +260,7 @@ export default function PostBusiness() {
   async function submitRegistration(e) {
     e.preventDefault(); setError('');
     const normalizedEmail = email.trim().toLowerCase();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(normalizedEmail)) return setError('Introduza um e-mail válido.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(normalizedEmail)) return setError('Introduza um e-mail válido.');
     if (password.length < 8) return setError('A senha deve ter pelo menos 8 caracteres.');
     setLoading(true);
     try {
