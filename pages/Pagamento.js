@@ -152,6 +152,8 @@ export default function Pagamento() {
   const [done, setDone] = useState(false);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [pendingPaymentReference, setPendingPaymentReference] = useState(null);
+  const [correctionMessage, setCorrectionMessage] = useState('');
+  const [paymentHistory, setPaymentHistory] = useState([]);
   const [error, setError] = useState('');
 
   function formatExpressSenderPhone(value) {
@@ -286,6 +288,13 @@ export default function Pagamento() {
     pendingQuery = eventId ? pendingQuery.eq('event_id', eventId) : premiumPromotionId ? pendingQuery.eq('premium_promotion_id', premiumPromotionId) : businessId ? pendingQuery.eq('business_id', businessResult.data.id) : isOpportunitySubscription ? pendingQuery.eq('user_id', session.user.id).is('business_id', null).is('event_id', null).is('job_post_id', null).eq('plan_id', planId) : pendingQuery.eq('business_id', businessResult.data.id);
     const { data: pendingPayment, error: pendingPaymentError } = await pendingQuery.maybeSingle();
     if (pendingPaymentError) console.error('Erro ao verificar comprovativo já enviado:', pendingPaymentError);
+    if (pendingPayment?.id) {
+      const { data: historyRows } = await supabase.from('payment_submission_history')
+        .select('id,action,status,reason,created_at,express_sender_phone,user_response')
+        .eq('source_type','commercial').eq('submission_id',pendingPayment.id)
+        .order('created_at',{ascending:true});
+      setPaymentHistory(historyRows || []);
+    }
     const latestPaymentStatus = String(pendingPayment?.status || '').toLowerCase();
     if (
       pendingPayment &&
@@ -409,6 +418,7 @@ export default function Pagamento() {
       }
 
       submissionStage = 'guardar o pedido na tabela payment_submissions';
+      const isCorrection = String(pendingPaymentReference?.status || '').toLowerCase() === 'rejected';
       const submission = {
         business_id: premiumPromotion ? null : business?.id || null,
         event_id: eventRecord?.id || null,
@@ -423,18 +433,28 @@ export default function Pagamento() {
         proof_url: imagePath || pdfPath,
         proof_type: imagePath && pdfPath ? 'image+pdf' : imagePath ? 'jpg' : 'pdf',
         status: 'pending',
+        user_response: isCorrection ? correctionMessage.trim().slice(0,500) : null,
+        resubmitted_from_id: isCorrection ? pendingPaymentReference.id : null,
       };
 
       // As colunas separadas permitem abrir imagem e PDF no painel. Se a base de
       // dados ainda não recebeu a migração, tentamos o formato legado sem perder
       // os dois caminhos: ficam guardados juntos em proof_url como JSON.
-      let { data: insertedSubmission, error: insertError } = await supabase
-        .from('payment_submissions')
-        .insert({
-          ...submission,
-          proof_image_url: imagePath,
-          proof_file_url: pdfPath,
-        }).select('id').single();
+      let insertedSubmission = null;
+      let insertError = null;
+      if (isCorrection) {
+        const correctionResult = await supabase.from('payment_submissions')
+          .update({ ...submission, proof_image_url: imagePath, proof_file_url: pdfPath })
+          .eq('id', pendingPaymentReference.id).eq('user_id', session.user.id).eq('status','rejected')
+          .select('id').maybeSingle();
+        insertedSubmission = correctionResult.data;
+        insertError = correctionResult.error;
+      } else {
+        const result = await supabase.from('payment_submissions')
+          .insert({ ...submission, proof_image_url: imagePath, proof_file_url: pdfPath }).select('id').single();
+        insertedSubmission = result.data;
+        insertError = result.error;
+      }
 
       const missingProofColumns = insertError && (
         /proof_image_url|proof_file_url/i.test(insertError.message || '') &&
@@ -448,9 +468,9 @@ export default function Pagamento() {
             ? JSON.stringify({ imagePath, filePath: pdfPath })
             : imagePath || pdfPath,
         };
-        const retry = await supabase
-          .from('payment_submissions')
-          .insert(legacySubmission).select('id').single();
+        const retry = isCorrection
+          ? await supabase.from('payment_submissions').update(legacySubmission).eq('id', pendingPaymentReference.id).eq('user_id', session.user.id).eq('status','rejected').select('id').maybeSingle()
+          : await supabase.from('payment_submissions').insert(legacySubmission).select('id').single();
         insertedSubmission = retry.data;
         insertError = retry.error;
       }
@@ -464,6 +484,7 @@ export default function Pagamento() {
       }
 
       setSubmittedExpressPhone(normalizedExpressPhone);
+      setCorrectionMessage('');
       setDone(true);
       window.scrollTo(0, 0);
     } catch (err) {
@@ -586,7 +607,7 @@ export default function Pagamento() {
 
       {!loading && plan && (
         <div style={{ marginTop: 22 }}>
-          {alreadySubmitted ? (
+          {alreadySubmitted && String(pendingPaymentReference?.status || '').toLowerCase() !== 'rejected' ? (
             <Card>
               <div style={{ padding: '5px 0 8px' }}>
                 <div style={{ display: 'inline-block', padding: '7px 11px', borderRadius: 999, background: '#FFF1C2', color: '#5B4300', fontSize: 11, fontWeight: 900, marginBottom: 12 }}>PAGAMENTO EM VERIFICAÇÃO</div>
@@ -620,6 +641,17 @@ export default function Pagamento() {
             </Card>
           ) : (
           <div style={{ minWidth: 0 }}>
+          {alreadySubmitted && String(pendingPaymentReference?.status || '').toLowerCase() === 'rejected' && (
+            <Card>
+              <h1 style={{ margin:'0 0 8px', color:'#9B1C1C', fontSize:23 }}>Corrigir e reenviar comprovativo</h1>
+              <p style={{ color:'#9B1C1C', lineHeight:1.6 }}>Motivo da recusa: {pendingPaymentReference.notes || 'A equipa pediu uma correção.'}</p>
+              <p style={{ color:C.muted, lineHeight:1.5 }}>Corrige o número Express, substitui o comprovativo ou envia uma mensagem curta. Não precisas de criar outra conta.</p>
+              {paymentHistory.map(entry => <div key={entry.id} style={{ padding:'7px 0', borderBottom:'1px solid '+C.line, fontSize:12, color:C.muted }}>{entry.action === 'submitted' ? 'Primeiro envio' : entry.action === 'rejected' ? 'Recusado: '+(entry.reason || '') : entry.action === 'resubmitted' ? 'Reenviado / Corrigido' : 'Aprovado'} · {new Date(entry.created_at).toLocaleString('pt-AO')}</div>)}
+              <label style={{ display:'block', marginTop:12, fontWeight:800, color:C.ink }}>Mensagem para a administração (opcional)</label>
+              <textarea rows={3} maxLength={500} value={correctionMessage} onChange={e=>setCorrectionMessage(e.target.value)} placeholder="Ex.: Desculpa, meti número errado, este é o certo." style={{ width:'100%', boxSizing:'border-box', padding:12, borderRadius:10, border:'1px solid '+C.line }} />
+            </Card>
+          )}
+
           <h1 style={{ margin: '0 0 6px', color: C.ink, fontSize: 28 }}>
             Pagamento
           </h1>
