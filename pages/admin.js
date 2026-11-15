@@ -174,7 +174,7 @@ export default function Admin() {
 
   async function loadPaymentResubmissions() {
     setResubmissionError('');
-    const { data: rows, error } = await supabase.from('payment_resubmissions').select('id,seller_id,phone,express_number,file_url,file_type,status,created_at').eq('status','pending').order('created_at',{ascending:false});
+    const { data: rows, error } = await supabase.from('payment_resubmissions').select('id,seller_id,phone,file_url,file_type,status,created_at').eq('status','pending').order('created_at',{ascending:false});
     if (error) { setResubmissionError('Não foi possível carregar os comprovativos corrigidos: '+error.message); setResubmissions([]); return; }
     const sellerIds=[...new Set((rows||[]).map(row=>row.seller_id).filter(Boolean))];
     const [{data:statuses,error:statusError},{data:businessRows,error:businessError}] = await Promise.all([
@@ -1449,7 +1449,54 @@ export default function Admin() {
               ['notificacoes', 'Notificações', adminNotifications.length],
               ['denuncias', 'Denúncias da Comunidade', communityReports.filter(item => String(item.status || 'pending').toLowerCase() === 'pending').length],
               ['conteudo-oficial', 'Motivação e tema do mês', officialArchive.length]
-            ].map(([key, label, count]) => <button key={key} type="button" onClick={() => { setActiveAdminSection(key); if (key === 'pagamentos-recusados') loadPaymentResubmissions(); }} aria-pressed={activeAdminSection === key} style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 10, padding: '13px 18px', borderRadius: 999, border: key === 'pagamentos-recusados' ? '2px solid #C62828' : activeAdminSection === key ? '3px solid #D8A319' : '1px solid #D5E4DF', background: activeAdminSection === key ? '#075B4E' : key === 'pagamentos-recusados' ? '#FFF5F5' : '#E4F0ED', color: activeAdminSection === key ? '#FFFFFF' : key === 'pagamentos-recusados' ? '#9E1B1B' : '#075B4E', fontWeight: 800, cursor: 'pointer', fontSize: 14, whiteSpace: 'nowrap', scrollSnapAlign: 'start', boxShadow: activeAdminSection === key ? '0 0 0 2px rgba(216,163,25,.18)' : 'none' }}>{label}{(key === 'pagamentos-recusados' || Number(count) > 0) && <span style={{ minWidth: 25, height: 25, padding: '0 7px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, background: key === 'pagamentos-recusados' ? '#C62828' : activeAdminSection === key ? '#D8A319' : '#FFF0B8', color: key === 'pagamentos-recusados' ? '#FFFFFF' : '#075B4E', fontWeight: 900 }}>{count}</span>}</button>)
+            ].map(([key, label, count]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  setActiveAdminSection(key);
+                  if (key === 'pagamentos-recusados') loadPaymentResubmissions();
+                }}
+                aria-pressed={activeAdminSection === key}
+                style={{
+                  flex: '0 0 auto',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '13px 18px',
+                  borderRadius: 999,
+                  border: key === 'pagamentos-recusados' ? '2px solid #C62828' : activeAdminSection === key ? '3px solid #D8A319' : '1px solid #D5E4DF',
+                  background: activeAdminSection === key ? '#075B4E' : key === 'pagamentos-recusados' ? '#FFF5F5' : '#E4F0ED',
+                  color: activeAdminSection === key ? '#FFFFFF' : key === 'pagamentos-recusados' ? '#9E1B1B' : '#075B4E',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  whiteSpace: 'nowrap',
+                  scrollSnapAlign: 'start',
+                  boxShadow: activeAdminSection === key ? '0 0 0 2px rgba(216,163,25,.18)' : 'none'
+                }}
+              >
+                {label}
+                {(key === 'pagamentos-recusados' || Number(count) > 0) && (
+                  <span
+                    style={{
+                      minWidth: 25,
+                      height: 25,
+                      padding: '0 7px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 999,
+                      background: key === 'pagamentos-recusados' ? '#C62828' : activeAdminSection === key ? '#D8A319' : '#FFF0B8',
+                      color: key === 'pagamentos-recusados' ? '#FFFFFF' : '#075B4E',
+                      fontWeight: 900
+                    }}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            ))}
           </nav>
           <p style={{ margin: '0 0 24px', color: '#64756F', fontSize: 13, textAlign: 'center' }}>→ Deslize para ver mais áreas</p>
           <div style={styles.counter}>
@@ -1622,7 +1669,7 @@ export default function Admin() {
                     <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
                       {request.user_response && <p><strong>Mensagem de correção:</strong> {request.user_response}</p>}
                       {(paymentHistoryById[request.id] || []).map(entry => <div key={entry.id} style={{fontSize:11,color:'#68736F',margin:'6px 0',padding:'7px',background:'#F7F8F7',borderRadius:8}}>
-                        <div>{entry.action==='submitted'?'1.º envio':entry.action==='rejected'?'Recusa: '+(entry.reason||''):entry.action==='resubmitted'?'Reenviado / Corrigido':'Aprovado'} · {new Date(entry.created_at).toLocaleString('pt-AO')}{entry.express_sender_phone ? ' · Express '+entry.express_sender_phone : ''}{entry.user_response ? ' · '+entry.user_response : ''}</div>
+                        <div>{entry.action==='submitted'?'1.º envio':entry.action==='rejected'?'Recusa: '+(entry.reason||''):entry.action==='resubmitted'?'Reenviado / Corrigido':'Aprovado'} · {new Date(entry.created_at).toLocaleString('pt-AO')}{entry.user_response ? ' · '+entry.user_response : ''}</div>
                         {(entry.proof_image_url || entry.proof_file_url || entry.proof_url) && <button type="button" style={styles.proofLink} onClick={()=>openProof(entry.proof_image_url || entry.proof_file_url || entry.proof_url)}>Abrir comprovativo desta etapa ↗</button>}
                       </div>)}
                       {paths.image && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem do comprovativo ↗</button></p>}
@@ -1764,17 +1811,13 @@ export default function Admin() {
         </section>
 
         <section id="pagamentos-recusados" style={{marginTop:0,display:activeAdminSection==='pagamentos-recusados'?'block':'none'}}>
-          <div style={styles.titleRow}><div><h2 style={styles.title}>Pagamentos recusados</h2><p style={styles.description}>Revê os novos comprovativos e telefones enviados pelos vendedores após uma recusa.</p></div><div style={styles.counter}>{resubmissions.length} por analisar</div></div>
+          <div style={styles.titleRow}><div><h2 style={styles.title}>Pagamentos recusados</h2><p style={styles.description}>Revê os novos comprovativos e telefones enviados pelos vendedores após uma recusa.</p></div><div style={styles.counter}>{resubmissions.filter(item=>String(item.status||'').toLowerCase()==='pending').length} por analisar</div></div>
           {resubmissionError&&<div role="alert" style={{marginBottom:14,padding:12,borderRadius:10,background:'#FCEBED',color:'#A52F3B',fontSize:13}}>{resubmissionError}</div>}
-          {!resubmissions.length?<div style={styles.empty}><div style={styles.emptyIcon}>◇</div><h2>Sem novos comprovativos</h2><p>Os comprovativos corrigidos aparecerão aqui quando forem enviados.</p></div>:
+          {!resubmissions.some(item=>String(item.status||'').toLowerCase()==='pending')?<div style={styles.empty}><div style={styles.emptyIcon}>◇</div><h2>Nenhum reenvio pendente</h2><p>Quando um vendedor reenviar um comprovativo após a recusa, o pedido aparecerá aqui.</p></div>:
             <div style={styles.list}>{resubmissions.filter(item=>String(item.status||'').toLowerCase()==='pending').map(item=><article key={item.id} style={styles.card}>
               <div style={styles.cardTop}><div style={styles.logoPlaceholder}>₭</div><div style={{flex:1,minWidth:0}}>
                 <h3 style={styles.businessName}>{item.business?.name||'Negócio sem nome associado'}</h3>
                 <p style={styles.description}>Telefone novo: <strong>{item.phone}</strong></p>
-                <div style={{margin:'10px 0 8px',padding:'12px 14px',borderRadius:12,background:'#FFF4D6',border:'2px solid #D4AF37'}}>
-                  <div style={{fontSize:11,fontWeight:900,letterSpacing:'.08em',color:'#6B4C00',textTransform:'uppercase'}}>Número do Express / Referência</div>
-                  <div style={{fontSize:24,fontWeight:950,letterSpacing:'.04em',color:'#173F32',overflowWrap:'anywhere'}}>{item.express_number||'NÃO INFORMADO'}</div>
-                </div>
                 <p style={styles.description}>Reenviado em: {new Date(item.created_at).toLocaleString('pt-AO')}</p>
               </div></div>
               <p style={{fontSize:12,color:'#A52F3B',marginTop:10}}><strong>Motivo da recusa anterior:</strong> {item.sellerStatus?.reject_reason||'Motivo anterior não registado.'}</p>
@@ -1822,7 +1865,6 @@ export default function Admin() {
                   <div style={styles.details}>
                     <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
                     <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
-<p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
                     <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
                     {(() => {
                       const paths = getPaymentProofPaths(request);
