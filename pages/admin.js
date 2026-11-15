@@ -989,6 +989,20 @@ export default function Admin() {
     if (!approved && (!rejectionReason || !rejectionReason.trim())) return;
     if (reviewingPaymentId) return;
 
+    if (approved && String(request.payment_method || '').trim().toLowerCase() === 'express') {
+      const senderPhone = String(request.express_sender_phone || '').replace(/\s+/g, '');
+      if (!/^\+2449\d{8}$/.test(senderPhone)) {
+        alert('Não é possível confirmar este pagamento Express: falta um número de remetente válido (+244 9XX XXX XXX).');
+        return;
+      }
+      const { data: planRow, error: planCheckError } = await supabase
+        .from('plans').select('price').eq('id', request.plan_id).maybeSingle();
+      if (planCheckError || !planRow || Number(planRow.price) !== Number(request.amount)) {
+        alert('Não é possível confirmar este pagamento Express: o valor enviado não corresponde ao valor do plano.');
+        return;
+      }
+      if (!window.confirm('Confirma que verificou no extrato Express que o número ' + senderPhone + ' enviou exatamente ' + Number(request.amount).toLocaleString('pt-AO') + ' Kz? Só confirme se número e valor coincidirem.')) return;
+    }
     setReviewingPaymentId(request.id);
     const nextStatus = approved ? 'approved' : 'rejected';
     const reviewedAt = new Date().toISOString();
@@ -1526,6 +1540,7 @@ export default function Admin() {
                     </div>
                     <div style={styles.details}>
                       <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : '—'}</p>
+<p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
                       {paths.image && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem do comprovativo ↗</button></p>}
                       {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir comprovativo PDF ↗</button></p>}
                       {!paths.image && !paths.file && <p style={{ color: '#9B3A28' }}>Este pedido não contém um ficheiro de comprovativo válido.</p>}
@@ -1693,6 +1708,7 @@ export default function Admin() {
                   </div>
                   <div style={styles.details}>
                     <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
+<p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
                     <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
                     {(() => {
                       const paths = getPaymentProofPaths(request);
