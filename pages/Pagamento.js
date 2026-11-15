@@ -253,6 +253,7 @@ export default function Pagamento() {
       const kind = String(planResult.data.plan_type || '').trim().toLowerCase();
       const planCategoryMatches =
         kind === 'hospedagem' &&
+        planResult.data.is_active === true &&
         String(planResult.data.category_id || '') === String(businessResult.data.category_id || '');
       const planHasSubcategory = Boolean(planResult.data.subcategory_id);
       const planSubcategoryMatches =
@@ -266,7 +267,7 @@ export default function Pagamento() {
           .eq('category_id', businessResult.data.category_id)
           .eq('subcategory_id', businessResult.data.subcategory_id)
           .eq('is_active', true)
-          .ilike('plan_type', 'hospedagem');
+          .ilike('plan_type', 'hospedagem%');
         if (specificPlansError) {
           setError('Não foi possível validar os planos desta subcategoria. Tente novamente.');
           setLoading(false);
