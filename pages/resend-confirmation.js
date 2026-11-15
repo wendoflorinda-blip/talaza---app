@@ -26,14 +26,14 @@ export default function ResendConfirmation() {
       const { data, error: renewalError } = await supabase.functions.invoke('talaza-signup-proof', {
         body: { action: 'renew', email: normalized },
       });
-      if (renewalError || data?.ok !== true) throw new Error('RENEW_FAILED');
+      if (renewalError || data?.ok !== true || data?.version !== 4) throw new Error('RENEW_FAILED');
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
         email: normalized,
         options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
       });
       if (resendError) throw resendError;
-      setMessage('Se existir um cadastro pendente para este e-mail, enviámos um novo link. O envelope cifrado fica válido durante 72 horas.');
+      setMessage('Se existir um cadastro pendente para este e-mail, enviámos um novo link. Renovámos o envelope cifrado completo (país, província, nome, telefone, género, data de nascimento e e-mail) por mais 72 horas.');
     } catch (e) {
       console.error('Erro ao reenviar confirmação:', e);
       setError('Não foi possível reenviar agora. Confirma o endereço e tenta novamente.');
