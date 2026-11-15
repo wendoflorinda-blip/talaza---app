@@ -906,7 +906,7 @@ export default function Seller() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <NotificationsPanel userId={user?.id} />
+            <NotificationsPanel userId={user?.id} audience="seller" />
             <TalazaMenu
               country={business?.country_id || country}
               province={business?.province_id || province}
