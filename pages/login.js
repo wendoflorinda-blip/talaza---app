@@ -54,7 +54,7 @@ export default function Login() {
       // uma sessão real. A partir daqui, falhas de leitura do perfil não
       // podem transformar um login válido numa mensagem de credenciais erradas.
       if (!user || !session?.access_token) {
-        throw new Error('A autenticação não devolveu uma sessão válida. Tente novamente.');
+        throw new Error('LOGIN_SESSION_UNAVAILABLE');
       }
 
       // Um destino interno explícito (ex.: /media) tem prioridade.
@@ -167,16 +167,13 @@ export default function Login() {
         message.includes('invalid credentials') ||
         err?.code === 'invalid_credentials'
       ) {
-        setError('O Supabase não encontrou uma combinação válida para este e-mail e palavra-passe. Confirme se o e-mail está escrito exatamente como foi usado no cadastro ou recupere a palavra-passe.');
+        setError('E-mail ou palavra-passe incorretos. Verifica e tenta novamente.');
       } else if (message.includes('email not confirmed')) {
         setError(
           'Ainda não confirmaste o teu email. Verifica a tua caixa de entrada e clica no link.'
         );
       } else {
-        setError(
-          err?.message ||
-            'Não foi possível entrar. Verifique a ligação e tente novamente.'
-        );
+        setError('Não foi possível entrar neste momento. Verifica os teus dados e tenta novamente.');
       }
     } finally {
       setLoading(false);
@@ -213,10 +210,7 @@ export default function Login() {
       );
     } catch (err) {
       console.error('Erro ao recuperar palavra-passe:', err);
-      setError(
-        err?.message ||
-          'Não foi possível enviar o link de recuperação. Tente novamente.'
-      );
+      setError('Não foi possível enviar o link de recuperação neste momento. Verifica o e-mail e tenta novamente.');
     } finally {
       setLoading(false);
     }
