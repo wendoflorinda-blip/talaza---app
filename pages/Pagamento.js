@@ -323,6 +323,7 @@ export default function Pagamento() {
         if (requestedPlan) setPlan(requestedPlan);
       }
       setPendingPaymentReference(pendingPayment);
+      if (pendingPayment.express_sender_phone) setExpressSenderPhone(pendingPayment.express_sender_phone);
     }
     setLoading(false);
   }
