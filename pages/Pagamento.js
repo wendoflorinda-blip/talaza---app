@@ -145,6 +145,7 @@ export default function Pagamento() {
   const [imageThumb, setImageThumb] = useState('');
   const [pdfFile, setPdfFile] = useState(null);
   const [expressSenderPhone, setExpressSenderPhone] = useState('');
+  const [submittedExpressPhone, setSubmittedExpressPhone] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -346,6 +347,12 @@ export default function Pagamento() {
       return;
     }
 
+    const normalizedExpressPhone = '+244' + expressSenderPhone.replace(/\D/g, '').replace(/^244/, '');
+    if (!/^\+2449\d{8}$/.test(normalizedExpressPhone)) {
+      setError('Introduza um número Express angolano válido no formato +244 9XX XXX XXX.');
+      return;
+    }
+
     if (!user?.id || (!business?.id && !eventRecord?.id && !premiumPromotion?.id && !isOpportunitySubscription) || !plan?.id) {
       setError('A sessão ou os dados do pagamento expiraram. Atualize a página e tente novamente.');
       return;
@@ -407,6 +414,7 @@ export default function Pagamento() {
         amount: Number(plan.price),
         currency: 'Kz',
         payment_method: 'Express',
+        express_sender_phone: normalizedExpressPhone,
         proof_url: imagePath || pdfPath,
         proof_type: imagePath && pdfPath ? 'image+pdf' : imagePath ? 'jpg' : 'pdf',
         status: 'pending',
@@ -450,6 +458,7 @@ export default function Pagamento() {
         if (promotionUpdateError) console.warn('O comprovativo foi registado, mas não foi possível atualizar o estado da publicação:', promotionUpdateError);
       }
 
+      setSubmittedExpressPhone(normalizedExpressPhone);
       setDone(true);
       window.scrollTo(0, 0);
     } catch (err) {
