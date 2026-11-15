@@ -61,6 +61,9 @@ export default function Impulsionar() {
   const [promotions, setPromotions] = useState([]);
   const [hostingSubscription, setHostingSubscription] = useState(null);
   useEffect(() => { if (router.isReady) loadData(); }, [router.isReady]);
+  useEffect(() => {
+    if (router.isReady && router.query.tab === 'hospedagem') setActiveTab('hospedagem');
+  }, [router.isReady, router.query.tab]);
   async function loadData() {
     setLoading(true); setError('');
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
