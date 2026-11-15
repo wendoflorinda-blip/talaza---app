@@ -1022,8 +1022,8 @@ export default function Seller() {
           </div>
         </section>
 
-          {String(sellerReview?.status || '').toLowerCase() === 'rejected' ? (
-            <button type="button" onClick={() => { setResubmissionPhone(business.phone || ''); setResubmissionError(''); setShowRejectionModal(true); }} style={{ display:'inline-flex', marginTop:18, padding:'10px 14px', borderRadius:999, background:'#FCEBED', color:'#A52F3B', border:'1px solid #E9B8BE', fontSize:12, fontWeight:900, cursor:'pointer' }}>Conta não ativa · Ver motivo da recusa →</button>
+          {String(sellerReview?.status || business.approval_status || '').toLowerCase() === 'rejected' ? (
+            <Link href={{ pathname: '/seller-reenvio', query: { business: business.id } }} style={{ display:'inline-flex', alignItems:'center', marginTop:18, padding:'10px 14px', borderRadius:999, background:'#FCEBED', color:'#A52F3B', border:'1px solid #E9B8BE', fontSize:12, fontWeight:900, cursor:'pointer', textDecoration:'none' }}>Perfil criado · validação recusada →</Link>
           ) : (subscriptionPending && pendingPlan?.id ? (
             <Link
               href={{ pathname: '/Pagamento', query: { plan: pendingPlan.id, business: business.id, status: 'verification' } }}
