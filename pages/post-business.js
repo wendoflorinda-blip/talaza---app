@@ -256,6 +256,15 @@ export default function PostBusiness() {
     setStep(3); window.scrollTo(0, 0);
   }
 
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('IMAGE_READ_FAILED'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
   // Passo 3: só agora é criada a conta, com o envelope cifrado completo.
   async function submitRegistration(e) {
     e.preventDefault(); setError('');
@@ -271,6 +280,13 @@ export default function PostBusiness() {
         business_phone: fullPhone(dial, phone), whatsapp: whatsapp.trim() ? fullPhone(dial, whatsapp) : null,
         opening_hours: `${days}, ${opensAt} às ${closesAt}`,
       };
+      const pendingMedia = {};
+      if (logoFile) pendingMedia.logo = await blobToDataUrl(await resizeImage(logoFile, { max:640, square:true }));
+      if (coverFile) pendingMedia.cover = await blobToDataUrl(await resizeImage(coverFile, { max:1280 }));
+      if (Object.keys(pendingMedia).length) {
+        try { localStorage.setItem('talaza_pending_seller_media', JSON.stringify(pendingMedia)); }
+        catch { throw new Error('IMAGE_STORAGE_LIMIT'); }
+      }
       const { data: proofData, error: proofError } = await supabase.functions.invoke('talaza-signup-proof', {
         body: { action:'encrypt', signup_type:'seller', country_id:countryId, province_id:provinceId,
           name:profileName.trim(), phone:fullPhone(dial,phone), gender:gender.toLowerCase(),
