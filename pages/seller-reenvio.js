@@ -70,10 +70,6 @@ export default function SellerResubmissionPage() {
       });
       if (insertError) throw insertError;
       uploadedPath = '';
-      const { error: statusError } = await supabase.from('seller_status').upsert({
-        seller_id:user.id, status:'pending', updated_at:new Date().toISOString()
-      }, { onConflict:'seller_id' });
-      if (statusError) throw statusError;
       const { error: businessError } = await supabase.from('businesses')
         .update({ approval_status:'pending' }).eq('id',business.id).eq('owner_id',user.id);
       if (businessError) throw businessError;
@@ -95,10 +91,10 @@ export default function SellerResubmissionPage() {
       <h1 style={{fontSize:26,color:'#075B4E',margin:'8px 0'}}>Corrigir e reenviar comprovativo</h1>
       <p style={{color:'#52635E',lineHeight:1.6}}>Negócio: <strong>{business.name}</strong></p>
       <div style={{background:'#FCEBED',border:'1px solid #E9B8BE',color:'#7E2630',padding:14,borderRadius:12,margin:'18px 0'}}>
-        <strong>Perfil criado · validação recusada</strong>
+        <strong>{String(business.approval_status || '').toLowerCase() === 'pending' ? 'Comprovativo reenviado · em análise' : 'Perfil criado · validação recusada'}</strong>
         <p style={{margin:'8px 0 0',lineHeight:1.55}}>{review?.reject_reason || 'A equipa Talaza recusou a validação. Consulte a equipa de suporte se o motivo não estiver disponível.'}</p>
       </div>
-      {String(review?.status || '').toLowerCase() === 'pending' && <p style={{color:'#805D00',background:'#FFF5D6',padding:12,borderRadius:10}}>Já existe uma correção em análise.</p>}
+      {String(business?.approval_status || '').toLowerCase() === 'pending' || String(review?.status || '').toLowerCase() === 'pending' && <p style={{color:'#805D00',background:'#FFF5D6',padding:12,borderRadius:10}}>Já existe uma correção em análise.</p>}
       {error && <p role="alert" style={{color:'#A52F3B',background:'#FCEBED',padding:12,borderRadius:10}}>{error}</p>}
       {notice && <p role="status" style={{color:'#17643B',background:'#E6F5EC',padding:12,borderRadius:10}}>{notice}</p>}
       <form onSubmit={submit}>
