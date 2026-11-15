@@ -158,7 +158,8 @@ export default function AuthCallback() {
           setMessage(mediaUploadWarning
             ? 'Email confirmado. O teu negócio foi registado e está pendente de aprovação. Podes adicionar as imagens do negócio no painel.'
             : 'Email confirmado. O teu negócio foi registado e está pendente de aprovação.');
-          await router.replace('/seller');
+          setMessage('Email confirmado. A abrir os planos de hospedagem da sua categoria…');
+          await router.replace({ pathname: '/impulsionar', query: { tab: 'hospedagem' } });
           return;
         }
 
