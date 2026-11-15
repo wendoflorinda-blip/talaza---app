@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
-export default function NotificationsPanel({ userId: suppliedUserId }) {
+export default function NotificationsPanel({ userId: suppliedUserId, audience = 'seller' }) {
   const router = useRouter();
   const [userId, setUserId] = useState(suppliedUserId || null);
   const [notifications, setNotifications] = useState([]);
@@ -17,17 +17,17 @@ export default function NotificationsPanel({ userId: suppliedUserId }) {
   },[suppliedUserId]);
   const loadNotifications = useCallback(async () => {
     if(!userId)return;
-    const {data,error:queryError}=await supabase.from('notifications').select('id,created_at,user_id,type,title,content,is_read,link').eq('user_id',userId).order('created_at',{ascending:false}).limit(100);
+    const {data,error:queryError}=await supabase.from('notifications').select('id,created_at,user_id,type,title,content,is_read,link').eq('user_id',userId).eq('audience',audience).order('created_at',{ascending:false}).limit(100);
     if(queryError){setError('Não foi possível carregar as notificações: '+queryError.message);setLoading(false);return;}
     setNotifications(data||[]);setError('');setLoading(false);
-  },[userId]);
+  },[userId,audience]);
   useEffect(()=>{if(userId)loadNotifications();},[userId,loadNotifications]);
   useEffect(()=>{if(!userId)return;const channel=supabase.channel('talaza-notifications-'+userId).on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+userId},()=>loadNotifications()).subscribe();return()=>{supabase.removeChannel(channel);};},[userId,loadNotifications]);
   async function openNotification(item){
-    if(!item.is_read){const {error:updateError}=await supabase.from('notifications').update({is_read:true}).eq('id',item.id).eq('user_id',userId);if(updateError){setError('Não foi possível marcar como lida: '+updateError.message);return;}setNotifications(rows=>rows.map(row=>row.id===item.id?{...row,is_read:true}:row));}
+    if(!item.is_read){const {error:updateError}=await supabase.from('notifications').update({is_read:true}).eq('id',item.id).eq('user_id',userId).eq('audience',audience);if(updateError){setError('Não foi possível marcar como lida: '+updateError.message);return;}setNotifications(rows=>rows.map(row=>row.id===item.id?{...row,is_read:true}:row));}
     setOpen(false);const target=String(item.link||'');if(target.startsWith('/')&&!target.startsWith('//'))router.push(target);
   }
-  async function markAllAsRead(){const ids=notifications.filter(item=>!item.is_read).map(item=>item.id);if(!ids.length)return;const {error:updateError}=await supabase.from('notifications').update({is_read:true}).in('id',ids).eq('user_id',userId);if(updateError){setError(updateError.message);return;}setNotifications(rows=>rows.map(row=>({...row,is_read:true})));}
+  async function markAllAsRead(){const ids=notifications.filter(item=>!item.is_read).map(item=>item.id);if(!ids.length)return;const {error:updateError}=await supabase.from('notifications').update({is_read:true}).in('id',ids).eq('user_id',userId).eq('audience',audience);if(updateError){setError(updateError.message);return;}setNotifications(rows=>rows.map(row=>({...row,is_read:true})));}
   const unreadCount=notifications.filter(item=>!item.is_read).length;
   return <div style={{position:'relative'}}>
     <button type="button" aria-label="Notificações" aria-expanded={open} onClick={()=>setOpen(value=>!value)} style={{position:'relative',width:40,height:40,border:'1px solid rgba(255,255,255,.3)',borderRadius:12,background:'rgba(255,255,255,.1)',color:'#FFFFFF',display:'grid',placeItems:'center',cursor:'pointer'}}>
