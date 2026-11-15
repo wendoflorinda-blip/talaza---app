@@ -1562,7 +1562,7 @@ export default function Admin() {
                         <h3 style={styles.businessName}>{event?.title || 'Evento associado'}</h3>
                         <div style={styles.meta}>Responsável: {profiles.find(profile => profile.id === (event?.user_id || request.user_id))?.name || 'Nome não disponível'} · Plano: {planNames[request.plan_id] || 'Plano de evento'} · {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : ''}</div>
                       </div>
-                      <span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span>
+                      <span style={pending ? styles.pending : styles.paymentStatus}>{request.resubmitted_from_id || (paymentHistoryById[request.id] || []).some(entry=>entry.action==='resubmitted') ? 'Reenviado / Corrigido' : (request.status || 'Sem estado')}</span>
                     </div>
                     <div style={styles.details}>
                       <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : '—'}</p>
