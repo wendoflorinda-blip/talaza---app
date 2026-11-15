@@ -139,7 +139,7 @@ export default function MediaPayment() {
             <p style={{ margin: '8px 0', color: '#5E6B7A', fontSize: 14 }}>Candidatura: <b>{application?.application_status || 'não disponível'}</b></p>
             <p style={{ margin: '8px 0', color: '#5E6B7A', fontSize: 14 }}>Pagamento: <b>{payment?.status || 'a aguardar comprovativo'}</b></p>
             {payment?.status === 'rejected' && payment.review_notes && <p style={{ color: '#A12B36', fontSize: 13 }}>Observação: {payment.review_notes}</p>}
-            {payment?.status === 'approved' && <p style={{ color: '#17604E', fontSize: 13 }}>Pagamento confirmado. A candidatura ainda precisa de aprovação administrativa para ativar o perfil.</p>}
+            {payment?.status === 'approved' && <p style={{ color: '#17604E', fontSize: 13 }}>Pagamento confirmado. O teu perfil de Criador está ativo. Já podes abrir e usar a MÍDIA TALAZA.</p>}
             {signedProof && <a href={signedProof} target="_blank" rel="noreferrer" style={{ color: '#155C4E', fontWeight: 800 }}>Ver comprovativo enviado</a>}
           </section>
 
