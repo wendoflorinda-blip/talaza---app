@@ -82,7 +82,7 @@ export default function Signup() {
     if (password.length<6) return setError('A senha deve ter pelo menos 6 caracteres.');
     setLoading(true); setError('');
     try {
-      const { data: proofData, error: proofError } = await supabase.functions.invoke('talaza-signup-proof', { body: { action:'encrypt', email:email.trim().toLowerCase(), name:fullName.trim(), phone:fullPhone(dial,phone), gender:gender.toLowerCase(), date_of_birth:dateOfBirth } });
+      const { data: proofData, error: proofError } = await supabase.functions.invoke('talaza-signup-proof', { body: { action:'encrypt', signup_type:'explorer', country_id:countryId, province_id:provinceId, email:email.trim().toLowerCase(), name:fullName.trim(), phone:fullPhone(dial,phone), gender:gender.toLowerCase(), date_of_birth:dateOfBirth } });
       if (proofError || !proofData?.proof) throw new Error('PROOF_FAILED');
       const pendingExplorer = { name:fullName.trim(), country_id:countryId, province_id:provinceId, phone:fullPhone(dial,phone), gender:gender.toLowerCase() };
       const { data: authData, error: authError } = await supabase.auth.signUp({
