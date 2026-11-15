@@ -164,9 +164,7 @@ export default function Signup() {
       if (authError) {
         console.error(authError);
         setError(
-          authError.message?.toLowerCase().includes('already registered')
-            ? 'Este e-mail já tem uma conta. Volte à página inicial e toque em Entrar.'
-            : authError.message || 'Não foi possível criar a conta.'
+          'Não foi possível concluir o cadastro com estes dados. Verifica as informações ou entra na tua conta.'
         );
         return;
       }
@@ -177,7 +175,7 @@ export default function Signup() {
       }
 
       if (Array.isArray(authData.user.identities) && authData.user.identities.length === 0) {
-        setError('Este e-mail já tem uma conta. Volte à página inicial e toque em Entrar.');
+        setError('Não foi possível concluir o cadastro com estes dados. Verifica as informações ou entra na tua conta.');
         return;
       }
 
@@ -191,7 +189,7 @@ export default function Signup() {
       );
     } catch (err) {
       console.error(err);
-      setError(err?.message || 'Ocorreu um erro. Tente novamente.');
+      setError('Não foi possível concluir o cadastro neste momento. Verifica os dados e tenta novamente.');
     } finally {
       setLoading(false);
     }
