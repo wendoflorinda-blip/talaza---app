@@ -164,7 +164,12 @@ export default function Pagamento() {
   useEffect(() => {
     if (!router.isReady) return;
 
-    if (!planId || (!businessId && !eventId && !premiumPromotionId && !isOpportunitySubscription)) {
+    if (isOpportunitySubscription) {
+      setError('O acesso pago às Oportunidades para Exploradores e Criadores ainda não está disponível. Esta funcionalidade será configurada futuramente.');
+      setLoading(false);
+      return;
+    }
+    if (!planId || (!businessId && !eventId && !premiumPromotionId)) {
       router.replace('/impulsionar');
       return;
     }
@@ -186,7 +191,12 @@ export default function Pagamento() {
     }
 
     setUser(session.user);
-    const { data: senderProfile } = await supabase.from('profiles').select('phone').eq('id', session.user.id).maybeSingle();
+    const { data: senderProfile } = await supabase.from('profiles').select('phone,account_type').eq('id', session.user.id).maybeSingle();
+    if (String(senderProfile?.account_type || '').toLowerCase() !== 'vendedor') {
+      setError('Os pagamentos disponíveis nesta fase são exclusivos de contas de Vendedor. Exploradores e Criadores não pagam para entrar na Talaza.');
+      setLoading(false);
+      return;
+    }
     const initialSenderPhone = String(senderProfile?.phone || session.user.user_metadata?.phone || '').trim();
     setExpressSenderPhone(initialSenderPhone);
 
