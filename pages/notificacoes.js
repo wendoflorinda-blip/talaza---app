@@ -73,7 +73,7 @@ export default function Notificacoes() {
       const { data: rows, error: queryError } = await supabase
         .from('notifications')
         .select('id, title, content, type, created_at, user_id, is_read, reference_id')
-        .eq('user_id', data.user.id)
+        .eq('user_id', data.user.id).eq('audience', 'explorer')
         .order('created_at', { ascending: false })
         .limit(150);
       if (!active) return;
@@ -97,7 +97,7 @@ export default function Notificacoes() {
       }, async () => {
         const { data, error: refreshError } = await supabase.from('notifications')
           .select('id, title, content, type, created_at, user_id, is_read, reference_id')
-          .eq('user_id', user.id).order('created_at', { ascending:false }).limit(150);
+          .eq('user_id', user.id).eq('audience', 'explorer').order('created_at', { ascending:false }).limit(150);
         if (!refreshError) setItems(data || []);
       }).subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -121,7 +121,7 @@ export default function Notificacoes() {
     const previous = items;
     setItems(current => current.map(item => ({ ...item, is_read: true })));
     const { error: updateError } = await supabase.from('notifications')
-      .update({ is_read: true }).eq('user_id', user.id).eq('is_read', false);
+      .update({ is_read: true }).eq('user_id', user.id).eq('audience', 'explorer').eq('is_read', false);
     if (updateError) {
       setItems(previous);
       setError('Não foi possível marcar todas como lidas. ' + updateError.message);
@@ -132,7 +132,7 @@ export default function Notificacoes() {
     if (item.is_read || !user) return;
     setItems(current => current.map(row => row.id === item.id ? { ...row, is_read: true } : row));
     const { error: updateError } = await supabase.from('notifications')
-      .update({ is_read: true }).eq('id', item.id).eq('user_id', user.id);
+      .update({ is_read: true }).eq('id', item.id).eq('user_id', user.id).eq('audience', 'explorer');
     if (updateError) {
       setItems(current => current.map(row => row.id === item.id ? { ...row, is_read: false } : row));
       setError('Não foi possível atualizar esta notificação. ' + updateError.message);
@@ -201,7 +201,7 @@ export default function Notificacoes() {
     const previous = items;
     setItems(current => current.filter(row => row.id !== item.id));
     const { error: deleteError } = await supabase.from('notifications')
-      .delete().eq('id', item.id).eq('user_id', user.id);
+      .delete().eq('id', item.id).eq('user_id', user.id).eq('audience', 'explorer');
     if (deleteError) {
       setItems(previous);
       setError('Não foi possível apagar a notificação. ' + deleteError.message);
