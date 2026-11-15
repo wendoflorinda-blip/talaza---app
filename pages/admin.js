@@ -235,85 +235,41 @@ export default function Admin() {
   }
 
   async function loadSubscriptionRequests() {
-    setOpportunityAccessLoadError('');
-
-    // Carrega a fila geral e, em separado, os pagamentos do plano de
-    // Oportunidades. Assim, um filtro ou erro na fila geral não esconde este
-    // comprovativo administrativo.
-    const [allPaymentsResult, opportunityPaymentsResult] = await Promise.all([
-      supabase
-        .from('payment_submissions')
-        .select('*')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('payment_submissions')
-        .select('*')
-        .eq('plan_id', OPPORTUNITY_ACCESS_PLAN_ID)
-        .order('created_at', { ascending: false }),
-    ]);
-
-    if (allPaymentsResult.error) {
-      console.error('Erro ao carregar pagamentos gerais:', allPaymentsResult.error);
-      setMessage('Perfis carregados. Não foi possível carregar a fila geral de pagamentos: ' + allPaymentsResult.error.message);
+    const { data, error } = await supabase.from('payment_submissions')
+      .select('*').order('created_at',{ascending:false});
+    if (error) {
+      console.error('Erro ao carregar pagamentos dos vendedores:',error);
+      setMessage('Perfis carregados. Não foi possível carregar a fila de pagamentos: '+error.message);
+      setSubscriptionRequests([]);
+      return;
     }
-
-    if (opportunityPaymentsResult.error) {
-      console.error('Erro ao carregar pagamentos de acesso às Oportunidades:', opportunityPaymentsResult.error);
-      setOpportunityAccessLoadError('Não foi possível consultar os comprovativos de acesso às Oportunidades: ' + opportunityPaymentsResult.error.message);
-    }
-
-    const combinedRows = [
-      ...(allPaymentsResult.data || []),
-      ...(opportunityPaymentsResult.data || []),
-    ];
-    const uniqueRows = [...new Map(combinedRows.map(item => [item.id, item])).values()];
-
-    // Não exigir business_id/event_id/job_post_id para os planos de acesso.
-    // Mesmo um registo sem URL continua visível para permitir diagnóstico.
-    const requests = uniqueRows.filter((item) => {
-      const isOpportunityAccess = String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase();
-      const hasOtherPaymentLink = item.business_id || item.event_id || item.job_post_id || item.premium_promotion_id;
-      return isOpportunityAccess || (String(item.proof_url || '').trim() && hasOtherPaymentLink);
-    });
+    // O acesso às Oportunidades para Exploradores/Criadores fica suspenso nesta fase.
+    const requests = (data || []).filter(item =>
+      String(item.plan_id || '').trim().toLowerCase() !== OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase() &&
+      String(item.proof_url || '').trim() &&
+      (item.business_id || item.event_id || item.job_post_id || item.premium_promotion_id)
+    );
     setSubscriptionRequests(requests);
     const historyResult = requests.length
-      ? await supabase.from('payment_submission_history').select('*').eq('source_type','commercial').in('submission_id',requests.map(item=>item.id)).order('created_at',{ascending:true})
+      ? await supabase.from('payment_submission_history').select('*').eq('source_type','commercial')
+          .in('submission_id',requests.map(item=>item.id)).order('created_at',{ascending:true})
       : { data: [], error: null };
     if (!historyResult.error) {
       setPaymentHistoryById((historyResult.data || []).reduce((acc,row)=>{(acc[row.submission_id] ||= []).push(row);return acc;},{}));
     }
-
-    const hasOpportunityAccessRequest = requests.some(item =>
-      String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase()
-    );
-    // Mantém a área acessível também depois de uma recusa, para consultar
-    // o histórico e receber um novo comprovativo sem a secção desaparecer.
-    if (hasOpportunityAccessRequest) setActiveAdminSection('acessos-oportunidades');
-
-    const businessIds = [...new Set(requests.map(item => item.business_id).filter(Boolean))];
-    const planIds = [...new Set(requests.map(item => item.plan_id).filter(Boolean))];
-
+    const businessIds = [...new Set(requests.map(item=>item.business_id).filter(Boolean))];
+    const planIds = [...new Set(requests.map(item=>item.plan_id).filter(Boolean))];
     if (businessIds.length) {
-      const { data: businessRows, error: businessNamesError } = await supabase
-        .from('businesses').select('id, name').in('id', businessIds);
-      if (businessNamesError) console.error('Erro ao carregar nomes dos negócios:', businessNamesError);
-      else setBusinessNames(Object.fromEntries((businessRows || []).map(item => [item.id, item.name])));
+      const {data:businessRows,error:businessNamesError} = await supabase.from('businesses').select('id,name').in('id',businessIds);
+      if (businessNamesError) console.error('Erro ao carregar nomes dos negócios:',businessNamesError);
+      else setBusinessNames(Object.fromEntries((businessRows || []).map(item=>[item.id,item.name])));
     } else setBusinessNames({});
-
     if (planIds.length) {
-      const { data: planRows, error: planNamesError } = await supabase
-        .from('plans').select('id, name, title, plan_name, nome, duration_days').in('id', planIds);
-      if (planNamesError) console.error('Erro ao carregar nomes dos planos:', planNamesError);
+      const {data:planRows,error:planNamesError} = await supabase.from('plans').select('id,name,title,plan_name,nome,duration_days').in('id',planIds);
+      if (planNamesError) console.error('Erro ao carregar nomes dos planos:',planNamesError);
       else {
         const namesById = {};
-        (planRows || []).forEach((item) => {
-          namesById[item.id] =
-            item.name ||
-            item.title ||
-            item.plan_name ||
-            item.nome ||
-            (item.duration_days ? String(item.duration_days) + ' dias' : 'Plano');
-        });
+        (planRows || []).forEach(item=>{namesById[item.id]=item.name || item.title || item.plan_name || item.nome || 'Plano';});
         setPlanNames(namesById);
       }
     } else setPlanNames({});
@@ -993,6 +949,10 @@ export default function Admin() {
   }
 
   async function reviewPayment(request, approved) {
+    if (String(request?.plan_id || '').toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase()) {
+      alert('Os pagamentos de acesso às Oportunidades estão suspensos nesta fase. Esta funcionalidade será configurada futuramente.');
+      return;
+    }
     let rejectionReason = '';
     if (!approved) {
       const choice = window.prompt(
@@ -1799,60 +1759,12 @@ export default function Admin() {
           )}
         </section>
 
-        <section id="acessos-oportunidades" style={{ marginTop: 0, display: activeAdminSection === 'acessos-oportunidades' ? 'block' : 'none' }}>
-          {opportunityAccessLoadError && <div role="alert" style={styles.errorBox}>{opportunityAccessLoadError}</div>}
-          <div style={styles.titleRow}>
-            <div>
-              <h2 style={styles.title}>Comprovativos de acesso às Oportunidades</h2>
-              <p style={styles.description}>Analise os pagamentos do plano de acesso. Esta fila é independente da aprovação gratuita das vagas publicadas em Contratar.</p>
-            </div>
-            <div style={styles.counter}>{subscriptionRequests.filter(item => item.plan_id === OPPORTUNITY_ACCESS_PLAN_ID && String(item.status || '').toLowerCase() === 'pending').length} por analisar</div>
+        <section id="acessos-oportunidades" style={{ marginTop:0, display:activeAdminSection==='acessos-oportunidades'?'block':'none' }}>
+          <div style={styles.empty}>
+            <div style={styles.emptyIcon}>◇</div>
+            <h2>Acesso às Oportunidades</h2>
+            <p>Os pagamentos para Exploradores e Criadores ainda não estão disponíveis. Esta funcionalidade será configurada futuramente. Nesta fase, apenas os pagamentos dos Vendedores são recebidos.</p>
           </div>
-          {subscriptionRequests.filter(item => String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase()).length === 0 ? (
-            <div style={styles.empty}><div style={styles.emptyIcon}>◇</div><h2>Sem comprovativos de acesso</h2><p>Os comprovativos enviados para o plano de Oportunidades aparecerão aqui.</p></div>
-          ) : (
-            <div style={styles.list}>
-              {subscriptionRequests.filter(item => String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase()).map(request => {
-                const pending = String(request.status || '').toLowerCase() === 'pending';
-                const paths = getPaymentProofPaths(request);
-                const imageUrl = paymentProofUrls[request.id + ':image'];
-                const fileUrl = paymentProofUrls[request.id + ':file'];
-                const owner = profiles.find(profile => profile.id === request.user_id);
-                return <article key={request.id} style={styles.card}>
-                  <div style={styles.cardTop}>
-                    <div style={styles.logoPlaceholder}>OP</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={styles.businessName}>Acesso às Oportunidades</h3>
-                      <div style={styles.meta}>Responsável: {owner?.name || request.user_id} · Plano: {planNames[request.plan_id] || 'Plano de Oportunidades'}</div>
-                    </div>
-                    <span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span>
-                  </div>
-                  <div style={styles.details}>
-                    <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
-                    <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
-                    <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
-                    <p><strong>Localização da conta:</strong> {owner?.country_id || request.country_id || 'País não identificado'} · {owner?.province_id || request.province_id || 'Província não identificada'}</p>
-                    <div style={{ marginTop: 12, padding: 12, border: '1px solid #DCE6E1', borderRadius: 12, background: '#FAFCFB' }}>
-                      <p style={{ marginTop: 0 }}><strong>Comprovativo enviado:</strong></p>
-                      {paths.image && (imageUrl
-                        ? <a href={imageUrl} target="_blank" rel="noreferrer"><img src={imageUrl} alt="Comprovativo de acesso às Oportunidades" style={{ display: 'block', maxWidth: '100%', width: 280, maxHeight: 360, objectFit: 'contain', border: '1px solid #DCE6E1', borderRadius: 8, background: '#fff' }} /></a>
-                        : <p>A preparar a imagem do comprovativo…</p>)}
-                      {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir/baixar comprovativo PDF ↗</button></p>}
-                      {!paths.image && !paths.file && <p style={{ color: '#9B3A28' }}>Este pedido não contém um comprovativo legível.</p>}
-                      {paths.image && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem em tamanho completo ↗</button></p>}
-                    </div>
-                  </div>
-                  <div style={styles.actions}>
-                    {pending && <>
-                      <button disabled={reviewingPaymentId === request.id} style={styles.reject} onClick={() => reviewPayment(request, false)}>Rejeitar pagamento</button>
-                      <button disabled={reviewingPaymentId === request.id} style={styles.approve} onClick={() => reviewPayment(request, true)}>Confirmar pagamento e ativar acesso</button>
-                    </>}
-                    <button type="button" disabled={deletingPaymentId === request.id} style={styles.reject} onClick={() => deletePaymentProof(request)}>{deletingPaymentId === request.id ? 'A eliminar…' : 'Eliminar comprovativo'}</button>
-                  </div>
-                </article>;
-              })}
-            </div>
-          )}
         </section>
 
         <section id="destaques-premium" style={{ marginTop: 0, display: activeAdminSection === 'destaques-premium' ? 'block' : 'none' }}>
