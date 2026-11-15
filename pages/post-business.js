@@ -111,11 +111,9 @@ export default function PostBusiness() {
 
   useEffect(() => {
     setSubcategoryId('');
+    setSubcategories([]);
 
-    if (!categoryId) {
-      setSubcategories([]);
-      return;
-    }
+    if (!categoryId) return;
 
     loadSubcategories(categoryId);
   }, [categoryId]);
@@ -234,6 +232,9 @@ export default function PostBusiness() {
       return;
     }
 
+    // Ignora respostas atrasadas de uma categoria que já deixou de estar selecionada.
+    if (categoryId !== id) return;
+
     setSubcategories(data || []);
   }
 
@@ -267,6 +268,12 @@ export default function PostBusiness() {
     if (!storeName.trim()) return setError('Digite o nome da loja.');
     if (!categoryId) return setError('Escolha uma categoria.');
     if (!subcategoryId) return setError('Escolha uma subcategoria.');
+    const selectedSubcategory = subcategories.find(
+      (subcategory) => subcategory.id === subcategoryId
+    );
+    if (!selectedSubcategory) {
+      return setError('A subcategoria escolhida não pertence à categoria selecionada. Escolha novamente.');
+    }
     if (whatsapp.trim() && !validAngolanPhone(whatsapp, dial)) return setError('O contacto deve ter 9 dígitos.');
     setStep(3); window.scrollTo(0, 0);
   }
