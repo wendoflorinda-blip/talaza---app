@@ -1438,7 +1438,6 @@ export default function Admin() {
             {[
               ['vendedores', 'Vendedores', pendingBusinessCount],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
-              ['pagamentos-recusados', 'Pagamentos recusados', resubmissions.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase() && String(item.status || '').trim().toLowerCase() === 'pending').length],
               ['girassol', 'Reactivação Girassol', girassolReactivations.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['destaques-premium', 'Destaques Premium', subscriptionRequests.filter(item => item.premium_promotion_id && String(item.status || '').toLowerCase() === 'pending').length],
@@ -1459,8 +1458,8 @@ export default function Admin() {
                 }}
                 aria-pressed={activeAdminSection === key}
                 style={{
+                  order: key === 'vendedores' ? 0 : key === 'pagamentos' ? 1 : 3,
                   flex: '0 0 auto',
-                  display: 'inline-flex',
                   alignItems: 'center',
                   gap: 10,
                   padding: '13px 18px',
@@ -1497,6 +1496,36 @@ export default function Admin() {
                 )}
               </button>
             ))}
+              <button
+                key="pagamentos-recusados"
+                type="button"
+                onClick={() => {
+                  setActiveAdminSection('pagamentos-recusados');
+                  loadPaymentResubmissions();
+                }}
+                aria-pressed={activeAdminSection === 'pagamentos-recusados'}
+                style={{
+                  order: 2,
+                  flex: '0 0 auto',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '13px 18px',
+                  borderRadius: 999,
+                  border: '2px solid #C62828',
+                  background: activeAdminSection === 'pagamentos-recusados' ? '#9E1B1B' : '#FFF5F5',
+                  color: activeAdminSection === 'pagamentos-recusados' ? '#FFFFFF' : '#9E1B1B',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Pagamentos recusados
+                <span style={{ minWidth: 25, height: 25, padding: '0 7px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, background: '#C62828', color: '#FFFFFF', fontWeight: 900 }}>
+                  {resubmissions.filter(item => String(item.status || '').toLowerCase() === 'pending').length}
+                </span>
+              </button>
           </nav>
           <p style={{ margin: '0 0 24px', color: '#64756F', fontSize: 13, textAlign: 'center' }}>→ Deslize para ver mais áreas</p>
           <div style={styles.counter}>
@@ -1667,9 +1696,9 @@ export default function Admin() {
                     <div style={styles.details}>
                       <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : '—'}</p>
                     <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
-                      {request.user_response && <p><strong>Mensagem de correção:</strong> {request.user_response}</p>}
+                      {request.user_response && String(request.user_response).trim() !== String(request.express_sender_phone || '').trim() && <p><strong>Mensagem de correção:</strong> {request.user_response}</p>}
                       {(paymentHistoryById[request.id] || []).map(entry => <div key={entry.id} style={{fontSize:11,color:'#68736F',margin:'6px 0',padding:'7px',background:'#F7F8F7',borderRadius:8}}>
-                        <div>{entry.action==='submitted'?'1.º envio':entry.action==='rejected'?'Recusa: '+(entry.reason||''):entry.action==='resubmitted'?'Reenviado / Corrigido':'Aprovado'} · {new Date(entry.created_at).toLocaleString('pt-AO')}{entry.user_response ? ' · '+entry.user_response : ''}</div>
+                        <div>{entry.action==='submitted'?'1.º envio':entry.action==='rejected'?'Recusa: '+(entry.reason||''):entry.action==='resubmitted'?'Reenviado / Corrigido':'Aprovado'} · {new Date(entry.created_at).toLocaleString('pt-AO')}{entry.user_response && String(entry.user_response).trim() !== String(request.express_sender_phone || '').trim() ? ' · '+entry.user_response : ''}</div>
                         {(entry.proof_image_url || entry.proof_file_url || entry.proof_url) && <button type="button" style={styles.proofLink} onClick={()=>openProof(entry.proof_image_url || entry.proof_file_url || entry.proof_url)}>Abrir comprovativo desta etapa ↗</button>}
                       </div>)}
                       {paths.image && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem do comprovativo ↗</button></p>}
