@@ -436,7 +436,8 @@ export default function Pagamento() {
         proof_type: imagePath && pdfPath ? 'image+pdf' : imagePath ? 'jpg' : 'pdf',
         status: 'pending',
         user_response: isCorrection ? correctionMessage.trim().slice(0,500) : null,
-        resubmitted_from_id: isCorrection ? pendingPaymentReference.id : null,
+        resubmitted_from_id: null,
+        notes: isCorrection ? null : undefined,
       };
 
       // As colunas separadas permitem abrir imagem e PDF no painel. Se a base de
