@@ -328,7 +328,7 @@ export default function Pagamento() {
   }
 
   function pickImage(file) {
-    if (!file.type.startsWith('image/')) {
+    if (!['image/jpeg','image/png'].includes(file.type)) {
       setError('Escolha uma imagem (JPG ou PNG).');
       return;
     }
@@ -793,7 +793,7 @@ export default function Pagamento() {
             icon="📷"
             title="Enviar comprovativo"
             hint="Carregue uma imagem (captura de ecrã ou foto)"
-            accept="image/*"
+            accept="image/jpeg,image/png,.jpg,.jpeg,.png"
             file={imageFile}
             thumb={imageThumb}
             onPick={pickImage}
