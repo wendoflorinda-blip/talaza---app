@@ -124,6 +124,35 @@ export default function AuthCallback() {
             businessId = business.id;
           }
 
+          // Recupera as imagens escolhidas antes da confirmação, apenas neste navegador.
+          try {
+            const savedMedia = localStorage.getItem('talaza_pending_seller_media');
+            if (savedMedia) {
+              const media = JSON.parse(savedMedia);
+              const updates = {};
+              for (const key of ['logo', 'cover']) {
+                if (!media[key]) continue;
+                const blob = await (await fetch(media[key])).blob();
+                const path = `${businessId}/${key === 'logo' ? 'logo' : 'vitrine'}.jpg`;
+                const { error: uploadError } = await supabase.storage.from('business-media').upload(path, blob, {
+                  contentType: 'image/jpeg', upsert: true,
+                });
+                if (uploadError) throw uploadError;
+                const { data: publicData } = supabase.storage.from('business-media').getPublicUrl(path);
+                if (key === 'logo') updates.logo_url = publicData.publicUrl;
+                if (key === 'cover') updates.cover_url = publicData.publicUrl;
+              }
+              if (Object.keys(updates).length) {
+                const { error: mediaUpdateError } = await supabase.from('businesses').update(updates).eq('id', businessId);
+                if (mediaUpdateError) throw mediaUpdateError;
+              }
+              localStorage.removeItem('talaza_pending_seller_media');
+            }
+          } catch (mediaError) {
+            console.error('Não foi possível concluir o envio das imagens do negócio:', mediaError);
+            throw new Error('SELLER_MEDIA_UPLOAD_FAILED');
+          }
+
           await finishEnvelopeCleanup(session.access_token);
           setMessage('Email confirmado. O teu negócio foi registado e está pendente de aprovação.');
           await router.replace('/seller');
