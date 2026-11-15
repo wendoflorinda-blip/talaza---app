@@ -138,7 +138,7 @@ Criar salvaguardas para impedir discriminação ou segmentação indevida, sobre
 - `profiles` da TALAZA Comercial tem país e província, mas não tem data de nascimento ou género.
 - `professional_profiles` já contém idade e género para o diretório profissional; não deve ser reutilizada como perfil de MÍDIA.
 - O fluxo `media-creator-signup.js` ainda cria candidaturas e pede categoria, idioma, biografia e ligações sociais.
-- `media-payment.js` e `admin/media.js` dependem do fluxo antigo de candidaturas/pagamentos.
+- O cadastro de Criadores é gratuito. A Administração modera candidaturas e ativa perfis sem exigir plano, comprovativo, transferência ou dados bancários.
 - `lib/media/moderation/policy.js` e `lib/media/recommendations/ranking.js` existem como bases de lógica, mas não constituem por si só um serviço completo de IA, moderação persistente ou recomendação em produção.
 
 Nenhuma alteração de schema, autenticação, perfil comercial, pagamento ou produção é autorizada por este documento.
