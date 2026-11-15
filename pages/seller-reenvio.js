@@ -94,7 +94,7 @@ export default function SellerResubmissionPage() {
         <strong>{String(business.approval_status || '').toLowerCase() === 'pending' ? 'Comprovativo reenviado · em análise' : 'Perfil criado · validação recusada'}</strong>
         <p style={{margin:'8px 0 0',lineHeight:1.55}}>{review?.reject_reason || 'A equipa Talaza recusou a validação. Consulte a equipa de suporte se o motivo não estiver disponível.'}</p>
       </div>
-      {String(business?.approval_status || '').toLowerCase() === 'pending' || String(review?.status || '').toLowerCase() === 'pending' && <p style={{color:'#805D00',background:'#FFF5D6',padding:12,borderRadius:10}}>Já existe uma correção em análise.</p>}
+      {(String(business?.approval_status || '').toLowerCase() === 'pending' || String(review?.status || '').toLowerCase() === 'pending') && <p style={{color:'#805D00',background:'#FFF5D6',padding:12,borderRadius:10}}>Já existe uma correção em análise.</p>}
       {error && <p role="alert" style={{color:'#A52F3B',background:'#FCEBED',padding:12,borderRadius:10}}>{error}</p>}
       {notice && <p role="status" style={{color:'#17643B',background:'#E6F5EC',padding:12,borderRadius:10}}>{notice}</p>}
       <form onSubmit={submit}>
@@ -103,7 +103,7 @@ export default function SellerResubmissionPage() {
         <label htmlFor="proof-file" style={{display:'block',fontWeight:800,color:'#34453E',margin:'18px 0 7px'}}>Novo comprovativo (PDF ou imagem)</label>
         <input id="proof-file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0] || null)} required style={{width:'100%',padding:10,border:'1px solid #C9D8D1',borderRadius:10}}/>
         <p style={{fontSize:12,color:'#718079'}}>PDF, JPG, PNG ou WebP · Máximo 10 MB.</p>
-        <button type="submit" disabled={busy || String(review?.status || '').toLowerCase()==='pending'} style={{width:'100%',padding:14,border:0,borderRadius:12,background:'#075B4E',color:'#FFFFFF',fontWeight:900,fontSize:15,opacity:busy || String(review?.status || '').toLowerCase()==='pending' ? 0.55 : 1,cursor:'pointer',marginTop:12}}>{busy?'A enviar…':String(review?.status || '').toLowerCase()==='pending'?'Em análise':'Enviar correção'}</button>
+        <button type="submit" disabled={busy || String(business?.approval_status || '').toLowerCase()==='pending' || String(review?.status || '').toLowerCase()==='pending'} style={{width:'100%',padding:14,border:0,borderRadius:12,background:'#075B4E',color:'#FFFFFF',fontWeight:900,fontSize:15,opacity:busy || String(business?.approval_status || '').toLowerCase()==='pending' || String(review?.status || '').toLowerCase()==='pending' ? 0.55 : 1,cursor:'pointer',marginTop:12}}>{busy?'A enviar…':(String(business?.approval_status || '').toLowerCase()==='pending' || String(review?.status || '').toLowerCase()==='pending')?'Em análise':'Enviar correção'}</button>
       </form>
       <Link href="/seller" style={{display:'inline-block',marginTop:20,color:'#075B4E',fontWeight:800}}>← Voltar ao painel do vendedor</Link>
     </section>
