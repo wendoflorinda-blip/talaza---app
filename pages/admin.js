@@ -75,6 +75,9 @@ export default function Admin() {
   const [officialFontFamily, setOfficialFontFamily] = useState('Georgia');
   const [officialDuration, setOfficialDuration] = useState(30);
   const [activeAdminSection, setActiveAdminSection] = useState('vendedores');
+  const [resubmissions, setResubmissions] = useState([]);
+  const [resubmissionBusyId, setResubmissionBusyId] = useState('');
+  const [resubmissionError, setResubmissionError] = useState('');
   const [officialArchive, setOfficialArchive] = useState([]);
   const [notificationAudience, setNotificationAudience] = useState('all');
   const [notificationUserId, setNotificationUserId] = useState('');
@@ -154,6 +157,7 @@ export default function Admin() {
 
     setAuthorized(true);
     await loadBusinesses();
+    await loadPaymentResubmissions();
     await loadSubscriptionRequests();
     await loadGirassolReactivations();
     await loadCommunityReports();
@@ -166,6 +170,64 @@ export default function Admin() {
     await loadOfficialArchive();
 
     setLoading(false);
+  }
+
+  async function loadPaymentResubmissions() {
+    setResubmissionError('');
+    const { data: rows, error } = await supabase.from('payment_resubmissions').select('*').eq('status','pending').order('created_at',{ascending:false});
+    if (error) { setResubmissionError('Não foi possível carregar os comprovativos corrigidos: '+error.message); setResubmissions([]); return; }
+    const sellerIds=[...new Set((rows||[]).map(row=>row.seller_id).filter(Boolean))];
+    const [{data:statuses,error:statusError},{data:businessRows,error:businessError}] = await Promise.all([
+      sellerIds.length ? supabase.from('seller_status').select('seller_id,status,reject_reason').in('seller_id',sellerIds) : Promise.resolve({data:[],error:null}),
+      sellerIds.length ? supabase.from('businesses').select('id,owner_id,name,phone,approval_status,is_active').in('owner_id',sellerIds) : Promise.resolve({data:[],error:null})
+    ]);
+    if(statusError) console.warn('Estado dos vendedores:',statusError);
+    if(businessError) console.warn('Negócios dos vendedores:',businessError);
+    const statusMap=Object.fromEntries((statuses||[]).map(item=>[item.seller_id,item]));
+    const businessMap=Object.fromEntries((businessRows||[]).map(item=>[item.owner_id,item]));
+    const enriched=await Promise.all((rows||[]).map(async row=>{
+      const {data:signed,error:signedError}=await supabase.storage.from('payment-proofs').createSignedUrl(row.file_url,600);
+      if(signedError) console.warn('Preview de comprovativo indisponível:',signedError.message);
+      return {...row,sellerStatus:statusMap[row.seller_id]||null,business:businessMap[row.seller_id]||null,previewUrl:signed?.signedUrl||null};
+    }));
+    setResubmissions(enriched);
+  }
+
+  async function reviewPaymentResubmission(item, approved) {
+    if(resubmissionBusyId) return;
+    setResubmissionBusyId(item.id); setResubmissionError('');
+    try {
+      const {data:business,error:businessError}=await supabase.from('businesses').select('id,owner_id,approval_status,is_active').eq('owner_id',item.seller_id).order('created_at',{ascending:false}).limit(1).maybeSingle();
+      if(businessError) throw businessError;
+      if(!business) throw new Error('Não foi encontrado um negócio associado a este vendedor.');
+      if(approved){
+        const {data:subscriptions,error:subscriptionError}=await supabase.from('business_subscriptions').select('id,status,expires_at').eq('business_id',business.id).eq('status','active').gt('expires_at',new Date().toISOString()).order('expires_at',{ascending:false}).limit(1);
+        if(subscriptionError) throw subscriptionError;
+        const validHosting=Boolean(subscriptions&&subscriptions.length);
+        const businessPatch={approval_status:'approved'}; if(validHosting) businessPatch.is_active=true;
+        const {error:updateBusinessError}=await supabase.from('businesses').update(businessPatch).eq('id',business.id);
+        if(updateBusinessError) throw updateBusinessError;
+        const {error:statusError}=await supabase.from('seller_status').upsert({seller_id:item.seller_id,status:'approved',reject_reason:null,updated_at:new Date().toISOString()},{onConflict:'seller_id'});
+        if(statusError) throw statusError;
+        const {error:submissionError}=await supabase.from('payment_resubmissions').update({status:'approved'}).eq('id',item.id).eq('status','pending');
+        if(submissionError) throw submissionError;
+        const {error:notificationError}=await supabase.from('notifications').insert({user_id:item.seller_id,type:'seller_approved',title:'O teu negócio foi aprovado!',content:validHosting?'O teu negócio foi aprovado e a hospedagem está válida.':'O teu negócio foi aprovado. Escolhe um plano de hospedagem para ativar o perfil.',link:'/seller',is_read:false});
+        if(notificationError) console.error('Aprovação feita, mas não foi possível notificar o vendedor:',notificationError);
+        alert(validHosting?'Negócio aprovado. A hospedagem válida foi mantida ativa.':'Negócio aprovado. O estado de is_active foi preservado porque não existe hospedagem válida.');
+      } else {
+        const {error:submissionError}=await supabase.from('payment_resubmissions').update({status:'rejected'}).eq('id',item.id).eq('status','pending');
+        if(submissionError) throw submissionError;
+        const {error:statusError}=await supabase.from('seller_status').upsert({seller_id:item.seller_id,status:'rejected',updated_at:new Date().toISOString()},{onConflict:'seller_id'});
+        if(statusError) throw statusError;
+        const {error:businessUpdateError}=await supabase.from('businesses').update({approval_status:'rejected'}).eq('id',business.id);
+        if(businessUpdateError) throw businessUpdateError;
+        const {error:notificationError}=await supabase.from('notifications').insert({user_id:item.seller_id,type:'seller_resubmission_rejected',title:'Comprovativo ainda recusado',content:'A equipa Talaza manteve a recusa do comprovativo enviado. Consulta o motivo no teu painel e corrige os dados.',link:'/seller',is_read:false});
+        if(notificationError) console.error('Recusa feita, mas não foi possível notificar o vendedor:',notificationError);
+        alert('O comprovativo foi mantido como recusado.');
+      }
+      await Promise.all([loadPaymentResubmissions(),loadBusinesses()]);
+    } catch(err) { setResubmissionError(err.message||'Não foi possível concluir a análise.'); }
+    finally { setResubmissionBusyId(''); }
   }
 
   async function loadBusinesses() {
@@ -1243,6 +1305,7 @@ export default function Admin() {
     setRefreshing(true);
     await Promise.all([
       loadBusinesses(),
+      loadPaymentResubmissions(),
       loadSubscriptionRequests(),
       loadGirassolReactivations(),
       loadCommunityReports(),
@@ -1357,6 +1420,7 @@ export default function Admin() {
           <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'wrap', overflow: 'visible', gap: 10, margin: '0 -4px 10px', padding: '8px 4px 14px' }}>
             {[
               ['vendedores', 'Vendedores', pendingBusinessCount],
+              ['pagamentos-recusados', 'Pagamentos recusados', resubmissions.length],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
               ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase() && String(item.status || '').trim().toLowerCase() === 'pending').length],
               ['girassol', 'Reactivação Girassol', girassolReactivations.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
@@ -1679,6 +1743,24 @@ export default function Admin() {
                 {pending && <div style={styles.actions}><button type="button" disabled={reviewingGirassolId === request.id} style={styles.reject} onClick={() => reviewGirassolReactivation(request, false)}>Recusar</button><button type="button" disabled={reviewingGirassolId === request.id} style={styles.approve} onClick={() => reviewGirassolReactivation(request, true)}>{reviewingGirassolId === request.id ? "A guardar…" : "Aprovar reactivação"}</button></div>}
               </article>;
             })}</div>
+          }
+        </section>
+
+        <section id="pagamentos-recusados" style={{marginTop:0,display:activeAdminSection==='pagamentos-recusados'?'block':'none'}}>
+          <div style={styles.titleRow}><div><h2 style={styles.title}>Pagamentos recusados</h2><p style={styles.description}>Revê os novos comprovativos e telefones enviados pelos vendedores após uma recusa.</p></div><div style={styles.counter}>{resubmissions.length} por analisar</div></div>
+          {resubmissionError&&<div role="alert" style={styles.errorB}>{resubmissionError}</div>}
+          {!resubmissions.length?<div style={styles.empty}><div style={styles.emptyIcon}>◇</div><h2>Sem novos comprovativos</h2><p>Os comprovativos corrigidos aparecerão aqui quando forem enviados.</p></div>:
+            <div style={styles.list}>{resubmissions.map(item=><article key={item.id} style={styles.card}>
+              <div style={styles.cardTop}><div style={styles.logoPlaceholder}>₭</div><div style={{flex:1,minWidth:0}}><h3 style={styles.businessName}>{item.business?.name||'Negócio sem nome associado'}</h3><p style={styles.description}>Telefone novo: <strong>{item.phone}</strong></p><p style={styles.description}>Estado: {item.sellerStatus?.status||'sem estado registado'} · Enviado: {new Date(item.created_at).toLocaleString('pt-PT')}</p></div></div>
+              {item.sellerStatus?.reject_reason&&<p style={{fontSize:12,color:'#A52F3B'}}>Motivo anterior: {item.sellerStatus.reject_reason}</p>}
+              <div style={{marginTop:12,padding:10,border:'1px solid #DCE6E1',borderRadius:12,background:'#F8FAF9'}}>
+                {item.previewUrl?(item.file_type==='pdf'?<iframe title={'Comprovativo PDF '+item.id} src={item.previewUrl} style={{width:'100%',height:360,border:0,borderRadius:8}}/>:<a href={item.previewUrl} target="_blank" rel="noreferrer"><img src={item.previewUrl} alt="Comprovativo reenviado" style={{display:'block',maxWidth:'100%',maxHeight:360,objectFit:'contain',margin:'0 auto',borderRadius:8}}/></a>):<p style={{fontSize:12,color:'#A52F3B'}}>Não foi possível gerar o preview do ficheiro. Verifica o bucket payment-proofs.</p>}
+              </div>
+              <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:14}}>
+                <button type="button" disabled={resubmissionBusyId===item.id} onClick={()=>reviewPaymentResubmission(item,true)} style={styles.approve}>{resubmissionBusyId===item.id?'A guardar…':'Aprovar'}</button>
+                <button type="button" disabled={resubmissionBusyId===item.id} onClick={()=>reviewPaymentResubmission(item,false)} style={styles.reject}>Manter recusado</button>
+              </div>
+            </article>)}</div>
           }
         </section>
 
