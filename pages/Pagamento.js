@@ -479,6 +479,25 @@ export default function Pagamento() {
       }
 
       if (insertError) throw insertError;
+
+      // Enquanto o novo comprovativo aguarda análise, o acesso pago fica bloqueado.
+      if (business?.id) {
+        const { error: blockError } = await supabase.from('businesses').update({ is_active:false }).eq('id',business.id).eq('owner_id',session.user.id);
+        if (blockError) throw blockError;
+      }
+      if (eventRecord?.id) {
+        const { error: blockError } = await supabase.from('events').update({ status:'pending_payment', payment_status:'pending' }).eq('id',eventRecord.id).eq('user_id',session.user.id);
+        if (blockError) throw blockError;
+      }
+      if (premiumPromotion?.id) {
+        const { error: blockError } = await supabase.from('premium_promotions').update({ status:'pending' }).eq('id',premiumPromotion.id).eq('user_id',session.user.id);
+        if (blockError) throw blockError;
+      }
+      if (isOpportunitySubscription) {
+        const { error: blockError } = await supabase.from('user_plan_subscriptions').update({ status:'inactive' }).eq('user_id',session.user.id).eq('plan_id',plan.id);
+        if (blockError) throw blockError;
+      }
+
       if (premiumPromotion?.id && insertedSubmission?.id) {
         const { error: promotionUpdateError } = await supabase.from('premium_promotions')
           .update({ status: 'pending', payment_submission_id: insertedSubmission.id })
