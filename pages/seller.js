@@ -1363,7 +1363,7 @@ export default function Seller() {
             <p style={{fontSize:13,color:'#52635E'}}>Motivo da recusa:</p>
             <div style={{padding:13,borderRadius:12,background:'#FCEBED',color:'#7E2630',lineHeight:1.55,marginBottom:18}}>{sellerReview?.reject_reason || 'A equipa Talaza solicitou a correção dos dados ou do comprovativo.'}</div>
             <form onSubmit={submitPaymentResubmission}>
-              <label htmlFor="seller-resubmission-phone">Telefone atualizado</label>
+              <label htmlFor="seller-resubmission-phone">Número Express que fez a transferência (telefone)</label>
               <input id="seller-resubmission-phone" type="tel" value={resubmissionPhone} onChange={event=>setResubmissionPhone(event.target.value)} required placeholder="Indique o número correto" />
               <label htmlFor="seller-resubmission-file">Novo comprovativo (imagem ou PDF)</label>
               <input id="seller-resubmission-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={event=>setResubmissionFile(event.target.files?.[0] || null)} required />
