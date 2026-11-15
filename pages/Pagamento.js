@@ -155,7 +155,7 @@ export default function Pagamento() {
   const [error, setError] = useState('');
 
   function formatExpressSenderPhone(value) {
-    const digits = String(value || '').replace(/\\D/g, '').replace(/^244/, '');
+    const digits = String(value || '').replace(/\D/g, '').replace(/^244/, '');
     return digits.length === 9 ? '+244 ' + digits.slice(0,3) + ' ' + digits.slice(3,6) + ' ' + digits.slice(6) : value;
   }
 
