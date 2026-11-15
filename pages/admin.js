@@ -462,7 +462,9 @@ export default function Admin() {
               ? 'O seu perfil foi aprovado e a hospedagem está ativa até ' + new Date(endDate).toLocaleDateString('pt-PT') + '.'
               : 'O seu perfil foi aprovado na análise, mas ainda não tem um pagamento aprovado com plano válido. Por isso, não ficará visível na Vitrine até a hospedagem ser confirmada.')
           : 'O seu cadastro de vendedor foi recusado. Motivo: ' + rejectionReason.trim(),
-        'seller_review'
+        'seller_review',
+        null,
+        'seller'
       );
     }
 
@@ -611,15 +613,15 @@ export default function Admin() {
     }));
   }
 
-  async function notifyUser(userId, title, body, type = 'admin_review', referenceId = null) {
+  async function notifyUser(userId, title, body, type = 'admin_review', referenceId = null, audience = 'explorer') {
     if (!userId) return { ok: false, error: 'Utilizador destinatário não identificado.' };
     const { error } = await supabase.from('notifications').insert({
       user_id: userId,
       title,
       content: body,
       type,
-      audience: 'explorer',
-      link: '/explore',
+      audience,
+      link: audience === 'seller' ? '/seller' : '/explore',
       reference_id: referenceId,
     });
     if (error) {
@@ -1303,7 +1305,8 @@ export default function Admin() {
     const notificationBody = approved
       ? 'O seu pagamento para ' + areaLabel + ' foi aprovado.' + activationMessage
       : 'O comprovativo do seu pagamento para ' + areaLabel + ' foi recusado. Motivo: ' + rejectionReason.trim() + ' Pode corrigir e enviar novamente.';
-    const notificationResult = await notifyUser(request.user_id, notificationTitle, notificationBody, 'payment_review', request.id);
+    const paymentAudience = (request.business_id || request.premium_promotion_id) ? 'seller' : 'explorer';
+    const notificationResult = await notifyUser(request.user_id, notificationTitle, notificationBody, 'payment_review', request.id, paymentAudience);
 
     await loadSubscriptionRequests();
     await loadBusinesses();
