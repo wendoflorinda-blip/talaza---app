@@ -259,9 +259,7 @@ export default function PostBusiness() {
       console.error(signupError);
 
       setError(
-        signupError.message?.toLowerCase().includes('already registered')
-          ? 'Este e-mail já tem uma conta. Volte à página inicial e toque em Entrar.'
-          : signupError.message || 'Não foi possível criar a sua conta.'
+        'Não foi possível concluir o cadastro com estes dados. Verifica as informações ou entra na tua conta.'
       );
 
       return null;
@@ -273,7 +271,7 @@ export default function PostBusiness() {
     }
 
     if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-      setError('Este e-mail já tem uma conta. Volte à página inicial e toque em Entrar.');
+      setError('Não foi possível concluir o cadastro com estes dados. Verifica as informações ou entra na tua conta.');
       return null;
     }
 
