@@ -119,13 +119,27 @@ export default function Impulsionar() {
   ).sort((a,b) => Number(a.duration_days || 0) - Number(b.duration_days || 0)), [plans]);
   const hostingPlans = useMemo(() => {
     if (!business) return [];
-    return plans.filter(plan => {
+    const eligible = plans.filter(plan => {
       const type = String(plan.plan_type || plan.type || '').trim().toLocaleLowerCase('pt-AO');
       const categoryMatches = !plan.category_id || String(plan.category_id) === String(business.category_id);
-      const subcategoryMatches = !plan.subcategory_id || String(plan.subcategory_id) === String(business.subcategory_id);
       const enabled = plan.is_active !== false && plan.active !== false && plan.enabled !== false;
-      return type === 'hospedagem' && categoryMatches && subcategoryMatches && enabled;
-    }).sort((a,b) => Number(a.duration_days || 0) - Number(b.duration_days || 0));
+      return type === 'hospedagem' && categoryMatches && enabled;
+    });
+
+    // Quando a subcategoria tem preços próprios, mostrar exclusivamente esses
+    // planos. Os planos gerais da categoria só servem de alternativa quando
+    // ainda não existe nenhum plano ativo específico para a subcategoria.
+    const specificPlans = eligible.filter(plan =>
+      String(plan.subcategory_id || '') === String(business.subcategory_id || '') &&
+      Boolean(plan.subcategory_id)
+    );
+    const categoryFallbackPlans = eligible.filter(plan => !plan.subcategory_id);
+    const selectedPlans = specificPlans.length ? specificPlans : categoryFallbackPlans;
+
+    return selectedPlans.sort((a,b) =>
+      Number(a.duration_days || 0) - Number(b.duration_days || 0) ||
+      Number(a.price || 0) - Number(b.price || 0)
+    );
   }, [plans, business]);
   if (loading) return <main style={S.center}>A carregar os planos da sua categoria…</main>;
   const selectedPremiumPlan = premiumPlans.find(plan => String(plan.id) === String(premiumPlanChoice)) || premiumPlans[0] || null;
