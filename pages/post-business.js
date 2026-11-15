@@ -26,7 +26,7 @@ import {
   uploadPublicImage,
 } from '../lib/talaza';
 
-function calculateAge(value) {\n  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value || '')) return null;\n  const [y,m,d] = value.split('-').map(Number);\n  const date = new Date(y,m-1,d);\n  if (date.getFullYear()!==y || date.getMonth()!==m-1 || date.getDate()!==d) return null;\n  const now = new Date(); let age=now.getFullYear()-y;\n  if (now.getMonth()+1<m || (now.getMonth()+1===m && now.getDate()<d)) age--;\n  return age;\n}\n\nconst DAYS_OPTIONS = [
+function calculateAge(value) {\n  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return null;\n  const [y,m,d] = value.split('-').map(Number);\n  const date = new Date(y,m-1,d);\n  if (date.getFullYear()!==y || date.getMonth()!==m-1 || date.getDate()!==d) return null;\n  const now = new Date(); let age=now.getFullYear()-y;\n  if (now.getMonth()+1<m || (now.getMonth()+1===m && now.getDate()<d)) age--;\n  return age;\n}\n\nconst DAYS_OPTIONS = [
   'Segunda a sexta',
   'Segunda a sábado',
   'Todos os dias',
