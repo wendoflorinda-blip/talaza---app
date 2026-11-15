@@ -1748,7 +1748,7 @@ export default function Admin() {
 
         <section id="pagamentos-recusados" style={{marginTop:0,display:activeAdminSection==='pagamentos-recusados'?'block':'none'}}>
           <div style={styles.titleRow}><div><h2 style={styles.title}>Pagamentos recusados</h2><p style={styles.description}>Revê os novos comprovativos e telefones enviados pelos vendedores após uma recusa.</p></div><div style={styles.counter}>{resubmissions.length} por analisar</div></div>
-          {resubmissionError&&<div role="alert" style={styles.errorB}>{resubmissionError}</div>}
+          {resubmissionError&&<div role="alert" style={{marginBottom:14,padding:12,borderRadius:10,background:'#FCEBED',color:'#A52F3B',fontSize:13}}>{resubmissionError}</div>}
           {!resubmissions.length?<div style={styles.empty}><div style={styles.emptyIcon}>◇</div><h2>Sem novos comprovativos</h2><p>Os comprovativos corrigidos aparecerão aqui quando forem enviados.</p></div>:
             <div style={styles.list}>{resubmissions.map(item=><article key={item.id} style={styles.card}>
               <div style={styles.cardTop}><div style={styles.logoPlaceholder}>₭</div><div style={{flex:1,minWidth:0}}><h3 style={styles.businessName}>{item.business?.name||'Negócio sem nome associado'}</h3><p style={styles.description}>Telefone novo: <strong>{item.phone}</strong></p><p style={styles.description}>Estado: {item.sellerStatus?.status||'sem estado registado'} · Enviado: {new Date(item.created_at).toLocaleString('pt-PT')}</p></div></div>
