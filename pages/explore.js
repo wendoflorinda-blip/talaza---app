@@ -71,21 +71,24 @@ function safeValue(value) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function categoryIcon(name = '') {
-  const value = String(name)
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
+function categoryIcon(name = '', icon = '') {
+  const iconMap = {
+    utensils: 'food', sparkles: 'beauty', shirt: 'fashion', laptop: 'technology',
+    house: 'home', 'heart-pulse': 'health', 'graduation-cap': 'education',
+    'briefcase-business': 'services', car: 'transport', dumbbell: 'sports',
+    cpu: 'technology', palette: 'craft',
+  };
+  if (iconMap[String(icon).toLowerCase()]) return iconMap[String(icon).toLowerCase()];
 
+  const value = String(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   if (/aliment|restaur|comida|bebida|gastronom|confeitaria|pastelaria/.test(value)) return 'food';
   if (/beleza|estetica|cabeleire|barbear|tranca/.test(value)) return 'beauty';
   if (/saude|medic|farmac/.test(value)) return 'health';
   if (/educa|escola|formacao/.test(value)) return 'education';
   if (/imove|habitacao|casa|construcao/.test(value)) return 'home';
   if (/transport|logistica|automov|carro/.test(value)) return 'transport';
-  if (/tecnologia|informatica/.test(value)) return 'technology';
+  if (/tecnologia|informatica|eletronica/.test(value)) return 'technology';
   if (/servic|profission|manutenc/.test(value)) return 'services';
-
   return 'other';
 }
 
@@ -138,6 +141,22 @@ function CategoryIcon({ type }) {
       <>
         <circle cx="12" cy="12" r="3" />
         <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1" />
+      </>
+    ),
+    fashion: (
+      <>
+        <path d="m8 4 4 2 4-2 4 3-2 5-3-1v9H9v-9l-3 1-2-5 4-3Z" />
+      </>
+    ),
+    sports: (
+      <>
+        <path d="M6 9v6M3 10v4M18 9v6M21 10v4M6 12h12" />
+      </>
+    ),
+    craft: (
+      <>
+        <path d="M12 3a9 9 0 1 0 0 18h1.2a1.8 1.8 0 0 0 1.3-3c-.8-.9-.2-2.2 1-2.2H17a4 4 0 0 0 4-4c0-4.9-4-8.8-9-8.8Z" />
+        <circle cx="7.5" cy="10" r="1" /><circle cx="11" cy="7" r="1" /><circle cx="15.5" cy="8.5" r="1" />
       </>
     ),
     other: (
@@ -568,7 +587,7 @@ export default function Explore() {
                         '--category-soft': `${color}18`,
                       }}
                     >
-                      <CategoryIcon type={categoryIcon(category.name)} />
+                      <CategoryIcon type={categoryIcon(category.name, category.icon)} />
                     </span>
 
                     <span className="category-text">
