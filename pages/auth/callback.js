@@ -199,10 +199,10 @@ export default function AuthCallback() {
             review_notes: null,
             updated_at: new Date().toISOString(),
           };
-          const applicationResult = existingApplication?.id
-            ? await supabase.from('media_applications').update(applicationData).eq('id', existingApplication.id)
-            : await supabase.from('media_applications').insert(applicationData);
-          if (applicationResult.error) throw applicationResult.error;
+          if (!existingApplication?.id) {
+            const { error: applicationInsertError } = await supabase.from('media_applications').insert(applicationData);
+            if (applicationInsertError) throw applicationInsertError;
+          }
 
           await finishEnvelopeCleanup(session.access_token);
           setMessage('Email confirmado. A abrir a MÍDIA TALAZA…');
