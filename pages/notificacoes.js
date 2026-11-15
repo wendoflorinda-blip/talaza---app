@@ -144,9 +144,6 @@ export default function Notificacoes() {
     const id = item.reference_id;
     if (!id) return null;
 
-    if (type.includes('media_payment_review')) {
-      return { pathname:'/media-payment', query:{ application:id } };
-    }
     if (type.includes('payment_review')) {
       const { data: payment } = await supabase.from('payment_submissions')
         .select('id,plan_id,business_id,event_id,premium_promotion_id,country_id,province_id,status')
@@ -273,7 +270,7 @@ export default function Notificacoes() {
                             {!item.is_read && <span style={S.unreadDot} aria-label="Não lida" />}
                           </span>
                         </button>
-                        {['payment_review','media_payment_review'].includes(String(item.type || '').toLowerCase()) && /recusado|recusada/i.test(String(item.content || '')) && (
+                        {['payment_review'].includes(String(item.type || '').toLowerCase()) && /recusado|recusada/i.test(String(item.content || '')) && (
                           <button type="button" onClick={() => openNotification(item)} style={{ alignSelf:'center', margin:'0 12px 0 0', padding:'8px 10px', border:0, borderRadius:9, background:C.green, color:'#fff', fontSize:11, fontWeight:800, cursor:'pointer', whiteSpace:'nowrap' }}>Corrigir e reenviar</button>
                         )}
                         {swipeOpenId === item.id && <button type="button" onClick={() => { deleteNotification(item); setSwipeOpenId(''); }} style={S.delete} aria-label="Apagar notificação">Apagar</button>}
