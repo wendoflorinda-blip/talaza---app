@@ -180,6 +180,30 @@ export default function AuthCallback() {
           });
           if (updateError) throw updateError;
 
+          // A conta de Criador é gratuita. Após confirmar o email, regista a candidatura
+          // para moderação editorial, sem plano, pagamento, comprovativo ou dados bancários.
+          const { data: existingApplication, error: lookupError } = await supabase.from('media_applications')
+            .select('id').eq('user_id', user.id).maybeSingle();
+          if (lookupError) throw lookupError;
+          const applicationData = {
+            user_id: user.id,
+            display_name: source.name,
+            country_id: source.country_id,
+            content_category: Array.isArray(pending.media_niches) && pending.media_niches.length
+              ? pending.media_niches.join(' · ')
+              : 'Geral',
+            languages: Array.isArray(pending.media_content_languages) ? pending.media_content_languages : [],
+            bio: null,
+            social_links: {},
+            application_status: 'submitted',
+            review_notes: null,
+            updated_at: new Date().toISOString(),
+          };
+          const applicationResult = existingApplication?.id
+            ? await supabase.from('media_applications').update(applicationData).eq('id', existingApplication.id)
+            : await supabase.from('media_applications').insert(applicationData);
+          if (applicationResult.error) throw applicationResult.error;
+
           await finishEnvelopeCleanup(session.access_token);
           setMessage('Email confirmado. A abrir a MÍDIA TALAZA…');
           await router.replace('/media');
