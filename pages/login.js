@@ -24,10 +24,38 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [aReenviar, setAReenviar] = useState(false);
+  const [msgReenvio, setMsgReenvio] = useState('');
+
+  async function reenviarEmail() {
+    const cleanEmail = email.trim().toLowerCase();
+
+    setAReenviar(true);
+    setMsgReenvio('A enviar...');
+
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: cleanEmail,
+      });
+
+      if (resendError) throw resendError;
+
+      setMsgReenvio(
+        'Enviamos um novo email! Vai na tua caixa de entrada e clica no link.'
+      );
+    } catch (err) {
+      console.error('Erro ao reenviar email de confirmação:', err);
+      setMsgReenvio('Não deu para reenviar. Tenta de novo.');
+    } finally {
+      setAReenviar(false);
+    }
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError('');
+    setMsgReenvio('');
 
     const cleanEmail = email.trim().toLowerCase();
 
@@ -248,7 +276,10 @@ export default function Login() {
               spellCheck={false}
               required
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setMsgReenvio('');
+              }}
               placeholder="exemplo@email.com"
               style={styles.input}
             />
@@ -295,6 +326,29 @@ export default function Login() {
             {error && (
               <div role="alert" style={styles.error}>
                 {error}
+              </div>
+            )}
+
+            {error.toLowerCase().includes('confirmaste') && (
+              <div style={styles.resendArea}>
+                <button
+                  type="button"
+                  onClick={reenviarEmail}
+                  disabled={aReenviar}
+                  style={{
+                    ...styles.resendButton,
+                    opacity: aReenviar ? 0.6 : 1,
+                    cursor: aReenviar ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Reenviar email de confirmação
+                </button>
+
+                {msgReenvio && (
+                  <p role="status" aria-live="polite" style={styles.resendMessage}>
+                    {msgReenvio}
+                  </p>
+                )}
               </div>
             )}
 
@@ -428,6 +482,27 @@ const styles = {
     fontSize: 13,
     lineHeight: 1.5,
     overflowWrap: 'anywhere',
+  },
+  resendArea: {
+    marginTop: -4,
+    marginBottom: 16,
+  },
+  resendButton: {
+    width: '100%',
+    padding: '12px 14px',
+    border: `1px solid ${C.green}`,
+    borderRadius: 10,
+    background: C.white,
+    color: C.green,
+    fontWeight: 800,
+    fontSize: 13,
+    cursor: 'pointer',
+  },
+  resendMessage: {
+    color: '#16804A',
+    fontSize: 13,
+    lineHeight: 1.5,
+    margin: '9px 2px 0',
   },
   submit: {
     width: '100%',
