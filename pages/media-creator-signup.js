@@ -99,11 +99,10 @@ export default function MediaCreatorSignup() {
     // Recalcular diretamente no clique evita depender de estado derivado desatualizado.
     const calculatedAge = ageOn(birthDay, birthMonth, birthYear);
     if (step===0) {
-      if (!countryId || !provinceId || phone.replace(/\D/g,'').length < 6) return setError('Escolha o país, a província e introduza um número de telefone válido.');
-      if (!dialCode) return setError('O indicativo deste país ainda não está configurado. Contacte o suporte.');
+      if (!countryId || !provinceId) return setError('Escolha o país e a província.');
     }
     if (step===1) {
-      if (!phone.trim() || phone.replace(/\\D/g,'').length < 6 || !dialCode) return setError('Introduza um telefone válido com o indicativo do país.');
+      if (!phone.trim() || phone.replace(/\D/g,'').length < 6 || !dialCode) return setError('Introduza um telefone válido com o indicativo do país.');
       if (!birthDay || !birthMonth || !birthYear || !gender) return setError('Preencha a data de nascimento e escolha Feminino ou Masculino.');
       if (calculatedAge === null) return setError('A data de nascimento não é válida. Verifique o dia, mês e ano.');
       if (calculatedAge < 18) return setError('É necessário ter pelo menos 18 anos completos para criar uma conta na MÍDIA TALAZA.');
@@ -115,7 +114,7 @@ export default function MediaCreatorSignup() {
     }
     if (step===2) {
       if (user) return setError('Utilize Já tenho conta para entrar com uma conta existente.');
-      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(email.trim())) return setError('Introduza um endereço de email válido.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) return setError('Introduza um endereço de email válido.');
       if (password.length < 8) return setError('A palavra-passe deve ter pelo menos 8 caracteres.');
       if (!/^[a-zA-Z0-9._]{3,24}$/.test(username)) return setError('O nome de utilizador deve ter 3 a 24 caracteres.');
       return submit();
@@ -127,7 +126,7 @@ export default function MediaCreatorSignup() {
     try {
       if (user) throw new Error('SIGNUP_ALREADY_EXISTS');
       const normalizedEmail = email.trim().toLowerCase();
-      const fullPhone = `${dialCode}${phone.replace(/\\D/g,'')}`;
+      const fullPhone = `${dialCode}${phone.replace(/\D/g,'')}`;
       const metadata = {
         media_creator_onboarding: true, media_country_id: countryId, media_country: countryName,
         media_province_id: provinceId, media_niches: selectedNiches,
@@ -189,7 +188,7 @@ export default function MediaCreatorSignup() {
             <label style={label}>Número de telefone</label>
             <div style={{display:'flex',gap:9}}>
               <div style={{minWidth:82,padding:'14px 10px',border:'1px solid #DDE3EC',borderRadius:13,background:'#F5F7FA',fontWeight:900,color:C.navy,textAlign:'center'}}>{dialCode||'+'}</div>
-              <input type="tel" inputMode="tel" autoComplete="tel-national" value={phone} onChange={e=>setPhone(e.target.value.replace(/[^0-9\\s()-]/g,''))} placeholder="Número sem indicativo" style={{...input,flex:1,minWidth:0}}/>
+              <input type="tel" inputMode="tel" autoComplete="tel-national" value={phone} onChange={e=>setPhone(e.target.value.replace(/[^0-9\s()-]/g,''))} placeholder="Número sem indicativo" style={{...input,flex:1,minWidth:0}}/>
             </div>
             <label style={label}>Data de nascimento</label>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1.3fr 1.2fr',gap:8}}>
