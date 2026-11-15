@@ -73,6 +73,7 @@ export default function SellerResubmissionPage() {
       const { error: businessError } = await supabase.from('businesses')
         .update({ approval_status:'pending' }).eq('id',business.id).eq('owner_id',user.id);
       if (businessError) throw businessError;
+      setBusiness(current => ({ ...current, approval_status:'pending' }));
       setReview({ ...(review || {}), status:'pending' });
       setNotice('A correção foi enviada. A equipa Talaza irá verificar novamente.');
       setFile(null);
