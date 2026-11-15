@@ -211,7 +211,7 @@ export default function Admin() {
         if(statusError) throw statusError;
         const {error:submissionError}=await supabase.from('payment_resubmissions').update({status:'approved'}).eq('id',item.id).eq('status','pending');
         if(submissionError) throw submissionError;
-        const {error:notificationError}=await supabase.from('notifications').insert({user_id:item.seller_id,type:'seller_approved',title:'O teu negócio foi aprovado!',content:validHosting?'O teu negócio foi aprovado e a hospedagem está válida.':'O teu negócio foi aprovado. Escolhe um plano de hospedagem para ativar o perfil.',link:'/seller',is_read:false});
+        const {error:notificationError}=await supabase.from('notifications').insert({user_id:item.seller_id,type:'seller_approved',audience:'seller',title:'O teu negócio foi aprovado!',content:validHosting?'O teu negócio foi aprovado e a hospedagem está válida.':'O teu negócio foi aprovado. Escolhe um plano de hospedagem para ativar o perfil.',link:'/seller',is_read:false});
         if(notificationError) console.error('Aprovação feita, mas não foi possível notificar o vendedor:',notificationError);
         alert(validHosting?'Negócio aprovado. A hospedagem válida foi mantida ativa.':'Negócio aprovado. O estado de is_active foi preservado porque não existe hospedagem válida.');
       } else {
@@ -221,7 +221,7 @@ export default function Admin() {
         if(statusError) throw statusError;
         const {error:businessUpdateError}=await supabase.from('businesses').update({approval_status:'rejected'}).eq('id',business.id);
         if(businessUpdateError) throw businessUpdateError;
-        const {error:notificationError}=await supabase.from('notifications').insert({user_id:item.seller_id,type:'seller_resubmission_rejected',title:'Comprovativo ainda recusado',content:'A equipa Talaza manteve a recusa do comprovativo enviado. Consulta o motivo no teu painel e corrige os dados.',link:'/seller',is_read:false});
+        const {error:notificationError}=await supabase.from('notifications').insert({user_id:item.seller_id,type:'seller_resubmission_rejected',audience:'seller',title:'Comprovativo ainda recusado',content:'A equipa Talaza manteve a recusa do comprovativo enviado. Consulta o motivo no teu painel e corrige os dados.',link:'/seller',is_read:false});
         if(notificationError) console.error('Recusa feita, mas não foi possível notificar o vendedor:',notificationError);
         alert('O comprovativo foi mantido como recusado.');
       }
@@ -618,6 +618,7 @@ export default function Admin() {
       title,
       content: body,
       type,
+      audience: 'explorer',
       reference_id: referenceId,
     });
     if (error) {
@@ -850,12 +851,24 @@ export default function Admin() {
     const recipients = ['user', 'seller_user'].includes(notificationAudience)
       ? profiles.filter(profile => profile.id === notificationUserId && (notificationAudience !== 'seller_user' || isSeller(profile)))
       : profiles.filter(profile => notificationAudience === 'all' || (notificationAudience === 'sellers' && isSeller(profile)) || (notificationAudience === 'explorers' && !isSeller(profile)));
-    const { error } = recipients.length ? await supabase.from('notifications').insert(recipients.map(profile => ({
-      user_id: profile.id,
-      title: notificationTitle.trim(),
-      content: notificationBody.trim(),
-      type: ['user', 'seller_user'].includes(notificationAudience) ? 'individual' : notificationAudience === 'sellers' ? 'sellers' : notificationAudience === 'explorers' ? 'explorers' : 'general',
-    }))) : { error: new Error('Não existem destinatários para este filtro.') };
+    const notificationRows = recipients.flatMap(profile => {
+      const base = {
+        user_id: profile.id,
+        title: notificationTitle.trim(),
+        content: notificationBody.trim(),
+        type: ['user', 'seller_user'].includes(notificationAudience) ? 'individual' : notificationAudience === 'sellers' ? 'sellers' : notificationAudience === 'explorers' ? 'explorers' : 'general',
+      };
+      if (notificationAudience === 'all') return [{ ...base, audience: 'seller' }, { ...base, audience: 'explorer' }];
+      const audience = ['sellers', 'seller_user'].includes(notificationAudience)
+        ? 'seller'
+        : notificationAudience === 'user' && sellerRoles.includes(String(profile.account_type || '').toLowerCase())
+          ? 'seller'
+          : 'explorer';
+      return [{ ...base, audience }];
+    });
+    const { error } = notificationRows.length
+      ? await supabase.from('notifications').insert(notificationRows)
+      : { error: new Error('Não existem destinatários para este filtro.') };
     setSendingNotification(false);
 
     if (error) {
