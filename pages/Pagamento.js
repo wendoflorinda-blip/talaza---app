@@ -144,6 +144,7 @@ export default function Pagamento() {
   const [imageFile, setImageFile] = useState(null);
   const [imageThumb, setImageThumb] = useState('');
   const [pdfFile, setPdfFile] = useState(null);
+  const [expressSenderPhone, setExpressSenderPhone] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -177,6 +178,9 @@ export default function Pagamento() {
     }
 
     setUser(session.user);
+    const { data: senderProfile } = await supabase.from('profiles').select('phone').eq('id', session.user.id).maybeSingle();
+    const initialSenderPhone = String(senderProfile?.phone || session.user.user_metadata?.phone || '').trim();
+    setExpressSenderPhone(initialSenderPhone);
 
     const [planResult, businessResult, eventResult, premiumResult] = await Promise.all([
       supabase.from('plans').select('*').eq('id', planId).maybeSingle(),
@@ -523,7 +527,7 @@ export default function Pagamento() {
                 lineHeight: 1.6,
               }}
             >
-              {premiumPromotion ? 'O comprovativo foi enviado. A sua publicação impulsionada só aparecerá nas vitrines depois da confirmação do pagamento pela administração. Os 15 ou 30 dias começam nessa aprovação.' : eventRecord ? 'O seu anúncio ficará ativo assim que o seu pagamento for aprovado. Aguarde.' : isOpportunitySubscription ? 'O seu acesso às Oportunidades será ativado assim que o pagamento for aprovado. Aguarde.' : 'O seu perfil foi criado, mas ainda não está visível para os clientes. A visibilidade só será ativada depois de a equipa Talaza verificar o comprovativo, confirmar o pagamento e aprovar o negócio.'}
+              {'O teu comprovante foi enviado com o número Express ' + normalizedExpressPhone + '. Se o número estiver errado, o pagamento não será confirmado e o acesso não será desbloqueado.'}
             </p>
 
             <Link
@@ -717,6 +721,24 @@ export default function Pagamento() {
               {formatKz(plan.price)}
             </div>
           </div>
+
+          <div role="alert" style={{ marginTop: 18, padding: 15, borderRadius: 12, border: '2px solid #B42318', background: '#FFF1F0', color: '#9F1D16', fontWeight: 800, lineHeight: 1.6 }}>
+            ATENÇÃO: Coloca o número Express EXATO que fez a transferência. Se colocares um número errado, não vamos conseguir confirmar o teu pagamento no extrato e NÃO vais conseguir abrir / desbloquear o teu acesso. Verifica o número antes de enviar.
+          </div>
+          <label htmlFor="express-sender-phone" style={{ display:'block', marginTop:14, marginBottom:7, color:C.ink, fontWeight:800 }}>
+            Número Express que fez a transferência
+          </label>
+          <input
+            id="express-sender-phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            required
+            value={expressSenderPhone}
+            onChange={(event) => setExpressSenderPhone(event.target.value)}
+            placeholder="+244 9XX XXX XXX"
+            style={{ width:'100%', boxSizing:'border-box', padding:14, borderRadius:12, border:'1px solid #B42318', fontSize:16, fontWeight:700 }}
+          />
 
           {/* Comprovativos */}
           <UploadBox
