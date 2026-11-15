@@ -154,6 +154,11 @@ export default function Pagamento() {
   const [pendingPaymentReference, setPendingPaymentReference] = useState(null);
   const [error, setError] = useState('');
 
+  function formatExpressSenderPhone(value) {
+    const digits = String(value || '').replace(/\\D/g, '').replace(/^244/, '');
+    return digits.length === 9 ? '+244 ' + digits.slice(0,3) + ' ' + digits.slice(3,6) + ' ' + digits.slice(6) : value;
+  }
+
   useEffect(() => {
     if (!router.isReady) return;
 
@@ -536,7 +541,7 @@ export default function Pagamento() {
                 lineHeight: 1.6,
               }}
             >
-              {'O teu comprovante foi enviado com o número Express ' + submittedExpressPhone + '. Se o número estiver errado, o pagamento não será confirmado e o acesso não será desbloqueado.'}
+              {'O teu comprovante foi enviado com o número Express ' + formatExpressSenderPhone(submittedExpressPhone) + '. Se o número estiver errado, o pagamento não será confirmado e o acesso não será desbloqueado.'}
             </p>
 
             <Link
