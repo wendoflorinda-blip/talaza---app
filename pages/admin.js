@@ -619,6 +619,7 @@ export default function Admin() {
       content: body,
       type,
       audience: 'explorer',
+      link: '/explore',
       reference_id: referenceId,
     });
     if (error) {
@@ -858,13 +859,16 @@ export default function Admin() {
         content: notificationBody.trim(),
         type: ['user', 'seller_user'].includes(notificationAudience) ? 'individual' : notificationAudience === 'sellers' ? 'sellers' : notificationAudience === 'explorers' ? 'explorers' : 'general',
       };
-      if (notificationAudience === 'all') return [{ ...base, audience: 'seller' }, { ...base, audience: 'explorer' }];
+      if (notificationAudience === 'all') return [
+        { ...base, audience: 'seller', link: '/seller' },
+        { ...base, audience: 'explorer', link: '/explore' },
+      ];
       const audience = ['sellers', 'seller_user'].includes(notificationAudience)
         ? 'seller'
         : notificationAudience === 'user' && sellerRoles.includes(String(profile.account_type || '').toLowerCase())
           ? 'seller'
           : 'explorer';
-      return [{ ...base, audience }];
+      return [{ ...base, audience, link: audience === 'seller' ? '/seller' : '/explore' }];
     });
     const { error } = notificationRows.length
       ? await supabase.from('notifications').insert(notificationRows)
