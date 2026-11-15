@@ -1507,7 +1507,7 @@ export default function Admin() {
                 }}
                 aria-pressed={activeAdminSection === key}
                 style={{
-                  order: key === 'vendedores' ? 0 : key === 'pagamentos' ? 1 : 3,
+                  order: key === 'vendedores' ? 0 : key === 'pagamentos' ? 1 : key === 'pagamentos-recusados' ? 2 : 3,
                   flex: '0 0 auto',
                   alignItems: 'center',
                   gap: 10,
