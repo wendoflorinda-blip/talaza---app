@@ -45,6 +45,7 @@ function notificationStyle(type) {
   if (value.includes('week_theme')) return { icon: '🏆', color: C.gold, label: 'Título da Semana' };
   if (value.includes('reaction') || value.includes('like')) return { icon: '❤️', color: '#A78BFA', label: 'Reação' };
   if (value.includes('comment') || value.includes('reply')) return { icon: '💬', color: '#A78BFA', label: 'Comentário' };
+  if (value.includes('payment_review')) return { icon: '💳', color: C.green, label: 'Pagamentos' };
   if (value.includes('business')) return { icon: '✦', color: C.green, label: 'Negócios' };
   return { icon: '🔔', color: '#A78BFA', label: 'Atividade' };
 }
