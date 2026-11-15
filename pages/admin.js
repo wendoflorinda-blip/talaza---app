@@ -41,6 +41,7 @@ export default function Admin() {
   const [businesses, setBusinesses] = useState([]);
   const [businessFilter, setBusinessFilter] = useState('pending');
   const [subscriptionRequests, setSubscriptionRequests] = useState([]);
+  const [paymentHistoryById, setPaymentHistoryById] = useState({});
   const [opportunityAccessLoadError, setOpportunityAccessLoadError] = useState('');
   const [girassolReactivations, setGirassolReactivations] = useState([]);
   const [girassolProofUrls, setGirassolProofUrls] = useState({});
@@ -275,6 +276,12 @@ export default function Admin() {
       return isOpportunityAccess || (String(item.proof_url || '').trim() && hasOtherPaymentLink);
     });
     setSubscriptionRequests(requests);
+    const historyResult = requests.length
+      ? await supabase.from('payment_submission_history').select('*').eq('source_type','commercial').in('submission_id',requests.map(item=>item.id)).order('created_at',{ascending:true})
+      : { data: [], error: null };
+    if (!historyResult.error) {
+      setPaymentHistoryById((historyResult.data || []).reduce((acc,row)=>{(acc[row.submission_id] ||= []).push(row);return acc;},{}));
+    }
 
     const hasOpportunityAccessRequest = requests.some(item =>
       String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase()
@@ -1559,6 +1566,8 @@ export default function Admin() {
                     <div style={styles.details}>
                       <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : '—'}</p>
                     <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
+                      {request.user_response && <p><strong>Mensagem de correção:</strong> {request.user_response}</p>}
+                      {(paymentHistoryById[request.id] || []).map(entry => <p key={entry.id} style={{fontSize:11,color:'#68736F',margin:'4px 0'}}>{entry.action==='submitted'?'1.º envio':entry.action==='rejected'?'Recusa: '+(entry.reason||''):entry.action==='resubmitted'?'Reenviado / Corrigido':'Aprovado'} · {new Date(entry.created_at).toLocaleString('pt-AO')}{entry.express_sender_phone ? ' · Express '+entry.express_sender_phone : ''}{entry.user_response ? ' · '+entry.user_response : ''}</p>)}
                       {paths.image && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem do comprovativo ↗</button></p>}
                       {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir comprovativo PDF ↗</button></p>}
                       {!paths.image && !paths.file && <p style={{ color: '#9B3A28' }}>Este pedido não contém um ficheiro de comprovativo válido.</p>}
