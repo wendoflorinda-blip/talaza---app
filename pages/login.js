@@ -189,14 +189,18 @@ export default function Login() {
       console.error('Erro ao entrar:', err);
 
       const message = String(err?.message || '').toLowerCase();
+      const errorCode = String(err?.code || '').toLowerCase();
 
       if (
         message.includes('invalid login credentials') ||
         message.includes('invalid credentials') ||
-        err?.code === 'invalid_credentials'
+        errorCode === 'invalid_credentials'
       ) {
         setError('E-mail ou palavra-passe incorretos. Verifica e tenta novamente.');
-      } else if (message.includes('email not confirmed')) {
+      } else if (
+        message.includes('confirm') ||
+        errorCode.includes('email_not_confirmed')
+      ) {
         setError(
           'Ainda não confirmaste o teu email. Verifica a tua caixa de entrada e clica no link.'
         );
@@ -329,7 +333,7 @@ export default function Login() {
               </div>
             )}
 
-            {error.toLowerCase().includes('confirmaste') && (
+            {error.toLowerCase().includes('confirm') && (
               <div style={styles.resendArea}>
                 <button
                   type="button"
@@ -341,7 +345,7 @@ export default function Login() {
                     cursor: aReenviar ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  Reenviar email de confirmação
+                  {aReenviar ? 'A enviar...' : 'Reenviar email de confirmação'}
                 </button>
 
                 {msgReenvio && (
