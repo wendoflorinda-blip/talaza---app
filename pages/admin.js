@@ -1567,7 +1567,10 @@ export default function Admin() {
                       <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : '—'}</p>
                     <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
                       {request.user_response && <p><strong>Mensagem de correção:</strong> {request.user_response}</p>}
-                      {(paymentHistoryById[request.id] || []).map(entry => <p key={entry.id} style={{fontSize:11,color:'#68736F',margin:'4px 0'}}>{entry.action==='submitted'?'1.º envio':entry.action==='rejected'?'Recusa: '+(entry.reason||''):entry.action==='resubmitted'?'Reenviado / Corrigido':'Aprovado'} · {new Date(entry.created_at).toLocaleString('pt-AO')}{entry.express_sender_phone ? ' · Express '+entry.express_sender_phone : ''}{entry.user_response ? ' · '+entry.user_response : ''}</p>)}
+                      {(paymentHistoryById[request.id] || []).map(entry => <div key={entry.id} style={{fontSize:11,color:'#68736F',margin:'6px 0',padding:'7px',background:'#F7F8F7',borderRadius:8}}>
+                        <div>{entry.action==='submitted'?'1.º envio':entry.action==='rejected'?'Recusa: '+(entry.reason||''):entry.action==='resubmitted'?'Reenviado / Corrigido':'Aprovado'} · {new Date(entry.created_at).toLocaleString('pt-AO')}{entry.express_sender_phone ? ' · Express '+entry.express_sender_phone : ''}{entry.user_response ? ' · '+entry.user_response : ''}</div>
+                        {(entry.proof_image_url || entry.proof_file_url || entry.proof_url) && <button type="button" style={styles.proofLink} onClick={()=>openProof(entry.proof_image_url || entry.proof_file_url || entry.proof_url)}>Abrir comprovativo desta etapa ↗</button>}
+                      </div>)}
                       {paths.image && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem do comprovativo ↗</button></p>}
                       {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir comprovativo PDF ↗</button></p>}
                       {!paths.image && !paths.file && <p style={{ color: '#9B3A28' }}>Este pedido não contém um ficheiro de comprovativo válido.</p>}
