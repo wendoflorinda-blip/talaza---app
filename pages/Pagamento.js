@@ -145,6 +145,7 @@ export default function Pagamento() {
   const [imageThumb, setImageThumb] = useState('');
   const [pdfFile, setPdfFile] = useState(null);
   const [expressSenderPhone, setExpressSenderPhone] = useState('');
+  const [expressNumber, setExpressNumber] = useState('');
   const [submittedExpressPhone, setSubmittedExpressPhone] = useState('');
 
   const [loading, setLoading] = useState(true);
@@ -357,6 +358,7 @@ export default function Pagamento() {
       }
       setPendingPaymentReference(pendingPayment);
       if (pendingPayment.express_sender_phone) setExpressSenderPhone(pendingPayment.express_sender_phone);
+      if (pendingPayment.express_number) setExpressNumber(pendingPayment.express_number);
     }
     setLoading(false);
   }
@@ -399,6 +401,11 @@ export default function Pagamento() {
     const normalizedExpressPhone = '+244' + expressSenderPhone.replace(/\D/g, '').replace(/^244/, '');
     if (!/^\+2449\d{8}$/.test(normalizedExpressPhone)) {
       setError('Introduza um número Express angolano válido no formato +244 9XX XXX XXX.');
+      return;
+    }
+
+    if (!expressNumber.trim()) {
+      setError('Indique o Número do Express / Referência da transação.');
       return;
     }
 
@@ -465,6 +472,7 @@ export default function Pagamento() {
         currency: 'Kz',
         payment_method: 'Express',
         express_sender_phone: normalizedExpressPhone,
+        express_number: expressNumber.trim(),
         proof_url: imagePath || pdfPath,
         proof_type: imagePath && pdfPath ? 'image+pdf' : imagePath ? 'jpg' : 'pdf',
         status: 'pending',
@@ -838,6 +846,18 @@ export default function Pagamento() {
             value={expressSenderPhone}
             onChange={(event) => setExpressSenderPhone(event.target.value)}
             placeholder="+244 9XX XXX XXX"
+            style={{ width:'100%', boxSizing:'border-box', padding:14, borderRadius:12, border:'1px solid #B42318', fontSize:16, fontWeight:700 }}
+          />
+          <label htmlFor="express-reference" style={{ display:'block', marginTop:14, marginBottom:7, color:C.ink, fontWeight:800 }}>
+            Número do Express / Referência da transação
+          </label>
+          <input
+            id="express-reference"
+            type="text"
+            required
+            value={expressNumber}
+            onChange={(event) => setExpressNumber(event.target.value)}
+            placeholder="Ex.: EXP123456"
             style={{ width:'100%', boxSizing:'border-box', padding:14, borderRadius:12, border:'1px solid #B42318', fontSize:16, fontWeight:700 }}
           />
 
