@@ -15,6 +15,7 @@ export default function AdminMedia() {
   const [payments, setPayments] = useState([]);
   const [proofUrls, setProofUrls] = useState({});
   const [paymentHistory, setPaymentHistory] = useState({});
+  const [historyProofUrls, setHistoryProofUrls] = useState({});
   const [settings, setSettings] = useState({ bank_name: '', account_holder: '', account_number: '', iban: '', transfer_instructions: '' });
   const [savingSettings, setSavingSettings] = useState(false);
   const [busy, setBusy] = useState('');
@@ -38,7 +39,7 @@ export default function AdminMedia() {
     setMessage('');
     const [apps, pays, bank] = await Promise.all([
       supabase.from('media_applications').select('id,user_id,display_name,country_id,content_category,languages,bio,social_links,application_status,review_notes,created_at,countries(name)').order('created_at', { ascending: false }),
-      supabase.from('media_payment_submissions').select('id,application_id,user_id,plan_id,amount,currency,payment_reference,proof_path,status,review_notes,created_at').order('created_at', { ascending: false }),
+      supabase.from('media_payment_submissions').select('id,application_id,user_id,plan_id,amount,currency,payment_reference,proof_path,status,review_notes,user_response,resubmitted_from_id,created_at').order('created_at', { ascending: false }),
       supabase.from('media_payment_settings').select('bank_name,account_holder,account_number,iban,transfer_instructions').eq('singleton', true).maybeSingle(),
     ]);
     if (apps.error || pays.error || bank.error) {
@@ -48,7 +49,15 @@ export default function AdminMedia() {
     setApplications(apps.data || []);
     setPayments(pays.data || []);
     const historyResult = await supabase.from('payment_submission_history').select('*').eq('source_type','media').in('submission_id',(pays.data || []).map(x=>x.id)).order('created_at',{ascending:true});
-    if (!historyResult.error) setPaymentHistory((historyResult.data || []).reduce((acc,row)=>{(acc[row.submission_id] ||= []).push(row);return acc;},{}));
+    if (!historyResult.error) {
+      setPaymentHistory((historyResult.data || []).reduce((acc,row)=>{(acc[row.submission_id] ||= []).push(row);return acc;},{}));
+      const oldProofs = {};
+      await Promise.all((historyResult.data || []).filter(row=>row.proof_path).map(async row=>{
+        const { data } = await supabase.storage.from('media-payment-proofs').createSignedUrl(row.proof_path,300);
+        if (data?.signedUrl) oldProofs[row.id] = data.signedUrl;
+      }));
+      setHistoryProofUrls(oldProofs);
+    }
     setSettings({ bank_name: bank.data?.bank_name || '', account_holder: bank.data?.account_holder || '', account_number: bank.data?.account_number || '', iban: bank.data?.iban || '', transfer_instructions: bank.data?.transfer_instructions || '' });
     const urls = {};
     await Promise.all((pays.data || []).map(async (payment) => {
@@ -265,7 +274,7 @@ export default function AdminMedia() {
                     <button disabled={!!busy} onClick={() => reviewPayment(payment,'rejected')} style={{ border: 0, borderRadius: 9, padding: '9px 13px', background: '#A93A45', color: '#FFF', fontWeight: 800 }}>Rejeitar comprovativo</button>
                   </div>}
                   {payment.user_response && <p style={{ color:'#35445A', fontSize:12 }}><b>Mensagem do criador:</b> {payment.user_response}</p>}
-                  {(paymentHistory[payment.id] || []).map(row => <div key={row.id} style={{fontSize:11,color:'#667080',marginTop:5}}>{row.action==='submitted'?'1.º envio':row.action==='rejected'?'Recusa: '+(row.reason||''):row.action==='resubmitted'?'Reenviado / Corrigido':'Aprovado'} · {new Date(row.created_at).toLocaleString('pt-AO')}</div>)}
+                  {(paymentHistory[payment.id] || []).map(row => <div key={row.id} style={{fontSize:11,color:'#667080',marginTop:5}}>{row.action==='submitted'?'1.º envio':row.action==='rejected'?'Recusa: '+(row.reason||''):row.action==='resubmitted'?'Reenviado / Corrigido':'Aprovado'} · {new Date(row.created_at).toLocaleString('pt-AO')}{row.user_response ? ' · Mensagem: '+row.user_response : ''}{historyProofUrls[row.id] && <> · <a href={historyProofUrls[row.id]} target="_blank" rel="noreferrer">Abrir comprovativo desta etapa</a></>}</div>)}
                   {payment.review_notes && <p style={{ color: '#A12B36', fontSize: 12 }}>{payment.review_notes}</p>}
                 </div>)}
                 {app.application_status === 'submitted' || app.application_status === 'under_review' ? <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 13 }}>
