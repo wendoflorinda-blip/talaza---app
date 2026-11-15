@@ -144,7 +144,7 @@ export default function MediaCreatorSignup() {
         media_account_type: 'creator',
       };
       if (user) {
-        throw new Error('Este email já está associado a uma conta TALAZA. Utilize “Já tenho conta” para entrar.');
+        throw new Error('SIGNUP_ALREADY_EXISTS');
       }
       const {data,error:signupError} = await supabase.auth.signUp({
         email:email.trim().toLowerCase(), password,
@@ -164,7 +164,7 @@ export default function MediaCreatorSignup() {
       // Supabase pode devolver um utilizador sem identidades quando o email já existe,
       // para evitar expor diretamente a existência de contas.
       if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-        setError('Este email já está associado a uma conta TALAZA (Explorador, Vendedor ou Criador). Não é necessário criar outra conta, mesmo que tenha entrado por outra porta. Utilize “Já tenho conta”.');
+        setError('Não foi possível concluir o cadastro com estes dados. Verifica as informações ou entra na tua conta.');
         return;
       }
       if (data.session) {
@@ -175,9 +175,7 @@ export default function MediaCreatorSignup() {
     } catch(err) {
       const msg=String(err?.message||'');
       const lower = msg.toLowerCase();
-      setError((lower.includes('already registered') || lower.includes('already been registered') || lower.includes('user already exists') || lower.includes('email_exists'))
-        ? 'Este email já está associado a uma conta TALAZA (Explorador, Vendedor ou Criador). Não é necessário criar outra conta, mesmo que tenha entrado por outra porta. Utilize “Já tenho conta”.'
-        : msg || 'Não foi possível guardar o cadastro.');
+      setError('Não foi possível concluir o cadastro neste momento. Verifica os dados e tenta novamente.');
     } finally { setLoading(false); }
   }
 
