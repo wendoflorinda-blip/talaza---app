@@ -985,8 +985,26 @@ export default function Admin() {
   }
 
   async function reviewPayment(request, approved) {
-    const rejectionReason = approved ? '' : window.prompt('Indique o motivo da recusa do comprovativo/pagamento:');
-    if (!approved && (!rejectionReason || !rejectionReason.trim())) return;
+    let rejectionReason = '';
+    if (!approved) {
+      const choice = window.prompt(
+        'Escolha o motivo obrigatório da recusa:\n1 - Número Express incompatível / errado\n2 - Imagem ilegível / borrada\n3 - Valor não bate com o extrato\n4 - Outro (escrever motivo)',
+        '1'
+      );
+      if (choice === null) return;
+      const selected = String(choice).trim();
+      if (selected === '1') rejectionReason = 'Número Express incompatível / errado';
+      else if (selected === '2') rejectionReason = 'Imagem ilegível / borrada';
+      else if (selected === '3') rejectionReason = 'Valor não bate com o extrato';
+      else if (selected === '4') {
+        rejectionReason = window.prompt('Escreva o motivo da recusa:') || '';
+        if (!rejectionReason.trim()) { alert('O motivo é obrigatório.'); return; }
+        rejectionReason = 'Outro: ' + rejectionReason.trim();
+      } else {
+        alert('Escolha uma das opções 1, 2, 3 ou 4.');
+        return;
+      }
+    }
     if (reviewingPaymentId) return;
 
     if (approved && String(request.payment_method || '').trim().toLowerCase() === 'express') {
@@ -1541,7 +1559,6 @@ export default function Admin() {
                     <div style={styles.details}>
                       <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : '—'}</p>
                     <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
-<p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
                       {paths.image && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.image)}>Abrir imagem do comprovativo ↗</button></p>}
                       {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir comprovativo PDF ↗</button></p>}
                       {!paths.image && !paths.file && <p style={{ color: '#9B3A28' }}>Este pedido não contém um ficheiro de comprovativo válido.</p>}
