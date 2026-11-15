@@ -18,6 +18,7 @@ export default function MediaPayment() {
   const [payment, setPayment] = useState(null);
   const [proof, setProof] = useState(null);
   const [reference, setReference] = useState('');
+  const [userResponse, setUserResponse] = useState('');
   const [signedProof, setSignedProof] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -82,7 +83,7 @@ export default function MediaPayment() {
         result = await supabase.from('media_payment_submissions').insert({
           application_id: application.id, user_id: user.id, plan_id: plan.id,
           amount: plan.amount, currency: plan.currency, payment_reference: reference.trim() || null,
-          proof_path: path, status: 'pending',
+          proof_path: path, status: 'pending', user_response: userResponse.trim().slice(0,500) || null, resubmitted_from_id: payment.id, user_response: userResponse.trim().slice(0,500) || null,
         }).select('*').single();
       } else {
         result = await supabase.from('media_payment_submissions').insert({
@@ -96,6 +97,7 @@ export default function MediaPayment() {
       const { data } = await supabase.storage.from('media-payment-proofs').createSignedUrl(path, 300);
       setSignedProof(data?.signedUrl || '');
       setProof(null);
+      setUserResponse('');
       alert('Comprovativo enviado. O pagamento aguarda validação administrativa.');
     } catch (err) {
       setError(err?.message || 'Não foi possível enviar o comprovativo.');
@@ -146,6 +148,9 @@ export default function MediaPayment() {
             <form onSubmit={submitProof}>
               <label style={label} htmlFor="reference">Referência da transferência (opcional)</label>
               <input id="reference" value={reference} onChange={(e) => setReference(e.target.value)} style={input} placeholder="Referência ou observação do banco" />
+              {payment?.status === 'rejected' && <div style={{ padding:12, borderRadius:10, background:'#FFF2F2', color:'#9D2936', marginBottom:12 }}><b>Corrige e reenvia:</b> {payment.review_notes || 'A administração pediu uma correção.'}</div>}
+              <label style={label} htmlFor="user-response">Mensagem para a administração (opcional)</label>
+              <textarea id="user-response" rows={3} maxLength={500} value={userResponse} onChange={e=>setUserResponse(e.target.value)} style={input} placeholder="Explica brevemente a correção efetuada." />
               <label style={label} htmlFor="proof">Comprovativo (imagem ou PDF, até 10 MB)</label>
               <input id="proof" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setProof(e.target.files?.[0] || null)} style={input} />
               {error && <div role="alert" style={{ marginTop: 12, color: '#A12B36', fontSize: 13 }}>{error}</div>}
