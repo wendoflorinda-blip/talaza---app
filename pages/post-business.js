@@ -1,3 +1,4 @@
+import DateOfBirthFields from '../components/DateOfBirthFields';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
@@ -394,7 +395,7 @@ export default function PostBusiness() {
             <Field id="profileName" label="Nome completo" required><input id="profileName" value={profileName} onChange={e=>setProfileName(e.target.value)} autoComplete="name" placeholder="O seu nome completo" style={inputStyle}/></Field>
             <Field id="phone" label="Telefone (+244)" required><PhoneField id="phone" countryName={country?.name} value={phone} onChange={setPhone}/></Field>
             <Field id="gender" label="Género" required><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>{['Feminino','Masculino'].map(v=><button key={v} type="button" onClick={()=>setGender(v)} aria-pressed={gender===v} style={{padding:13,borderRadius:12,border:gender===v?'2px solid #B98B2E':'1px solid #DDE3EC',background:gender===v?'#FBF5E6':'#FFF',fontWeight:800}}>{v}</button>)}</div></Field>
-            <Field id="dob" label="Data de nascimento" required><input id="dob" type="date" value={dateOfBirth} max={new Date().toISOString().slice(0,10)} onChange={e=>setDateOfBirth(e.target.value)} style={inputStyle}/></Field>
+            <Field id="dob" label="Data de nascimento" required><DateOfBirthFields value={dateOfBirth} onChange={setDateOfBirth} inputStyle={inputStyle}/></Field>
             {dateOfBirth && <p style={{fontSize:12,color:age>=18?C.green:C.red}}>Idade calculada: {age===null?'data inválida':age+' anos'}</p>}
 
             <Field id="storeName" label="Nome da loja" required>
