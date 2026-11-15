@@ -83,13 +83,13 @@ export default function MediaPayment() {
         result = await supabase.from('media_payment_submissions').insert({
           application_id: application.id, user_id: user.id, plan_id: plan.id,
           amount: plan.amount, currency: plan.currency, payment_reference: reference.trim() || null,
-          proof_path: path, status: 'pending', user_response: userResponse.trim().slice(0,500) || null, resubmitted_from_id: payment.id, user_response: userResponse.trim().slice(0,500) || null,
+          proof_path: path, status: 'pending', resubmitted_from_id: payment.id, user_response: userResponse.trim().slice(0,500) || null,
         }).select('*').single();
       } else {
         result = await supabase.from('media_payment_submissions').insert({
           application_id: application.id, user_id: user.id, plan_id: plan.id,
           amount: plan.amount, currency: plan.currency, payment_reference: reference.trim() || null,
-          proof_path: path, status: 'pending',
+          proof_path: path, status: 'pending', user_response: userResponse.trim().slice(0,500) || null,
         }).select('*').single();
       }
       if (result.error) throw result.error;
