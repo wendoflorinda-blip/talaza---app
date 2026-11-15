@@ -31,7 +31,7 @@ export default function ForgotPassword() {
       setNotice('Se existir uma conta com este e-mail, enviaremos um link de recuperação. Verifique a caixa de entrada e o spam.');
     } catch (err) {
       console.error('Falha ao pedir recuperação de palavra-passe:', err);
-      setError('Não foi possível enviar o link. Confirme o e-mail e tente novamente.');
+      setError('Não foi possível enviar o link de recuperação neste momento. Verifica o e-mail e tenta novamente.');
     } finally {
       setLoading(false);
     }
