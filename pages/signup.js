@@ -82,7 +82,7 @@ export default function Signup() {
     if (password.length<6) return setError('A senha deve ter pelo menos 6 caracteres.');
     setLoading(true); setError('');
     try {
-      const { data: proofData, error: proofError } = await supabase.functions.invoke('talaza-signup-proof', { body: { action:'encrypt', email:email.trim().toLowerCase(), date_of_birth:dateOfBirth } });
+      const { data: proofData, error: proofError } = await supabase.functions.invoke('talaza-signup-proof', { body: { action:'encrypt', email:email.trim().toLowerCase(), name:fullName.trim(), phone:fullPhone(dial,phone), gender:gender.toLowerCase(), date_of_birth:dateOfBirth } });
       if (proofError || !proofData?.proof) throw new Error('PROOF_FAILED');
       const pendingExplorer = { name:fullName.trim(), country_id:countryId, province_id:provinceId, phone:fullPhone(dial,phone), gender:gender.toLowerCase() };
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -127,6 +127,7 @@ export default function Signup() {
           <p style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Depois de criar a conta, confirma o teu e-mail através do link que vamos enviar.</p>
         </>}
         <ErrorBox>{error}</ErrorBox>
+        {error.includes('Verifica o teu e-mail') && <button type="button" onClick={()=>router.push('/resend-confirmation')} style={{width:'100%',marginTop:10,padding:12,borderRadius:12,border:'1px solid #B98B2E',background:'#FBF5E6',color:C.green,fontWeight:800}}>Não recebeste o e-mail? Reenviar link</button>}
         <div style={{display:'flex',gap:10,marginTop:16}}>
           {step>1 && <button type="button" onClick={()=>{setError('');setStep(s=>s-1)}} style={{padding:'13px 18px',borderRadius:12,border:'1px solid #DDE3EC',background:'#FFF',color:C.ink,fontWeight:800}}>Voltar</button>}
           <div style={{flex:1}}><PrimaryButton type="submit" loading={loading}>{loading?'A processar…':step===3?'Criar conta':'Seguinte'}</PrimaryButton></div>
