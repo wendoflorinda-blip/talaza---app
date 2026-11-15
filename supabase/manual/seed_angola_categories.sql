@@ -6,8 +6,7 @@ alter table public.categories
   add column if not exists active boolean not null default true;
 
 create unique index if not exists categories_slug_unique
-  on public.categories (slug)
-  where slug is not null;
+  on public.categories (slug);
 
 insert into public.categories (name, slug, icon, active)
 values
