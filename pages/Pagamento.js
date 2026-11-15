@@ -300,6 +300,7 @@ export default function Pagamento() {
       pendingPayment &&
       (
         latestPaymentStatus === 'pending' ||
+        latestPaymentStatus === 'rejected' ||
         (
           latestPaymentStatus === 'approved' &&
           (
