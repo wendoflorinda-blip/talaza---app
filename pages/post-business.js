@@ -26,7 +26,17 @@ import {
   uploadPublicImage,
 } from '../lib/talaza';
 
-function calculateAge(value) {\n  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return null;\n  const [y,m,d] = value.split('-').map(Number);\n  const date = new Date(y,m-1,d);\n  if (date.getFullYear()!==y || date.getMonth()!==m-1 || date.getDate()!==d) return null;\n  const now = new Date(); let age=now.getFullYear()-y;\n  if (now.getMonth()+1<m || (now.getMonth()+1===m && now.getDate()<d)) age--;\n  return age;\n}\n\nconst DAYS_OPTIONS = [
+function calculateAge(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return null;
+  const [y,m,d] = value.split('-').map(Number);
+  const date = new Date(y,m-1,d);
+  if (date.getFullYear()!==y || date.getMonth()!==m-1 || date.getDate()!==d) return null;
+  const now = new Date(); let age=now.getFullYear()-y;
+  if (now.getMonth()+1<m || (now.getMonth()+1===m && now.getDate()<d)) age--;
+  return age;
+}
+
+const DAYS_OPTIONS = [
   'Segunda a sexta',
   'Segunda a sábado',
   'Todos os dias',
@@ -38,7 +48,10 @@ export default function PostBusiness() {
   const [blockedCountry, setBlockedCountry] = useState('');
 
   const [user, setUser] = useState(null);
-  const [profileName, setProfileName] = useState('');\n  const [gender, setGender] = useState('');\n  const [dateOfBirth, setDateOfBirth] = useState('');\n  const age = calculateAge(dateOfBirth);
+  const [profileName, setProfileName] = useState('');
+  const [gender, setGender] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const age = calculateAge(dateOfBirth);
 
   /* Passo 1: os dados do vendedor */
   const [email, setEmail] = useState('');
