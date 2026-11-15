@@ -536,7 +536,7 @@ export default function Pagamento() {
                 lineHeight: 1.6,
               }}
             >
-              {'O teu comprovante foi enviado com o número Express ' + normalizedExpressPhone + '. Se o número estiver errado, o pagamento não será confirmado e o acesso não será desbloqueado.'}
+              {'O teu comprovante foi enviado com o número Express ' + submittedExpressPhone + '. Se o número estiver errado, o pagamento não será confirmado e o acesso não será desbloqueado.'}
             </p>
 
             <Link
