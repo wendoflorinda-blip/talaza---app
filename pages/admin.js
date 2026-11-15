@@ -39,6 +39,7 @@ export default function Admin() {
   const [refreshing, setRefreshing] = useState(false);
   const [authorized, setAuthorized] = useState(false);
   const [businesses, setBusinesses] = useState([]);
+  const [businessFilter, setBusinessFilter] = useState('pending');
   const [subscriptionRequests, setSubscriptionRequests] = useState([]);
   const [opportunityAccessLoadError, setOpportunityAccessLoadError] = useState('');
   const [girassolReactivations, setGirassolReactivations] = useState([]);
@@ -196,7 +197,6 @@ export default function Admin() {
           name
         )
       `)
-      .eq('approval_status', 'pending')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -208,8 +208,7 @@ export default function Admin() {
     // Só entra na fila de aprovação quando o perfil está completo e existe comprovativo de plano.
     const { data: proofRows, error: proofError } = await supabase
       .from('payment_submissions')
-      .select('business_id, plan_id, proof_url, status')
-      .not('proof_url', 'is', null);
+      .select('business_id, plan_id, proof_url, proof_image_url, proof_file_url, status');
     if (proofError) {
       console.error('Erro ao validar comprovativos dos negócios:', proofError);
       setMessage('Não foi possível validar os comprovativos dos vendedores: ' + proofError.message);
@@ -217,17 +216,21 @@ export default function Admin() {
       return;
     }
     const readyBusinessIds = new Set((proofRows || [])
-      .filter((payment) => payment.business_id && payment.plan_id && String(payment.proof_url || '').trim())
+      .filter((payment) => payment.business_id && payment.plan_id && [payment.proof_url, payment.proof_image_url, payment.proof_file_url].some((path) => String(path || '').trim()))
       .map((payment) => payment.business_id));
-    setBusinesses((data || []).filter((business) =>
-      business.name?.trim() &&
-      business.description?.trim() &&
-      business.country_id &&
-      business.province_id &&
-      business.category_id &&
-      business.subcategory_id &&
-      readyBusinessIds.has(business.id)
-    ));
+    setBusinesses((data || []).filter((business) => {
+      const approvalStatus = String(business.approval_status || 'pending').toLowerCase();
+      if (approvalStatus !== 'pending') return true;
+      return Boolean(
+        business.name?.trim() &&
+        business.description?.trim() &&
+        business.country_id &&
+        business.province_id &&
+        business.category_id &&
+        business.subcategory_id &&
+        readyBusinessIds.has(business.id)
+      );
+    }));
   }
 
   async function loadSubscriptionRequests() {
@@ -1246,6 +1249,9 @@ export default function Admin() {
     router.replace('/login');
   }
 
+  const pendingBusinessCount = businesses.filter((business) => String(business.approval_status || 'pending').toLowerCase() === 'pending').length;
+  const filteredBusinesses = businesses.filter((business) => businessFilter === 'all' || String(business.approval_status || 'pending').toLowerCase() === businessFilter);
+
   if (ADMIN_READ_ONLY) {
     return (
       <main style={styles.center}>
@@ -1338,7 +1344,7 @@ export default function Admin() {
 
           <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'wrap', overflow: 'visible', gap: 10, margin: '0 -4px 10px', padding: '8px 4px 14px' }}>
             {[
-              ['vendedores', 'Vendedores', businesses.length],
+              ['vendedores', 'Vendedores', pendingBusinessCount],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
               ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase() && String(item.status || '').trim().toLowerCase() === 'pending').length],
               ['girassol', 'Reactivação Girassol', girassolReactivations.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
@@ -1354,32 +1360,40 @@ export default function Admin() {
           </nav>
           <p style={{ margin: '0 0 24px', color: '#64756F', fontSize: 13, textAlign: 'center' }}>→ Deslize para ver mais áreas</p>
           <div style={styles.counter}>
-            {businesses.length} pendente
-            {businesses.length !== 1 ? 's' : ''}
+            {pendingBusinessCount} pendente
+            {pendingBusinessCount !== 1 ? 's' : ''}
           </div>
         </div>
 
         <div style={{ display: activeAdminSection === 'vendedores' ? 'block' : 'none' }}>
+        <div role="group" aria-label="Filtrar vendedores por estado" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          {[
+            ['pending', 'Pendentes', pendingBusinessCount],
+            ['approved', 'Aprovados', businesses.filter((business) => String(business.approval_status || '').toLowerCase() === 'approved').length],
+            ['rejected', 'Rejeitados', businesses.filter((business) => String(business.approval_status || '').toLowerCase() === 'rejected').length],
+            ['all', 'Todos', businesses.length],
+          ].map(([value, label, count]) => <button key={value} type="button" onClick={() => setBusinessFilter(value)} aria-pressed={businessFilter === value} style={{ padding: '9px 14px', borderRadius: 999, border: businessFilter === value ? '2px solid #D8A319' : '1px solid #D5E4DF', background: businessFilter === value ? '#075B4E' : '#FFFFFF', color: businessFilter === value ? '#FFFFFF' : '#075B4E', fontWeight: 800, cursor: 'pointer' }}>{label} ({count})</button>)}
+        </div>
         {message && (
           <div style={styles.errorBox}>
             {message}
           </div>
         )}
 
-        {businesses.length === 0 ? (
+        {filteredBusinesses.length === 0 ? (
           <div style={styles.empty}>
             <div style={styles.emptyIcon}>✓</div>
 
-            <h2>Nenhum perfil pendente</h2>
+            <h2>{businessFilter === 'pending' ? 'Nenhum perfil pendente' : businessFilter === 'approved' ? 'Nenhum perfil aprovado' : businessFilter === 'rejected' ? 'Nenhum perfil rejeitado' : 'Nenhum perfil registado'}</h2>
 
             <p>
-              Não existem negócios aguardando validação neste momento.
+              {businessFilter === 'pending' ? 'Não existem negócios aguardando validação neste momento.' : 'Não existem negócios nesta categoria.'}
             </p>
           </div>
         ) : (
           <div style={styles.list}>
 
-            {businesses.map((business) => (
+            {filteredBusinesses.map((business) => (
 
               <article
                 key={business.id}
@@ -1412,8 +1426,8 @@ export default function Admin() {
                     </div>
                   </div>
 
-                  <span style={styles.pending}>
-                    Pendente
+                  <span style={String(business.approval_status || 'pending').toLowerCase() === 'pending' ? styles.pending : styles.paymentStatus}>
+                    {String(business.approval_status || 'pending').toLowerCase() === 'approved' ? 'Aprovado' : String(business.approval_status || 'pending').toLowerCase() === 'rejected' ? 'Rejeitado' : 'Pendente'}
                   </span>
 
                 </div>
@@ -1475,33 +1489,10 @@ export default function Admin() {
 
                 </div>
 
-                <div style={styles.actions}>
-
-                  <button
-                    style={styles.reject}
-                    onClick={() =>
-                      updateBusiness(
-                        business.id,
-                        'rejected'
-                      )
-                    }
-                  >
-                    Recusar
-                  </button>
-
-                  <button
-                    style={styles.approve}
-                    onClick={() =>
-                      updateBusiness(
-                        business.id,
-                        'approved'
-                      )
-                    }
-                  >
-                    Aprovar
-                  </button>
-
-                </div>
+                {String(business.approval_status || 'pending').toLowerCase() === 'pending' && <div style={styles.actions}>
+                  <button style={styles.reject} onClick={() => updateBusiness(business.id, 'rejected')}>Recusar</button>
+                  <button style={styles.approve} onClick={() => updateBusiness(business.id, 'approved')}>Aprovar</button>
+                </div>}
 
               </article>
 
