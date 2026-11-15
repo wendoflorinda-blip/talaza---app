@@ -17,7 +17,7 @@ export default function AuthCallback() {
       try {
         const params = new URLSearchParams(window.location.search);
         const authError = params.get('error_description') || params.get('error');
-        if (authError) throw new Error(decodeURIComponent(authError.replace(/\+/g, ' ')));
+        if (authError) throw new Error('CONFIRMATION_LINK_FAILED');
 
         // supabase-js processes the implicit-flow tokens from the URL fragment.
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -119,7 +119,7 @@ export default function AuthCallback() {
         throw new Error('Não foi possível identificar o tipo de cadastro associado a este email.');
       } catch (err) {
         console.error('Erro no callback de confirmação Talaza:', err);
-        setError(err?.message || 'Não foi possível confirmar o email. Tenta novamente.');
+        setError('Não foi possível confirmar o teu e-mail. O link pode ter expirado ou já ter sido utilizado. Solicita um novo link e tenta novamente.');
         setMessage('Não foi possível concluir a confirmação.');
       }
     }
