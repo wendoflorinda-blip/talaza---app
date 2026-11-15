@@ -220,7 +220,7 @@ export default function AuthCallback() {
           {error && (
             <button
               type="button"
-              onClick={() => router.replace('/login')}
+              onClick={() => router.replace('/resend-confirmation')}
               style={{
                 width: '100%',
                 marginTop: 18,
@@ -234,7 +234,7 @@ export default function AuthCallback() {
                 cursor: 'pointer',
               }}
             >
-              Ir para entrar
+              Pedir novo link de confirmação
             </button>
           )}
         </section>
