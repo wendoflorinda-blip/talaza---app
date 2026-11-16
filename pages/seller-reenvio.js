@@ -41,7 +41,7 @@ export default function SellerResubmissionPage() {
       setUser(currentUser);
       setBusiness(shop);
       setReview(status || null);
-      setPhone(shop.phone ? (shop.phone.replace(/\\D/g, '').length === 9 ? '+244' + shop.phone.replace(/\\D/g, '') : shop.phone) : '');
+      setPhone(shop.phone ? (shop.phone.replace(/\D/g, '').length === 9 ? '+244' + shop.phone.replace(/\D/g, '') : shop.phone) : '');
       setLoading(false);
     })();
     return () => { alive = false; };
@@ -52,7 +52,7 @@ export default function SellerResubmissionPage() {
     if (!user || !business || busy) return;
     const cleanPhone = phone.trim();
     if (!cleanPhone) { setError('Indique o número de telefone que fez a transferência Express.'); return; }
-    const phoneDigits = cleanPhone.replace(/\\D/g, '');
+    const phoneDigits = cleanPhone.replace(/\D/g, '');
     const expressPhone = phoneDigits.length === 9 ? '+244' + phoneDigits : phoneDigits.startsWith('244') ? '+' + phoneDigits : cleanPhone;
     if (!file || !['application/pdf','image/jpeg','image/png','image/webp'].includes(file.type)) {
       setError('Anexe um comprovativo em PDF, JPG, PNG ou WebP.'); return;
