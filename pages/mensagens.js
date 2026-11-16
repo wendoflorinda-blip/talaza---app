@@ -319,7 +319,7 @@ export default function Mensagens() {
               let targetBusiness = null;
               let targetCategoryName = '';
               let targetSubcategoryName = '';
-              if (source === 'Vitrine' && createdSourceId) {
+              if ((source === 'Vitrine' || source === 'Loja') && createdSourceId) {
                 const { data:business } = await supabase.from('businesses')
                   .select('id,owner_id,name,logo_url,subcategory_id')
                   .eq('id',createdSourceId).maybeSingle();
