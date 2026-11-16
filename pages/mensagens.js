@@ -18,7 +18,7 @@ function renderMessageText(value) {
     return <span key={index}>{part}</span>;
   });
 }
-const sourceNames = ['Vitrine','Contratar','Comunidade Talaza','Oportunidades','Eventos','Ebooks','Outro'];
+const sourceNames = ['Vitrine','Loja','Contratar','Comunidade Talaza','Oportunidades','Eventos','Ebooks','Outro'];
 
 export default function Mensagens() {
   const router = useRouter();
@@ -232,12 +232,13 @@ export default function Mensagens() {
         if (targetId && targetId !== currentUser.id) {
           try {
             const requestedSource = safe(router.query.source) || 'Vitrine';
-            const source = sourceNames.includes(requestedSource) ? requestedSource : 'Vitrine';
-            const createdSourceId = safe(router.query.sourceId) || null;
-            // A origem Vitrine identifica a ação como Explorador, mesmo quando a
-            // conta também possui loja. Sem indicação explícita de caixa, assume Explorador.
+            // Sem indicação explícita de caixa, assume sempre o modo Explorador.
             const requestedBox = String(safe(router.query.box) || 'explore').trim().toLowerCase();
             const isStoreMode = requestedBox === 'store';
+            // Guarda o modo no registo da conversa para que o RLS consiga aplicar
+            // a regra correta sem depender de parâmetros do navegador.
+            const source = isStoreMode ? 'Loja' : (sourceNames.includes(requestedSource) ? requestedSource : 'Vitrine');
+            const createdSourceId = safe(router.query.sourceId) || null;
             if (isStoreMode && !currentProfile?.province_id) {
               throw new Error('Não foi possível confirmar a província principal da loja.');
             }
