@@ -231,30 +231,28 @@ export default function Mensagens() {
         const targetId = safe(router.query.to);
         if (targetId && targetId !== currentUser.id) {
           try {
-            if (!currentProfile?.province_id) throw new Error('Não foi possível iniciar a mensagem interna porque o seu perfil pessoal não devolveu a província principal. Confirme se existe a linha em profiles com id igual ao ID desta conta e se province_id está preenchido. Se aparecer erro de permissão, é necessário corrigir a política de leitura do próprio perfil no Supabase.');
-            const { data:target, error:targetError } = await supabase.from('profiles')
-              .select('*').eq('id',targetId).maybeSingle();
-            if (targetError || !target) throw new Error('Não foi possível encontrar este perfil.');
-            if (!target.province_id) {
-              throw new Error('Este utilizador ainda não tem uma província principal definida no perfil.');
-            }
-            // O vendedor mantém a restrição da sua província principal.
-            // O Explorador Talaza pode iniciar conversa com pessoas/negócios de outras províncias.
-            const { data: ownedBusiness, error: ownedBusinessError } = await supabase
-              .from('businesses').select('id').eq('owner_id', currentUser.id).limit(1).maybeSingle();
-            if (ownedBusinessError) {
-              throw new Error('Não foi possível confirmar o tipo de conta para aplicar a regra de província: ' + ownedBusinessError.message);
-            }
-            const accountType = String(currentProfile.account_type || '').trim().toLowerCase();
-            const hasExplicitType = /explorador|explorer|cliente|vendedor|seller/.test(accountType);
-            const isSeller = /vendedor|seller/.test(accountType) || (!hasExplicitType && Boolean(ownedBusiness?.id));
-            if (isSeller && String(target.province_id) !== String(currentProfile.province_id)) {
-              throw new Error('A conta de vendedor só pode iniciar mensagens dentro da sua província principal. O Explorador Talaza pode contactar negócios de outras províncias.');
-            }
             const requestedSource = safe(router.query.source) || 'Vitrine';
             const source = sourceNames.includes(requestedSource) ? requestedSource : 'Vitrine';
             const createdSourceId = safe(router.query.sourceId) || null;
-            let conversationProvinceId = currentProfile.province_id;
+            // A origem Vitrine identifica a ação como Explorador, mesmo quando a
+            // conta também possui loja. Sem indicação explícita de caixa, assume Explorador.
+            const requestedBox = String(safe(router.query.box) || 'explore').trim().toLowerCase();
+            const isStoreMode = requestedBox === 'store' && source !== 'Vitrine';
+            if (isStoreMode && !currentProfile?.province_id) {
+              throw new Error('Não foi possível confirmar a província principal da loja.');
+            }
+            const { data:target, error:targetError } = await supabase.from('profiles')
+              .select('*').eq('id',targetId).maybeSingle();
+            if (targetError || !target) throw new Error('Não foi possível encontrar este perfil.');
+            if (isStoreMode && !target.province_id) {
+              throw new Error('Este utilizador ainda não tem uma província principal definida no perfil.');
+            }
+            // A restrição geográfica só é aplicada numa ação explicitamente iniciada
+            // na caixa da loja. No Explorar Talaza/Vitrine nunca há bloqueio provincial.
+            if (isStoreMode && String(target.province_id) !== String(currentProfile.province_id)) {
+              throw new Error('A conta da loja só pode iniciar mensagens dentro da sua província principal.');
+            }
+            let conversationProvinceId = currentProfile?.province_id || target.province_id;
             if (source === 'Eventos' && createdSourceId) {
               const { data:sourceEvent, error:sourceEventError } = await supabase
                 .from('events').select('id,user_id,province_id,status,payment_status,admin_approved')
