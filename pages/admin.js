@@ -181,8 +181,8 @@ export default function Admin() {
       sellerIds.length ? supabase.from('seller_status').select('seller_id,status,reject_reason').in('seller_id',sellerIds) : Promise.resolve({data:[],error:null}),
       sellerIds.length ? supabase.from('businesses').select('id,owner_id,name,phone,approval_status,is_active,created_at').in('owner_id',sellerIds).order('created_at',{ascending:false}) : Promise.resolve({data:[],error:null})
     ]);
-    if(statusError) console.warn('Estado dos vendedores:',statusError);
-    if(businessError) console.warn('Negócios dos vendedores:',businessError);
+    if(statusError) console.error('Estado dos vendedores nos reenvios:',statusError);
+    if(businessError) console.error('Negócios associados aos reenvios:',businessError);
     const statusMap=Object.fromEntries((statuses||[]).map(item=>[item.seller_id,item]));
     const businessMap={}; (businessRows||[]).forEach(item=>{ if(!businessMap[item.owner_id]) businessMap[item.owner_id]=item; });
     const enriched=await Promise.all((rows||[]).map(async row=>{
@@ -1486,7 +1486,7 @@ export default function Admin() {
             {[
               ['vendedores', 'Vendedores', pendingBusinessCount],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
-              ['pagamentos-recusados', 'Pagamentos recusados', resubmissions.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
+              ['reenvios', 'Reenvios', resubmissions.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase() && String(item.status || '').trim().toLowerCase() === 'pending').length],
               ['girassol', 'Reactivação Girassol', girassolReactivations.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['destaques-premium', 'Destaques Premium', subscriptionRequests.filter(item => item.premium_promotion_id && String(item.status || '').toLowerCase() === 'pending').length],
@@ -1503,19 +1503,19 @@ export default function Admin() {
                 type="button"
                 onClick={() => {
                   setActiveAdminSection(key);
-                  if (key === 'pagamentos-recusados') loadPaymentResubmissions();
+                  if (key === 'reenvios') loadPaymentResubmissions();
                 }}
                 aria-pressed={activeAdminSection === key}
                 style={{
-                  order: key === 'vendedores' ? 0 : key === 'pagamentos' ? 1 : key === 'pagamentos-recusados' ? 2 : 3,
+                  order: key === 'vendedores' ? 0 : key === 'pagamentos' ? 1 : key === 'reenvios' ? 2 : 3,
                   flex: '0 0 auto',
                   alignItems: 'center',
                   gap: 10,
                   padding: '13px 18px',
                   borderRadius: 999,
-                  border: key === 'pagamentos-recusados' ? '2px solid #C62828' : activeAdminSection === key ? '3px solid #D8A319' : '1px solid #D5E4DF',
-                  background: activeAdminSection === key ? '#075B4E' : key === 'pagamentos-recusados' ? '#FFF5F5' : '#E4F0ED',
-                  color: activeAdminSection === key ? '#FFFFFF' : key === 'pagamentos-recusados' ? '#9E1B1B' : '#075B4E',
+                  border: key === 'reenvios' ? '2px solid #C62828' : activeAdminSection === key ? '3px solid #D8A319' : '1px solid #D5E4DF',
+                  background: activeAdminSection === key ? '#075B4E' : key === 'reenvios' ? '#FFF5F5' : '#E4F0ED',
+                  color: activeAdminSection === key ? '#FFFFFF' : key === 'reenvios' ? '#9E1B1B' : '#075B4E',
                   fontWeight: 800,
                   cursor: 'pointer',
                   fontSize: 14,
@@ -1525,7 +1525,7 @@ export default function Admin() {
                 }}
               >
                 {label}
-                {(key === 'pagamentos-recusados' || Number(count) > 0) && (
+                {(key === 'reenvios' || Number(count) > 0) && (
                   <span
                     style={{
                       minWidth: 25,
@@ -1535,8 +1535,8 @@ export default function Admin() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       borderRadius: 999,
-                      background: key === 'pagamentos-recusados' ? '#C62828' : activeAdminSection === key ? '#D8A319' : '#FFF0B8',
-                      color: key === 'pagamentos-recusados' ? '#FFFFFF' : '#075B4E',
+                      background: key === 'reenvios' ? '#C62828' : activeAdminSection === key ? '#D8A319' : '#FFF0B8',
+                      color: key === 'reenvios' ? '#FFFFFF' : '#075B4E',
                       fontWeight: 900
                     }}
                   >
@@ -1859,8 +1859,8 @@ export default function Admin() {
           }
         </section>
 
-        <section id="pagamentos-recusados" style={{marginTop:0,display:activeAdminSection==='pagamentos-recusados'?'block':'none'}}>
-          <div style={styles.titleRow}><div><h2 style={styles.title}>Pagamentos recusados</h2><p style={styles.description}>Revê os novos comprovativos e telefones enviados pelos vendedores após uma recusa.</p></div><div style={styles.counter}>{resubmissions.filter(item=>String(item.status||'').toLowerCase()==='pending').length} por analisar</div></div>
+        <section id="reenvios" style={{marginTop:0,display:activeAdminSection==='reenvios'?'block':'none'}}>
+          <div style={styles.titleRow}><div><h2 style={styles.title}>Reenvios de comprovativos</h2><p style={styles.description}>Revê os novos comprovativos e telefones enviados pelos vendedores após uma recusa.</p></div><div style={styles.counter}>{resubmissions.filter(item=>String(item.status||'').toLowerCase()==='pending').length} por analisar</div></div>
           {resubmissionError&&<div role="alert" style={{marginBottom:14,padding:12,borderRadius:10,background:'#FCEBED',color:'#A52F3B',fontSize:13}}>{resubmissionError}</div>}
           {!resubmissions.some(item=>String(item.status||'').toLowerCase()==='pending')?<div style={styles.empty}><div style={styles.emptyIcon}>◇</div><h2>Nenhum reenvio pendente</h2><p>Quando um vendedor reenviar um comprovativo após a recusa, o pedido aparecerá aqui.</p></div>:
             <div style={styles.list}>{resubmissions.filter(item=>String(item.status||'').toLowerCase()==='pending').map(item=><article key={item.id} style={styles.card}>
@@ -1872,7 +1872,7 @@ export default function Admin() {
               <p style={{fontSize:12,color:'#A52F3B',marginTop:10}}><strong>Motivo da recusa anterior:</strong> {item.sellerStatus?.reject_reason||'Motivo anterior não registado.'}</p>
               <div style={{marginTop:12,padding:10,border:'1px solid #DCE6E1',borderRadius:12,background:'#F8FAF9'}}>
                 {item.previewUrl?(item.file_type==='pdf'
-                  ?<a href={item.previewUrl} target="_blank" rel="noreferrer" download style={{display:'inline-flex',alignItems:'center',gap:9,padding:'12px 16px',borderRadius:10,background:'#173F32',color:'#FFFFFF',fontWeight:900,textDecoration:'none'}}>Abrir / baixar comprovativo PDF ↗</a>
+                  ?<a href={item.previewUrl} target="_blank" rel="noreferrer" download style={{display:'inline-flex',alignItems:'center',gap:9,padding:'12px 16px',borderRadius:10,background:'#173F32',color:'#FFFFFF',fontWeight:900,textDecoration:'none'}}>Ver comprovativo ↗</a>
                   :<a href={item.previewUrl} target="_blank" rel="noreferrer"><img src={item.previewUrl} alt="Comprovativo reenviado" style={{display:'block',maxWidth:'100%',maxHeight:360,objectFit:'contain',margin:'0 auto',borderRadius:8}}/></a>)
                   :<p style={{fontSize:12,color:'#A52F3B'}}>Não foi possível gerar o preview do ficheiro. Verifica o bucket payment-proofs.</p>}
               </div>
