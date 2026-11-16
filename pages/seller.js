@@ -415,7 +415,7 @@ export default function Seller() {
     const currentEmail = String(user?.email || '').trim().toLowerCase();
     const nextEmail = String(newLoginEmail || '').trim().toLowerCase();
     const confirmation = String(confirmLoginEmail || '').trim().toLowerCase();
-    const emailPattern = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/;
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
     if (!nextEmail || !emailPattern.test(nextEmail)) {
       setEmailChangeFeedback('Coloca um e-mail válido. Verifica se escreveste bem.');
