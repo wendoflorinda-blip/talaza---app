@@ -174,7 +174,7 @@ export default function Admin() {
 
   async function loadPaymentResubmissions() {
     setResubmissionError('');
-    const { data: rows, error } = await supabase.from('payment_resubmissions').select('id,seller_id,phone,express_sender_phone,file_url,file_type,status,created_at').eq('status','pending').order('created_at',{ascending:false});
+    const { data: rows, error } = await supabase.from('payment_resubmissions').select('id,seller_id,phone,express_number,file_url,file_type,status,created_at').eq('status','pending').order('created_at',{ascending:false});
     if (error) { setResubmissionError('Não foi possível carregar os comprovativos corrigidos: '+error.message); setResubmissions([]); return; }
     const sellerIds=[...new Set((rows||[]).map(row=>row.seller_id).filter(Boolean))];
     const [{data:statuses,error:statusError},{data:businessRows,error:businessError}] = await Promise.all([
@@ -202,15 +202,15 @@ export default function Admin() {
       if(!business) throw new Error('Não foi encontrado um negócio associado a este vendedor.');
       if(approved){
         // O reenvio atualiza o pagamento recusado existente; nunca cria um novo payment_submissions.
-        const expressSenderPhone=String(item.express_sender_phone||item.phone||'').trim();
-        if(!expressSenderPhone) throw new Error('O reenvio não contém o número Express. Não é possível aprovar sem esse dado.');
         const {data:rejectedPayment,error:rejectedPaymentError}=await supabase.from('payment_submissions')
-          .select('id,plan_id,amount,created_at')
+          .select('id,plan_id,amount,created_at,express_sender_phone,express_number')
           .eq('user_id',item.seller_id).eq('business_id',business.id).eq('status','rejected')
           .order('created_at',{ascending:false}).limit(1).maybeSingle();
         if(rejectedPaymentError) throw rejectedPaymentError;
         let validHosting=false;
         if(rejectedPayment){
+          const expressSenderPhone=String(rejectedPayment.express_sender_phone||rejectedPayment.express_number||item.express_number||'').trim();
+          if(!expressSenderPhone) throw new Error('O pagamento original e o reenvio não contêm o número Express. Não é possível aprovar sem esse dado.');
           const {data:plan,error:planError}=await supabase.from('plans').select('id,price,duration_days').eq('id',rejectedPayment.plan_id).maybeSingle();
           if(planError) throw planError;
           if(!plan || Number(plan.price)!==Number(rejectedPayment.amount)) throw new Error('O valor do pagamento original não corresponde ao preço atual do plano. Verifica o plano antes de aprovar.');
