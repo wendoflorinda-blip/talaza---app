@@ -41,7 +41,7 @@ export default function SellerResubmissionPage() {
       setUser(currentUser);
       setBusiness(shop);
       setReview(status || null);
-      setPhone(shop.phone || '');
+      setPhone(shop.phone ? (shop.phone.replace(/\\D/g, '').length === 9 ? '+244' + shop.phone.replace(/\\D/g, '') : shop.phone) : '');
       setLoading(false);
     })();
     return () => { alive = false; };
@@ -52,6 +52,8 @@ export default function SellerResubmissionPage() {
     if (!user || !business || busy) return;
     const cleanPhone = phone.trim();
     if (!cleanPhone) { setError('Indique o número de telefone que fez a transferência Express.'); return; }
+    const phoneDigits = cleanPhone.replace(/\\D/g, '');
+    const expressPhone = phoneDigits.length === 9 ? '+244' + phoneDigits : phoneDigits.startsWith('244') ? '+' + phoneDigits : cleanPhone;
     if (!file || !['application/pdf','image/jpeg','image/png','image/webp'].includes(file.type)) {
       setError('Anexe um comprovativo em PDF, JPG, PNG ou WebP.'); return;
     }
@@ -65,7 +67,7 @@ export default function SellerResubmissionPage() {
         .upload(uploadedPath, file, { upsert:false, contentType:file.type, cacheControl:'3600' });
       if (uploadError) throw uploadError;
       const { error: insertError } = await supabase.from('payment_resubmissions').insert({
-        seller_id:user.id, phone:cleanPhone, file_url:uploadedPath,
+        seller_id:user.id, phone:expressPhone, file_url:uploadedPath,
         file_type:file.type === 'application/pdf' ? 'pdf' : 'image', status:'pending'
       });
       if (insertError) throw insertError;
