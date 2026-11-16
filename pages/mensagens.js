@@ -237,7 +237,7 @@ export default function Mensagens() {
             // A origem Vitrine identifica a ação como Explorador, mesmo quando a
             // conta também possui loja. Sem indicação explícita de caixa, assume Explorador.
             const requestedBox = String(safe(router.query.box) || 'explore').trim().toLowerCase();
-            const isStoreMode = requestedBox === 'store' && source !== 'Vitrine';
+            const isStoreMode = requestedBox === 'store';
             if (isStoreMode && !currentProfile?.province_id) {
               throw new Error('Não foi possível confirmar a província principal da loja.');
             }
