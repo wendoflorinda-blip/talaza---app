@@ -9,6 +9,7 @@ export default function NotificationsPanel({ userId: suppliedUserId, audience = 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [open, setOpen] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState(null);
   useEffect(() => {
     if (suppliedUserId) { setUserId(suppliedUserId); return; }
     let mounted = true;
@@ -25,20 +26,34 @@ export default function NotificationsPanel({ userId: suppliedUserId, audience = 
   useEffect(()=>{if(!userId)return;const channel=supabase.channel('talaza-notifications-'+userId).on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+userId},()=>loadNotifications()).subscribe();return()=>{supabase.removeChannel(channel);};},[userId,loadNotifications]);
   async function openNotification(item){
     if(!item.is_read){const {error:updateError}=await supabase.from('notifications').update({is_read:true}).eq('id',item.id).eq('user_id',userId).eq('audience',audience);if(updateError){setError('Não foi possível marcar como lida: '+updateError.message);return;}setNotifications(rows=>rows.map(row=>row.id===item.id?{...row,is_read:true}:row));}
-    setOpen(false);const target=String(item.link||'');if(target.startsWith('/')&&!target.startsWith('//'))router.push(target);
+    setOpen(false);
+    const title=String(item.title||'').toLowerCase();
+    const type=String(item.type||'').toLowerCase();
+    const content=String(item.content||'').toLowerCase();
+    const isResubmissionRejection=type.includes('resubmission_rejected') || (title.includes('comprovativo') && (title.includes('recusado') || title.includes('recusada'))) || (content.includes('motivo:') && content.includes('recusado'));
+    if(isResubmissionRejection){setSelectedNotification(item);return;}
+    const target=String(item.link||'');if(target.startsWith('/')&&!target.startsWith('//'))router.push(target);
   }
   async function markAllAsRead(){const ids=notifications.filter(item=>!item.is_read).map(item=>item.id);if(!ids.length)return;const {error:updateError}=await supabase.from('notifications').update({is_read:true}).in('id',ids).eq('user_id',userId).eq('audience',audience);if(updateError){setError(updateError.message);return;}setNotifications(rows=>rows.map(row=>({...row,is_read:true})));}
   const unreadCount=notifications.filter(item=>!item.is_read).length;
-  return <div style={{position:'relative'}}>
+  return <div className="notifications-root" style={{position:'relative',zIndex:12,minWidth:0}}>
     <button type="button" aria-label="Notificações" aria-expanded={open} onClick={()=>setOpen(value=>!value)} style={{position:'relative',width:40,height:40,border:'1px solid rgba(255,255,255,.3)',borderRadius:12,background:'rgba(255,255,255,.1)',color:'#FFFFFF',display:'grid',placeItems:'center',cursor:'pointer'}}>
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
       {unreadCount>0&&<span style={{position:'absolute',right:-5,top:-5,minWidth:19,height:19,padding:'0 4px',borderRadius:99,background:'#D8A319',color:'#17211F',border:'2px solid #075B4E',fontSize:10,fontWeight:900,display:'grid',placeItems:'center'}}>{unreadCount>99?'99+':unreadCount}</span>}
     </button>
     {open&&<><button type="button" aria-label="Fechar notificações" onClick={()=>setOpen(false)} style={{position:'fixed',inset:0,zIndex:80,border:0,background:'transparent'}}/>
-      <section aria-label="Lista de notificações" style={{position:'absolute',right:0,top:48,zIndex:81,width:'min(360px, calc(100vw - 28px))',maxHeight:440,overflowY:'auto',background:'#FFFFFF',color:'#17211F',border:'1px solid #DCE6E1',borderRadius:15,boxShadow:'0 14px 40px rgba(0,0,0,.22)',padding:14}}>
+      <section className="notifications-popover" aria-label="Lista de notificações" style={{position:'absolute',right:0,top:48,zIndex:81,width:'min(360px, calc(100vw - 28px))',maxHeight:440,overflowY:'auto',background:'#FFFFFF',color:'#17211F',border:'1px solid #DCE6E1',borderRadius:15,boxShadow:'0 14px 40px rgba(0,0,0,.22)',padding:14,boxSizing:'border-box',overflowWrap:'break-word',wordBreak:'break-word'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10}}><strong style={{fontSize:14}}>Notificações</strong>{unreadCount>0&&<button type="button" onClick={markAllAsRead} style={{border:0,background:'none',color:'#075B4E',fontWeight:800,fontSize:11,cursor:'pointer'}}>Marcar todas como lidas</button>}</div>
         {error&&<p role="alert" style={{fontSize:12,color:'#A52F3B'}}>{error}</p>}
-        {loading?<p style={{fontSize:12,color:'#64756F'}}>A carregar…</p>:notifications.length===0?<p style={{fontSize:12,color:'#64756F'}}>Ainda não tens notificações.</p>:<div style={{display:'grid',gap:7}}>{notifications.map(item=><button key={item.id} type="button" onClick={()=>openNotification(item)} style={{width:'100%',textAlign:'left',padding:11,borderRadius:11,border:'1px solid '+(item.is_read?'#E5EBE8':'#D8B64B'),background:item.is_read?'#FFFFFF':'#FFF9E8',color:'#17211F',display:'grid',gap:5,cursor:'pointer'}}><strong style={{fontSize:12}}>{item.title||'Notificação Talaza'}</strong>{item.content&&<span style={{fontSize:11,lineHeight:1.45,color:'#52635E'}}>{item.content}</span>}<span style={{fontSize:10,color:'#89948F'}}>{item.created_at?new Date(item.created_at).toLocaleString('pt-PT'):''}{item.link?' · Abrir':''}</span></button>)}</div>}
+        {loading?<p style={{fontSize:12,color:'#64756F'}}>A carregar…</p>:notifications.length===0?<p style={{fontSize:12,color:'#64756F'}}>Ainda não tens notificações.</p>:<div style={{display:'grid',gap:7}}>{notifications.map(item=><button key={item.id} type="button" onClick={()=>openNotification(item)} style={{width:'100%',minWidth:0,boxSizing:'border-box',overflowWrap:'break-word',wordBreak:'break-word',textAlign:'left',padding:11,borderRadius:11,border:'1px solid '+(item.is_read?'#E5EBE8':'#D8B64B'),background:item.is_read?'#FFFFFF':'#FFF9E8',color:'#17211F',display:'grid',gap:5,cursor:'pointer'}}><strong style={{fontSize:12}}>{item.title||'Notificação Talaza'}</strong>{item.content&&<span style={{fontSize:11,lineHeight:1.45,color:'#52635E'}}>{item.content}</span>}<span style={{fontSize:10,color:'#89948F'}}>{item.created_at?new Date(item.created_at).toLocaleString('pt-PT'):''}{item.link?' · Abrir':''}</span></button>)}</div>}
       </section></>}
+    {selectedNotification&&<div role="presentation" onClick={()=>setSelectedNotification(null)} style={{position:'fixed',inset:0,zIndex:110,background:'rgba(10,24,19,.58)',display:'flex',alignItems:'center',justifyContent:'center',padding:16,boxSizing:'border-box'}}>
+      <section role="dialog" aria-modal="true" aria-label="Detalhes da notificação" onClick={event=>event.stopPropagation()} style={{width:'100%',maxWidth:420,maxHeight:'85vh',overflowY:'auto',boxSizing:'border-box',padding:20,borderRadius:16,background:'#FFFFFF',color:'#17211F',boxShadow:'0 18px 50px rgba(0,0,0,.3)',overflowWrap:'break-word',wordBreak:'break-word'}}>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}><strong style={{fontSize:16,lineHeight:1.35}}>{selectedNotification.title||'Comprovativo recusado'}</strong><button type="button" aria-label="Fechar detalhes" onClick={()=>setSelectedNotification(null)} style={{border:0,background:'transparent',fontSize:22,cursor:'pointer',lineHeight:1}}>×</button></div>
+        <p style={{fontSize:14,lineHeight:1.6,whiteSpace:'pre-wrap',overflowWrap:'break-word',margin:'14px 0 20px'}}>{selectedNotification.content||'O comprovativo enviado foi recusado. Consulta o motivo e corrige os dados.'}</p>
+        <button type="button" onClick={()=>{setSelectedNotification(null);router.push('/seller-reenvio');}} style={{width:'100%',boxSizing:'border-box',padding:'13px 16px',border:0,borderRadius:11,background:'#075B4E',color:'#FFFFFF',fontWeight:800,cursor:'pointer'}}>Ver motivo / Corrigir e reenviar</button>
+      </section>
+    </div>}
+    <style jsx>{'@media (max-width: 600px) { .notifications-popover { position: fixed !important; top: 72px !important; left: 0 !important; right: 0 !important; width: 100vw !important; max-width: 100vw !important; max-height: calc(100vh - 88px) !important; margin: 0 !important; padding: 16px !important; border-radius: 0 0 15px 15px !important; box-sizing: border-box !important; overflow-x: hidden !important; overflow-wrap: break-word !important; word-break: break-word !important; } }'}</style>
   </div>;
 }
