@@ -24,6 +24,12 @@ export default function Seller() {
   const [editPhone, setEditPhone] = useState('');
   const [showEmail, setShowEmail] = useState(false);
   const [emailVisibilitySaving, setEmailVisibilitySaving] = useState(false);
+  const [newLoginEmail, setNewLoginEmail] = useState('');
+  const [confirmLoginEmail, setConfirmLoginEmail] = useState('');
+  const [emailChangeBusy, setEmailChangeBusy] = useState(false);
+  const [emailChangeFeedback, setEmailChangeFeedback] = useState('');
+  const [emailChangeFeedbackType, setEmailChangeFeedbackType] = useState(''); 
+  const [lastEmailChangedAt, setLastEmailChangedAt] = useState(null);
   const [supportDraft, setSupportDraft] = useState('');
   const [supportSending, setSupportSending] = useState(false);
   const [supportFeedback, setSupportFeedback] = useState('');
@@ -198,7 +204,11 @@ export default function Seller() {
       return;
     }
 
-    setUser(session.user);
+    const { data: refreshedAuthData, error: refreshedAuthError } = await supabase.auth.getUser();
+    if (refreshedAuthError) console.warn('Não foi possível atualizar os dados de autenticação:', refreshedAuthError);
+    const authUser = refreshedAuthData?.user || session.user;
+    setUser(authUser);
+    setLastEmailChangedAt(authUser.user_metadata?.last_email_changed_at || null);
 
     const { data, error: businessError } =
       await supabase
@@ -377,6 +387,105 @@ export default function Seller() {
       console.error('Erro ao guardar preferência de e-mail:', err);
       setError('Não foi possível guardar a preferência de e-mail. Confirme se a coluna show_email já foi criada no Supabase.');
     } finally { setEmailVisibilitySaving(false); }
+  }
+
+  function addSixMonths(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    const day = date.getDate();
+    date.setDate(1);
+    date.setMonth(date.getMonth() + 6);
+    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    date.setDate(Math.min(day, lastDay));
+    return date;
+  }
+
+  function formatEmailChangeDate(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return 'data indisponível';
+    return date.toLocaleDateString('pt-AO', { day: '2-digit', month: 'long', year: 'numeric' });
+  }
+
+  async function changeLoginEmail(event) {
+    event.preventDefault();
+    if (emailChangeBusy) return;
+    setEmailChangeFeedback('');
+    setEmailChangeFeedbackType('');
+
+    const currentEmail = String(user?.email || '').trim().toLowerCase();
+    const nextEmail = String(newLoginEmail || '').trim().toLowerCase();
+    const confirmation = String(confirmLoginEmail || '').trim().toLowerCase();
+    const emailPattern = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/;
+
+    if (!nextEmail || !emailPattern.test(nextEmail)) {
+      setEmailChangeFeedback('Coloca um e-mail válido. Verifica se escreveste bem.');
+      setEmailChangeFeedbackType('error');
+      return;
+    }
+    if (nextEmail === currentEmail) {
+      setEmailChangeFeedback('O novo e-mail tem de ser diferente do e-mail atual.');
+      setEmailChangeFeedbackType('error');
+      return;
+    }
+    if (confirmation !== nextEmail) {
+      setEmailChangeFeedback('A confirmação tem de ser igual ao novo e-mail.');
+      setEmailChangeFeedbackType('error');
+      return;
+    }
+
+    const lastChanged = lastEmailChangedAt ? new Date(lastEmailChangedAt) : null;
+    const nextAllowed = lastChanged && !Number.isNaN(lastChanged.getTime()) ? addSixMonths(lastChanged) : null;
+    if (nextAllowed && Date.now() < nextAllowed.getTime()) {
+      setEmailChangeFeedback('Só poderás alterar o e-mail novamente em ' + formatEmailChangeDate(nextAllowed) + '.');
+      setEmailChangeFeedbackType('error');
+      return;
+    }
+
+    setEmailChangeBusy(true);
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!authData?.user || authData.user.id !== user?.id) {
+        throw new Error('A sessão expirou. Entra novamente para alterar o e-mail.');
+      }
+
+      const changedAt = new Date().toISOString();
+      const existingMetadata = authData.user.user_metadata || {};
+      const { data: updateData, error: updateError } = await supabase.auth.updateUser({
+        email: nextEmail,
+        data: { ...existingMetadata, last_email_changed_at: changedAt }
+      });
+
+      if (updateError) {
+        const message = String(updateError.message || '').toLowerCase();
+        if (message.includes('already registered') || message.includes('already been registered') || message.includes('email_exists') || message.includes('duplicate')) {
+          throw new Error('Este e-mail já está em uso por outra conta.');
+        }
+        if (message.includes('invalid') && message.includes('email')) {
+          throw new Error('Coloca um e-mail válido. Verifica se escreveste bem.');
+        }
+        throw updateError;
+      }
+
+      const updatedUser = updateData?.user || authData.user;
+      setUser(updatedUser);
+      setLastEmailChangedAt(changedAt);
+      setNewLoginEmail('');
+      setConfirmLoginEmail('');
+
+      if (String(updatedUser.email || '').toLowerCase() === nextEmail) {
+        setEmailChangeFeedback('E-mail atualizado. Usa o novo e-mail para entrar como Vendedor e como Explorador. A próxima troca só será possível após 6 meses.');
+      } else {
+        setEmailChangeFeedback('Pedido de alteração enviado. Confirma o novo e-mail através da mensagem enviada pelo Supabase. Depois da confirmação, usa o novo e-mail para entrar como Vendedor e como Explorador. A próxima troca só será possível após 6 meses.');
+      }
+      setEmailChangeFeedbackType('success');
+    } catch (changeError) {
+      console.error('Erro ao alterar e-mail de acesso:', changeError);
+      setEmailChangeFeedback(changeError.message || 'Não foi possível alterar o e-mail. Tenta novamente.');
+      setEmailChangeFeedbackType('error');
+    } finally {
+      setEmailChangeBusy(false);
+    }
   }
 
   async function saveBusiness(event) {
@@ -1134,6 +1243,39 @@ export default function Seller() {
                 <span><strong>{showEmail?'Mostrar e-mail aos clientes':'Ocultar e-mail aos clientes'}</strong></span>
               </label>
               {emailVisibilitySaving&&<p style={{margin:'8px 0 0',fontSize:11,color:'#65756E'}}>A guardar preferência…</p>}
+            </div>
+            <div style={{marginTop:17,paddingTop:14,borderTop:'1px solid #EDF2EF'}}>
+              <strong style={{display:'block',fontSize:13,marginBottom:7}}>E-mail de acesso à conta</strong>
+              <p style={{margin:'0 0 9px',fontSize:12,color:'#65756E',lineHeight:1.5}}>Este é o e-mail usado para entrar na sua conta Talaza, tanto como Vendedor como Explorador.</p>
+              <div style={{padding:11,borderRadius:10,background:'#FFF7E2',border:'1px solid #E8CF8C',color:'#5D470C',fontSize:12,lineHeight:1.55,marginBottom:11}}>
+                <strong>Atenção:</strong> só podes trocar o e-mail 1 vez a cada 6 meses. Se trocares hoje, só vais poder trocar de novo após 6 meses. Verifica bem se o e-mail está correto, não coloques um e-mail inválido.
+              </div>
+              <label style={{display:'grid',gap:5,fontSize:12,fontWeight:800,color:'#29443B',marginBottom:9}}>
+                E-mail atual
+                <input type="email" value={user?.email || ''} readOnly disabled style={{width:'100%',boxSizing:'border-box',padding:11,border:'1px solid #D9E5DF',borderRadius:10,background:'#F3F6F4',color:'#64736C',font:'inherit',fontSize:13}} />
+              </label>
+              {lastEmailChangedAt && (() => {
+                const nextAllowedDate = addSixMonths(lastEmailChangedAt);
+                return nextAllowedDate ? (
+                  <div style={{padding:10,borderRadius:10,background:'#F4F1FA',border:'1px solid #DED2EE',color:'#513A70',fontSize:12,lineHeight:1.6,marginBottom:10}}>
+                    <strong>Última troca:</strong> {formatEmailChangeDate(lastEmailChangedAt)}.
+                    <br />
+                    <strong>Próxima troca disponível em:</strong> {formatEmailChangeDate(nextAllowedDate)}.
+                  </div>
+                ) : null;
+              })()}
+              <form onSubmit={changeLoginEmail} style={{display:'grid',gap:9}}>
+                <label style={{display:'grid',gap:5,fontSize:12,fontWeight:800,color:'#29443B'}}>
+                  Novo e-mail
+                  <input type="email" value={newLoginEmail} onChange={event=>{setNewLoginEmail(event.target.value);setEmailChangeFeedback('');}} autoComplete="email" placeholder="nome@exemplo.com" required disabled={emailChangeBusy || (lastEmailChangedAt && addSixMonths(lastEmailChangedAt) && Date.now() < addSixMonths(lastEmailChangedAt).getTime())} style={{width:'100%',boxSizing:'border-box',padding:11,border:'1px solid #D9E5DF',borderRadius:10,font:'inherit',fontSize:13}} />
+                </label>
+                <label style={{display:'grid',gap:5,fontSize:12,fontWeight:800,color:'#29443B'}}>
+                  Confirmar novo e-mail
+                  <input type="email" value={confirmLoginEmail} onChange={event=>{setConfirmLoginEmail(event.target.value);setEmailChangeFeedback('');}} autoComplete="email" placeholder="Repete o novo e-mail" required disabled={emailChangeBusy || (lastEmailChangedAt && addSixMonths(lastEmailChangedAt) && Date.now() < addSixMonths(lastEmailChangedAt).getTime())} style={{width:'100%',boxSizing:'border-box',padding:11,border:'1px solid #D9E5DF',borderRadius:10,font:'inherit',fontSize:13}} />
+                </label>
+                <button type="submit" disabled={emailChangeBusy || (lastEmailChangedAt && addSixMonths(lastEmailChangedAt) && Date.now() < addSixMonths(lastEmailChangedAt).getTime())} style={{justifySelf:'start',padding:'11px 16px',border:0,borderRadius:10,background:emailChangeBusy || (lastEmailChangedAt && addSixMonths(lastEmailChangedAt) && Date.now() < addSixMonths(lastEmailChangedAt).getTime())?'#BFC9C5':'#075B4E',color:'#FFFFFF',fontSize:12,fontWeight:850,cursor:emailChangeBusy || (lastEmailChangedAt && addSixMonths(lastEmailChangedAt) && Date.now() < addSixMonths(lastEmailChangedAt).getTime())?'not-allowed':'pointer'}}>{emailChangeBusy?'A alterar e-mail…':'Alterar e-mail'}</button>
+              </form>
+              {emailChangeFeedback && <p role="status" style={{margin:'10px 0 0',padding:10,borderRadius:9,background:emailChangeFeedbackType==='success'?'#EAF6F0':'#FFF0EF',border:'1px solid '+(emailChangeFeedbackType==='success'?'#B8DDC9':'#E8BDB8'),color:emailChangeFeedbackType==='success'?'#176244':'#A52F3B',fontSize:12,lineHeight:1.55}}>{emailChangeFeedback}</p>}
             </div>
             <div style={{marginTop:17,paddingTop:14,borderTop:'1px solid #EDF2EF'}}>
               <strong style={{display:'block',fontSize:13,marginBottom:5}}>Suporte Talaza</strong>
