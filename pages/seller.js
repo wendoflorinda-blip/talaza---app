@@ -870,7 +870,10 @@ export default function Seller() {
           padding: '16px 20px',
           position: 'sticky',
           top: 0,
-          zIndex: 10
+          zIndex: 10,
+          width: '100%',
+          boxSizing: 'border-box',
+          overflow: 'visible'
         }}
       >
         <div
@@ -879,7 +882,9 @@ export default function Seller() {
             margin: '0 auto',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
+            minWidth: 0,
+            overflow: 'visible'
           }}
         >
           <div>
@@ -905,7 +910,7 @@ export default function Seller() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flexShrink: 0, overflow: 'visible' }}>
             <NotificationsPanel userId={user?.id} audience="seller" />
             <TalazaMenu
               country={business?.country_id || country}
