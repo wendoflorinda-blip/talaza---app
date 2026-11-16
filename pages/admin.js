@@ -1866,7 +1866,7 @@ export default function Admin() {
             <div style={styles.list}>{resubmissions.filter(item=>String(item.status||'').toLowerCase()==='pending').map(item=><article key={item.id} style={styles.card}>
               <div style={styles.cardTop}><div style={styles.logoPlaceholder}>₭</div><div style={{flex:1,minWidth:0}}>
                 <h3 style={styles.businessName}>{item.business?.name||'Negócio sem nome associado'}</h3>
-                <p style={styles.description}>Número Express que fez a transferência: <strong>{item.phone}</strong></p>
+                <p style={styles.description}>Número Express que fez a transferência: <strong>{String(item.phone || '').replace(/\\D/g, '').length === 9 ? '+244' + String(item.phone).replace(/\\D/g, '') : String(item.phone || '')}</strong></p>
                 <p style={styles.description}>Reenviado em: {new Date(item.created_at).toLocaleString('pt-AO')}</p>
               </div></div>
               <p style={{fontSize:12,color:'#A52F3B',marginTop:10}}><strong>Motivo da recusa anterior:</strong> {item.sellerStatus?.reject_reason||'Motivo anterior não registado.'}</p>
@@ -1878,7 +1878,7 @@ export default function Admin() {
               </div>
               <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:14}}>
                 <button type="button" disabled={resubmissionBusyId===item.id} onClick={()=>reviewPaymentResubmission(item,true)} style={styles.approve}>{resubmissionBusyId===item.id?'A guardar…':'Aprovar'}</button>
-                <button type="button" disabled={resubmissionBusyId===item.id} onClick={()=>reviewPaymentResubmission(item,false)} style={styles.reject}>Manter recusado</button>
+                <button type="button" disabled={resubmissionBusyId===item.id} onClick={()=>reviewPaymentResubmission(item,false)} style={styles.reject}>Rejeitar</button>
               </div>
             </article>)}</div>
           }
