@@ -174,7 +174,7 @@ export default function Admin() {
 
   async function loadPaymentResubmissions() {
     setResubmissionError('');
-    const { data: rows, error } = await supabase.from('payment_resubmissions').select('id,seller_id,phone,file_url,file_type,status,created_at').eq('status','pending').order('created_at',{ascending:false});
+    const { data: rows, error } = await supabase.from('payment_resubmissions').select('id,seller_id,phone,express_sender_phone,file_url,file_type,status,created_at').eq('status','pending').order('created_at',{ascending:false});
     if (error) { setResubmissionError('Não foi possível carregar os comprovativos corrigidos: '+error.message); setResubmissions([]); return; }
     const sellerIds=[...new Set((rows||[]).map(row=>row.seller_id).filter(Boolean))];
     const [{data:statuses,error:statusError},{data:businessRows,error:businessError}] = await Promise.all([
@@ -201,6 +201,9 @@ export default function Admin() {
       if(businessError) throw businessError;
       if(!business) throw new Error('Não foi encontrado um negócio associado a este vendedor.');
       if(approved){
+        // O reenvio atualiza o pagamento recusado existente; nunca cria um novo payment_submissions.
+        const expressSenderPhone=String(item.express_sender_phone||item.phone||'').trim();
+        if(!expressSenderPhone) throw new Error('O reenvio não contém o número Express. Não é possível aprovar sem esse dado.');
         const {data:rejectedPayment,error:rejectedPaymentError}=await supabase.from('payment_submissions')
           .select('id,plan_id,amount,created_at')
           .eq('user_id',item.seller_id).eq('business_id',business.id).eq('status','rejected')
@@ -228,7 +231,7 @@ export default function Admin() {
           if(subscriptionResult.error||!subscriptionResult.data) throw new Error('Não foi possível ativar a hospedagem: '+(subscriptionResult.error?.message||'sem confirmação do Supabase'));
           const {error:paymentUpdateError}=await supabase.from('payment_submissions').update({
             status:'approved',reviewed_at:now.toISOString(),notes:null,
-            express_sender_phone:item.phone,proof_file_url:item.file_url,proof_type:item.file_type
+            express_sender_phone:expressSenderPhone,proof_file_url:item.file_url,proof_type:item.file_type
           }).eq('id',rejectedPayment.id).eq('status','rejected');
           if(paymentUpdateError) throw paymentUpdateError;
           validHosting=true;
