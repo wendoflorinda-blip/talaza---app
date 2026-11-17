@@ -58,6 +58,9 @@ export default function Admin() {
   const [notificationHistoryFilter, setNotificationHistoryFilter] = useState('all');
   const [deletingNotificationId, setDeletingNotificationId] = useState('');
   const [profiles, setProfiles] = useState([]);
+  const [emailChangeRequests, setEmailChangeRequests] = useState([]);
+  const [emailChangeLoadError, setEmailChangeLoadError] = useState('');
+  const [emailChangeBusyId, setEmailChangeBusyId] = useState('');
   const [events, setEvents] = useState([]);
   const [jobPosts, setJobPosts] = useState([]);
   const [officialKind, setOfficialKind] = useState('motivation');
@@ -165,6 +168,7 @@ export default function Admin() {
     await loadSupportMessages();
     await loadAdminNotifications();
     await loadProfiles();
+    await loadPendingEmailChanges();
     await loadEvents();
     await loadJobPosts();
     await loadOfficialArchive();
@@ -858,6 +862,45 @@ export default function Admin() {
       setOfficialSaving(false);
     }
   }
+  async function loadPendingEmailChanges() {
+    setEmailChangeLoadError('');
+    const { data, error } = await supabase.functions.invoke('talaza-signup-proof', {
+      body: { action: 'admin_email_changes_list' }
+    });
+    if (error || data?.error) {
+      const reason = data?.error || error?.message || 'Erro desconhecido';
+      console.error('Erro ao carregar trocas de e-mail pendentes:', error || data?.error);
+      setEmailChangeLoadError('Não foi possível carregar as trocas de e-mail: ' + reason);
+      setEmailChangeRequests([]);
+      return;
+    }
+    setEmailChangeRequests(Array.isArray(data?.items) ? data.items : []);
+  }
+
+  async function managePendingEmailChange(userId, action) {
+    const isCancel = action === 'admin_email_change_cancel';
+    const confirmation = isCancel
+      ? 'Cancelar o pedido pendente? O e-mail atual será mantido e os links pendentes serão invalidados.'
+      : 'Reenviar o link de confirmação para o novo endereço pedido?';
+    if (!window.confirm(confirmation)) return;
+
+    setEmailChangeBusyId(userId + ':' + action);
+    setEmailChangeLoadError('');
+    try {
+      const { data, error } = await supabase.functions.invoke('talaza-signup-proof', {
+        body: { action, user_id: userId }
+      });
+      if (error || data?.error) throw new Error(data?.error || error?.message || 'Não foi possível concluir a operação.');
+      alert(data?.message || (isCancel ? 'Pedido cancelado.' : 'Link reenviado.'));
+      await loadPendingEmailChanges();
+    } catch (operationError) {
+      console.error('Erro na gestão de troca de e-mail:', operationError);
+      setEmailChangeLoadError(operationError.message || 'Não foi possível concluir a operação.');
+    } finally {
+      setEmailChangeBusyId('');
+    }
+  }
+
   async function loadProfiles() {
     const { data, error } = await supabase
       .from('profiles')
@@ -1381,6 +1424,7 @@ export default function Admin() {
       loadSupportMessages(),
       loadAdminNotifications(),
       loadProfiles(),
+      loadPendingEmailChanges(),
       loadEvents(),
       loadJobPosts(),
     ]);
@@ -1488,6 +1532,7 @@ export default function Admin() {
           <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'wrap', overflow: 'visible', gap: 10, margin: '0 -4px 10px', padding: '8px 4px 14px' }}>
             {[
               ['vendedores', 'Vendedores', pendingBusinessCount],
+              ['trocas-email', 'Trocas de e-mail pendentes', emailChangeRequests.filter(item => item.status === 'Pendente - Por confirmar').length],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
               ['reenvios', 'Reenvios', resubmissions.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase() && String(item.status || '').trim().toLowerCase() === 'pending').length],
@@ -1694,6 +1739,47 @@ export default function Admin() {
         )}
 
         </div>
+
+        <section id="trocas-email" style={{ marginTop: 0, display: activeAdminSection === 'trocas-email' ? 'block' : 'none' }}>
+          <div style={styles.titleRow}>
+            <div>
+              <h2 style={styles.title}>Trocas de e-mail pendentes</h2>
+              <p style={styles.description}>Acompanhe os pedidos de alteração do e-mail de acesso. A confirmação final continua a ser feita exclusivamente pelo titular através do link enviado ao novo endereço.</p>
+            </div>
+            <div style={styles.counter}>{emailChangeRequests.filter(item => item.status === 'Pendente - Por confirmar').length} pendente(s)</div>
+          </div>
+          {emailChangeLoadError && <div style={styles.errorBox}>{emailChangeLoadError}</div>}
+          {emailChangeRequests.length === 0
+            ? <div style={styles.empty}><h3>Nenhuma troca pendente.</h3><p>Quando um utilizador pedir para alterar o e-mail, o pedido aparecerá aqui.</p></div>
+            : <div style={styles.list}>{emailChangeRequests.map(item => {
+                const pending = item.status === 'Pendente - Por confirmar';
+                const resendKey = item.user_id + ':admin_email_change_resend';
+                const cancelKey = item.user_id + ':admin_email_change_cancel';
+                return (
+                  <article key={item.user_id} style={styles.card}>
+                    <div style={styles.cardTop}>
+                      <div style={styles.logoPlaceholder}>@</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h3 style={styles.businessName}>{item.business_name || item.user_name || 'Utilizador Talaza'}</h3>
+                        <div style={styles.meta}>{item.business_name ? 'Utilizador: ' + (item.user_name || 'Nome não disponível') : 'Conta de utilizador'} · {item.requested_at ? new Date(item.requested_at).toLocaleString('pt-AO') : 'Data não disponível'}</div>
+                      </div>
+                      <span style={pending ? styles.pending : styles.paymentStatus}>{item.status || 'Pendente - Por confirmar'}</span>
+                    </div>
+                    <div style={styles.details}>
+                      <p><strong>user_id:</strong> <span style={{ wordBreak: 'break-all' }}>{item.user_id}</span></p>
+                      <p><strong>E-mail atual:</strong> {item.current_email || '—'}</p>
+                      <p><strong>E-mail novo pedido:</strong> {item.pending_email || '—'}</p>
+                      <p><strong>Data do pedido:</strong> {item.requested_at ? new Date(item.requested_at).toLocaleString('pt-AO') : 'Data não disponível'}</p>
+                      <p><strong>Estado:</strong> {item.status || 'Pendente - Por confirmar'}</p>
+                    </div>
+                    {pending && <div style={styles.actions}>
+                      <button type="button" disabled={Boolean(emailChangeBusyId)} style={{ ...styles.button, opacity: emailChangeBusyId ? .6 : 1 }} onClick={() => managePendingEmailChange(item.user_id, 'admin_email_change_resend')}>{emailChangeBusyId === resendKey ? 'A reenviar…' : 'Reenviar link de confirmação'}</button>
+                      <button type="button" disabled={Boolean(emailChangeBusyId)} style={{ ...styles.reject, opacity: emailChangeBusyId ? .6 : 1 }} onClick={() => managePendingEmailChange(item.user_id, 'admin_email_change_cancel')}>{emailChangeBusyId === cancelKey ? 'A cancelar…' : 'Cancelar pedido'}</button>
+                    </div>}
+                  </article>
+                );
+              })}</div>}
+        </section>
 
         <section id="eventos" style={{ marginTop: 0, display: activeAdminSection === 'eventos' ? 'block' : 'none' }}>
           <div style={styles.titleRow}><div><h2 style={styles.title}>Eventos</h2><p style={styles.description}>Analise os eventos submetidos, consulte os detalhes e aprove ou recuse com um motivo.</p></div><div style={styles.counter}>{events.filter(item => ['pending_payment', 'pending', 'pending_review'].includes(String(item.status || '').toLowerCase())).length} por analisar · {events.length} total</div></div>
