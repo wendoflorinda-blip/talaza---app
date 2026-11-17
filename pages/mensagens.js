@@ -33,6 +33,7 @@ export default function Mensagens() {
   const [activePeer,setActivePeer] = useState(null);
   const [messages,setMessages] = useState([]);
   const [message,setMessage] = useState('');
+  const [initialDraftApplied, setInitialDraftApplied] = useState(false);
   const [loading,setLoading] = useState(true);
   const [sending,setSending] = useState(false);
   const [error,setError] = useState('');
@@ -218,6 +219,11 @@ export default function Mensagens() {
         setError('Não foi possível carregar as conversas: ' + (err?.message || err?.code || 'erro não identificado') + '. Não execute SQL novamente antes de confirmar este erro e as permissões das tabelas.');
       }
       if (cancelled) return;
+      const initialMessage = safe(router.query.initialMessage);
+      if (initialMessage && !initialDraftApplied) {
+        setMessage(String(initialMessage));
+        setInitialDraftApplied(true);
+      }
       const requestedId = safe(router.query.conversation);
       if (requestedId) {
         const found = rows.find(row => row.id === requestedId);
