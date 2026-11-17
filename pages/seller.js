@@ -1075,7 +1075,7 @@ export default function Seller() {
           <h1 style={{fontSize:'clamp(25px,5vw,34px)',lineHeight:1.15,margin:'0 0 16px',color:'#075B4E'}}>Hospedagem Expirada</h1>
           <p style={{fontSize:15,lineHeight:1.75,margin:'0 auto 13px',maxWidth:455}}>A sua Hospedagem terminou. A sua loja está pausada e não está visível na Vitrine.</p>
           <p style={{fontSize:14,lineHeight:1.75,margin:'0 auto 25px',maxWidth:455,color:'#586C63'}}>Se não renovar dentro de 15 dias, as pessoas que guardaram o seu perfil vão perdê-lo e terão de guardar novamente.</p>
-          <Link href={{pathname:'/impulsionar',query:{business:business.id}}} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',minHeight:48,padding:'0 24px',borderRadius:13,background:'linear-gradient(135deg,#F6D56C,#D9A51B)',color:'#173B35',fontWeight:900,fontSize:14,textDecoration:'none',boxShadow:'0 8px 20px rgba(190,145,20,.22)'}}>Renovar Hospedagem</Link>
+          <Link href={{pathname:'/impulsionar',query:{business:business.id,tab:'hospedagem'}}} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',minHeight:48,padding:'0 24px',borderRadius:13,background:'linear-gradient(135deg,#F6D56C,#D9A51B)',color:'#173B35',fontWeight:900,fontSize:14,textDecoration:'none',boxShadow:'0 8px 20px rgba(190,145,20,.22)'}}>Renovar Hospedagem</Link>
         </section>
       </div>
     );
