@@ -309,13 +309,24 @@ export default function Seller() {
       .from('business_subscriptions')
       .select('id,plan_id,starts_at,expires_at,status')
       .eq('business_id', data.id)
+      .eq('status','active')
       .order('starts_at',{ascending:false})
       .order('created_at',{ascending:false})
       .limit(1)
       .maybeSingle();
     if (subscriptionError) console.warn('Não foi possível consultar a validade da hospedagem:',subscriptionError);
     const expiryDate = latestSubscription?.expires_at ? new Date(latestSubscription.expires_at) : null;
-    const remainingDays = expiryDate && !Number.isNaN(expiryDate.getTime()) ? Math.max(0,Math.ceil((expiryDate.getTime()-Date.now())/86400000)) : 0;
+    const angolaDateKey = (date) => {
+      if (!date || Number.isNaN(date.getTime())) return null;
+      const parts = new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Luanda',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
+      const values = Object.fromEntries(parts.map(part=>[part.type,part.value]));
+      return `${values.year}-${values.month}-${values.day}`;
+    };
+    const todayAngolaKey = angolaDateKey(new Date());
+    const expiryAngolaKey = angolaDateKey(expiryDate);
+    const remainingDays = todayAngolaKey && expiryAngolaKey
+      ? Math.max(0,Math.round((Date.parse(expiryAngolaKey+'T00:00:00Z')-Date.parse(todayAngolaKey+'T00:00:00Z'))/86400000))
+      : 0;
     const validHosting = Boolean(latestSubscription && String(latestSubscription.status || '').trim().toLowerCase()==='active' && remainingDays>0);
     if (latestSubscription?.id && remainingDays<=0 && String(latestSubscription.status||'').trim().toLowerCase()==='active') {
       const {error:expireSubscriptionError}=await supabase.from('business_subscriptions').update({status:'expired'}).eq('id',latestSubscription.id).eq('status','active');
@@ -1251,7 +1262,7 @@ export default function Seller() {
           {profileHostingActive ? (
             <section style={{display:'grid',gap:5,marginTop:18,padding:'13px 16px',borderRadius:14,background:'#E6F5EC',border:'1px solid #B7DCC4',color:'#17643B'}}>
               <strong style={{fontSize:14}}>Perfil Ativo - {hostingRemainingDays} dias restantes</strong>
-              <span style={{fontSize:12}}>Data de fim da Hospedagem: {hostingExpiry?.toLocaleDateString('pt-AO')}</span>
+              <span style={{fontSize:12}}>Data de fim da Hospedagem: {hostingExpiry?.toLocaleDateString('pt-AO',{timeZone:'Africa/Luanda'})}</span>
               {hostingLastAddedDays>0&&<span style={{fontSize:12}}>Última renovação: + {hostingLastAddedDays} dias acrescentados</span>}
             </section>
           ) : hostingPaymentApproved ? (
