@@ -30,6 +30,7 @@ export default function Seller() {
   const [emailChangeFeedback, setEmailChangeFeedback] = useState('');
   const [emailChangeFeedbackType, setEmailChangeFeedbackType] = useState(''); 
   const [lastEmailChangedAt, setLastEmailChangedAt] = useState(null);
+  const [pendingLoginEmail, setPendingLoginEmail] = useState('');
   const [supportDraft, setSupportDraft] = useState('');
   const [supportSending, setSupportSending] = useState(false);
   const [supportFeedback, setSupportFeedback] = useState('');
@@ -208,7 +209,9 @@ export default function Seller() {
     if (refreshedAuthError) console.warn('Não foi possível atualizar os dados de autenticação:', refreshedAuthError);
     let authUser = refreshedAuthData?.user || session.user;
     let authMetadata = authUser.user_metadata || {};
-    const pendingEmail = String(authMetadata.pending_email || '').trim().toLowerCase();
+    // new_email é disponibilizado pelo GoTrue enquanto o pedido antigo
+    // ainda está pendente; pending_email cobre os pedidos criados pela UI atual.
+    const pendingEmail = String(authMetadata.pending_email || authUser.new_email || '').trim().toLowerCase();
     const currentAuthEmail = String(authUser.email || '').trim().toLowerCase();
 
     // O período de seis meses só começa quando o Supabase já apresenta
@@ -234,6 +237,7 @@ export default function Seller() {
     }
 
     setUser(authUser);
+    setPendingLoginEmail(pendingEmail && currentAuthEmail !== pendingEmail ? pendingEmail : '');
     setLastEmailChangedAt(pendingEmail && currentAuthEmail !== pendingEmail
       ? null
       : (authMetadata.last_email_changed_at || null));
@@ -434,7 +438,7 @@ export default function Seller() {
     return date.toLocaleDateString('pt-AO', { day: '2-digit', month: 'long', year: 'numeric' });
   }
 
-  const pendingEmailIsActive = Boolean(user?.user_metadata?.pending_email && String(user.user_metadata.pending_email).trim().toLowerCase() !== String(user?.email || '').trim().toLowerCase());
+  const pendingEmailIsActive = Boolean(pendingLoginEmail && pendingLoginEmail.toLowerCase() !== String(user?.email || '').trim().toLowerCase());
 
   async function changeLoginEmail(event) {
     event.preventDefault();
@@ -506,6 +510,7 @@ export default function Seller() {
       const actualPendingEmail = String(updatedUser.user_metadata?.pending_email || nextEmail).trim().toLowerCase();
       setUser(updatedUser);
       setLastEmailChangedAt(null);
+      setPendingLoginEmail(actualPendingEmail);
       setNewLoginEmail('');
       setConfirmLoginEmail('');
       setEmailChangeFeedback('Enviámos um link de confirmação para o teu e-mail novo. Vai ao e-mail novo, clica no link, e só depois o e-mail antigo deixa de funcionar. Enquanto não confirmares, continua a entrar com o e-mail antigo.');
@@ -1295,9 +1300,9 @@ export default function Seller() {
                 E-mail atual
                 <input type="email" value={user?.email || ''} readOnly disabled style={{width:'100%',boxSizing:'border-box',padding:11,border:'1px solid #D9E5DF',borderRadius:10,background:'#F3F6F4',color:'#64736C',font:'inherit',fontSize:13}} />
               </label>
-              {user?.user_metadata?.pending_email && String(user.user_metadata.pending_email).trim().toLowerCase() !== String(user?.email || '').trim().toLowerCase() && (
+              {pendingEmailIsActive && (
                 <div style={{padding:11,borderRadius:10,background:'#FFF7E2',border:'1px solid #E8CF8C',color:'#674D0A',fontSize:12,lineHeight:1.6,marginBottom:10}}>
-                  <strong>Troca pendente para:</strong> {user.user_metadata.pending_email}. <strong>Por confirmar.</strong>
+                  <strong>Troca pendente para:</strong> {pendingLoginEmail}. <strong>Por confirmar.</strong>
                   <p style={{margin:'6px 0 0'}}>Enquanto não confirmares, continua a entrar com o e-mail atual.</p>
                 </div>
               )}
