@@ -485,13 +485,14 @@ export default function Seller() {
 
       const requestedAt = new Date().toISOString();
       const existingMetadata = authData.user.user_metadata || {};
+      const metadataWithoutLastChange = { ...existingMetadata };
+      delete metadataWithoutLastChange.last_email_changed_at;
       const { data: updateData, error: updateError } = await supabase.auth.updateUser({
         email: nextEmail,
         data: {
-          ...existingMetadata,
+          ...metadataWithoutLastChange,
           pending_email: nextEmail,
-          pending_email_requested_at: requestedAt,
-          last_email_changed_at: null
+          pending_email_requested_at: requestedAt
         }
       });
 
