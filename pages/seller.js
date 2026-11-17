@@ -315,6 +315,12 @@ export default function Seller() {
     const expiryDate = latestSubscription?.expires_at ? new Date(latestSubscription.expires_at) : null;
     const remainingDays = expiryDate && !Number.isNaN(expiryDate.getTime()) ? Math.max(0,Math.ceil((expiryDate.getTime()-Date.now())/86400000)) : 0;
     const validHosting = Boolean(latestSubscription && String(latestSubscription.status || '').trim().toLowerCase()==='active' && remainingDays>0);
+    if (latestSubscription?.id && remainingDays<=0 && String(latestSubscription.status||'').trim().toLowerCase()==='active') {
+      const {error:expireSubscriptionError}=await supabase.from('business_subscriptions').update({status:'expired'}).eq('id',latestSubscription.id).eq('status','active');
+      if(expireSubscriptionError) console.warn('Não foi possível marcar a hospedagem como expirada:',expireSubscriptionError);
+      const {error:deactivateBusinessError}=await supabase.from('businesses').update({is_active:false}).eq('id',data.id);
+      if(deactivateBusinessError) console.warn('Não foi possível desativar o negócio expirado:',deactivateBusinessError);
+    }
     setHostingRemainingDays(remainingDays);
     if (latestSubscription?.plan_id) {
       const {data: currentPlan,error: currentPlanError}=await supabase.from('plans').select('name,duration_days').eq('id',latestSubscription.plan_id).maybeSingle();
