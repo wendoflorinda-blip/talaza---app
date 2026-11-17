@@ -72,6 +72,7 @@ export default function Category() {
             .from('subcategories')
             .select('id, name, description, category_id')
             .eq('category_id', id)
+            .eq('is_active', true)
             .order('name', { ascending: true });
 
         if (subcategoryError) throw subcategoryError;
