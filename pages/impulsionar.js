@@ -181,15 +181,14 @@ export default function Impulsionar() {
           <div style={S.planBadge}>SERVIÇO BASE</div>
           <h2 style={S.planTitle}>Hospedagem</h2>
           <h3 style={S.planSubtitle}>O teu negócio sempre visível na Talaza</h3>
-          <p style={S.planDescription}>Ao ativar a Hospedagem, o teu perfil fica hospedado na Vitrine da Talaza e os clientes conseguem encontrar-te, guardar o teu perfil e falar contigo a qualquer hora. É a base para cresceres e desbloqueares os outros níveis.</p>
+          <p style={S.planDescription}>A Hospedagem mantém o teu negócio visível e ativo para clientes de todo o país, na Talaza. Sem Hospedagem ativa, o teu perfil fica inativo e deixa de estar disponível na Talaza: não aparece nas pesquisas, não pode ser guardado e não recebe pedidos.</p>
           <div style={S.planBenefitHeading}>Benefícios incluídos</div>
           <ul style={S.planBenefits}>
             {[
-              'Perfil de negócio hospedado na Vitrine da Talaza',
-              'Aparecer nas pesquisas por categoria e província',
+              'Perfil de negócio visível na Talaza',
+              'Ser encontrado em todo o país, por categoria e província',
               'Clientes podem guardar o teu perfil',
-              'Receber pedidos e mensagens',
-              'Pagamento seguro com Multicaixa Express'
+              'Receber pedidos e mensagens'
             ].map((item,i)=><li key={i} style={{display:'flex',alignItems:'flex-start',gap:11,fontSize:14,lineHeight:1.6,color:'#604B3C'}}><span style={S.planCheck}>✓</span><span>{item}</span></li>)}
           </ul>
           {pendingRequest ? <div style={S.planNotice}><strong>Pagamento em verificação</strong><p>Já recebemos o comprovativo deste negócio. O plano escolhido está em verificação para ativação. Não é possível escolher outro plano até a equipa Talaza concluir a análise.</p></div> :
