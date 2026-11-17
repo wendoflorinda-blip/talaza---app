@@ -41,6 +41,7 @@ export default function Seller() {
   const [coverFile, setCoverFile] = useState(null);
   const [assetUploading, setAssetUploading] = useState(false);
   const [subscriptionPending, setSubscriptionPending] = useState(false);
+  const [hostingProofSubmitted, setHostingProofSubmitted] = useState(false);
   const [pendingPlan, setPendingPlan] = useState(null);
   const [hostingExpiry, setHostingExpiry] = useState(null);
   const [hostingExpired, setHostingExpired] = useState(false);
@@ -366,7 +367,9 @@ export default function Seller() {
     if (pendingRequestError) console.error('Erro ao verificar pagamento pendente:', pendingRequestError);
     const requestStatus = String(pendingRequest?.status || '').toLowerCase();
     const isInVerification = Boolean(pendingRequest && requestStatus === 'pending');
+    const proofWasSubmitted = Boolean(pendingRequest && ['pending','approved'].includes(requestStatus));
     setSubscriptionPending(isInVerification);
+    setHostingProofSubmitted(proofWasSubmitted);
     if (pendingRequest?.plan_id && isInVerification) {
       const { data: selectedPlan, error: selectedPlanError } = await supabase
         .from('plans')
@@ -1054,6 +1057,29 @@ export default function Seller() {
   const locked = subscriptionPending || galleryBusy || assetUploading;
   const sheetItem = sheet ? images.find((i) => i.id === sheet.id) : null;
   const addressLine = [business.municipality, business.neighborhood].filter(Boolean).join(' · ');
+  const profileHostingActive = Boolean(
+    business.is_active === true &&
+    String(business.approval_status || '').trim().toLowerCase() === 'approved' &&
+    hostingExpiry &&
+    hostingRemainingDays > 0 &&
+    !hostingExpired
+  );
+  const showHostingPaymentState = !hostingExpired && !profileHostingActive && !hostingProofSubmitted;
+
+  if (hostingExpired) {
+    return (
+      <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:'28px 18px',boxSizing:'border-box',background:'radial-gradient(circle at 15% 15%,#DDEFE7 0,transparent 34%),radial-gradient(circle at 85% 80%,#F8E8BD 0,transparent 32%),linear-gradient(145deg,#F7FAF8 0%,#EAF3EE 48%,#F7F0DE 100%)'}}>
+        <section style={{width:'100%',maxWidth:560,padding:'38px 28px',boxSizing:'border-box',borderRadius:28,background:'rgba(255,255,255,.94)',border:'1px solid rgba(212,175,55,.45)',boxShadow:'0 24px 70px rgba(7,91,78,.14)',textAlign:'center',color:'#173B35'}}>
+          <img src="/icons/talaza-512.png" alt="Talaza" style={{width:112,height:112,objectFit:'contain',display:'block',margin:'0 auto 20px'}} />
+          <div style={{fontSize:11,fontWeight:900,letterSpacing:2.5,color:'#A77A13',marginBottom:9}}>TALAZA · HOSPEDAGEM</div>
+          <h1 style={{fontSize:'clamp(25px,5vw,34px)',lineHeight:1.15,margin:'0 0 16px',color:'#075B4E'}}>Hospedagem Expirada</h1>
+          <p style={{fontSize:15,lineHeight:1.75,margin:'0 auto 13px',maxWidth:455}}>A sua Hospedagem terminou. A sua loja está pausada e não está visível na Vitrine.</p>
+          <p style={{fontSize:14,lineHeight:1.75,margin:'0 auto 25px',maxWidth:455,color:'#586C63'}}>Se não renovar dentro de 15 dias, as pessoas que guardaram o seu perfil vão perdê-lo e terão de guardar novamente.</p>
+          <Link href={{pathname:'/impulsionar',query:{business:business.id}}} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',minHeight:48,padding:'0 24px',borderRadius:13,background:'linear-gradient(135deg,#F6D56C,#D9A51B)',color:'#173B35',fontWeight:900,fontSize:14,textDecoration:'none',boxShadow:'0 8px 20px rgba(190,145,20,.22)'}}>Renovar Hospedagem</Link>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1160,28 +1186,17 @@ export default function Seller() {
           padding: '24px 18px'
         }}
       >
-        {(() => {
-          const remaining = hostingExpiry ? Math.max(0, Math.ceil((hostingExpiry.getTime() - Date.now()) / 86400000)) : null;
-          const showWarning = hostingExpired || (remaining !== null && remaining <= 10);
-          if (!showWarning) return null;
-          const urgent = hostingExpired || remaining <= 3;
-          const title = hostingExpired ? 'A hospedagem da sua loja expirou' : urgent ? 'Atenção: faltam poucos dias para a sua hospedagem terminar' : 'A sua hospedagem está a terminar';
-          const message = hostingExpired
-            ? 'O prazo de tolerância de 15 dias está em curso. Renove a hospedagem para evitar a suspensão da sua loja.'
-            : urgent
-              ? 'Restam apenas ' + remaining + (remaining === 1 ? ' dia' : ' dias') + ' de hospedagem. Renove agora para manter a sua loja activa.'
-              : 'Restam ' + remaining + ' dias de hospedagem. Pode renovar antecipadamente e os novos dias serão acrescentados à validade actual.';
-          return <section role="status" aria-live="polite" style={{marginBottom:18,padding:'16px 18px',borderRadius:16,background:urgent?'#FDE8E7':'#FFF0F0',border:'1px solid '+(urgent?'#D94A45':'#E7A3A0'),boxShadow:'0 5px 16px rgba(150,35,35,.08)',color:'#8B2424'}}>
+        {profileHostingActive && hostingRemainingDays <= 10 && (
+          <section role="status" aria-live="polite" style={{marginBottom:18,padding:'16px 18px',borderRadius:16,background:'#FFF4CC',border:'1px solid #E7C65D',boxShadow:'0 5px 16px rgba(150,115,20,.10)',color:'#654B08'}}>
             <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
               <span aria-hidden="true" style={{fontSize:25,lineHeight:1}}>⚠️</span>
               <div style={{flex:1,minWidth:0}}>
-                <strong style={{display:'block',fontSize:15,lineHeight:1.35}}>{title}</strong>
-                <p style={{margin:'6px 0 12px',fontSize:13,lineHeight:1.55}}>{message}</p>
-                <Link href="/impulsionar" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',padding:'10px 15px',borderRadius:10,background:'#8B2424',color:'#FFFFFF',fontSize:13,fontWeight:850,textDecoration:'none'}}>Renovar hospedagem</Link>
+                <strong style={{display:'block',fontSize:15,lineHeight:1.45}}>A sua Hospedagem termina em {hostingRemainingDays} {hostingRemainingDays===1?'dia':'dias'}. Renove para não perder a sua loja.</strong>
+                <Link href={{pathname:'/impulsionar',query:{business:business.id}}} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',marginTop:11,padding:'10px 16px',borderRadius:10,background:'#D8A51C',color:'#253A2F',fontSize:13,fontWeight:900,textDecoration:'none'}}>Renovar Hospedagem</Link>
               </div>
             </div>
-          </section>;
-        })()}
+          </section>
+        )}
         <section style={{ borderRadius: 24, overflow: 'hidden', background: '#075B4E', boxShadow: '0 16px 38px rgba(0,70,60,.14)' }}>
           <div style={{ position: 'relative', minHeight: 260, background: '#0B7563' }}>
             {heroImage ? (
@@ -1227,61 +1242,29 @@ export default function Seller() {
           </div>
         </section>
 
-          {String(sellerReview?.status || business.approval_status || '').toLowerCase() === 'rejected' ? (
+          {String(sellerReview?.status || '').toLowerCase() === 'rejected' && (
             <Link href={{ pathname: '/seller-reenvio', query: { business: business.id } }} style={{ display:'inline-flex', alignItems:'center', marginTop:18, padding:'10px 14px', borderRadius:999, background:'#FCEBED', color:'#A52F3B', border:'1px solid #E9B8BE', fontSize:12, fontWeight:900, cursor:'pointer', textDecoration:'none' }}>Perfil criado · validação recusada →</Link>
-          ) : (subscriptionPending && pendingPlan?.id ? (
-            <Link
-              href={{ pathname: '/Pagamento', query: { plan: pendingPlan.id, business: business.id, status: 'verification' } }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 18, padding: '9px 13px', borderRadius: 999, background: '#FFF1C2', color: '#5B4300', fontSize: 12, fontWeight: 900, textDecoration: 'none', border: '1px solid #EBD58C' }}
-            >
-              Em verificação · Ver plano e referência <span aria-hidden="true">→</span>
+          )}
+          {profileHostingActive ? (
+            <section style={{display:'grid',gap:5,marginTop:18,padding:'13px 16px',borderRadius:14,background:'#E6F5EC',border:'1px solid #B7DCC4',color:'#17643B'}}>
+              <strong style={{fontSize:14}}>Perfil Ativo - {hostingRemainingDays} dias restantes</strong>
+              <span style={{fontSize:12}}>Data de fim da Hospedagem: {hostingExpiry?.toLocaleDateString('pt-AO')}</span>
+              {hostingLastAddedDays>0&&<span style={{fontSize:12}}>Última renovação: + {hostingLastAddedDays} dias acrescentados</span>}
+            </section>
+          ) : hostingProofSubmitted ? (
+            <div role="status" style={{display:'inline-flex',alignItems:'center',marginTop:18,padding:'10px 14px',borderRadius:999,background:'#FFF1C2',color:'#5B4300',fontSize:13,fontWeight:900,border:'1px solid #EBD58C'}}>
+              Aguarda validação
+            </div>
+          ) : showHostingPaymentState ? (
+            <Link href={{pathname:'/impulsionar',query:{business:business.id}}} style={{display:'inline-flex',alignItems:'center',marginTop:18,padding:'11px 15px',borderRadius:999,background:'#FDEFC5',color:'#6A4A00',border:'1px solid #E7C65D',fontSize:13,fontWeight:900,textDecoration:'none'}}>
+              Perfil Inativo - Aguarda o pagamento da Hospedagem <span aria-hidden="true" style={{marginLeft:7}}>→</span>
             </Link>
-          ) : (
-            String(business.approval_status || '').toLowerCase() === 'pending' ? (
-              <div style={{ display: 'inline-flex', marginTop: 18, padding: '7px 11px', borderRadius: 999, background: 'rgba(255,255,255,.12)', fontSize: 12, fontWeight: 700 }}>
-                Perfil criado · aguarda validação
-              </div>
-            ) : null
-          ))}
-
-        {String(sellerReview?.status || '').toLowerCase() === 'pending' && <div style={{marginTop:18,padding:16,background:'#FFF5D6',border:'1px solid #EBD58C',borderRadius:14,color:'#5B4300'}}><strong>Em verificação</strong><div>A equipa Talaza está a analisar os dados e o comprovativo enviado.</div></div>}
-        {String(sellerReview?.status || '').toLowerCase() === 'approved' && <div style={{display:'inline-flex',marginTop:18,padding:'8px 13px',borderRadius:999,background:'#E6F5EC',color:'#17643B',fontSize:12,fontWeight:900}}>Perfil ativo</div>}
-
-        {subscriptionPending && String(sellerReview?.status || '').toLowerCase() !== 'rejected' && (
-          <div style={{ marginTop: 18, padding: 16, background: '#FFF5D6', border: '1px solid #EBD58C', borderRadius: 14, color: '#5B4300' }}>
-            <strong style={{ display: 'block', marginBottom: 6 }}>Em verificação para ativação do negócio</strong>
-            <span>O comprovativo já foi enviado. Não é possível mudar de plano nem editar o perfil enquanto a equipa Talaza verifica o pagamento e a aprovação do negócio.</span>
-            {pendingPlan && <div style={{ marginTop: 8 }}><strong>Plano escolhido:</strong> {pendingPlan.name || pendingPlan.title || pendingPlan.plan_name || pendingPlan.nome || (pendingPlan.duration_days ? pendingPlan.duration_days + ' dias' : 'Plano selecionado')}</div>}
-          </div>
-        )}
-
-        <section style={{marginTop:18,padding:16,border:'1px solid '+(hostingExpired?'#E7B6B6':'#BFDCCB'),borderRadius:15,background:hostingExpired?'#FFF0F0':'#F0F8F3',color:hostingExpired?'#9B1C1C':'#175B3E'}}>
-          <strong style={{display:'block',fontSize:15,marginBottom:8}}>Estado da hospedagem</strong>
-          <div style={{fontSize:13,lineHeight:1.8}}>
-            <div><strong>Plano atual:</strong> {hostingPlanName}</div>
-            <div><strong>Data de fim:</strong> {hostingExpiry?hostingExpiry.toLocaleDateString('pt-AO'):'—'}</div>
-            <div><strong>Dias restantes:</strong> <span style={{fontWeight:900,color:hostingExpired?'#B42318':'inherit'}}>{hostingRemainingDays}</span></div>
-            <div><strong>Estado:</strong> <span style={{fontWeight:950,color:hostingExpired?'#B42318':'#17643B'}}>{hostingExpired?'EXPIRADO - INATIVO':'ATIVADO'}</span></div>
-            {hostingLastAddedDays>0&&<div><strong>Última renovação:</strong> + {hostingLastAddedDays} dias acrescentados</div>}
-          </div>
-        </section>
-
-        {hostingExpired && !subscriptionPending && (
-          <section style={{marginTop:18,padding:18,border:'1px solid #E8D49A',borderRadius:16,background:'#FFF8E5',color:'#5B4300'}}>
-            <strong style={{display:'block',fontSize:17,marginBottom:7}}>A sua hospedagem expirou</strong>
-            <p style={{fontSize:13,lineHeight:1.65,margin:'0 0 10px'}}>O seu perfil deixou de aparecer na Vitrine e nas pesquisas. Os clientes que já guardaram o seu perfil continuam a poder consultá-lo durante 15 dias, mas não podem enviar novas mensagens até a renovação ser aprovada.</p>
-            {hostingExpiry && <p style={{fontSize:12,margin:'0 0 12px'}}>Expirou em {hostingExpiry.toLocaleString('pt-AO')}.</p>}
-            <p style={{fontSize:13,lineHeight:1.6,margin:'0 0 12px'}}>A sua hospedagem expirou. Se não renovar dentro dos próximos 15 dias, o seu perfil deixará de aparecer na lista de Guardados dos exploradores. Depois de renovar, as pessoas terão de guardar novamente o seu perfil.</p>
-            <strong style={{display:'block',marginBottom:9}}>Escolha um plano para renovar a hospedagem</strong>
-            {renewalLoading ? <p>A carregar planos disponíveis…</p> : renewalPlans.length ? <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:10}}>
-              {renewalPlans.map(plan=><div key={plan.id} style={{padding:12,border:'1px solid #E8D49A',borderRadius:12,background:'#FFFFFF'}}>
-                <strong style={{display:'block',fontSize:13}}>{plan.name}</strong>
-                <p style={{fontSize:12,margin:'6px 0',color:'#705B25'}}>{plan.duration_days} dias · {formatKz(plan.price)}</p>
-                <Link href={{pathname:'/Pagamento',query:{plan:plan.id,business:business.id,renewal:'1'}}} style={{display:'inline-flex',padding:'9px 12px',borderRadius:9,background:'#075B4E',color:'#FFFFFF',fontWeight:800,fontSize:12,textDecoration:'none'}}>Escolher e renovar</Link>
-              </div>)}
-            </div> : <p style={{fontSize:12}}>Não encontrámos planos ativos para esta categoria. Contacte o Suporte Talaza para verificar os planos disponíveis.</p>}
-          </section>
-        )}
+          ) : null}
+          {hostingProofSubmitted && !profileHostingActive && pendingPlan && (
+            <div style={{marginTop:10,padding:'12px 14px',background:'#FFF9E8',border:'1px solid #EBD58C',borderRadius:12,color:'#5B4300',fontSize:12}}>
+              <strong>Plano enviado:</strong> {pendingPlan.name || pendingPlan.title || pendingPlan.plan_name || pendingPlan.nome || (pendingPlan.duration_days ? pendingPlan.duration_days + ' dias' : 'Plano selecionado')}
+            </div>
+          )}
 
         {/* Pré-visualização da loja */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 20 }}>
