@@ -1,8 +1,6 @@
 import {
   C,
   formatKz,
-  durationLabel,
-  termName,
   parsePlanDescription,
 } from '../lib/talaza';
 
