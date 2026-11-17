@@ -62,6 +62,7 @@ export default function Category() {
             .from('categories')
             .select('id, name')
             .eq('id', id)
+            .eq('active', true)
             .single();
 
         if (categoryError) throw categoryError;
@@ -235,7 +236,7 @@ export default function Category() {
                   </div>
 
                   <div className="cardText">
-                    <h3>{String(subcategory.name || '').trim()}</h3>
+                    <h3>{subcategory.name}</h3>
 
                     <p>
                       {String(subcategory.description || '').trim() ||
