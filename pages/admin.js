@@ -1388,7 +1388,7 @@ export default function Admin() {
     const reasons = paymentRejectionReasons.slice();
     const other = paymentRejectionOther.trim();
     if (!reasons.length || (reasons.includes('Outro motivo') && !other)) return;
-    const reasonText = reasons.join('\\n');
+    const reasonText = reasons.map(reason => reason === 'Outro motivo' ? 'Outro motivo: ' + other : reason).join('\\n');
     await reviewPayment(rejectionModalPayment, false, reasonText);
     setRejectionModalPayment(null);
     setPaymentRejectionReasons([]);
