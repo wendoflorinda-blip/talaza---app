@@ -91,6 +91,7 @@ export default function Admin() {
   const [notificationTitle, setNotificationTitle] = useState('');
   const [notificationBody, setNotificationBody] = useState('');
   const [reviewingPaymentId, setReviewingPaymentId] = useState('');
+  const [updatingBusinessId, setUpdatingBusinessId] = useState('');
   const [reviewingPostId, setReviewingPostId] = useState('');
   const [sendingNotification, setSendingNotification] = useState(false);
   const [message, setMessage] = useState('');
@@ -419,6 +420,34 @@ export default function Admin() {
     } else setPlanNames({});
   }
 
+  async function approveHostingAndProfile(business) {
+    if (!business?.id || reviewingPaymentId || updatingBusinessId) return;
+    const pendingPayment = subscriptionRequests.find(request =>
+      request.business_id === business.id &&
+      ['pending','submitted'].includes(String(request.status||'').toLowerCase()) &&
+      request.plan_id
+    );
+    if (!pendingPayment) {
+      alert('Não existe comprovativo pendente para este negócio.');
+      return;
+    }
+    setUpdatingBusinessId(business.id);
+    try {
+      const { data, error } = await supabase.rpc('admin_approve_hosting_and_profile', {
+        p_business_id: business.id
+      });
+      if (error) throw error;
+      await Promise.all([loadBusinesses(), loadSubscriptionRequests(), loadVendorPlanRows()]);
+      alert(data?.subscription_created
+        ? 'Pagamento e perfil aprovados. Foram concedidos ' + data.plan_days + ' dias, uma única vez.'
+        : 'Pagamento e perfil aprovados. A Hospedagem ativa existente foi preservada; não foram acrescentados dias.');
+    } catch (error) {
+      alert(error.message || 'Não foi possível aprovar pagamento e perfil.');
+    } finally {
+      setUpdatingBusinessId('');
+    }
+  }
+
   async function updateBusiness(id, status) {
     const businessForReview = businesses.find((item) => item.id === id);
     const rejectionReason = status === 'rejected'
@@ -431,75 +460,40 @@ export default function Admin() {
     let isPaid = false;
     let grantedPlanDays = 0;
     if (status === 'approved') {
+      const { data: approvedPayment, error: approvedPaymentError } = await supabase
+        .from('payment_submissions')
+        .select('id,created_at')
+        .eq('business_id', id)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (approvedPaymentError) {
+        alert('Não foi possível verificar o pagamento aprovado: ' + approvedPaymentError.message);
+        return;
+      }
+      if (!approvedPayment) {
+        alert('Não tem pagamento aprovado');
+        return;
+      }
       const { data: existingSubscription, error: subscriptionReadError } = await supabase
         .from('business_subscriptions')
         .select('id,plan_id,starts_at,expires_at,status,created_at')
         .eq('business_id', id)
-        .order('starts_at', { ascending: false })
-        .order('created_at', { ascending: false })
+        .eq('status', 'active')
+        .order('expires_at', { ascending: false })
         .limit(1)
         .maybeSingle();
       if (subscriptionReadError) {
         alert('Não foi possível consultar a hospedagem atual: ' + subscriptionReadError.message);
         return;
       }
-      const now = new Date();
       const expiry = existingSubscription?.expires_at ? new Date(existingSubscription.expires_at) : null;
-      isPaid = Boolean(existingSubscription && String(existingSubscription.status||'').trim().toLowerCase()==='active' && expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime()>now.getTime());
+      isPaid = Boolean(expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime() > Date.now());
       endDate = isPaid ? expiry.toISOString() : null;
-
-      // Se o pagamento foi aprovado antes da análise do perfil, concede os dias
-      // uma única vez agora. Não reutiliza pagamentos antigos de perfis já aprovados.
-      const firstProfileApproval = String(businessForReview?.approval_status||'').trim().toLowerCase() !== 'approved';
-      if (!isPaid && firstProfileApproval) {
-        const { data: approvedPayment, error: approvedPaymentError } = await supabase
-          .from('payment_submissions')
-          .select('id,plan_id,amount,created_at')
-          .eq('business_id', id)
-          .eq('status', 'approved')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (approvedPaymentError) {
-          alert('Não foi possível verificar o comprovativo aprovado: ' + approvedPaymentError.message);
-          return;
-        }
-        const paymentIsForThisBusiness = Boolean(approvedPayment?.created_at &&
-          new Date(approvedPayment.created_at).getTime() >= new Date(businessForReview?.created_at || 0).getTime());
-        if (approvedPayment && paymentIsForThisBusiness) {
-          const { data: paidPlan, error: paidPlanError } = await supabase
-            .from('plans')
-            .select('id,name,duration_days,plan_type,price')
-            .eq('id', approvedPayment.plan_id)
-            .maybeSingle();
-          const durationDays = Number(paidPlan?.duration_days) || 0;
-          const isHostingPlan = String(paidPlan?.plan_type||'').trim().toLocaleLowerCase('pt-AO') === 'hospedagem';
-          if (paidPlanError) {
-            alert('Não foi possível validar o plano do comprovativo: ' + paidPlanError.message);
-            return;
-          }
-          if (paidPlan && isHostingPlan && durationDays > 0) {
-            const startsAt = now.toISOString();
-            const expiresAt = new Date(now.getTime() + durationDays * 86400000).toISOString();
-            const subscriptionData = {
-              business_id: id,
-              plan_id: paidPlan.id,
-              starts_at: startsAt,
-              status: 'active',
-              expires_at: expiresAt,
-            };
-            const subscriptionResult = existingSubscription?.id
-              ? await supabase.from('business_subscriptions').update(subscriptionData).eq('id', existingSubscription.id).select('id').maybeSingle()
-              : await supabase.from('business_subscriptions').insert(subscriptionData).select('id').maybeSingle();
-            if (subscriptionResult.error || !subscriptionResult.data) {
-              alert('O perfil não foi ativado porque não foi possível registar a Hospedagem: ' + (subscriptionResult.error?.message || 'O Supabase não confirmou a operação.'));
-              return;
-            }
-            isPaid = true;
-            endDate = expiresAt;
-            grantedPlanDays = durationDays;
-          }
-        }
+      if (!isPaid) {
+        alert('Não existe uma Hospedagem ativa. Utilize “Aprovar Pagamento + Perfil” para conceder os dias uma única vez.');
+        return;
       }
     }
     const updates = {
@@ -1247,59 +1241,7 @@ export default function Admin() {
     }
 
     if (approved && request.business_id && request.plan_id) {
-      const [{ data: business, error: businessError }, { data: plan, error: planError }] = await Promise.all([
-        supabase.from('businesses').select('id, owner_id, approval_status').eq('id', request.business_id).maybeSingle(),
-        supabase.from('plans').select('id, duration_days').eq('id', request.plan_id).maybeSingle(),
-      ]);
-
-      if (businessError || planError) {
-        activationMessage = ' O pagamento foi aprovado, mas não foi possível confirmar o negócio e o plano; verifique os registos.';
-      } else if (!business || !plan) {
-        activationMessage = ' O pagamento foi aprovado, mas o negócio ou plano não foi encontrado; a hospedagem não foi ativada.';
-      } else if (business.approval_status !== 'approved') {
-        activationMessage = ' O pagamento foi aprovado. O perfil ainda precisa de aprovação administrativa antes de ficar ativo na Vitrine.';
-      } else {
-        const durationDays = Number(plan.duration_days) || 0;
-        if (durationDays <= 0) {
-          activationMessage = ' O pagamento foi aprovado, mas a duração do plano não está configurada; a hospedagem não foi ativada.';
-        } else {
-          const now = new Date();
-          const { data: existingSubscription, error: readSubscriptionError } = await supabase
-            .from('business_subscriptions')
-            .select('id, starts_at, expires_at')
-            .eq('business_id', request.business_id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          const currentExpiry = existingSubscription?.expires_at ? new Date(existingSubscription.expires_at) : null;
-          const subscriptionStillActive = Boolean(currentExpiry && !Number.isNaN(currentExpiry.getTime()) && currentExpiry > now && String(existingSubscription?.status||'').trim().toLowerCase()==='active');
-          const baseDate = subscriptionStillActive ? currentExpiry : now;
-          const expiresAt = new Date(baseDate.getTime() + durationDays * 86400000).toISOString();
-
-          if (readSubscriptionError) {
-            activationMessage = ' O pagamento foi aprovado, mas não foi possível consultar a hospedagem: ' + readSubscriptionError.message;
-          } else {
-            const subscriptionData = {
-              business_id: request.business_id,
-              plan_id: request.plan_id,
-              starts_at: subscriptionStillActive ? (existingSubscription?.starts_at || now.toISOString()) : now.toISOString(),
-              status: 'active',
-              expires_at: expiresAt,
-            };
-            const subscriptionResult = existingSubscription?.id
-              ? await supabase.from('business_subscriptions').update(subscriptionData).eq('id', existingSubscription.id).select('id').maybeSingle()
-              : await supabase.from('business_subscriptions').insert(subscriptionData).select('id').maybeSingle();
-
-            if (subscriptionResult.error || !subscriptionResult.data) {
-              activationMessage = ' O pagamento foi aprovado, mas a hospedagem não foi ativada: ' + (subscriptionResult.error?.message || 'O Supabase não confirmou o registo.');
-            } else {
-              const { error: activeError } = await supabase.from('businesses').update({ is_active: true }).eq('id', request.business_id);
-              if (activeError) activationMessage = ' A hospedagem foi registada, mas não foi possível ativar o perfil: ' + activeError.message;
-              else activationMessage = ' A hospedagem da Vitrine está ativa até ' + new Date(expiresAt).toLocaleDateString('pt-AO') + '.';
-            }
-          }
-        }
-      }
+      activationMessage = ' Pagamento aprovado. A Hospedagem e o perfil só são ativados em conjunto através de “Aprovar Pagamento + Perfil”.';
     }
 
     if (approved && request.event_id) {
@@ -1808,8 +1750,9 @@ export default function Admin() {
                 </div>
 
                 {String(business.approval_status || 'pending').toLowerCase() === 'pending' && <div style={styles.actions}>
+                  {subscriptionRequests.some(request => request.business_id === business.id && ['pending','submitted'].includes(String(request.status||'').toLowerCase()) && request.plan_id) && <button type="button" disabled={Boolean(updatingBusinessId)} style={{...styles.approve,background:'#075B4E',opacity:updatingBusinessId?.6:1}} onClick={()=>approveHostingAndProfile(business)}>{updatingBusinessId===business.id?'A aprovar…':'✅ Aprovar Pagamento + Perfil'}</button>}
                   <button style={styles.reject} onClick={() => updateBusiness(business.id, 'rejected')}>Recusar</button>
-                  <button style={styles.approve} onClick={() => updateBusiness(business.id, 'approved')}>Aprovar</button>
+                  <button style={styles.approve} onClick={() => updateBusiness(business.id, 'approved')}>Aprovar só perfil</button>
                 </div>}
 
               </article>
