@@ -201,7 +201,7 @@ export default function Pagamento() {
     setExpressSenderPhone(initialSenderPhone);
 
     const [planResult, businessResult, eventResult, premiumResult] = await Promise.all([
-      supabase.from('plans').select('*').eq('id', planId).maybeSingle(),
+      supabase.from('plans').select('*').eq('id', planId).eq('is_active', true).maybeSingle(),
       businessId
         ? supabase.from('businesses').select('id, name, country_id, province_id, category_id, subcategory_id, is_active, approval_status').eq('id', businessId).eq('owner_id', session.user.id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
