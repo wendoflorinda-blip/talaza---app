@@ -83,7 +83,6 @@ export default function Admin() {
   const [officialDuration, setOfficialDuration] = useState(30);
   const [activeAdminSection, setActiveAdminSection] = useState('vendedores');
   const [resubmissions, setResubmissions] = useState([]);
-  const [resubmissionBusyId, setResubmissionBusyId] = useState('');
   const [resubmissionError, setResubmissionError] = useState('');
   const [officialArchive, setOfficialArchive] = useState([]);
   const [notificationAudience, setNotificationAudience] = useState('all');
@@ -224,97 +223,32 @@ export default function Admin() {
 
   async function loadPaymentResubmissions() {
     setResubmissionError('');
-    const { data: rows, error } = await supabase.from('payment_resubmissions').select('id,seller_id,phone,express_number,file_url,file_type,status,created_at').eq('status','pending').order('created_at',{ascending:false});
+    const { data: rows, error } = await supabase.from('payment_submissions')
+      .select('id,user_id,business_id,plan_id,amount,status,created_at,reviewed_at,proof_url,proof_type,proof_image_url,proof_file_url,express_sender_phone,express_number,resubmitted_from_id,notes')
+      .not('resubmitted_from_id','is',null).eq('status','pending').order('created_at',{ascending:false});
     if (error) { setResubmissionError('Não foi possível carregar os comprovativos corrigidos: '+error.message); setResubmissions([]); return; }
-    const sellerIds=[...new Set((rows||[]).map(row=>row.seller_id).filter(Boolean))];
+    const sellerIds=[...new Set((rows||[]).map(row=>row.user_id).filter(Boolean))];
+    const businessIds=[...new Set((rows||[]).map(row=>row.business_id).filter(Boolean))];
     const [{data:statuses,error:statusError},{data:businessRows,error:businessError}] = await Promise.all([
       sellerIds.length ? supabase.from('seller_status').select('seller_id,status,reject_reason').in('seller_id',sellerIds) : Promise.resolve({data:[],error:null}),
-      sellerIds.length ? supabase.from('businesses').select('id,owner_id,name,phone,approval_status,is_active,created_at').in('owner_id',sellerIds).order('created_at',{ascending:false}) : Promise.resolve({data:[],error:null})
+      businessIds.length ? supabase.from('businesses').select('id,owner_id,name,phone,approval_status,is_active,created_at').in('id',businessIds) : Promise.resolve({data:[],error:null})
     ]);
     if(statusError) console.error('Estado dos vendedores nos reenvios:',statusError);
     if(businessError) console.error('Negócios associados aos reenvios:',businessError);
     const statusMap=Object.fromEntries((statuses||[]).map(item=>[item.seller_id,item]));
-    const businessMap={}; (businessRows||[]).forEach(item=>{ if(!businessMap[item.owner_id]) businessMap[item.owner_id]=item; });
+    const businessMap=Object.fromEntries((businessRows||[]).map(item=>[item.id,item]));
     const enriched=await Promise.all((rows||[]).map(async row=>{
-      const {data:signed,error:signedError}=await supabase.storage.from('payment-proofs').createSignedUrl(row.file_url,600);
+      const paths=getPaymentProofPaths(row);
+      const proofPath=paths.file||paths.image;
+      const {data:signed,error:signedError}=proofPath
+        ? await supabase.storage.from('payment-proofs').createSignedUrl(proofPath,600)
+        : {data:null,error:null};
       if(signedError) console.warn('Preview de comprovativo indisponível:',signedError.message);
-      return {...row,sellerStatus:statusMap[row.seller_id]||null,business:businessMap[row.seller_id]||null,previewUrl:signed?.signedUrl||null};
+      return {...row,seller_id:row.user_id,phone:row.express_sender_phone||row.express_number||'',
+        file_url:proofPath,file_type:row.proof_type,sellerStatus:statusMap[row.user_id]||null,
+        business:businessMap[row.business_id]||null,previewUrl:signed?.signedUrl||null};
     }));
     setResubmissions(enriched);
-  }
-
-  async function reviewPaymentResubmission(item, approved) {
-    if(resubmissionBusyId) return;
-    setResubmissionBusyId(item.id); setResubmissionError('');
-    try {
-      const {data:business,error:businessError}=await supabase.from('businesses').select('id,owner_id,approval_status,is_active').eq('owner_id',item.seller_id).order('created_at',{ascending:false}).limit(1).maybeSingle();
-      if(businessError) throw businessError;
-      if(!business) throw new Error('Não foi encontrado um negócio associado a este vendedor.');
-      if(approved){
-        // O reenvio atualiza o pagamento recusado existente; nunca cria um novo payment_submissions.
-        const {data:rejectedPayment,error:rejectedPaymentError}=await supabase.from('payment_submissions')
-          .select('id,plan_id,amount,created_at,express_sender_phone,express_number')
-          .eq('user_id',item.seller_id).eq('business_id',business.id).eq('status','rejected')
-          .order('created_at',{ascending:false}).limit(1).maybeSingle();
-        if(rejectedPaymentError) throw rejectedPaymentError;
-        let validHosting=false;
-        if(rejectedPayment){
-          const expressSenderPhone=String(rejectedPayment.express_sender_phone||rejectedPayment.express_number||item.express_number||'').trim();
-          if(!expressSenderPhone) throw new Error('O pagamento original e o reenvio não contêm o número Express. Não é possível aprovar sem esse dado.');
-          const {data:plan,error:planError}=await supabase.from('plans').select('id,price,duration_days').eq('id',rejectedPayment.plan_id).maybeSingle();
-          if(planError) throw planError;
-          if(!plan || Number(plan.price)!==Number(rejectedPayment.amount)) throw new Error('O valor do pagamento original não corresponde ao preço atual do plano. Verifica o plano antes de aprovar.');
-          const now=new Date();
-          const {data:existingSubscription,error:subscriptionError}=await supabase.from('business_subscriptions')
-            .select('id,starts_at,expires_at,status').eq('business_id',business.id)
-            .order('created_at',{ascending:false}).limit(1).maybeSingle();
-          if(subscriptionError) throw subscriptionError;
-          const currentExpiry=existingSubscription?.expires_at?new Date(existingSubscription.expires_at):null;
-          const subscriptionStillActive=Boolean(currentExpiry&&!Number.isNaN(currentExpiry.getTime())&&currentExpiry>now&&String(existingSubscription?.status||'').trim().toLowerCase()==='active');
-          const baseDate=subscriptionStillActive?currentExpiry:now;
-          const durationDays=Number(plan.duration_days)||0;
-          if(durationDays<=0) throw new Error('A duração do plano não está configurada.');
-          const expiresAt=new Date(baseDate.getTime()+durationDays*86400000).toISOString();
-          const subscriptionData={business_id:business.id,plan_id:plan.id,starts_at:subscriptionStillActive?(existingSubscription?.starts_at||now.toISOString()):now.toISOString(),status:'active',expires_at:expiresAt};
-          const subscriptionResult=existingSubscription?.id
-            ?await supabase.from('business_subscriptions').update(subscriptionData).eq('id',existingSubscription.id).select('id').maybeSingle()
-            :await supabase.from('business_subscriptions').insert(subscriptionData).select('id').maybeSingle();
-          if(subscriptionResult.error||!subscriptionResult.data) throw new Error('Não foi possível ativar a hospedagem: '+(subscriptionResult.error?.message||'sem confirmação do Supabase'));
-          const {error:paymentUpdateError}=await supabase.from('payment_submissions').update({
-            status:'approved',reviewed_at:now.toISOString(),notes:null,
-            express_sender_phone:expressSenderPhone,proof_file_url:item.file_url,proof_type:item.file_type
-          }).eq('id',rejectedPayment.id).eq('status','rejected');
-          if(paymentUpdateError) throw paymentUpdateError;
-          validHosting=true;
-        } else {
-          const {data:subscriptions,error:subscriptionError}=await supabase.from('business_subscriptions').select('id,status,expires_at').eq('business_id',business.id).eq('status','active').gt('expires_at',new Date().toISOString()).order('expires_at',{ascending:false}).limit(1);
-          if(subscriptionError) throw subscriptionError;
-          validHosting=Boolean(subscriptions&&subscriptions.length);
-        }
-        const businessPatch={approval_status:'approved',is_active:validHosting};
-        const {error:updateBusinessError}=await supabase.from('businesses').update(businessPatch).eq('id',business.id);
-        if(updateBusinessError) throw updateBusinessError;
-        const {error:statusError}=await supabase.from('seller_status').upsert({seller_id:item.seller_id,status:'approved',reject_reason:null,updated_at:new Date().toISOString()},{onConflict:'seller_id'});
-        if(statusError) throw statusError;
-        const {error:submissionError}=await supabase.from('payment_resubmissions').update({status:'approved'}).eq('id',item.id).eq('status','pending');
-        if(submissionError) throw submissionError;
-        const {error:notificationError}=await supabase.from('notifications').insert({user_id:item.seller_id,type:'seller_approved',audience:'seller',title:'O teu negócio foi aprovado!',content:validHosting?'O teu negócio foi aprovado e a hospedagem está válida.':'O teu negócio foi aprovado. Escolhe um plano de hospedagem para ativar o perfil.',link:'/seller',is_read:false});
-        if(notificationError) throw new Error('Negócio atualizado, mas a notificação do vendedor falhou: '+notificationError.message);
-        alert(validHosting?'Negócio aprovado. A hospedagem válida foi mantida ativa.':'Negócio aprovado. O estado de is_active foi preservado porque não existe hospedagem válida.');
-      } else {
-        const {error:submissionError}=await supabase.from('payment_resubmissions').update({status:'rejected'}).eq('id',item.id).eq('status','pending');
-        if(submissionError) throw submissionError;
-        const {error:statusError}=await supabase.from('seller_status').upsert({seller_id:item.seller_id,status:'rejected',reject_reason:item.sellerStatus?.reject_reason||'Comprovativo corrigido ainda não aceite.',updated_at:new Date().toISOString()},{onConflict:'seller_id'});
-        if(statusError) throw statusError;
-        const {error:businessUpdateError}=await supabase.from('businesses').update({approval_status:'rejected'}).eq('id',business.id);
-        if(businessUpdateError) throw businessUpdateError;
-        const {error:notificationError}=await supabase.from('notifications').insert({user_id:item.seller_id,type:'seller_resubmission_rejected',audience:'seller',title:'Comprovativo ainda recusado',content:'A equipa Talaza manteve a recusa do comprovativo enviado. Consulta o motivo no teu painel e corrige os dados.',link:'/seller',is_read:false});
-        if(notificationError) console.error('Recusa feita, mas não foi possível notificar o vendedor:',notificationError);
-        alert('O comprovativo foi mantido como recusado.');
-      }
-      await Promise.all([loadPaymentResubmissions(),loadBusinesses()]);
-    } catch(err) { setResubmissionError(err.message||'Não foi possível concluir a análise.'); }
-    finally { setResubmissionBusyId(''); }
   }
 
   async function loadBusinesses() {
@@ -422,34 +356,6 @@ export default function Admin() {
         setPlanNames(namesById);
       }
     } else setPlanNames({});
-  }
-
-  async function approveHostingAndProfile(business) {
-    if (!business?.id || reviewingPaymentId || updatingBusinessId) return;
-    const pendingPayment = subscriptionRequests.find(request =>
-      request.business_id === business.id &&
-      ['pending','submitted'].includes(String(request.status||'').toLowerCase()) &&
-      request.plan_id
-    );
-    if (!pendingPayment) {
-      alert('Não existe comprovativo pendente para este negócio.');
-      return;
-    }
-    setUpdatingBusinessId(business.id);
-    try {
-      const { data, error } = await supabase.rpc('admin_approve_hosting_and_profile', {
-        p_business_id: business.id
-      });
-      if (error) throw error;
-      await Promise.all([loadBusinesses(), loadSubscriptionRequests(), loadVendorPlanRows()]);
-      alert(data?.subscription_created
-        ? 'Pagamento e perfil aprovados. Foram concedidos ' + data.plan_days + ' dias, uma única vez.'
-        : 'Pagamento e perfil aprovados. A Hospedagem ativa existente foi preservada; não foram acrescentados dias.');
-    } catch (error) {
-      alert(error.message || 'Não foi possível aprovar pagamento e perfil.');
-    } finally {
-      setUpdatingBusinessId('');
-    }
   }
 
   async function updateBusiness(id, status) {
@@ -1170,6 +1076,21 @@ export default function Admin() {
       }
       if (!window.confirm('Confirma que verificou no extrato Express que o número ' + senderPhone + ' enviou exatamente ' + Number(request.amount).toLocaleString('pt-AO') + ' Kz? Só confirme se número e valor coincidirem.')) return;
     }
+    if (approved && request.business_id && request.plan_id) {
+      setReviewingPaymentId(request.id);
+      try {
+        const { data: activation, error: activationError } = await supabase.rpc('admin_approve_payment_and_activate_business', { p_payment_id: request.id });
+        if (activationError) throw activationError;
+        await Promise.all([loadBusinesses(),loadSubscriptionRequests(),loadVendorPlanRows(),loadPaymentResubmissions()]);
+        alert(activation?.subscription_created
+          ? 'Pagamento aprovado e loja ativada. Foram concedidos 180 dias de hospedagem.'
+          : 'Pagamento aprovado e loja ativada. A hospedagem existente foi preservada, sem acrescentar dias.');
+      } catch (activationError) {
+        alert(activationError.message || 'Não foi possível aprovar e ativar a loja.');
+      } finally { setReviewingPaymentId(''); }
+      return;
+    }
+
     setReviewingPaymentId(request.id);
     const nextStatus = approved ? 'approved' : 'rejected';
     const reviewedAt = new Date().toISOString();
@@ -1232,9 +1153,7 @@ export default function Admin() {
       }
     }
 
-    if (approved && request.business_id && request.plan_id) {
-      activationMessage = ' Pagamento aprovado. A Hospedagem e o perfil só são ativados em conjunto através de “Aprovar Pagamento + Perfil”.';
-    }
+    // A hospedagem de negócio é tratada pela aprovação atómica no início desta função.
 
     if (approved && request.event_id) {
       const { data: event, error: eventReadError } = await supabase
@@ -1757,9 +1676,8 @@ export default function Admin() {
                 </div>
 
                 {String(business.approval_status || 'pending').toLowerCase() === 'pending' && <div style={styles.actions}>
-                  {subscriptionRequests.some(request => request.business_id === business.id && ['pending','submitted'].includes(String(request.status||'').toLowerCase()) && request.plan_id) && <button type="button" disabled={Boolean(updatingBusinessId)} style={{...styles.approve,background:'#075B4E',opacity:updatingBusinessId?.6:1}} onClick={()=>approveHostingAndProfile(business)}>{updatingBusinessId===business.id?'A aprovar…':'✅ Aprovar Pagamento + Perfil'}</button>}
-                  <button style={styles.reject} onClick={() => updateBusiness(business.id, 'rejected')}>Recusar</button>
-                  <button style={styles.approve} onClick={() => updateBusiness(business.id, 'approved')}>Aprovar só perfil</button>
+                  <span style={{fontSize:12,color:'#64756F',fontWeight:700}}>A aprovação e ativação da hospedagem são feitas exclusivamente em “Pagamentos e hospedagem”.</span>
+                  <button style={styles.reject} onClick={() => updateBusiness(business.id, 'rejected')}>Recusar cadastro</button>
                 </div>}
 
               </article>
@@ -2031,9 +1949,8 @@ export default function Admin() {
                   :<a href={item.previewUrl} target="_blank" rel="noreferrer"><img src={item.previewUrl} alt="Comprovativo reenviado" style={{display:'block',maxWidth:'100%',maxHeight:360,objectFit:'contain',margin:'0 auto',borderRadius:8}}/></a>)
                   :<p style={{fontSize:12,color:'#A52F3B'}}>Não foi possível gerar o preview do ficheiro. Verifica o bucket payment-proofs.</p>}
               </div>
-              <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:14}}>
-                <button type="button" disabled={resubmissionBusyId===item.id} onClick={()=>reviewPaymentResubmission(item,true)} style={styles.approve}>{resubmissionBusyId===item.id?'A guardar…':'Aprovar'}</button>
-                <button type="button" disabled={resubmissionBusyId===item.id} onClick={()=>reviewPaymentResubmission(item,false)} style={styles.reject}>Rejeitar</button>
+              <div style={{marginTop:14,padding:12,borderRadius:10,background:'#EEF6F2',color:'#245448',fontSize:12,fontWeight:700}}>
+                Este reenvio também está listado em “Pagamentos e hospedagem”. Analise e use lá o único botão “Aprovar + ativar loja” para concluir tudo de uma vez.
               </div>
             </article>)}</div>
           }
@@ -2106,7 +2023,7 @@ export default function Admin() {
                   </div>
                   <div style={styles.actions}>
                     {pending && <><button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>
-                    <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Confirmar pagamento'}</button></>}
+                    <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A aprovar…' : (request.business_id && request.plan_id ? 'Aprovar + ativar loja' : 'Confirmar pagamento')}</button></>}
                     <button type="button" disabled={deletingPaymentId === request.id} style={styles.reject} onClick={() => deletePaymentProof(request)}>{deletingPaymentId === request.id ? 'A eliminar…' : 'Eliminar comprovativo'}</button>
                   </div>
                 </article>;

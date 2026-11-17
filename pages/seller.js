@@ -42,6 +42,7 @@ export default function Seller() {
   const [assetUploading, setAssetUploading] = useState(false);
   const [subscriptionPending, setSubscriptionPending] = useState(false);
   const [hostingProofSubmitted, setHostingProofSubmitted] = useState(false);
+  const [hostingPaymentApproved, setHostingPaymentApproved] = useState(false);
   const [pendingPlan, setPendingPlan] = useState(null);
   const [hostingExpiry, setHostingExpiry] = useState(null);
   const [hostingExpired, setHostingExpired] = useState(false);
@@ -367,9 +368,10 @@ export default function Seller() {
     if (pendingRequestError) console.error('Erro ao verificar pagamento pendente:', pendingRequestError);
     const requestStatus = String(pendingRequest?.status || '').toLowerCase();
     const isInVerification = Boolean(pendingRequest && requestStatus === 'pending');
-    const proofWasSubmitted = Boolean(pendingRequest && ['pending','approved'].includes(requestStatus));
+    const paymentWasApproved = Boolean(pendingRequest && requestStatus === 'approved');
     setSubscriptionPending(isInVerification);
-    setHostingProofSubmitted(proofWasSubmitted);
+    setHostingProofSubmitted(isInVerification);
+    setHostingPaymentApproved(paymentWasApproved);
     if (pendingRequest?.plan_id && isInVerification) {
       const { data: selectedPlan, error: selectedPlanError } = await supabase
         .from('plans')
@@ -1251,6 +1253,10 @@ export default function Seller() {
               <span style={{fontSize:12}}>Data de fim da Hospedagem: {hostingExpiry?.toLocaleDateString('pt-AO')}</span>
               {hostingLastAddedDays>0&&<span style={{fontSize:12}}>Última renovação: + {hostingLastAddedDays} dias acrescentados</span>}
             </section>
+          ) : hostingPaymentApproved ? (
+            <div role="status" style={{display:'inline-flex',alignItems:'center',marginTop:18,padding:'10px 14px',borderRadius:999,background:'#E8F1FF',color:'#174A82',fontSize:13,fontWeight:900,border:'1px solid #B7D0F0'}}>
+              Aguarda ativação
+            </div>
           ) : hostingProofSubmitted ? (
             <div role="status" style={{display:'inline-flex',alignItems:'center',marginTop:18,padding:'10px 14px',borderRadius:999,background:'#FFF1C2',color:'#5B4300',fontSize:13,fontWeight:900,border:'1px solid #EBD58C'}}>
               Aguarda validação
