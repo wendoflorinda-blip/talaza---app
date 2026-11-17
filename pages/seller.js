@@ -305,16 +305,16 @@ export default function Seller() {
     await loadImages(data.id);
     await loadBusinessUpdates(data.id);
 
-    const { data: latestSubscription, error: subscriptionError } = await supabase
+    const { data: subscriptionRows, error: subscriptionError } = await supabase
       .from('business_subscriptions')
       .select('id,plan_id,starts_at,expires_at,status')
       .eq('business_id', data.id)
-      .eq('status','active')
       .order('starts_at',{ascending:false})
-      .order('created_at',{ascending:false})
-      .limit(1)
-      .maybeSingle();
+      .order('created_at',{ascending:false});
     if (subscriptionError) console.warn('Não foi possível consultar a validade da hospedagem:',subscriptionError);
+    const latestSubscription = (subscriptionRows || []).find(row=>String(row.status||'').trim().toLowerCase()==='active')
+      || (subscriptionRows || [])[0]
+      || null;
     const expiryDate = latestSubscription?.expires_at ? new Date(latestSubscription.expires_at) : null;
     const angolaDateKey = (date) => {
       if (!date || Number.isNaN(date.getTime())) return null;
