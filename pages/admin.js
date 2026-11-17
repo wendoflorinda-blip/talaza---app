@@ -2280,7 +2280,7 @@ export default function Admin() {
           </div>}
           <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:20,flexWrap:'wrap'}}>
             <button type="button" disabled={Boolean(reviewingPaymentId)} onClick={()=>setRejectionModalPayment(null)} style={{...styles.reject,padding:'12px 16px'}}>Cancelar</button>
-            <button type="button" disabled={Boolean(reviewingPaymentId)||!paymentRejectionReasons.length||(paymentRejectionReasons.includes('Outro motivo')&&!paymentRejectionOther.trim())} onClick={confirmPaymentRejection} style={{...styles.approve,background:'#A52F3B',opacity:!paymentRejectionReasons.length||(paymentRejectionReasons.includes('Outro motivo')&&!paymentRejectionOther.trim())?.5:1,padding:'12px 18px'}}>{reviewingPaymentId?'A rejeitar…':'Rejeitar comprovante'}</button>
+            <button type="button" disabled={Boolean(reviewingPaymentId)||!paymentRejectionReasons.length||(paymentRejectionReasons.includes('Outro motivo')&&!paymentRejectionOther.trim())} onClick={confirmPaymentRejection} style={{...styles.approve,background:'#A52F3B',opacity:(!paymentRejectionReasons.length||(paymentRejectionReasons.includes('Outro motivo')&&!paymentRejectionOther.trim())) ? 0.5 : 1,padding:'12px 18px'}}>{reviewingPaymentId?'A rejeitar…':'Rejeitar comprovante'}</button>
           </div>
         </section>
       </div>}
