@@ -1083,7 +1083,7 @@ export default function Admin() {
         if (activationError) throw activationError;
         await Promise.all([loadBusinesses(),loadSubscriptionRequests(),loadVendorPlanRows(),loadPaymentResubmissions()]);
         alert(activation?.subscription_created
-          ? 'Pagamento aprovado e loja ativada. Foram concedidos 180 dias de hospedagem.'
+          ? `Pagamento aprovado e loja ativada. Foram concedidos ${Number(activation?.plan_days || 0)} dias de hospedagem.`
           : 'Pagamento aprovado e loja ativada. A hospedagem existente foi preservada, sem acrescentar dias.');
       } catch (activationError) {
         alert(activationError.message || 'Não foi possível aprovar e ativar a loja.');
