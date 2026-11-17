@@ -33,10 +33,14 @@ begin
     select * into v_subscription from public.business_subscriptions
     where business_id = v_business.id order by created_at desc limit 1 for update;
     if found then
+      if lower(trim(coalesce(v_subscription.status,''))) <> 'active'
+         or v_subscription.expires_at::timestamptz <= v_now then
+        raise exception 'Este pagamento já foi aprovado, mas a hospedagem existente expirou. Não serão acrescentados dias automaticamente.';
+      end if;
       v_starts_at := v_subscription.starts_at::timestamptz;
       v_expires_at := v_subscription.expires_at::timestamptz;
     else
-      v_starts_at := '2026-11-17 00:00:00+01'::timestamptz;
+      v_starts_at := coalesce(v_payment.reviewed_at, v_payment.created_at, v_now);
       v_expires_at := v_starts_at + interval '180 days';
       insert into public.business_subscriptions (business_id,plan_id,starts_at,status,expires_at)
       values (v_business.id,v_plan.id,v_starts_at,'active',v_expires_at);
