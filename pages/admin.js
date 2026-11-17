@@ -63,6 +63,7 @@ export default function Admin() {
   const [emailChangeBusyId, setEmailChangeBusyId] = useState('');
   const [events, setEvents] = useState([]);
   const [jobPosts, setJobPosts] = useState([]);
+  const [jobReviewChecks, setJobReviewChecks] = useState({});
   const [officialKind, setOfficialKind] = useState('motivation');
   const [officialTitle, setOfficialTitle] = useState('');
   const [officialBody, setOfficialBody] = useState('');
@@ -647,8 +648,8 @@ export default function Admin() {
       item.province_id &&
       (item.image_url || (item.title?.trim() && item.description?.trim()))
     ).sort((a, b) => {
-      const aPending = String(a.status || '').toLowerCase() === 'pending_review' ? 0 : 1;
-      const bPending = String(b.status || '').toLowerCase() === 'pending_review' ? 0 : 1;
+      const aPending = ['pending','pending_review'].includes(String(a.status || '').toLowerCase()) ? 0 : 1;
+      const bPending = ['pending','pending_review'].includes(String(b.status || '').toLowerCase()) ? 0 : 1;
       return aPending - bPending || new Date(b.created_at || 0) - new Date(a.created_at || 0);
     }));
   }
@@ -686,41 +687,40 @@ export default function Admin() {
   }
 
   async function moderateJob(post, approved) {
+    const pendingStatus = ['pending', 'pending_review'].includes(String(post.status || '').toLowerCase());
+    if (!pendingStatus) { alert('Esta vaga já foi analisada.'); return; }
+    const checks = jobReviewChecks[post.id] || {};
+    if (approved && !(checks.link && checks.message && checks.data)) {
+      alert('Antes de aprovar, confirme os três pontos da revisão: link, mensagem e dados.');
+      return;
+    }
     const reason = approved ? '' : window.prompt('Indique o motivo da recusa da oportunidade:');
     if (!approved && (!reason || !reason.trim())) return;
 
-    // A duração começa no envio. A aprovação administrativa não reinicia nem prolonga o prazo.
     const allowedDurations = [7, 15, 30];
-    const durationDays = allowedDurations.includes(Number(post.duration_days))
-      ? Number(post.duration_days)
-      : 30;
+    const durationDays = allowedDurations.includes(Number(post.duration_days)) ? Number(post.duration_days) : 30;
     const submittedAt = post.created_at ? new Date(post.created_at) : new Date();
     const expiresAt = new Date(submittedAt.getTime() + durationDays * 24 * 60 * 60 * 1000);
-    const now = new Date();
-
-    if (approved && expiresAt.getTime() <= now.getTime()) {
-      const { error: expireError } = await supabase
-        .from('job_posts')
-        .update({ status: 'expired', is_active: false, admin_approved: false, duration_days: durationDays, expires_at: expiresAt.toISOString() })
+    if (approved && expiresAt.getTime() <= Date.now()) {
+      const { error: expireError } = await supabase.from('job_posts')
+        .update({ status: 'expired', is_active: false, admin_approved: false })
         .eq('id', post.id);
-      if (expireError) {
-        alert('O prazo desta oportunidade terminou, mas não foi possível atualizar o estado: ' + expireError.message);
-      } else {
-        await loadJobPosts();
-        alert('Esta oportunidade já ultrapassou os ' + durationDays + ' dias desde o envio. Não pode ser aprovada; o responsável deverá enviar uma nova publicação.');
-      }
+      if (expireError) alert('Não foi possível atualizar o estado: ' + expireError.message);
+      else { await loadJobPosts(); alert('O prazo desta vaga terminou.'); }
       return;
     }
 
-    // A vaga só fica visível após aprovação; o prazo original é respeitado sem reiniciar.
     const patch = approved
-      ? { status: 'published', is_active: true, admin_approved: true, duration_days: durationDays, expires_at: expiresAt.toISOString() }
+      ? { status: 'approved', is_active: true, admin_approved: true, duration_days: durationDays, expires_at: expiresAt.toISOString() }
       : { status: 'rejected', is_active: false, admin_approved: false };
-    const { data, error } = await supabase.from('job_posts').update(patch).eq('id', post.id).select('id, user_id').maybeSingle();
-    if (error || !data) { alert('Não foi possível atualizar a oportunidade: ' + (error?.message || 'Nenhuma linha foi alterada.')); return; }
-    await notifyUser(data.user_id || post.user_id, approved ? 'Oportunidade aprovada pela Talaza' : 'Oportunidade recusada', approved ? 'A sua oportunidade foi aprovada e publicada gratuitamente em Contratar. A publicação termina em ' + expiresAt.toLocaleDateString('pt-AO') + ', respeitando os ' + durationDays + ' dias contados desde o envio. A consulta na área Oportunidades continua reservada a quem tem plano ativo na sua província principal.' : 'A sua oportunidade foi recusada. Motivo: ' + reason.trim(), 'opportunity_review');
+    const { data, error } = await supabase.from('job_posts').update(patch).eq('id', post.id).select('id,user_id').maybeSingle();
+    if (error || !data) { alert('Não foi possível atualizar a vaga: ' + (error?.message || 'Nenhuma linha foi alterada.')); return; }
+    const body = approved
+      ? 'A sua vaga "' + (post.title || post.profession || 'Oportunidade') + '" foi aprovada e já está visível na área Oportunidades da província onde foi publicada.'
+      : 'A sua vaga "' + (post.title || post.profession || 'Oportunidade') + '" foi rejeitada. Motivo: ' + reason.trim() + '. Pode consultar este motivo em Minhas vagas.';
+    await notifyUser(data.user_id || post.user_id, approved ? 'Vaga aprovada pela Talaza' : 'Vaga rejeitada pela Talaza', body, 'opportunity_review', post.id, 'explorer');
     await loadJobPosts();
-    alert(approved ? 'Oportunidade aprovada. Prazo de ' + durationDays + ' dias contado desde o envio.' : 'Oportunidade recusada e motivo enviado nas notificações.');
+    alert(approved ? 'Vaga aprovada e publicada na província selecionada.' : 'Vaga rejeitada. O motivo foi enviado ao responsável.');
   }
 
   async function uploadOfficialBackground(file) {
@@ -1539,7 +1539,7 @@ export default function Admin() {
               ['girassol', 'Reactivação Girassol', girassolReactivations.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['destaques-premium', 'Destaques Premium', subscriptionRequests.filter(item => item.premium_promotion_id && String(item.status || '').toLowerCase() === 'pending').length],
               ['eventos', 'Eventos', events.filter(item => String(item.status || '').toLowerCase() === 'pending_payment').length],
-              ['oportunidades', 'Oportunidades', jobPosts.filter(item => !['published','approved','rejected','closed','expired'].includes(String(item.status || '').toLowerCase())).length],
+              ['oportunidades', 'Vagas por aprovar', jobPosts.filter(item => ['pending','pending_review'].includes(String(item.status || '').toLowerCase())).length],
               ['comunidade', 'Comunidade Talaza', communityPosts.filter(item => String(item.moderation_status || 'pending').toLowerCase() === 'pending').length],
               ['suporte', 'Suporte Talaza', supportMessages.filter(item => String(item.status || 'pending').toLowerCase() === 'pending').length],
               ['notificacoes', 'Notificações', adminNotifications.length],
@@ -1824,8 +1824,43 @@ export default function Admin() {
         </section>
 
         <section id="oportunidades" style={{ marginTop: 0, display: activeAdminSection === 'oportunidades' ? 'block' : 'none' }}>
-          <div style={styles.titleRow}><div><h2 style={styles.title}>Revisão de Oportunidades</h2><p style={styles.description}>Leia os dados e veja o cartaz antes de decidir. Só as publicações aprovadas por si chegam à área Oportunidades.</p></div><div style={styles.counter}>{jobPosts.filter(item => String(item.status || '').toLowerCase() === 'pending_review').length} por analisar · {jobPosts.length} total</div></div>
-          {jobPosts.length === 0 ? <div style={styles.empty}><h3>Sem oportunidades registadas</h3><p>As oportunidades enviadas aparecerão aqui.</p></div> : <div style={styles.list}>{jobPosts.map(item => <article key={item.id} style={styles.card}><div style={styles.cardTop}><div style={styles.logoPlaceholder}>OP</div><div style={{ flex: 1 }}><h3 style={styles.businessName}>{item.title || item.position || 'Publicação visual'}</h3><div style={styles.meta}>Estado: {item.status || '—'} · Enviado: {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : '—'} · Duração: {item.duration_days || 30} dias · Termina: {item.expires_at ? new Date(item.expires_at).toLocaleString('pt-AO') : (item.created_at ? new Date(new Date(item.created_at).getTime() + Number(item.duration_days || 30) * 86400000).toLocaleString('pt-AO') : '—')}</div></div></div><div style={styles.details}>{item.image_url && <div style={{ margin: '12px 0' }}><a href={item.image_url} target="_blank" rel="noreferrer"><img src={item.image_url} alt="Cartaz enviado para revisão" style={{ display: 'block', maxWidth: '100%', width: 360, maxHeight: 420, objectFit: 'contain', borderRadius: 12, border: '1px solid #D5E4DF', background: '#F7FAF9' }} /></a><p><a href={item.image_url} target="_blank" rel="noreferrer">Abrir cartaz em tamanho completo ↗</a></p></div>}{(item.description || item.details) && <p>{item.description || item.details}</p>}<p><strong>País:</strong> {item.country?.name || '—'}</p><p><strong>Província:</strong> {item.province?.name || '—'}</p><p><strong>Profissão:</strong> {item.profession || item.position || '—'}</p><p><strong>Responsável:</strong> {profiles.find(profile => profile.id === (item.user_id || item.employer_id))?.name || 'Nome não disponível'}</p></div>{String(item.status || '').toLowerCase() === 'pending_review' && <div style={styles.actions}><button type="button" style={styles.reject} onClick={() => moderateJob(item, false)}>Recusar oportunidade</button><button type="button" style={styles.approve} onClick={() => moderateJob(item, true)}>Aprovar oportunidade</button></div>}</article>)}</div>}
+          <div style={styles.titleRow}>
+            <div><h2 style={styles.title}>Vagas por aprovar</h2><p style={styles.description}>Verifique o link, o conteúdo e a integridade dos dados antes de aprovar. Só as vagas aprovadas ficam visíveis em Oportunidades.</p></div>
+            <div style={styles.counter}>{jobPosts.filter(item => ['pending','pending_review'].includes(String(item.status || '').toLowerCase())).length} pendente(s)</div>
+          </div>
+          {jobPosts.filter(item => ['pending','pending_review'].includes(String(item.status || '').toLowerCase())).length === 0
+            ? <div style={styles.empty}><h3>Nenhuma vaga pendente de aprovação</h3><p>As novas publicações aparecerão aqui.</p></div>
+            : <div style={styles.list}>{jobPosts.filter(item => ['pending','pending_review'].includes(String(item.status || '').toLowerCase())).map(item => {
+                const checks = jobReviewChecks[item.id] || {};
+                const rawText = [item.description,item.requirements,item.salary,item.professional_competence,item.work_availability].filter(Boolean).join(' ');
+                const linkMatch = rawText.match(/https?:\/\/[^\s<>"']+/i);
+                const author = profiles.find(profile => profile.id === (item.user_id || item.employer_id));
+                const toggleCheck = key => setJobReviewChecks(previous => ({ ...previous, [item.id]: { ...(previous[item.id] || {}), [key]: !previous[item.id]?.[key] } }));
+                return <article key={item.id} style={styles.card}>
+                  <div style={styles.cardTop}><div style={styles.logoPlaceholder}>V</div><div style={{flex:1,minWidth:0}}><h3 style={styles.businessName}>{item.title || item.profession || 'Vaga sem título'}</h3><div style={styles.meta}>Pendente - Por aprovar · {item.created_at ? new Date(item.created_at).toLocaleString('pt-AO') : 'Data indisponível'}</div></div></div>
+                  <div style={styles.details}>
+                    <p><strong>Descrição:</strong> {item.description || 'Não informada'}</p>
+                    <p><strong>Província:</strong> {item.province?.name || '—'}</p>
+                    <p><strong>Quem publicou:</strong> {author?.name || 'Utilizador Talaza'} · {item.user_id || 'ID indisponível'}</p>
+                    <p><strong>Profissão:</strong> {item.profession || '—'} · <strong>Área:</strong> {item.area || '—'}</p>
+                    <p><strong>Requisitos:</strong> {item.requirements || '—'}</p>
+                    <p><strong>Remuneração:</strong> {item.salary || 'Não indicada'}</p>
+                    <p><strong>WhatsApp indicado:</strong> {item.whatsapp || '—'} (não será mostrado publicamente)</p>
+                    {linkMatch ? <p><strong>Link encontrado:</strong> <a href={linkMatch[0].replace(/[),.!?;:]+$/, '')} target="_blank" rel="noopener noreferrer nofollow">Abrir e verificar o link ↗</a></p> : <p><strong>Link:</strong> Não foi encontrado um link no texto da vaga.</p>}
+                    {item.image_url && <p><a href={item.image_url} target="_blank" rel="noopener noreferrer">Abrir cartaz/anexo ↗</a></p>}
+                  </div>
+                  <div style={{marginTop:14,padding:14,borderRadius:12,background:'#F8FAF9',border:'1px solid #DDE8E2'}}>
+                    <strong>Verificação obrigatória antes de aprovar</strong>
+                    <label style={{display:'flex',gap:9,alignItems:'flex-start',marginTop:12,fontSize:13}}><input type="checkbox" checked={Boolean(checks.link)} onChange={() => toggleCheck('link')}/> <span>Link: verifiquei se é legítimo, relevante e não contém spam, burla ou phishing (ou confirmei que não existe link).</span></label>
+                    <label style={{display:'flex',gap:9,alignItems:'flex-start',marginTop:10,fontSize:13}}><input type="checkbox" checked={Boolean(checks.message)} onChange={() => toggleCheck('message')}/> <span>Mensagem: verifiquei que não contém palavrões, burla, promessas falsas, conteúdo sexual ou inadequado.</span></label>
+                    <label style={{display:'flex',gap:9,alignItems:'flex-start',marginTop:10,fontSize:13}}><input type="checkbox" checked={Boolean(checks.data)} onChange={() => toggleCheck('data')}/> <span>Dados: confirmei que a vaga está completa, coerente e não apresenta sinais evidentes de falsidade.</span></label>
+                  </div>
+                  <div style={styles.actions}>
+                    <button type="button" style={styles.reject} onClick={() => moderateJob(item,false)}>Rejeitar + motivo</button>
+                    <button type="button" style={{...styles.approve,opacity:checks.link&&checks.message&&checks.data?1:.55}} onClick={() => moderateJob(item,true)}>Aprovar vaga</button>
+                  </div>
+                </article>;
+              })}</div>}
         </section>
 
         <section id="conteudo-oficial" style={{ marginTop: 0, display: activeAdminSection === 'conteudo-oficial' ? 'block' : 'none' }}>
