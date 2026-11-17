@@ -662,7 +662,7 @@ export default function Admin() {
       content: body,
       type,
       audience,
-      link: audience === 'seller' ? '/seller' : '/explore',
+      link: type === 'opportunity_review' ? '/minhas-vagas' : audience === 'seller' ? '/seller' : '/explore',
       reference_id: referenceId,
     });
     if (error) {
