@@ -86,7 +86,7 @@ export default function PlanCards({
             )}
 
             <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>
-              Plano {termName(plan.duration_days)}
+              {plan.name}
             </h3>
 
             <p
