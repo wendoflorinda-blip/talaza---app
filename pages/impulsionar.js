@@ -107,7 +107,7 @@ export default function Impulsionar() {
           (!businessData.is_active || String(businessData.approval_status || '').toLowerCase() !== 'approved')))
     );
     setPendingRequest(lockedForVerification ? pendingData : null);
-    const { data, error: plansError } = await supabase.from('plans').select('*');
+    const { data, error: plansError } = await supabase.from('plans').select('*').eq('is_active',true).order('created_at',{ascending:true});
     if (plansError) {
       console.error(plansError); setError('Não foi possível carregar os planos. Verifique as permissões da tabela plans.'); setLoading(false); return;
     }
@@ -122,7 +122,7 @@ export default function Impulsionar() {
     const eligible = plans.filter(plan => {
       const type = String(plan.plan_type || plan.type || '').trim().toLocaleLowerCase('pt-AO');
       const categoryMatches = !plan.category_id || String(plan.category_id) === String(business.category_id);
-      const enabled = plan.is_active !== false && plan.active !== false && plan.enabled !== false;
+      const enabled = plan.is_active === true;
       return type === 'hospedagem' && categoryMatches && enabled;
     });
 
@@ -198,7 +198,7 @@ export default function Impulsionar() {
               {hostingPlans.map((plan,index)=>{
                 const theme=HOSTING_THEMES[index%HOSTING_THEMES.length];
                 return <div key={plan.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',padding:'13px 14px',borderRadius:14,background:'rgba(255,255,255,.66)',border:'1px solid #DDCDBB'}}>
-                  <div><strong style={{color:'#6E3038'}}>{titleOf(plan,index)}</strong><div style={{fontSize:12,color:'#6B5747',marginTop:3}}>{plan.duration_days?'+ '+plan.duration_days+' dias adicionais de hospedagem':'Duração conforme o plano'} · {priceOf(plan)}</div></div>
+                  <div><strong style={{color:'#6E3038'}}>{titleOf(plan)}</strong><div style={{fontSize:12,color:'#6B5747',marginTop:3}}>{plan.duration_days?'+ '+plan.duration_days+' dias adicionais de hospedagem':'Duração conforme o plano'} · {priceOf(plan)}</div></div>
                   <button type="button" onClick={()=>{const planName=titleOf(plan,index);const confirmed=window.confirm('Pretende escolher o plano "'+planName+'" para o seu negócio? Se continuar, irá para a página de pagamento por Multicaixa Express.');if(confirmed)router.push({pathname:'/Pagamento',query:{plan:plan.id,business:business.id}});}} style={{border:0,borderRadius:11,padding:'11px 15px',background:theme.color,color:'#fff',fontWeight:900,cursor:'pointer'}}>Escolher plano →</button>
                 </div>;
               })}
@@ -262,7 +262,7 @@ export default function Impulsionar() {
               const benefits=benefitsOf(plan);
               return <article key={plan.id} style={{...S.card,background:theme.background,borderColor:theme.border,color:theme.text,boxShadow:'0 18px 38px rgba(7,35,83,.18)'}}>
                 <div style={{...S.icon,background:'rgba(255,255,255,.2)',color:'#fff',border:'1px solid rgba(255,255,255,.35)'}}>{theme.icon}</div>
-                <div style={{...S.tag,background:'rgba(255,255,255,.18)',color:'#fff'}}>{Number(plan.duration_days||0)===15?'15 DIAS DE VISIBILIDADE':isFiveThousand?'MAIOR ALCANCE':'DESTAQUE PREMIUM'}</div>
+                <div style={{...S.tag,background:'rgba(255,255,255,.18)',color:'#fff'}}>{'DESTAQUE PREMIUM'}</div>
                 <h3 style={{...S.cardTitle,color:'#fff'}}>{titleOf(plan,index)}</h3>
                 <div style={{...S.price,color:'#fff'}}>{priceOf(plan)}</div>
                 <div style={{...S.duration,color:'rgba(255,255,255,.9)'}}>◷ {plan.duration_days||'—'} dias de destaque</div>
