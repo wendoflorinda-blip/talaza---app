@@ -24,11 +24,11 @@ export default function ForgotPassword() {
     setLoading(true);
     try {
       const redirectTo = typeof window !== 'undefined'
-        ? `${window.location.origin}/reset-password`
+        ? 'https://talaza-app-git-dev-talaza.vercel.app/reset-password'
         : undefined;
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(cleanEmail, { redirectTo });
       if (resetError) throw resetError;
-      setNotice('Se existir uma conta com este e-mail, enviaremos um link de recuperação. Verifique a caixa de entrada e o spam.');
+      setNotice('Se esse e-mail existir, enviámos um link para recuperar a tua palavra-passe. Vai ao teu e-mail e clica no link. Enquanto não confirmares, continua a entrar com a tua palavra-passe antiga.');
     } catch (err) {
       console.error('Falha ao pedir recuperação de palavra-passe:', err);
       setError('Não foi possível enviar o link de recuperação neste momento. Verifica o e-mail e tenta novamente.');
