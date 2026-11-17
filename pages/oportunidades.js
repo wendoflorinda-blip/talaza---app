@@ -133,7 +133,8 @@ export default function Oportunidades() {
 
     if (!currentUser) {
       setHasAccess(false);
-      await loadOpportunities();
+      setOpportunities([]);
+      setPublisherNames({});
       setCheckingAccess(false);
       setLoading(false);
       return;
@@ -141,7 +142,12 @@ export default function Oportunidades() {
 
     const access = await checkOpportunityAccess(currentUser.id);
     setHasAccess(access);
-    await loadOpportunities();
+    if (access) {
+      await loadOpportunities();
+    } else {
+      setOpportunities([]);
+      setPublisherNames({});
+    }
 
     setCheckingAccess(false);
     setLoading(false);
@@ -468,7 +474,7 @@ export default function Oportunidades() {
           </>
         )}
 
-        {true && (
+        {hasAccess && (
           <>
             <section style={styles.accessHeader}>
               <div>
