@@ -3,21 +3,6 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 
-const AREAS_PROFISSIONAIS = [
-  'Administração e Escritório',
-  'Agricultura e Produção',
-  'Alimentação',
-  'Beleza e Cuidados Pessoais',
-  'Construção e Manutenção',
-  'Educação e Formação',
-  'Eventos e Entretenimento',
-  'Informática e Tecnologia',
-  'Saúde e Cuidados',
-  'Transporte e Logística',
-  'Vendas e Comércio',
-  'Outros',
-];
-
 const COLORS = {
   canvas: '#F8F6F3',
   surface: '#FFFFFF',
@@ -119,6 +104,7 @@ export default function Contratar() {
   const [mode, setMode] = useState('choose');
 
   const [area, setArea] = useState('');
+  const [professionalAreas, setProfessionalAreas] = useState([]);
   const [profession, setProfession] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -143,7 +129,23 @@ export default function Contratar() {
 
     loadUser();
     loadLocationNames();
+    loadProfessionalAreas();
   }, [router.isReady, country, province]);
+
+  async function loadProfessionalAreas() {
+    const { data, error: areasError } = await supabase
+      .from('professional_categories')
+      .select('id, name')
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+    if (areasError) {
+      console.error('Erro ao carregar áreas profissionais:', areasError);
+      setError('Não foi possível carregar as áreas profissionais.');
+      setProfessionalAreas([]);
+      return;
+    }
+    setProfessionalAreas(data || []);
+  }
 
   async function loadUser() {
     setLoadingUser(true);
