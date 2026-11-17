@@ -1367,7 +1367,7 @@ export default function Admin() {
       : null;
     const notificationBody = approved
       ? 'O seu pagamento para ' + areaLabel + ' foi aprovado.' + activationMessage
-      : 'Motivos: ' + rejectionReason.split('\\n').filter(Boolean).join(' + ') + (paymentRejectionOther.trim() ? '\\nTexto do admin: ' + paymentRejectionOther.trim() : '') + '\\nCorrige os dados e envia um novo comprovativo.';
+      : 'Motivos: ' + rejectionReason.trim() + ' Corrige os dados e envia um novo comprovativo.';
     const paymentAudience = (request.business_id || request.premium_promotion_id) ? 'seller' : 'explorer';
     const notificationResult = await notifyUser(request.user_id, notificationTitle, notificationBody, 'payment_review', request.id, paymentAudience, rejectionLink);
 
@@ -1388,7 +1388,7 @@ export default function Admin() {
     const reasons = paymentRejectionReasons.slice();
     const other = paymentRejectionOther.trim();
     if (!reasons.length || (reasons.includes('Outro motivo') && !other)) return;
-    const reasonText = reasons.map(reason => reason === 'Outro motivo' ? 'Outro motivo: ' + other : reason).join('\\n');
+    const reasonText = reasons.map(reason => reason === 'Outro motivo' ? 'Outro motivo: ' + other : reason).join(' + ');
     await reviewPayment(rejectionModalPayment, false, reasonText);
     setRejectionModalPayment(null);
     setPaymentRejectionReasons([]);
