@@ -1214,9 +1214,8 @@ export default function Admin() {
             .limit(1)
             .maybeSingle();
           const currentExpiry = existingSubscription?.expires_at ? new Date(existingSubscription.expires_at) : null;
-          const baseDate = currentExpiry && !Number.isNaN(currentExpiry.getTime()) && currentExpiry > now
-            ? currentExpiry
-            : now;
+          const subscriptionStillActive = Boolean(currentExpiry && !Number.isNaN(currentExpiry.getTime()) && currentExpiry > now && String(existingSubscription?.status||'').trim().toLowerCase()==='active');
+          const baseDate = subscriptionStillActive ? currentExpiry : now;
           const expiresAt = new Date(baseDate.getTime() + durationDays * 86400000).toISOString();
 
           if (readSubscriptionError) {
@@ -1225,7 +1224,7 @@ export default function Admin() {
             const subscriptionData = {
               business_id: request.business_id,
               plan_id: request.plan_id,
-              starts_at: existingSubscription?.starts_at || now.toISOString(),
+              starts_at: subscriptionStillActive ? (existingSubscription?.starts_at || now.toISOString()) : now.toISOString(),
               status: 'active',
               expires_at: expiresAt,
             };
