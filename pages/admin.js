@@ -429,11 +429,13 @@ export default function Admin() {
 
     let endDate = null;
     let isPaid = false;
+    let grantedPlanDays = 0;
     if (status === 'approved') {
       const { data: existingSubscription, error: subscriptionReadError } = await supabase
         .from('business_subscriptions')
-        .select('status,expires_at')
+        .select('id,plan_id,starts_at,expires_at,status,created_at')
         .eq('business_id', id)
+        .order('starts_at', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -441,9 +443,64 @@ export default function Admin() {
         alert('Não foi possível consultar a hospedagem atual: ' + subscriptionReadError.message);
         return;
       }
+      const now = new Date();
       const expiry = existingSubscription?.expires_at ? new Date(existingSubscription.expires_at) : null;
-      isPaid = Boolean(existingSubscription && String(existingSubscription.status||'').trim().toLowerCase()==='active' && expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime()>Date.now());
+      isPaid = Boolean(existingSubscription && String(existingSubscription.status||'').trim().toLowerCase()==='active' && expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime()>now.getTime());
       endDate = isPaid ? expiry.toISOString() : null;
+
+      // Se o pagamento foi aprovado antes da análise do perfil, concede os dias
+      // uma única vez agora. Não reutiliza pagamentos antigos de perfis já aprovados.
+      const firstProfileApproval = String(businessForReview?.approval_status||'').trim().toLowerCase() !== 'approved';
+      if (!isPaid && firstProfileApproval) {
+        const { data: approvedPayment, error: approvedPaymentError } = await supabase
+          .from('payment_submissions')
+          .select('id,plan_id,amount,created_at')
+          .eq('business_id', id)
+          .eq('status', 'approved')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (approvedPaymentError) {
+          alert('Não foi possível verificar o comprovativo aprovado: ' + approvedPaymentError.message);
+          return;
+        }
+        const paymentIsForThisBusiness = Boolean(approvedPayment?.created_at &&
+          new Date(approvedPayment.created_at).getTime() >= new Date(businessForReview?.created_at || 0).getTime());
+        if (approvedPayment && paymentIsForThisBusiness) {
+          const { data: paidPlan, error: paidPlanError } = await supabase
+            .from('plans')
+            .select('id,name,duration_days,plan_type,price')
+            .eq('id', approvedPayment.plan_id)
+            .maybeSingle();
+          const durationDays = Number(paidPlan?.duration_days) || 0;
+          const isHostingPlan = String(paidPlan?.plan_type||'').trim().toLocaleLowerCase('pt-AO') === 'hospedagem';
+          if (paidPlanError) {
+            alert('Não foi possível validar o plano do comprovativo: ' + paidPlanError.message);
+            return;
+          }
+          if (paidPlan && isHostingPlan && durationDays > 0) {
+            const startsAt = now.toISOString();
+            const expiresAt = new Date(now.getTime() + durationDays * 86400000).toISOString();
+            const subscriptionData = {
+              business_id: id,
+              plan_id: paidPlan.id,
+              starts_at: startsAt,
+              status: 'active',
+              expires_at: expiresAt,
+            };
+            const subscriptionResult = existingSubscription?.id
+              ? await supabase.from('business_subscriptions').update(subscriptionData).eq('id', existingSubscription.id).select('id').maybeSingle()
+              : await supabase.from('business_subscriptions').insert(subscriptionData).select('id').maybeSingle();
+            if (subscriptionResult.error || !subscriptionResult.data) {
+              alert('O perfil não foi ativado porque não foi possível registar a Hospedagem: ' + (subscriptionResult.error?.message || 'O Supabase não confirmou a operação.'));
+              return;
+            }
+            isPaid = true;
+            endDate = expiresAt;
+            grantedPlanDays = durationDays;
+          }
+        }
+      }
     }
     const updates = {
       approval_status: status,
@@ -474,7 +531,7 @@ export default function Admin() {
         status === 'approved' ? 'Perfil Talaza analisado' : 'Cadastro de vendedor recusado',
         status === 'approved'
           ? (approvedWithHosting
-              ? 'O seu perfil foi aprovado e a hospedagem está ativa até ' + new Date(endDate).toLocaleDateString('pt-PT') + '.'
+              ? 'O seu perfil foi aprovado e a hospedagem está ativa até ' + new Date(endDate).toLocaleDateString('pt-PT') + (grantedPlanDays ? ' (' + grantedPlanDays + ' dias concedidos).' : '.')
               : 'O seu perfil foi aprovado na análise, mas ainda não tem um pagamento aprovado com plano válido. Por isso, não ficará visível na Vitrine até a hospedagem ser confirmada.')
           : 'O seu cadastro de vendedor foi recusado. Motivo: ' + rejectionReason.trim(),
         'seller_review',
