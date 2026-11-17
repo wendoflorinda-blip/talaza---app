@@ -21,6 +21,10 @@ export default function OportunidadeDetalhe() {
   const [opportunity, setOpportunity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [publisherName, setPublisherName] = useState('Utilizador Talaza');
+  const [hasAccess, setHasAccess] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [provinceName, setProvinceName] = useState('');
 
   const backHref = useMemo(() => {
     const params = new URLSearchParams();
@@ -37,10 +41,10 @@ export default function OportunidadeDetalhe() {
       setError('');
       const { data, error: queryError } = await supabase
         .from('job_posts')
-        .select('id,title,description,requirements,area,profession,municipality,neighborhood,salary,work_availability,professional_competence,image_url,created_at,expires_at,country_id,province_id,is_active,status,payment_status,admin_approved')
+        .select('id,user_id,title,description,requirements,area,profession,municipality,neighborhood,salary,work_availability,professional_competence,image_url,created_at,expires_at,country_id,province_id,is_active,status,payment_status,admin_approved')
         .eq('id', id)
         .eq('is_active', true)
-        .eq('status', 'published')
+        .in('status', ['approved', 'published'])
         .eq('country_id', country || '')
         .eq('province_id', province || '')
         .gt('expires_at', new Date().toISOString())
@@ -51,6 +55,31 @@ export default function OportunidadeDetalhe() {
         setOpportunity(null);
       } else {
         setOpportunity(data);
+        const [{ data: author }, { data: provinceRecord }, { data: authResult }] = await Promise.all([
+          supabase.from('profiles').select('name').eq('id', data.user_id).maybeSingle(),
+          supabase.from('provinces').select('name').eq('id', data.province_id).maybeSingle(),
+          supabase.auth.getUser()
+        ]);
+        setPublisherName(author?.name || 'Utilizador Talaza');
+        setProvinceName(provinceRecord?.name || '');
+        const viewer = authResult?.user || null;
+        setCurrentUser(viewer);
+        if (viewer && String(viewer.id) !== String(data.user_id)) {
+          const { data: mainProfile } = await supabase.from('profiles').select('country_id,province_id').eq('id', viewer.id).maybeSingle();
+          if (mainProfile?.province_id && String(mainProfile.province_id) === String(data.province_id) &&
+              (!mainProfile.country_id || !data.country_id || String(mainProfile.country_id) === String(data.country_id))) {
+            const { data: subscriptions } = await supabase.from('user_plan_subscriptions')
+              .select('id,province_id,country_id')
+              .eq('user_id', viewer.id)
+              .eq('plan_id', '0fff05f6-c619-4c72-ba3e-3a0028eafef7')
+              .eq('status', 'active')
+              .gt('expires_at', new Date().toISOString());
+            setHasAccess((subscriptions || []).some(item =>
+              String(item.province_id || '') === String(data.province_id) &&
+              (!data.country_id || !item.country_id || String(item.country_id) === String(data.country_id))
+            ));
+          }
+        }
       }
       setLoading(false);
     }
@@ -87,13 +116,22 @@ export default function OportunidadeDetalhe() {
                 {opportunity.profession ? <span style={S.tagAlt}>{opportunity.profession}</span> : null}
               </div>
               <h1 style={S.title}>{opportunity.title}</h1>
-              <p style={S.meta}>Publicado em {date(opportunity.created_at)}{opportunity.expires_at ? ' · Disponível até ' + date(opportunity.expires_at) : ''}</p>
+              <p style={S.meta}>Publicado em {date(opportunity.created_at)}{provinceName ? ' · ' + provinceName : ''} · Publicado por: {publisherName}{opportunity.expires_at ? ' · Disponível até ' + date(opportunity.expires_at) : ''}</p>
               <section style={S.section}><h2>Descrição</h2><p>{opportunity.description}</p></section>
               {opportunity.requirements ? <section style={S.section}><h2>Competências e experiência</h2><p>{opportunity.requirements}</p></section> : null}
               {opportunity.professional_competence ? <section style={S.section}><h2>Competências profissionais</h2><p>{opportunity.professional_competence}</p></section> : null}
               {opportunity.work_availability ? <section style={S.section}><h2>Disponibilidade</h2><p>{opportunity.work_availability}</p></section> : null}
               {opportunity.salary ? <section style={S.section}><h2>Remuneração</h2><p>{opportunity.salary}</p></section> : null}
               {(opportunity.municipality || opportunity.neighborhood) ? <section style={S.section}><h2>Localização</h2><p>{[opportunity.municipality, opportunity.neighborhood].filter(Boolean).join(' · ')}</p></section> : null}
+              {currentUser && String(currentUser.id) !== String(opportunity.user_id) && (hasAccess
+                ? <Link href={`/mensagens?${new URLSearchParams({
+                    to: opportunity.user_id,
+                    source: 'Oportunidades',
+                    sourceId: opportunity.id,
+                    box: 'explore',
+                    initialMessage: `Olá, vi a sua vaga ${opportunity.title || opportunity.profession || 'oportunidade'} em ${provinceName || 'esta província'} e gostaria de saber mais.`
+                  }).toString()}`} style={{...S.button,marginRight:10}}>Enviar mensagem</Link>
+                : <Link href={`/planos-oportunidades?${new URLSearchParams({country: String(country || ''),province: String(province || '')}).toString()}`} style={{...S.button,background:'#7252B8',marginRight:10}}>Aderir ao Plano</Link>)}
               <Link href={backHref} style={S.button}>← Voltar às Oportunidades</Link>
             </div>
           </article>
