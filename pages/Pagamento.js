@@ -10,10 +10,8 @@ import {
   EXPRESS_NUMBER,
   PAYMENT_MESSAGE,
   cleanText,
-  durationLabel,
   formatKz,
   planKind,
-  termName,
   resizeImage,
   uploadPrivateFile,
 } from '../lib/talaza';
@@ -734,8 +732,7 @@ export default function Pagamento() {
             </span>
 
             <strong style={{ color: C.ink, textAlign: 'right' }}>
-              Plano {termName(plan.duration_days)} ·{' '}
-              {durationLabel(plan.duration_days)}
+              {plan.name} · {plan.duration_days} dias
             </strong>
           </div>
 
