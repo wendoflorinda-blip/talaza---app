@@ -107,6 +107,7 @@ export default function Oportunidades() {
   const [hasAccess, setHasAccess] = useState(false);
 
   const [opportunities, setOpportunities] = useState([]);
+  const [publisherNames, setPublisherNames] = useState({});
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -132,20 +133,15 @@ export default function Oportunidades() {
 
     if (!currentUser) {
       setHasAccess(false);
+      await loadOpportunities();
       setCheckingAccess(false);
       setLoading(false);
       return;
     }
 
     const access = await checkOpportunityAccess(currentUser.id);
-
     setHasAccess(access);
-
-    if (access) {
-      await loadOpportunities();
-    } else {
-      setOpportunities([]);
-    }
+    await loadOpportunities();
 
     setCheckingAccess(false);
     setLoading(false);
@@ -255,7 +251,7 @@ export default function Oportunidades() {
         .eq('country_id', country)
         .eq('province_id', province)
         .eq('is_active', true)
-        .eq('status', 'published')
+        .in('status', ['approved', 'published'])
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
 
@@ -264,6 +260,12 @@ export default function Oportunidades() {
       }
 
       setOpportunities(data || []);
+      const publisherIds = [...new Set((data || []).map(item => item.user_id).filter(Boolean))];
+      if (publisherIds.length) {
+        const { data: publishers, error: publisherError } = await supabase.from('profiles').select('id,name').in('id', publisherIds);
+        if (publisherError) console.warn('Não foi possível carregar os nomes dos responsáveis pelas vagas:', publisherError.message);
+        setPublisherNames(Object.fromEntries((publishers || []).map(item => [item.id, item.name || 'Utilizador Talaza'])));
+      } else setPublisherNames({});
     } catch (err) {
       console.error(err);
       setError(
@@ -466,7 +468,7 @@ export default function Oportunidades() {
           </>
         )}
 
-        {hasAccess && (
+        {true && (
           <>
             <section style={styles.accessHeader}>
               <div>
@@ -646,25 +648,23 @@ export default function Oportunidades() {
 
                         <div style={styles.footer}>
                           <span style={styles.date}>
-                            Publicado em{' '}
-                            {formatDate(
-                              opportunity.created_at
-                            )}
+                            Publicado em {formatDate(opportunity.created_at)}
+                            <br />Província: {provinceName || '—'}
+                            <br />Publicado por: {publisherNames[opportunity.user_id] || 'Utilizador Talaza'}
                           </span>
-
                           <div style={styles.actions}>
-                            <Link
-                              href={`/oportunidade/${opportunity.id}?country=${encodeURIComponent(
-                                country || ''
-                              )}&province=${encodeURIComponent(
-                                province || ''
-                              )}`}
-                              style={
-                                styles.messageButton
-                              }
-                            >
-                              Ver oportunidade
-                            </Link>
+                            {!hasAccess ? (
+                              <button type="button" onClick={goToPlan} style={styles.messageButton}>Aderir ao Plano para contactar</button>
+                            ) : user && String(opportunity.user_id) !== String(user.id) ? (
+                              <Link href={`/mensagens?${new URLSearchParams({
+                                to: opportunity.user_id,
+                                source: 'Oportunidades',
+                                sourceId: opportunity.id,
+                                box: 'explore',
+                                initialMessage: `Olá, vi a sua vaga ${opportunity.title || opportunity.profession || 'oportunidade'} em ${provinceName || ' ​'} e gostaria de saber mais. `
+                              }).toString()}`} style={{...styles.messageButton,background:'#0F6E5C',color:'#FFFFFF',border:'1px solid #0F6E5C'}}>Enviar mensagem</Link>
+                            ) : null}
+                            <Link href={`/oportunidade/${opportunity.id}?country=${encodeURIComponent(country || '')}&province=${encodeURIComponent(province || '')}`} style={styles.messageButton}>Ver vaga</Link>
                           </div>
                         </div>
 
