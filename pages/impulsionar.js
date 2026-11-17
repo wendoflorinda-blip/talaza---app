@@ -40,8 +40,8 @@ function priceOf(plan) {
   const n = Number(value);
   return Number.isFinite(n) ? new Intl.NumberFormat('pt-AO', { maximumFractionDigits: 0 }).format(n) + ' Kz' : String(value);
 }
-function titleOf(plan, index) {
-  return plan.name || plan.title || plan.plan_name || plan.nome || (plan.duration_days ? 'Hospedagem por ' + plan.duration_days + ' dias' : THEMES[index % 3].name);
+function titleOf(plan) {
+  return plan.name || 'Plano sem nome';
 }
 function benefitsOf(plan) {
   const description = String(plan.description || '').trim();
@@ -116,7 +116,7 @@ export default function Impulsionar() {
   const premiumPlans = useMemo(() => plans.filter(plan =>
     String(plan.plan_type || '').trim().toLocaleLowerCase('pt-AO') === 'destaque premium' &&
     plan.is_active !== false
-  ).sort((a,b) => Number(a.duration_days || 0) - Number(b.duration_days || 0)), [plans]);
+  ).sort((a,b) => new Date(a.created_at||0) - new Date(b.created_at||0)), [plans]);
   const hostingPlans = useMemo(() => {
     if (!business) return [];
     const eligible = plans.filter(plan => {
@@ -136,10 +136,7 @@ export default function Impulsionar() {
     const categoryFallbackPlans = eligible.filter(plan => !plan.subcategory_id);
     const selectedPlans = specificPlans.length ? specificPlans : categoryFallbackPlans;
 
-    return selectedPlans.sort((a,b) =>
-      Number(a.duration_days || 0) - Number(b.duration_days || 0) ||
-      Number(a.price || 0) - Number(b.price || 0)
-    );
+    return selectedPlans.sort((a,b) => new Date(a.created_at||0) - new Date(b.created_at||0));
   }, [plans, business]);
   if (loading) return <main style={S.center}>A carregar os planos da sua categoria…</main>;
   const selectedPremiumPlan = premiumPlans.find(plan => String(plan.id) === String(premiumPlanChoice)) || premiumPlans[0] || null;
@@ -253,12 +250,9 @@ export default function Impulsionar() {
         {activeTab === 'premium' && <>
           {premiumPlans.length>0 ? <div style={S.grid}>
             {premiumPlans.map((plan,index)=>{
-              const planPrice=Number(plan.price);
-              const isShort=Number(plan.duration_days||0)===15;
-              const isFiveThousand=planPrice===5000;
-              const theme=isFiveThousand
-                ?{background:'linear-gradient(135deg,#F59A23 0%,#D93620 48%,#F2C14E 100%)',border:'#D65A23',text:'#FFFFFF',button:'#FFFFFF',buttonText:'#9D321B',icon:'✦'}
-                :{background:'linear-gradient(135deg,#071B3D 0%,#164A85 55%,#B9DDF8 100%)',border:'#8ABBE5',text:'#FFFFFF',button:'#FFFFFF',buttonText:'#123B68',icon:'◈'};
+              const theme=index%2===0
+                ?{background:'linear-gradient(135deg,#071B3D 0%,#164A85 55%,#B9DDF8 100%)',border:'#8ABBE5',text:'#FFFFFF',button:'#FFFFFF',buttonText:'#123B68',icon:'◈'}
+                :{background:'linear-gradient(135deg,#F59A23 0%,#D93620 48%,#F2C14E 100%)',border:'#D65A23',text:'#FFFFFF',button:'#FFFFFF',buttonText:'#9D321B',icon:'✦'};
               const benefits=benefitsOf(plan);
               return <article key={plan.id} style={{...S.card,background:theme.background,borderColor:theme.border,color:theme.text,boxShadow:'0 18px 38px rgba(7,35,83,.18)'}}>
                 <div style={{...S.icon,background:'rgba(255,255,255,.2)',color:'#fff',border:'1px solid rgba(255,255,255,.35)'}}>{theme.icon}</div>
