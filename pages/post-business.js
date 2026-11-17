@@ -207,6 +207,7 @@ export default function PostBusiness() {
     const { data, error: categoriesError } = await supabase
       .from('categories')
       .select('id, name')
+      .eq('active', true)
       .eq('signup_visible', true)
       .order('name', { ascending: true });
 
