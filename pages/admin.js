@@ -39,6 +39,9 @@ export default function Admin() {
   const [refreshing, setRefreshing] = useState(false);
   const [authorized, setAuthorized] = useState(false);
   const [businesses, setBusinesses] = useState([]);
+  const [vendorPlanRows, setVendorPlanRows] = useState([]);
+  const [vendorPlanFilter, setVendorPlanFilter] = useState('all');
+  const [expandedVendorId, setExpandedVendorId] = useState('');
   const [businessFilter, setBusinessFilter] = useState('pending');
   const [subscriptionRequests, setSubscriptionRequests] = useState([]);
   const [paymentHistoryById, setPaymentHistoryById] = useState({});
@@ -161,6 +164,7 @@ export default function Admin() {
 
     setAuthorized(true);
     await loadBusinesses();
+    await loadVendorPlanRows();
     await loadPaymentResubmissions();
     await loadSubscriptionRequests();
     await loadGirassolReactivations();
@@ -175,6 +179,42 @@ export default function Admin() {
     await loadOfficialArchive();
 
     setLoading(false);
+  }
+
+  async function loadVendorPlanRows() {
+    const [{data: businessRows,error: businessError},{data: subscriptionRows,error: subscriptionError},{data: paymentRows,error: paymentError},{data: planRows,error: planError}] = await Promise.all([
+      supabase.from('businesses').select('id,owner_id,name,phone,province_id,provinces(name)').order('created_at',{ascending:false}),
+      supabase.from('business_subscriptions').select('id,business_id,plan_id,starts_at,expires_at,status,created_at').order('created_at',{ascending:false}),
+      supabase.from('payment_submissions').select('id,business_id,plan_id,amount,status,created_at,reviewed_at').not('business_id','is',null).order('created_at',{ascending:true}),
+      supabase.from('plans').select('id,name,duration_days')
+    ]);
+    const loadError = businessError || subscriptionError || paymentError || planError;
+    if (loadError) {
+      console.error('Não foi possível carregar a gestão de planos dos vendedores:',loadError);
+      setVendorPlanRows([]);
+      return;
+    }
+    const planMap = Object.fromEntries((planRows||[]).map(plan=>[plan.id,plan]));
+    const latestByBusiness = {};
+    (subscriptionRows||[]).forEach(row=>{ if(!latestByBusiness[row.business_id]) latestByBusiness[row.business_id]=row; });
+    const approvedPayments = (paymentRows||[]).filter(row=>String(row.status||'').toLowerCase()==='approved');
+    const historyByBusiness = {};
+    approvedPayments.forEach(row=>{
+      const plan=planMap[row.plan_id]||{};
+      (historyByBusiness[row.business_id] ||= []).push({...row,planName:plan.name||'Plano',durationDays:Number(plan.duration_days)||0});
+    });
+    const now=Date.now();
+    const rows=(businessRows||[]).map(business=>{
+      const subscription=latestByBusiness[business.id]||null;
+      const expiry=subscription?.expires_at?new Date(subscription.expires_at):null;
+      const remaining=expiry&&!Number.isNaN(expiry.getTime())?Math.max(0,Math.ceil((expiry.getTime()-now)/86400000)):0;
+      const active=Boolean(subscription && String(subscription.status||'').trim().toLowerCase()==='active' && remaining>0);
+      const status=!active?'expired':remaining<=7?'expiring':'active';
+      const history=historyByBusiness[business.id]||[];
+      const plan=subscription?planMap[subscription.plan_id]:null;
+      return {...business,subscription,planName:plan?.name||'Sem plano ativo',remainingDays:remaining,status,history,historyTotalDays:history.reduce((sum,item)=>sum+item.durationDays,0)};
+    });
+    setVendorPlanRows(rows);
   }
 
   async function loadPaymentResubmissions() {
@@ -386,94 +426,27 @@ export default function Admin() {
 
     if (status === 'rejected' && (!rejectionReason || !rejectionReason.trim())) return;
 
-    let approvedPayment = null;
-    let planDuration = 0;
     let endDate = null;
-
-    // A aprovação comercial e a hospedagem são coisas diferentes:
-    // o perfil só fica ativo se existir um pagamento aprovado com plano válido.
+    let isPaid = false;
     if (status === 'approved') {
-      const { data: payment, error: paymentError } = await supabase
-        .from('payment_submissions')
-        .select('id, plan_id, status')
-        .eq('business_id', id)
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (paymentError) {
-        alert('Não foi possível confirmar o pagamento: ' + paymentError.message);
-        return;
-      }
-
-      if (payment?.plan_id) {
-        const { data: plan, error: planError } = await supabase
-          .from('plans')
-          .select('duration_days')
-          .eq('id', payment.plan_id)
-          .maybeSingle();
-
-        if (planError) {
-          alert('Não foi possível confirmar a duração do plano: ' + planError.message);
-          return;
-        }
-
-        planDuration = Number(plan?.duration_days) || 0;
-        if (planDuration > 0) {
-          approvedPayment = payment;
-          endDate = new Date(Date.now() + planDuration * 86400000).toISOString();
-        }
-      }
-    }
-
-    // Não escrever trial_ends_at em businesses: essa coluna não existe.
-    // O período de hospedagem fica registado em business_subscriptions.
-    if (status === 'approved' && approvedPayment && endDate) {
       const { data: existingSubscription, error: subscriptionReadError } = await supabase
         .from('business_subscriptions')
-        .select('id')
+        .select('status,expires_at')
         .eq('business_id', id)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-
       if (subscriptionReadError) {
         alert('Não foi possível consultar a hospedagem atual: ' + subscriptionReadError.message);
         return;
       }
-
-      const subscription = {
-        business_id: id,
-        plan_id: approvedPayment.plan_id,
-        starts_at: new Date().toISOString(),
-        status: 'active',
-        expires_at: endDate,
-      };
-
-      const subscriptionResult = existingSubscription?.id
-        ? await supabase
-            .from('business_subscriptions')
-            .update(subscription)
-            .eq('id', existingSubscription.id)
-            .select('id')
-            .maybeSingle()
-        : await supabase
-            .from('business_subscriptions')
-            .insert(subscription)
-            .select('id')
-            .maybeSingle();
-
-      if (subscriptionResult.error || !subscriptionResult.data) {
-        alert('O pagamento está aprovado, mas não foi possível registar a hospedagem em business_subscriptions: ' + (subscriptionResult.error?.message || 'Nenhuma linha foi alterada.'));
-        return;
-      }
+      const expiry = existingSubscription?.expires_at ? new Date(existingSubscription.expires_at) : null;
+      isPaid = Boolean(existingSubscription && String(existingSubscription.status||'').trim().toLowerCase()==='active' && expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime()>Date.now());
+      endDate = isPaid ? expiry.toISOString() : null;
     }
-
-    const isPaid = status === 'approved' && Boolean(approvedPayment && endDate);
     const updates = {
       approval_status: status,
-      is_active: isPaid,
+      is_active: status === 'approved' ? isPaid : false,
     };
 
     const { data: updatedBusiness, error } = await supabase
@@ -1134,6 +1107,10 @@ export default function Admin() {
       }
     }
     if (reviewingPaymentId) return;
+    if (approved && String(request.status || '').toLowerCase() !== 'pending') {
+      alert('Este pagamento já foi analisado. Não é permitido acrescentar novamente os dias deste pagamento.');
+      return;
+    }
 
     if (approved && String(request.payment_method || '').trim().toLowerCase() === 'express') {
       const senderPhone = String(request.express_sender_phone || '').replace(/\s+/g, '');
@@ -1161,6 +1138,7 @@ export default function Admin() {
         notes: approved ? (request.notes || null) : rejectionReason.trim(),
       })
       .eq('id', request.id)
+      .eq('status', 'pending')
       .select('id')
       .maybeSingle();
 
@@ -1416,6 +1394,7 @@ export default function Admin() {
     setRefreshing(true);
     await Promise.all([
       loadBusinesses(),
+      loadVendorPlanRows(),
       loadPaymentResubmissions(),
       loadSubscriptionRequests(),
       loadGirassolReactivations(),
@@ -1603,6 +1582,51 @@ export default function Admin() {
         </div>
 
         <div style={{ display: activeAdminSection === 'vendedores' ? 'block' : 'none' }}>
+        <section style={{marginBottom:26,padding:18,border:'1px solid #D5E4DF',borderRadius:18,background:'#F8FBF9'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+            <div><h2 style={{margin:'0 0 5px',color:'#12332D'}}>Planos e validade dos vendedores</h2><p style={{margin:0,color:'#64756F',fontSize:13}}>Contagem regressiva baseada exclusivamente na data de fim da assinatura.</p></div>
+            <button type="button" onClick={loadVendorPlanRows} style={{padding:'9px 13px',borderRadius:9,border:'1px solid #BFD4CC',background:'#FFFFFF',color:'#075B4E',fontWeight:800}}>Atualizar lista</button>
+          </div>
+          <div role="group" aria-label="Filtrar validade dos planos" style={{display:'flex',gap:8,flexWrap:'wrap',margin:'15px 0'}}>
+            {[
+              ['all','Todos',vendorPlanRows.length],
+              ['active','Ativos',vendorPlanRows.filter(row=>row.status==='active').length],
+              ['expired','Expirados',vendorPlanRows.filter(row=>row.status==='expired').length],
+              ['expiring','A expirar em 7 dias',vendorPlanRows.filter(row=>row.status==='expiring').length]
+            ].map(([value,label,count])=><button key={value} type="button" onClick={()=>setVendorPlanFilter(value)} style={{padding:'8px 12px',borderRadius:999,border:vendorPlanFilter===value?'2px solid #D8A319':'1px solid #D5E4DF',background:vendorPlanFilter===value?'#075B4E':'#FFFFFF',color:vendorPlanFilter===value?'#FFFFFF':'#075B4E',fontWeight:800}}>{label} ({count})</button>)}
+          </div>
+          {vendorPlanRows.filter(row=>vendorPlanFilter==='all'||row.status===vendorPlanFilter).length===0
+            ? <p style={{padding:14,background:'#FFFFFF',borderRadius:12,color:'#64756F'}}>Não existem vendedores nesta categoria.</p>
+            : <div style={{display:'grid',gap:10}}>
+              {vendorPlanRows.filter(row=>vendorPlanFilter==='all'||row.status===vendorPlanFilter).map(row=>{
+                const expanded=expandedVendorId===row.id;
+                const badgeColor=row.status==='expired'?'#B42318':row.status==='expiring'?'#9A6700':'#17643B';
+                const badgeBg=row.status==='expired'?'#FDECEC':row.status==='expiring'?'#FFF5D6':'#E6F5EC';
+                return <article key={row.id} style={{padding:14,border:'1px solid #E1E9E5',borderRadius:14,background:'#FFFFFF'}}>
+                  <button type="button" onClick={()=>setExpandedVendorId(expanded?'':row.id)} aria-expanded={expanded} style={{width:'100%',display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:12,alignItems:'center',textAlign:'left',border:0,background:'transparent',padding:0,cursor:'pointer',color:'#173B35'}}>
+                    <span style={{minWidth:0}}>
+                      <strong style={{display:'block',fontSize:15}}>{row.name||'Negócio sem nome'}</strong>
+                      <span style={{display:'block',fontSize:12,color:'#64756F',marginTop:4}}>{row.phone||'Sem telefone'} · {row.provinces?.name||'Província não indicada'}</span>
+                      <span style={{display:'block',fontSize:12,marginTop:5}}>{row.planName} · Início: {row.subscription?.starts_at?new Date(row.subscription.starts_at).toLocaleDateString('pt-AO'):'—'} · Fim: {row.subscription?.expires_at?new Date(row.subscription.expires_at).toLocaleDateString('pt-AO'):'—'}</span>
+                    </span>
+                    <span style={{textAlign:'right'}}>
+                      <strong style={{display:'block',fontSize:22,color:badgeColor}}>{row.remainingDays}</strong>
+                      <span style={{fontSize:11,color:badgeColor,fontWeight:900}}>{row.status==='expired'?'EXPIRADO - INATIVO':row.status==='expiring'?'A EXPIRAR':'ATIVO'}</span>
+                      <span style={{display:'block',fontSize:11,color:'#64756F',marginTop:5}}>{expanded?'Fechar histórico ▲':'Ver histórico ▼'}</span>
+                    </span>
+                  </button>
+                  {expanded&&<div style={{marginTop:13,paddingTop:12,borderTop:'1px solid #E7EEEA'}}>
+                    <strong style={{fontSize:13,color:'#173B35'}}>Histórico de pagamentos aprovados</strong>
+                    {row.history.length===0?<p style={{fontSize:12,color:'#64756F'}}>Ainda não há pagamentos aprovados registados.</p>:<div style={{display:'grid',gap:7,marginTop:8}}>
+                      {row.history.map(payment=><div key={payment.id} style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:12,color:'#42534C'}}><span>{payment.planName} · {payment.created_at?new Date(payment.created_at).toLocaleDateString('pt-AO'):'—'}</span><strong>+{payment.durationDays} dias</strong></div>)}
+                    </div>}
+                    <div style={{marginTop:10,padding:10,borderRadius:9,background:'#F2F7F4',fontSize:12,color:'#173B35'}}><strong>Total de dias contratados no histórico: {row.historyTotalDays}</strong></div>
+                    <div style={{marginTop:7,fontSize:11,color:'#64756F',wordBreak:'break-all'}}>Negócio ID: {row.id} · Vendedor ID: {row.owner_id}</div>
+                  </div>}
+                </article>;
+              })}
+            </div>}
+        </section>
         <div role="group" aria-label="Filtrar vendedores por estado" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
           {[
             ['pending', 'Pendentes', pendingBusinessCount],
