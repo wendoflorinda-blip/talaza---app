@@ -62,12 +62,12 @@ export default function SellerResubmissionPage() {
       setReview(status || null);
       setRejectedPayment(rejectedPaymentRow || null);
       setAmount(rejectedPaymentRow?.amount != null ? String(rejectedPaymentRow.amount) : '');
-      if (rejectedPaymentRow?.express_sender_phone || rejectedPaymentRow?.express_number) setPhone(rejectedPaymentRow.express_sender_phone || rejectedPaymentRow.express_number);
-      setPhone(shop.phone ? (shop.phone.replace(/\D/g, '').length === 9 ? '+244' + shop.phone.replace(/\D/g, '') : shop.phone) : '');
+      const initialPhone = rejectedPaymentRow?.express_sender_phone || rejectedPaymentRow?.express_number || shop.phone || '';
+      setPhone(initialPhone ? (String(initialPhone).replace(/\D/g, '').length === 9 ? '+244' + String(initialPhone).replace(/\D/g, '') : initialPhone) : '');
       setLoading(false);
     })();
     return () => { alive = false; };
-  }, [router.isReady, router.query.business]);
+  }, [router.isReady, router.query.business, router.query.payment]);
 
   async function submit(event) {
     event.preventDefault();
@@ -79,7 +79,7 @@ export default function SellerResubmissionPage() {
     const phoneDigits = cleanPhone.replace(/\D/g, '');
     const expressPhone = phoneDigits.length === 9 ? '+244' + phoneDigits : phoneDigits.startsWith('244') ? '+' + phoneDigits : cleanPhone;
     if (!file || !['application/pdf','image/jpeg','image/png'].includes(file.type)) {
-      setError('Anexe um comprovativo em PDF, JPG, PNG ou WebP.'); return;
+      setError('Anexe um comprovativo em PDF, JPG ou PNG.'); return;
     }
     if (file.size > 10 * 1024 * 1024) { setError('O ficheiro deve ter no máximo 10 MB.'); return; }
     setBusy(true); setError(''); setNotice('');
@@ -90,9 +90,24 @@ export default function SellerResubmissionPage() {
       const { error: uploadError } = await supabase.storage.from('payment-proofs')
         .upload(uploadedPath, file, { upsert:false, contentType:file.type, cacheControl:'3600' });
       if (uploadError) throw uploadError;
-      const { error: insertError } = await supabase.from('payment_resubmissions').insert({
-        seller_id:user.id, phone:expressPhone, file_url:uploadedPath,
-        file_type:file.type === 'application/pdf' ? 'pdf' : 'image', status:'pending'
+      if (!rejectedPayment?.plan_id) throw new Error('Não foi possível identificar o plano do pagamento rejeitado. Contacta o suporte Talaza.');
+      const isPdf = file.type === 'application/pdf';
+      const { error: insertError } = await supabase.from('payment_submissions').insert({
+        user_id:user.id,
+        business_id:business.id,
+        plan_id:rejectedPayment.plan_id,
+        amount:numericAmount,
+        currency:'Kz',
+        payment_method:'Express',
+        express_sender_phone:expressPhone,
+        express_number:expressPhone,
+        proof_url:uploadedPath,
+        proof_type:isPdf ? 'pdf' : (file.type === 'image/png' ? 'png' : 'jpg'),
+        proof_image_url:isPdf ? null : uploadedPath,
+        proof_file_url:isPdf ? uploadedPath : null,
+        status:'pending',
+        resubmitted_from_id:rejectedPayment.id,
+        notes:null
       });
       if (insertError) throw insertError;
       uploadedPath = '';
@@ -131,7 +146,7 @@ export default function SellerResubmissionPage() {
         <label htmlFor="payment-amount" style={{display:'block',fontWeight:800,color:'#34453E',margin:'18px 0 7px'}}>Valor transferido (Kz)</label>
         <input id="payment-amount" type="number" min="1" step="1" value={amount} onChange={e=>setAmount(e.target.value)} required placeholder="Ex.: 50000" style={{width:'100%',boxSizing:'border-box',padding:13,border:'1px solid #C9D8D1',borderRadius:10,fontSize:16}}/>
         <label htmlFor="proof-file" style={{display:'block',fontWeight:800,color:'#34453E',margin:'18px 0 7px'}}>Novo comprovativo (PDF ou imagem)</label>
-        <input id="proof-file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0] || null)} required style={{width:'100%',padding:10,border:'1px solid #C9D8D1',borderRadius:10}}/>
+        <input id="proof-file" type="file" accept="application/pdf,image/jpeg,image/png" onChange={e=>setFile(e.target.files?.[0] || null)} required style={{width:'100%',padding:10,border:'1px solid #C9D8D1',borderRadius:10}}/>
         <p style={{fontSize:12,color:'#718079'}}>PDF, JPG ou PNG · Máximo 10 MB.</p>
         <button type="submit" disabled={busy || !rejectedPayment} style={{width:'100%',padding:14,border:0,borderRadius:12,background:'#075B4E',color:'#FFFFFF',fontWeight:900,fontSize:15,opacity:busy || !rejectedPayment ? 0.55 : 1,cursor:'pointer',marginTop:12}}>{busy?'A enviar…':rejectedPayment?'Corrigir e reenviar comprovante':'Sem comprovativo rejeitado disponível'}</button>
       </form>
