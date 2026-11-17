@@ -96,7 +96,7 @@ export default function PlanCards({
                 color: theme.sub,
               }}
             >
-              {durationLabel(plan.duration_days)} de presença no Talaza
+              Duração: {plan.duration_days} dias
             </p>
 
             <div
