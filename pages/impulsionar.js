@@ -35,10 +35,9 @@ const HOSTING_THEMES = [
   { name: 'Elite', icon: '♛', color: COLORS.gold, dark: COLORS.goldDark, soft: COLORS.goldSoft, border: '#EBD58C' }
 ];
 function priceOf(plan) {
-  const value = plan.price ?? plan.price_kz ?? plan.amount ?? plan.valor;
-  if (value === null || value === undefined || value === '') return 'Preço não definido';
-  const n = Number(value);
-  return Number.isFinite(n) ? new Intl.NumberFormat('pt-AO', { maximumFractionDigits: 0 }).format(n) + ' Kz' : String(value);
+  if (plan.price === null || plan.price === undefined || plan.price === '') return 'Preço não definido';
+  const value = Number(plan.price);
+  return Number.isFinite(value) ? new Intl.NumberFormat('pt-AO', { maximumFractionDigits: 0 }).format(value) + ' Kz' : String(plan.price);
 }
 function titleOf(plan) {
   return plan.name || 'Plano sem nome';
