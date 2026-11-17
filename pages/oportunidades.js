@@ -3,12 +3,6 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 
-const OPPORTUNITY_PLAN_ID =
-  '0fff05f6-c619-4c72-ba3e-3a0028eafef7';
-
-const OPPORTUNITY_PLAN_NAME =
-  '🔥 Plano Semestral Promocional - Acesso a Oportunidades';
-
 const COLORS = {
   canvas: '#F8F6F3',
   surface: '#FFFFFF',
@@ -210,26 +204,39 @@ export default function Oportunidades() {
           starts_at,
           expires_at,
           country_id,
-          province_id
+          province_id,
+          plans (
+            id,
+            name,
+            plan_type,
+            area,
+            is_active
+          )
         `)
         .eq('user_id', userId)
-        .eq('plan_id', OPPORTUNITY_PLAN_ID)
         .eq('status', 'active')
         .gt('expires_at', new Date().toISOString())
         .order('expires_at', { ascending: false });
 
       if (subscriptionError) {
-        console.error(
-          'Erro ao verificar acesso:',
-          subscriptionError
-        );
+        console.error('Erro ao verificar acesso:', subscriptionError);
         return false;
       }
 
-      // A subscrição desbloqueia apenas a província a que está associada.
-      // Uma subscrição válida de outra província não deve esconder uma subscrição válida desta.
+      // Qualquer plano ativo de Oportunidades é válido; a região continua
+      // limitada à província principal e à província associada à subscrição.
       return Boolean(province) && (data || []).some((subscription) => {
-        // Sem uma província guardada, a subscrição não pode desbloquear uma região.
+        const plan = Array.isArray(subscription.plans)
+          ? subscription.plans[0]
+          : subscription.plans;
+        if (!plan) return false;
+
+        const planType = String(plan.plan_type || '').trim().toLowerCase();
+        const planArea = String(plan.area || '').trim().toLowerCase();
+        const isOpportunityPlan =
+          planType === 'opportunities' || planArea === 'oportunidades';
+
+        if (!isOpportunityPlan || plan.is_active === false) return false;
         if (!subscription.province_id || String(subscription.province_id) !== String(province)) return false;
         if (country && subscription.country_id && String(subscription.country_id) !== String(country)) return false;
         return true;
@@ -298,17 +305,10 @@ export default function Oportunidades() {
 
   function goToPlan() {
     const query = new URLSearchParams();
-    query.set('plan', OPPORTUNITY_PLAN_ID);
-    query.set('subscription', 'opportunities');
-    if (country) query.set('country_id', String(country));
-    if (province) query.set('province_id', String(province));
-    query.set('returnTo', '/oportunidades' + ((country || province) ? '?' + new URLSearchParams({
-      ...(country ? { country: String(country) } : {}),
-      ...(province ? { province: String(province) } : {}),
-    }).toString() : ''));
-    router.push('/planos-oportunidades?' + new URLSearchParams({ ...(country ? { country: String(country) } : {}), ...(province ? { province: String(province) } : {}) }).toString());
+    if (country) query.set('country', String(country));
+    if (province) query.set('province', String(province));
+    router.push('/planos-oportunidades?' + query.toString());
   }
-
   const exploreUrl = `/explore?country=${encodeURIComponent(
     country || ''
   )}&province=${encodeURIComponent(province || '')}`;
