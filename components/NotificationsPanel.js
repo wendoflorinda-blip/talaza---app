@@ -30,7 +30,7 @@ export default function NotificationsPanel({ userId: suppliedUserId, audience = 
     const title=String(item.title||'').toLowerCase();
     const type=String(item.type||'').toLowerCase();
     const content=String(item.content||'').toLowerCase();
-    const isResubmissionRejection=type.includes('resubmission_rejected') || (title.includes('comprovativo') && (title.includes('recusado') || title.includes('recusada'))) || (content.includes('motivo:') && content.includes('recusado'));
+    const isResubmissionRejection=type.includes('resubmission_rejected') || (title.includes('comprovativo') && (title.includes('recusado') || title.includes('recusada'))) || (title.includes('pagamento rejeitado') && type.includes('payment_review')) || (content.includes('motivos:') && content.includes('novo comprovativo'));
     if(isResubmissionRejection){setSelectedNotification(item);return;}
     const target=String(item.link||'');if(target.startsWith('/')&&!target.startsWith('//'))router.push(target);
   }
