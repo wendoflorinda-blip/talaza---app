@@ -261,15 +261,16 @@ export default function Admin() {
           if(!plan || Number(plan.price)!==Number(rejectedPayment.amount)) throw new Error('O valor do pagamento original não corresponde ao preço atual do plano. Verifica o plano antes de aprovar.');
           const now=new Date();
           const {data:existingSubscription,error:subscriptionError}=await supabase.from('business_subscriptions')
-            .select('id,starts_at,expires_at').eq('business_id',business.id)
+            .select('id,starts_at,expires_at,status').eq('business_id',business.id)
             .order('created_at',{ascending:false}).limit(1).maybeSingle();
           if(subscriptionError) throw subscriptionError;
           const currentExpiry=existingSubscription?.expires_at?new Date(existingSubscription.expires_at):null;
-          const baseDate=currentExpiry&&!Number.isNaN(currentExpiry.getTime())&&currentExpiry>now?currentExpiry:now;
+          const subscriptionStillActive=Boolean(currentExpiry&&!Number.isNaN(currentExpiry.getTime())&&currentExpiry>now&&String(existingSubscription?.status||'').trim().toLowerCase()==='active');
+          const baseDate=subscriptionStillActive?currentExpiry:now;
           const durationDays=Number(plan.duration_days)||0;
           if(durationDays<=0) throw new Error('A duração do plano não está configurada.');
           const expiresAt=new Date(baseDate.getTime()+durationDays*86400000).toISOString();
-          const subscriptionData={business_id:business.id,plan_id:plan.id,starts_at:existingSubscription?.starts_at||now.toISOString(),status:'active',expires_at:expiresAt};
+          const subscriptionData={business_id:business.id,plan_id:plan.id,starts_at:subscriptionStillActive?(existingSubscription?.starts_at||now.toISOString()):now.toISOString(),status:'active',expires_at:expiresAt};
           const subscriptionResult=existingSubscription?.id
             ?await supabase.from('business_subscriptions').update(subscriptionData).eq('id',existingSubscription.id).select('id').maybeSingle()
             :await supabase.from('business_subscriptions').insert(subscriptionData).select('id').maybeSingle();
