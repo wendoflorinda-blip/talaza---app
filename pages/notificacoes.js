@@ -72,7 +72,7 @@ export default function Notificacoes() {
       setUser(data.user);
       const { data: rows, error: queryError } = await supabase
         .from('notifications')
-        .select('id, title, content, type, created_at, user_id, is_read, reference_id')
+        .select('id, title, content, type, created_at, user_id, is_read, reference_id, link')
         .eq('user_id', data.user.id).eq('audience', 'explorer')
         .order('created_at', { ascending: false })
         .limit(150);
@@ -96,7 +96,7 @@ export default function Notificacoes() {
         filter: 'user_id=eq.' + user.id,
       }, async () => {
         const { data, error: refreshError } = await supabase.from('notifications')
-          .select('id, title, content, type, created_at, user_id, is_read, reference_id')
+          .select('id, title, content, type, created_at, user_id, is_read, reference_id, link')
           .eq('user_id', user.id).eq('audience', 'explorer').order('created_at', { ascending:false }).limit(150);
         if (!refreshError) setItems(data || []);
       }).subscribe();
