@@ -220,41 +220,6 @@ export default function Login() {
     }
   }
 
-  async function handleForgotPassword() {
-    setError('');
-
-    const cleanEmail = email.trim().toLowerCase();
-
-    if (!cleanEmail) {
-      setError('Escreva primeiro o e-mail da sua conta.');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const redirectTo =
-        typeof window !== 'undefined'
-          ? `${window.location.origin}/reset-password`
-          : undefined;
-
-      const { error: resetError } =
-        await supabase.auth.resetPasswordForEmail(cleanEmail, {
-          redirectTo,
-        });
-
-      if (resetError) throw resetError;
-
-      setError(
-        'Se existir uma conta com esse e-mail, receberá uma mensagem com o link para recuperar o acesso. Verifique também o spam.'
-      );
-    } catch (err) {
-      console.error('Erro ao recuperar palavra-passe:', err);
-      setError('Não foi possível enviar o link de recuperação neste momento. Verifica o e-mail e tenta novamente.');
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
     <>
@@ -328,7 +293,7 @@ export default function Login() {
 
             <button
               type="button"
-              onClick={handleForgotPassword}
+              onClick={() => router.push('/forgot-password')}
               disabled={loading}
               style={styles.forgot}
             >
