@@ -173,6 +173,7 @@ export default function Pagamento() {
   async function load() {
     setLoading(true);
     setError('');
+    setExpressSenderPhone('');
 
     const {
       data: { session },
@@ -184,15 +185,12 @@ export default function Pagamento() {
     }
 
     setUser(session.user);
-    const { data: senderProfile } = await supabase.from('profiles').select('phone,account_type').eq('id', session.user.id).maybeSingle();
+    const { data: senderProfile } = await supabase.from('profiles').select('account_type').eq('id', session.user.id).maybeSingle();
     if (!isOpportunitySubscription && String(senderProfile?.account_type || '').toLowerCase() !== 'vendedor') {
       setError('Os pagamentos de hospedagem continuam exclusivos de contas de Vendedor.');
       setLoading(false);
       return;
     }
-    const initialSenderPhone = String(senderProfile?.phone || session.user.user_metadata?.phone || '').trim();
-    setExpressSenderPhone(initialSenderPhone);
-
     const [planResult, businessResult, eventResult, premiumResult] = await Promise.all([
       supabase.from('plans').select('*').eq('id', planId).eq('is_active', true).maybeSingle(),
       businessId
@@ -350,7 +348,6 @@ export default function Pagamento() {
         if (requestedPlan) setPlan(requestedPlan);
       }
       setPendingPaymentReference(pendingPayment);
-      if (pendingPayment.express_sender_phone) setExpressSenderPhone(pendingPayment.express_sender_phone);
     }
     setLoading(false);
   }
@@ -824,11 +821,11 @@ export default function Pagamento() {
             id="express-sender-phone"
             type="tel"
             inputMode="tel"
-            autoComplete="tel"
+            autoComplete="off"
             required
             value={expressSenderPhone}
             onChange={(event) => setExpressSenderPhone(event.target.value)}
-            placeholder="+244 9XX XXX XXX"
+            placeholder="Ex: 923000000"
             style={{ width:'100%', boxSizing:'border-box', padding:14, borderRadius:12, border:'1px solid #B42318', fontSize:16, fontWeight:700 }}
           />
 
