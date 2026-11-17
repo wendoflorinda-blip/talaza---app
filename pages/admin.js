@@ -225,7 +225,7 @@ export default function Admin() {
     setResubmissionError('');
     const { data: rows, error } = await supabase.from('payment_submissions')
       .select('id,user_id,business_id,plan_id,amount,status,created_at,reviewed_at,proof_url,proof_type,proof_image_url,proof_file_url,express_sender_phone,express_number,resubmitted_from_id,notes')
-      .not('resubmitted_from_id','is',null).eq('status','pending').order('created_at',{ascending:false});
+      .not('resubmitted_from_id','is',null).order('created_at',{ascending:false});
     if (error) { setResubmissionError('Não foi possível carregar os comprovativos corrigidos: '+error.message); setResubmissions([]); return; }
     const sellerIds=[...new Set((rows||[]).map(row=>row.user_id).filter(Boolean))];
     const businessIds=[...new Set((rows||[]).map(row=>row.business_id).filter(Boolean))];
@@ -1933,12 +1933,13 @@ export default function Admin() {
         </section>
 
         <section id="reenvios" style={{marginTop:0,display:activeAdminSection==='reenvios'?'block':'none'}}>
-          <div style={styles.titleRow}><div><h2 style={styles.title}>Reenvios de comprovativos</h2><p style={styles.description}>Revê os novos comprovativos e telefones enviados pelos vendedores após uma recusa.</p></div><div style={styles.counter}>{resubmissions.filter(item=>String(item.status||'').toLowerCase()==='pending').length} por analisar</div></div>
+          <div style={styles.titleRow}><div><h2 style={styles.title}>Reenvios de comprovativos</h2><p style={styles.description}>Revê os novos comprovativos e telefones enviados pelos vendedores após uma recusa.</p></div><div style={styles.counter}>{resubmissions.length} reenvios registados · {resubmissions.filter(item=>String(item.status||'').toLowerCase()==='pending').length} pendentes</div></div>
           {resubmissionError&&<div role="alert" style={{marginBottom:14,padding:12,borderRadius:10,background:'#FCEBED',color:'#A52F3B',fontSize:13}}>{resubmissionError}</div>}
-          {!resubmissions.some(item=>String(item.status||'').toLowerCase()==='pending')?<div style={styles.empty}><div style={styles.emptyIcon}>◇</div><h2>Nenhum reenvio pendente</h2><p>Quando um vendedor reenviar um comprovativo após a recusa, o pedido aparecerá aqui.</p></div>:
-            <div style={styles.list}>{resubmissions.filter(item=>String(item.status||'').toLowerCase()==='pending').map(item=><article key={item.id} style={styles.card}>
+          {resubmissions.length===0?<div style={styles.empty}><div style={styles.emptyIcon}>◇</div><h2>Nenhum reenvio registado</h2><p>Quando um vendedor reenviar um comprovativo após a recusa, o pedido aparecerá aqui.</p></div>:
+            <div style={styles.list}>{resubmissions.map(item=><article key={item.id} style={styles.card}>
               <div style={styles.cardTop}><div style={styles.logoPlaceholder}>₭</div><div style={{flex:1,minWidth:0}}>
                 <h3 style={styles.businessName}>{item.business?.name||'Negócio sem nome associado'}</h3>
+                <p style={styles.description}>Estado do comprovativo: <strong>{item.status}</strong></p>
                 <p style={styles.description}>Número Express que fez a transferência: <strong>{String(item.phone || '').replace(/\D/g, '').length === 9 ? '+244' + String(item.phone).replace(/\D/g, '') : String(item.phone || '')}</strong></p>
                 <p style={styles.description}>Reenviado em: {new Date(item.created_at).toLocaleString('pt-AO')}</p>
               </div></div>
@@ -1949,9 +1950,9 @@ export default function Admin() {
                   :<a href={item.previewUrl} target="_blank" rel="noreferrer"><img src={item.previewUrl} alt="Comprovativo reenviado" style={{display:'block',maxWidth:'100%',maxHeight:360,objectFit:'contain',margin:'0 auto',borderRadius:8}}/></a>)
                   :<p style={{fontSize:12,color:'#A52F3B'}}>Não foi possível gerar o preview do ficheiro. Verifica o bucket payment-proofs.</p>}
               </div>
-              <div style={{marginTop:14,padding:12,borderRadius:10,background:'#EEF6F2',color:'#245448',fontSize:12,fontWeight:700}}>
+              {String(item.status||'').toLowerCase()==='pending' ? <div style={{marginTop:14,padding:12,borderRadius:10,background:'#EEF6F2',color:'#245448',fontSize:12,fontWeight:700}}>
                 Este reenvio também está listado em “Pagamentos e hospedagem”. Analise e use lá o único botão “Aprovar + ativar loja” para concluir tudo de uma vez.
-              </div>
+              </div> : <div style={{marginTop:14,padding:12,borderRadius:10,background:'#F4F6F5',color:'#52635E',fontSize:12}}>Registo histórico do reenvio. A decisão é consultada em “Pagamentos e hospedagem”.</div>}
             </article>)}</div>
           }
         </section>
