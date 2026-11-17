@@ -112,7 +112,7 @@ export default function SellerResubmissionPage() {
       if (insertError) throw insertError;
       uploadedPath = '';
       const { error: businessError } = await supabase.from('businesses')
-        .update({ approval_status:'pending' }).eq('id',business.id).eq('owner_id',user.id);
+        .update({ approval_status:'pending', is_active:false }).eq('id',business.id).eq('owner_id',user.id);
       if (businessError) throw businessError;
       setBusiness(current => ({ ...current, approval_status:'pending' }));
       setReview({ ...(review || {}), status:'pending' });
