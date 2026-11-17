@@ -1192,7 +1192,7 @@ export default function Seller() {
               <span aria-hidden="true" style={{fontSize:25,lineHeight:1}}>⚠️</span>
               <div style={{flex:1,minWidth:0}}>
                 <strong style={{display:'block',fontSize:15,lineHeight:1.45}}>A sua Hospedagem termina em {hostingRemainingDays} {hostingRemainingDays===1?'dia':'dias'}. Renove para não perder a sua loja.</strong>
-                <Link href={{pathname:'/impulsionar',query:{business:business.id}}} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',marginTop:11,padding:'10px 16px',borderRadius:10,background:'#D8A51C',color:'#253A2F',fontSize:13,fontWeight:900,textDecoration:'none'}}>Renovar Hospedagem</Link>
+                <Link href={{pathname:'/impulsionar',query:{business:business.id,tab:'hospedagem'}}} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',marginTop:11,padding:'10px 16px',borderRadius:10,background:'#D8A51C',color:'#253A2F',fontSize:13,fontWeight:900,textDecoration:'none'}}>Renovar Hospedagem</Link>
               </div>
             </div>
           </section>
@@ -1256,7 +1256,7 @@ export default function Seller() {
               Aguarda validação
             </div>
           ) : showHostingPaymentState ? (
-            <Link href={{pathname:'/impulsionar',query:{business:business.id}}} style={{display:'inline-flex',alignItems:'center',marginTop:18,padding:'11px 15px',borderRadius:999,background:'#FDEFC5',color:'#6A4A00',border:'1px solid #E7C65D',fontSize:13,fontWeight:900,textDecoration:'none'}}>
+            <Link href={{pathname:'/impulsionar',query:{business:business.id,tab:'hospedagem'}}} style={{display:'inline-flex',alignItems:'center',marginTop:18,padding:'11px 15px',borderRadius:999,background:'#FDEFC5',color:'#6A4A00',border:'1px solid #E7C65D',fontSize:13,fontWeight:900,textDecoration:'none'}}>
               Perfil Inativo - Aguarda o pagamento da Hospedagem <span aria-hidden="true" style={{marginLeft:7}}>→</span>
             </Link>
           ) : null}
