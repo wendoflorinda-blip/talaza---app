@@ -91,6 +91,10 @@ export default function Admin() {
   const [notificationTitle, setNotificationTitle] = useState('');
   const [notificationBody, setNotificationBody] = useState('');
   const [reviewingPaymentId, setReviewingPaymentId] = useState('');
+  const [rejectionModalPayment, setRejectionModalPayment] = useState(null);
+  const [paymentRejectionReasons, setPaymentRejectionReasons] = useState([]);
+  const [paymentRejectionOther, setPaymentRejectionOther] = useState('');
+
   const [updatingBusinessId, setUpdatingBusinessId] = useState('');
   const [reviewingPostId, setReviewingPostId] = useState('');
   const [sendingNotification, setSendingNotification] = useState(false);
@@ -679,7 +683,7 @@ export default function Admin() {
     }));
   }
 
-  async function notifyUser(userId, title, body, type = 'admin_review', referenceId = null, audience = 'explorer') {
+  async function notifyUser(userId, title, body, type = 'admin_review', referenceId = null, audience = 'explorer', linkOverride = null) {
     if (!userId) return { ok: false, error: 'Utilizador destinatário não identificado.' };
     const { error } = await supabase.from('notifications').insert({
       user_id: userId,
@@ -687,7 +691,7 @@ export default function Admin() {
       content: body,
       type,
       audience,
-      link: type === 'opportunity_review' ? '/minhas-vagas' : audience === 'seller' ? '/seller' : '/explore',
+      link: linkOverride || (type === 'opportunity_review' ? '/minhas-vagas' : audience === 'seller' ? '/seller' : '/explore'),
       reference_id: referenceId,
     });
     if (error) {
@@ -1133,31 +1137,19 @@ export default function Admin() {
     return 'Área por identificar';
   }
 
-  async function reviewPayment(request, approved) {
+  async function reviewPayment(request, approved, rejectionReasonOverride = '') {
     if (String(request?.plan_id || '').toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase()) {
       alert('Os pagamentos de acesso às Oportunidades estão suspensos nesta fase. Esta funcionalidade será configurada futuramente.');
       return;
     }
     let rejectionReason = '';
-    if (!approved) {
-      const choice = window.prompt(
-        'Escolha o motivo obrigatório da recusa:\n1 - Número Express incompatível / errado\n2 - Imagem ilegível / borrada\n3 - Valor não bate com o extrato\n4 - Outro (escrever motivo)',
-        '1'
-      );
-      if (choice === null) return;
-      const selected = String(choice).trim();
-      if (selected === '1') rejectionReason = 'Número Express incompatível / errado';
-      else if (selected === '2') rejectionReason = 'Imagem ilegível / borrada';
-      else if (selected === '3') rejectionReason = 'Valor não bate com o extrato';
-      else if (selected === '4') {
-        rejectionReason = window.prompt('Escreva o motivo da recusa:') || '';
-        if (!rejectionReason.trim()) { alert('O motivo é obrigatório.'); return; }
-        rejectionReason = 'Outro: ' + rejectionReason.trim();
-      } else {
-        alert('Escolha uma das opções 1, 2, 3 ou 4.');
-        return;
-      }
+    if (!approved && !rejectionReasonOverride) {
+      setRejectionModalPayment(request);
+      setPaymentRejectionReasons([]);
+      setPaymentRejectionOther('');
+      return;
     }
+    if (!approved) rejectionReason = String(rejectionReasonOverride || '').trim();
     if (reviewingPaymentId) return;
     if (approved && String(request.status || '').toLowerCase() !== 'pending') {
       alert('Este pagamento já foi analisado. Não é permitido acrescentar novamente os dias deste pagamento.');
@@ -1369,12 +1361,15 @@ export default function Admin() {
       if (deactivateError) console.error('O comprovativo foi recusado, mas não foi possível desativar o perfil:', deactivateError.message);
     }
 
-    const notificationTitle = approved ? 'Pagamento aprovado — Talaza' : 'Comprovativo recusado — Talaza';
+    const notificationTitle = approved ? 'Pagamento aprovado' : 'Pagamento rejeitado';
+    const rejectionLink = !approved && request.business_id
+      ? '/seller-reenvio?business=' + encodeURIComponent(request.business_id) + '&payment=' + encodeURIComponent(request.id)
+      : null;
     const notificationBody = approved
       ? 'O seu pagamento para ' + areaLabel + ' foi aprovado.' + activationMessage
-      : 'O comprovativo do seu pagamento para ' + areaLabel + ' foi recusado. Motivo: ' + rejectionReason.trim() + ' Pode corrigir e enviar novamente.';
+      : 'Motivos: ' + rejectionReason.split('\\n').filter(Boolean).join(' + ') + (paymentRejectionOther.trim() ? '\\nTexto do admin: ' + paymentRejectionOther.trim() : '') + '\\nCorrige os dados e envia um novo comprovativo.';
     const paymentAudience = (request.business_id || request.premium_promotion_id) ? 'seller' : 'explorer';
-    const notificationResult = await notifyUser(request.user_id, notificationTitle, notificationBody, 'payment_review', request.id, paymentAudience);
+    const notificationResult = await notifyUser(request.user_id, notificationTitle, notificationBody, 'payment_review', request.id, paymentAudience, rejectionLink);
 
     await loadSubscriptionRequests();
     await loadBusinesses();
@@ -1386,6 +1381,18 @@ export default function Admin() {
     } else {
       alert(approved ? 'Pagamento aprovado.' + activationMessage : 'Pagamento recusado e notificação enviada ao utilizador.');
     }
+  }
+
+  async function confirmPaymentRejection() {
+    if (!rejectionModalPayment || reviewingPaymentId) return;
+    const reasons = paymentRejectionReasons.slice();
+    const other = paymentRejectionOther.trim();
+    if (!reasons.length || (reasons.includes('Outro motivo') && !other)) return;
+    const reasonText = reasons.join('\\n');
+    await reviewPayment(rejectionModalPayment, false, reasonText);
+    setRejectionModalPayment(null);
+    setPaymentRejectionReasons([]);
+    setPaymentRejectionOther('');
   }
 
   async function refreshAdminData() {
@@ -2254,6 +2261,29 @@ export default function Admin() {
             })}</div>}
         </section>
       </section>
+      {rejectionModalPayment && <div role="presentation" onClick={() => { if (!reviewingPaymentId) setRejectionModalPayment(null); }} style={{position:'fixed',inset:0,zIndex:300,background:'rgba(9,25,19,.62)',display:'flex',alignItems:'center',justifyContent:'center',padding:18,boxSizing:'border-box'}}>
+        <section role="dialog" aria-modal="true" aria-labelledby="payment-rejection-title" onClick={event=>event.stopPropagation()} style={{width:'100%',maxWidth:560,maxHeight:'88vh',overflowY:'auto',background:'#FFFFFF',borderRadius:20,padding:24,boxShadow:'0 22px 70px rgba(0,0,0,.28)',boxSizing:'border-box'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
+            <div><div style={{fontSize:11,fontWeight:900,letterSpacing:1.5,color:'#B8860B'}}>TALAZA · ADMINISTRAÇÃO</div><h2 id="payment-rejection-title" style={{margin:'6px 0 0',color:'#12332D'}}>Rejeitar comprovante</h2></div>
+            <button type="button" aria-label="Fechar" onClick={()=>setRejectionModalPayment(null)} disabled={Boolean(reviewingPaymentId)} style={{border:0,background:'#F1F4F2',borderRadius:10,width:36,height:36,fontSize:22,cursor:'pointer'}}>×</button>
+          </div>
+          <p style={{color:'#64736D',fontSize:13,lineHeight:1.5}}>Marca todos os motivos que se aplicam. Podes selecionar mais do que um.</p>
+          <div style={{display:'grid',gap:9,marginTop:16}}>
+            {['Número Express incompatível / errado','Imagem turva / borrada','Imagem ilegível','PDF ilegível','PDF incorreto / não é o comprovante deste pagamento','Valor não bate com o extrato / comprovante','Outro motivo'].map(reason=><label key={reason} style={{display:'flex',alignItems:'flex-start',gap:10,padding:11,border:'1px solid '+(paymentRejectionReasons.includes(reason)?'#0A6B54':'#DCE5E0'),background:paymentRejectionReasons.includes(reason)?'#EFF8F3':'#FFFFFF',borderRadius:11,cursor:'pointer',fontSize:13,color:'#263D35',lineHeight:1.45}}>
+              <input type="checkbox" checked={paymentRejectionReasons.includes(reason)} onChange={event=>setPaymentRejectionReasons(current=>event.target.checked?[...current,reason]:current.filter(item=>item!==reason))} style={{width:17,height:17,marginTop:1,accentColor:'#075B4E'}}/>
+              <span>{reason}</span>
+            </label>)}
+          </div>
+          {paymentRejectionReasons.includes('Outro motivo') && <div style={{marginTop:14}}>
+            <label htmlFor="payment-rejection-other" style={{display:'block',fontSize:13,fontWeight:800,color:'#244A42',marginBottom:7}}>Descreve o outro motivo (obrigatório)</label>
+            <textarea id="payment-rejection-other" value={paymentRejectionOther} onChange={event=>setPaymentRejectionOther(event.target.value)} rows={3} placeholder="Explica claramente o que precisa de ser corrigido…" style={{width:'100%',boxSizing:'border-box',border:'1px solid #C9D8D1',borderRadius:11,padding:12,font:'inherit',resize:'vertical'}}/>
+          </div>}
+          <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:20,flexWrap:'wrap'}}>
+            <button type="button" disabled={Boolean(reviewingPaymentId)} onClick={()=>setRejectionModalPayment(null)} style={{...styles.reject,padding:'12px 16px'}}>Cancelar</button>
+            <button type="button" disabled={Boolean(reviewingPaymentId)||!paymentRejectionReasons.length||(paymentRejectionReasons.includes('Outro motivo')&&!paymentRejectionOther.trim())} onClick={confirmPaymentRejection} style={{...styles.approve,background:'#A52F3B',opacity:!paymentRejectionReasons.length||(paymentRejectionReasons.includes('Outro motivo')&&!paymentRejectionOther.trim())?.5:1,padding:'12px 18px'}}>{reviewingPaymentId?'A rejeitar…':'Rejeitar comprovante'}</button>
+          </div>
+        </section>
+      </div>}
     </main>
   );
 }
