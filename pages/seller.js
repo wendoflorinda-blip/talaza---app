@@ -343,14 +343,15 @@ export default function Seller() {
     if (latestSubscription && !validHosting) {
       setRenewalLoading(true);
       const { data: plansData, error: plansError } = await supabase.from('plans')
-        .select('id,name,description,price,duration_days,plan_type,category_id,subcategory_id,area')
+        .select('id,name,description,price,duration_days,plan_type,category_id,subcategory_id,area,created_at')
         .eq('is_active',true)
-        .eq('category_id',data.category_id);
+        .eq('category_id',data.category_id)
+        .order('created_at',{ascending:true});
       if (plansError) console.warn('Não foi possível carregar planos para renovação:',plansError);
       const matchingPlans=(plansData || []).filter(plan =>
         String(plan.plan_type || '').trim().toLowerCase()==='hospedagem' &&
         (!plan.subcategory_id || String(plan.subcategory_id)===String(data.subcategory_id))
-      ).sort((a,b)=>Number(a.duration_days)-Number(b.duration_days));
+      );
       setRenewalPlans(matchingPlans);
       setRenewalLoading(false);
     } else {
