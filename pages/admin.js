@@ -2,7 +2,6 @@
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
-const OPPORTUNITY_ACCESS_PLAN_ID = '0fff05f6-c619-4c72-ba3e-3a0028eafef7';
 const ADMIN_READ_ONLY = process.env.NEXT_PUBLIC_TALAZA_ADMIN_READ_ONLY === 'true';
 
 function getPaymentProofPaths(request) {
@@ -46,6 +45,7 @@ export default function Admin() {
   const [subscriptionRequests, setSubscriptionRequests] = useState([]);
   const [paymentHistoryById, setPaymentHistoryById] = useState({});
   const [opportunityAccessLoadError, setOpportunityAccessLoadError] = useState('');
+  const [opportunityAccessPlanIds, setOpportunityAccessPlanIds] = useState([]);
   const [girassolReactivations, setGirassolReactivations] = useState([]);
   const [girassolProofUrls, setGirassolProofUrls] = useState({});
   const [reviewingGirassolId, setReviewingGirassolId] = useState('');
@@ -326,11 +326,39 @@ export default function Admin() {
       setSubscriptionRequests([]);
       return;
     }
-    // O acesso às Oportunidades para Exploradores/Criadores fica suspenso nesta fase.
-    const requests = (data || []).filter(item =>
-      String(item.plan_id || '').trim().toLowerCase() !== OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase() &&
+    const allRequests = data || [];
+    const candidatePlanIds = [...new Set(allRequests.map(item => item.plan_id).filter(Boolean))];
+    let opportunityPlanRows = [];
+    if (candidatePlanIds.length) {
+      const { data: planRows, error: opportunityPlansError } = await supabase
+        .from('plans')
+        .select('id,name,plan_type,area,duration_days')
+        .in('id', candidatePlanIds);
+      if (opportunityPlansError) {
+        console.error('Não foi possível identificar os planos de Oportunidades:', opportunityPlansError);
+        setOpportunityAccessLoadError('Não foi possível identificar os planos de Oportunidades: ' + opportunityPlansError.message);
+        setOpportunityAccessPlanIds([]);
+      } else {
+        opportunityPlanRows = planRows || [];
+        const opportunityIds = opportunityPlanRows
+          .filter(plan => String(plan.plan_type || '').trim().toLowerCase() === 'opportunities' ||
+            String(plan.area || '').trim().toLowerCase() === 'oportunidades')
+          .map(plan => String(plan.id));
+        setOpportunityAccessPlanIds(opportunityIds);
+        setOpportunityAccessLoadError('');
+      }
+    } else {
+      setOpportunityAccessPlanIds([]);
+      setOpportunityAccessLoadError('');
+    }
+    const opportunityPlanIdSet = new Set(opportunityPlanRows
+      .filter(plan => String(plan.plan_type || '').trim().toLowerCase() === 'opportunities' ||
+        String(plan.area || '').trim().toLowerCase() === 'oportunidades')
+      .map(plan => String(plan.id)));
+    const requests = allRequests.filter(item =>
       String(item.proof_url || '').trim() &&
-      (item.business_id || item.event_id || item.job_post_id || item.premium_promotion_id)
+      (item.business_id || item.event_id || item.job_post_id || item.premium_promotion_id ||
+        opportunityPlanIdSet.has(String(item.plan_id || '')))
     );
     setSubscriptionRequests(requests);
     const historyResult = requests.length
@@ -1036,7 +1064,7 @@ export default function Admin() {
     ).toLowerCase();
 
     if (request?.premium_promotion_id) return 'Destaques Premium';
-    if (request?.plan_id === OPPORTUNITY_ACCESS_PLAN_ID) return 'Acesso às Oportunidades';
+    if (opportunityAccessPlanIds.includes(String(request?.plan_id || ''))) return 'Acesso às Oportunidades';
     if (request?.event_id || explicitArea.includes('evento')) return 'Eventos';
     if (request?.job_post_id || request?.opportunity_id || explicitArea.includes('oportunidade') || explicitArea.includes('vaga')) return 'Oportunidades';
     if (request?.business_id || explicitArea.includes('vitrine') || explicitArea.includes('hospedagem')) return 'Vitrine / Hospedagem';
@@ -1044,10 +1072,7 @@ export default function Admin() {
   }
 
   async function reviewPayment(request, approved, rejectionReasonOverride = '') {
-    if (String(request?.plan_id || '').toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase()) {
-      alert('Os pagamentos de acesso às Oportunidades estão suspensos nesta fase. Esta funcionalidade será configurada futuramente.');
-      return;
-    }
+    const isOpportunityAccessRequest = opportunityAccessPlanIds.includes(String(request?.plan_id || ''));
     let rejectionReason = '';
     if (!approved && !rejectionReasonOverride) {
       setRejectionModalPayment(request);
@@ -1179,7 +1204,7 @@ export default function Admin() {
     }
     
     // Este pagamento compra acesso às oportunidades (não paga a publicação de uma vaga).
-    if (request.plan_id === OPPORTUNITY_ACCESS_PLAN_ID) {
+    if (isOpportunityAccessRequest) {
       if (approved) {
         const [{ data: plan, error: planError }, { data: profile, error: profileError }] = await Promise.all([
           supabase.from('plans').select('id, duration_days, is_active, plan_type, area')
@@ -1189,8 +1214,8 @@ export default function Admin() {
         ]);
         const durationDays = Number(plan?.duration_days) || 0;
         const validPlan = plan && plan.is_active === true &&
-          String(plan.plan_type || '').trim().toLowerCase() === 'opportunities' &&
-          String(plan.area || '').trim().toLowerCase() === 'oportunidades';
+          (String(plan.plan_type || '').trim().toLowerCase() === 'opportunities' ||
+            String(plan.area || '').trim().toLowerCase() === 'oportunidades');
         if (planError || profileError || !validPlan || durationDays <= 0) {
           activationMessage += ' O pagamento foi aprovado, mas não foi possível validar o plano, a duração ou a localização da conta.';
         } else {
@@ -1269,11 +1294,6 @@ export default function Admin() {
       if (eventBlockError) activationMessage += ' O evento não pôde ser bloqueado automaticamente; verifique a área de Eventos.';
     }
 
-    if (!approved && request.plan_id === OPPORTUNITY_ACCESS_PLAN_ID) {
-      const { error: opportunityBlockError } = await supabase.from('user_plan_subscriptions')
-        .update({ status:'inactive' }).eq('user_id',request.user_id).eq('plan_id',request.plan_id);
-      if (opportunityBlockError) activationMessage += ' O acesso às Oportunidades não pôde ser bloqueado automaticamente.';
-    }
 
     if (!approved && request.business_id) {
       const { error: deactivateError } = await supabase.from('businesses').update({ is_active: false }).eq('id', request.business_id);
@@ -1439,7 +1459,7 @@ export default function Admin() {
               ['trocas-email', 'Trocas de e-mail pendentes', emailChangeRequests.filter(item => item.status === 'Pendente - Por confirmar').length],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
               ['reenvios', 'Reenvios', resubmissions.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
-              ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => String(item.plan_id || '').trim().toLowerCase() === OPPORTUNITY_ACCESS_PLAN_ID.toLowerCase() && String(item.status || '').trim().toLowerCase() === 'pending').length],
+              ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => opportunityAccessPlanIds.includes(String(item.plan_id || '')) && String(item.status || '').trim().toLowerCase() === 'pending').length],
               ['girassol', 'Reactivação Girassol', girassolReactivations.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['destaques-premium', 'Destaques Premium', subscriptionRequests.filter(item => item.premium_promotion_id && String(item.status || '').toLowerCase() === 'pending').length],
               ['eventos', 'Eventos', events.filter(item => String(item.status || '').toLowerCase() === 'pending_payment').length],
@@ -2042,11 +2062,55 @@ export default function Admin() {
         </section>
 
         <section id="acessos-oportunidades" style={{ marginTop:0, display:activeAdminSection==='acessos-oportunidades'?'block':'none' }}>
-          <div style={styles.empty}>
-            <div style={styles.emptyIcon}>◇</div>
-            <h2>Acesso às Oportunidades</h2>
-            <p>Os pagamentos para Exploradores e Criadores ainda não estão disponíveis. Esta funcionalidade será configurada futuramente. Nesta fase, apenas os pagamentos dos Vendedores são recebidos.</p>
+          <div style={styles.titleRow}>
+            <div>
+              <h2 style={styles.title}>Acesso às Oportunidades</h2>
+              <p style={styles.description}>Analise os comprovativos enviados por Exploradores e Criadores. A aprovação ativa a subscrição pelo período do plano.</p>
+            </div>
+            <div style={styles.counter}>{subscriptionRequests.filter(item => opportunityAccessPlanIds.includes(String(item.plan_id || '')) && String(item.status || '').toLowerCase() === 'pending').length} por aprovar</div>
           </div>
+          {opportunityAccessLoadError && <div role="alert" style={{ ...styles.empty, color:'#9B1C1C' }}>{opportunityAccessLoadError}</div>}
+          {subscriptionRequests.filter(item => opportunityAccessPlanIds.includes(String(item.plan_id || ''))).length === 0 ? (
+            <div style={styles.empty}>
+              <div style={styles.emptyIcon}>◇</div>
+              <h2>Sem pedidos de acesso</h2>
+              <p>Os pedidos de acesso às Oportunidades aparecerão aqui depois do envio do comprovativo.</p>
+            </div>
+          ) : (
+            <div style={styles.list}>
+              {subscriptionRequests.filter(item => opportunityAccessPlanIds.includes(String(item.plan_id || ''))).map(request => {
+                const pending = String(request.status || '').toLowerCase() === 'pending';
+                const paths = getPaymentProofPaths(request);
+                const imageUrl = paymentProofUrls[request.id + ':image'];
+                const profile = profiles.find(item => item.id === request.user_id);
+                return (
+                  <article key={request.id} style={styles.card}>
+                    <div style={styles.cardTop}>
+                      <div style={styles.logoPlaceholder}>◇</div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <h3 style={styles.businessName}>{profile?.name || 'Explorador / Criador Talaza'}</h3>
+                        <div style={styles.meta}>Área: Acesso às Oportunidades · Plano: {planNames[request.plan_id] || 'Plano de Oportunidades'}</div>
+                      </div>
+                      <span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span>
+                    </div>
+                    <div style={styles.details}>
+                      <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
+                      <p><strong>Número Express:</strong> {request.express_sender_phone || 'Não informado'}</p>
+                      <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
+                      {paths.image && imageUrl && <a href={imageUrl} target="_blank" rel="noreferrer"><img src={imageUrl} alt="Comprovativo do acesso às Oportunidades" style={{ display:'block', maxWidth:'100%', width:260, maxHeight:320, objectFit:'contain', border:'1px solid #DCE6E1', borderRadius:8, background:'#fff' }} /></a>}
+                      {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir/baixar comprovativo ↗</button></p>}
+                      {!paths.image && !paths.file && <p style={{ color:'#9B3A28' }}>Este pedido não contém comprovativo legível.</p>}
+                      {paths.image && !imageUrl && <p style={{ color:'#9B3A28' }}>Não foi possível abrir o comprovativo. Verifique o bucket payment-proofs.</p>}
+                    </div>
+                    {pending && <div style={styles.actions}>
+                      <button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity:reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>
+                      <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity:reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Aprovar e ativar acesso'}</button>
+                    </div>}
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <section id="destaques-premium" style={{ marginTop: 0, display: activeAdminSection === 'destaques-premium' ? 'block' : 'none' }}>

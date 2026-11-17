@@ -162,12 +162,7 @@ export default function Pagamento() {
   useEffect(() => {
     if (!router.isReady) return;
 
-    if (isOpportunitySubscription) {
-      setError('O acesso pago às Oportunidades para Exploradores e Criadores ainda não está disponível. Esta funcionalidade será configurada futuramente.');
-      setLoading(false);
-      return;
-    }
-    if (!planId || (!businessId && !eventId && !premiumPromotionId)) {
+    if (!planId || (!businessId && !eventId && !premiumPromotionId && !isOpportunitySubscription)) {
       router.replace('/impulsionar');
       return;
     }
@@ -190,8 +185,8 @@ export default function Pagamento() {
 
     setUser(session.user);
     const { data: senderProfile } = await supabase.from('profiles').select('phone,account_type').eq('id', session.user.id).maybeSingle();
-    if (String(senderProfile?.account_type || '').toLowerCase() !== 'vendedor') {
-      setError('Os pagamentos disponíveis nesta fase são exclusivos de contas de Vendedor. Exploradores e Criadores não pagam para entrar na Talaza.');
+    if (!isOpportunitySubscription && String(senderProfile?.account_type || '').toLowerCase() !== 'vendedor') {
+      setError('Os pagamentos de hospedagem continuam exclusivos de contas de Vendedor.');
       setLoading(false);
       return;
     }
@@ -296,14 +291,15 @@ export default function Pagamento() {
       return;
     }
 
-    if (isOpportunitySubscription && (
-      String(planResult.data.plan_type || '').trim().toLowerCase() !== 'opportunities' ||
-      String(planResult.data.area || '').trim().toLowerCase() !== 'oportunidades' ||
-      planResult.data.is_active !== true
-    )) {
-      setError('Este plano não é um plano ativo de acesso às Oportunidades.');
-      setLoading(false);
-      return;
+    if (isOpportunitySubscription) {
+      const opportunityPlanType = String(planResult.data.plan_type || '').trim().toLowerCase();
+      const opportunityPlanArea = String(planResult.data.area || '').trim().toLowerCase();
+      const isOpportunityPlan = opportunityPlanType === 'opportunities' || opportunityPlanArea === 'oportunidades';
+      if (!isOpportunityPlan || planResult.data.is_active !== true) {
+        setError('Este plano não é um plano ativo de acesso às Oportunidades.');
+        setLoading(false);
+        return;
+      }
     }
 
     setPlan(planResult.data);
@@ -316,7 +312,7 @@ export default function Pagamento() {
       .select('id, plan_id, status, created_at')
       .order('created_at', { ascending: false })
       .limit(1);
-    pendingQuery = eventId ? pendingQuery.eq('event_id', eventId) : premiumPromotionId ? pendingQuery.eq('premium_promotion_id', premiumPromotionId) : businessId ? pendingQuery.eq('business_id', businessResult.data.id) : isOpportunitySubscription ? pendingQuery.eq('user_id', session.user.id).is('business_id', null).is('event_id', null).is('job_post_id', null).eq('plan_id', planId) : pendingQuery.eq('business_id', businessResult.data.id);
+    pendingQuery = eventId ? pendingQuery.eq('event_id', eventId) : premiumPromotionId ? pendingQuery.eq('premium_promotion_id', premiumPromotionId) : businessId ? pendingQuery.eq('business_id', businessResult.data.id) : isOpportunitySubscription ? pendingQuery.eq('user_id', session.user.id).is('business_id', null).is('event_id', null).is('job_post_id', null).is('premium_promotion_id', null).eq('plan_id', planId) : pendingQuery.eq('business_id', businessResult.data.id);
     const { data: pendingPayment, error: pendingPaymentError } = await pendingQuery.maybeSingle();
     if (pendingPaymentError) console.error('Erro ao verificar comprovativo já enviado:', pendingPaymentError);
     if (pendingPayment?.id) {
@@ -459,6 +455,8 @@ export default function Pagamento() {
         job_post_id: null,
         plan_id: plan.id,
         user_id: session.user.id,
+        country_id: countryId || null,
+        province_id: provinceId || null,
         amount: Number(plan.price),
         currency: 'Kz',
         payment_method: 'Express',
@@ -522,10 +520,6 @@ export default function Pagamento() {
       }
       if (premiumPromotion?.id) {
         const { error: blockError } = await supabase.from('premium_promotions').update({ status:'pending' }).eq('id',premiumPromotion.id).eq('user_id',session.user.id);
-        if (blockError) throw blockError;
-      }
-      if (isOpportunitySubscription) {
-        const { error: blockError } = await supabase.from('user_plan_subscriptions').update({ status:'inactive' }).eq('user_id',session.user.id).eq('plan_id',plan.id);
         if (blockError) throw blockError;
       }
 

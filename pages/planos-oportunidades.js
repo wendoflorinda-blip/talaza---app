@@ -5,7 +5,6 @@ import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import PlanCards from './Plancards';
 
-const PLAN_ID = '0fff05f6-c619-4c72-ba3e-3a0028eafef7';
 const C = {
   bg: '#F8F6F3', card: '#FFFFFF', ink: '#17211F', muted: '#596560',
   line: '#E5E9E7', green: '#0F6E5C', greenSoft: '#E8F3F0',
@@ -15,7 +14,7 @@ const C = {
 export default function PlanosOportunidades() {
   const router = useRouter();
   const { country, province } = router.query;
-  const [plan, setPlan] = useState(null);
+  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -28,15 +27,19 @@ export default function PlanosOportunidades() {
       const { data, error: queryError } = await supabase
         .from('plans')
         .select('id,name,price,duration_days,description,plan_type,area,is_active')
-        .eq('id', PLAN_ID)
         .eq('is_active', true)
-        .maybeSingle();
+        .order('price', { ascending: true });
       if (cancelled) return;
-      if (queryError || !data) {
-        setError('Não foi possível carregar os benefícios deste plano. Tente novamente.');
-        setPlan(null);
+      if (queryError) {
+        setError('Não foi possível carregar os benefícios dos planos. Tente novamente.');
+        setPlans([]);
       } else {
-        setPlan(data);
+        const opportunityPlans = (data || []).filter(item =>
+          String(item.plan_type || '').trim().toLowerCase() === 'opportunities' ||
+          String(item.area || '').trim().toLowerCase() === 'oportunidades'
+        );
+        setPlans(opportunityPlans);
+        if (!opportunityPlans.length) setError('Ainda não existe um plano ativo de Oportunidades. Tente novamente mais tarde.');
       }
       setLoading(false);
     }
@@ -77,11 +80,13 @@ export default function PlanosOportunidades() {
         </section>
         {loading ? <div style={{ padding: 24, background: C.card, border: '1px solid ' + C.line, borderRadius: 18 }}>A carregar os benefícios do plano…</div> : error ? (
           <div role="alert" style={{ padding: 24, background: C.card, border: '1px solid #E8B5B5', borderRadius: 18, color: '#8A2525' }}>{error}</div>
-        ) : plan ? (
+        ) : plans.length > 0 ? (
           <section style={{ background: C.card, border: '1px solid ' + C.line, borderRadius: 22, padding: 'clamp(16px,4vw,28px)' }}>
-            <PlanCards plans={[plan]} order={['dourado']} onChoose={choosePlan} ctaLabel="Prosseguir para pagamento" />
-            <p style={{ color: C.muted, fontSize: 12, lineHeight: 1.6, margin: '18px 0 0' }}>O acesso é ativado após a confirmação do pagamento. Os benefícios apresentados acima vêm do plano registado no Talaza.</p>
+            <PlanCards plans={plans} order={['dourado']} onChoose={choosePlan} ctaLabel="Prosseguir para pagamento" />
+            <p style={{ color: C.muted, fontSize: 12, lineHeight: 1.6, margin: '18px 0 0' }}>O acesso é ativado após a confirmação do pagamento. Os benefícios apresentados acima vêm dos planos registados no Talaza.</p>
           </section>
+        ) : error ? (
+          <div role="alert" style={{ padding:24, background:C.card, border:'1px solid #E8B5B5', borderRadius:18, color:'#8A2525' }}>{error}</div>
         ) : null}
       </div>
     </main>
