@@ -44,6 +44,9 @@ export default function Seller() {
   const [pendingPlan, setPendingPlan] = useState(null);
   const [hostingExpiry, setHostingExpiry] = useState(null);
   const [hostingExpired, setHostingExpired] = useState(false);
+  const [hostingPlanName, setHostingPlanName] = useState('Sem plano registado');
+  const [hostingRemainingDays, setHostingRemainingDays] = useState(0);
+  const [hostingLastAddedDays, setHostingLastAddedDays] = useState(0);
   const [renewalPlans, setRenewalPlans] = useState([]);
   const [renewalLoading, setRenewalLoading] = useState(false);
   const [notice, setNotice] = useState('');
@@ -310,7 +313,23 @@ export default function Seller() {
       .maybeSingle();
     if (subscriptionError) console.warn('Não foi possível consultar a validade da hospedagem:',subscriptionError);
     const expiryDate = latestSubscription?.expires_at ? new Date(latestSubscription.expires_at) : null;
-    const validHosting = Boolean(latestSubscription && String(latestSubscription.status || '').trim().toLowerCase()==='active' && expiryDate && !Number.isNaN(expiryDate.getTime()) && expiryDate.getTime()>Date.now());
+    const remainingDays = expiryDate && !Number.isNaN(expiryDate.getTime()) ? Math.max(0,Math.ceil((expiryDate.getTime()-Date.now())/86400000)) : 0;
+    const validHosting = Boolean(latestSubscription && String(latestSubscription.status || '').trim().toLowerCase()==='active' && remainingDays>0);
+    setHostingRemainingDays(remainingDays);
+    if (latestSubscription?.plan_id) {
+      const {data: currentPlan,error: currentPlanError}=await supabase.from('plans').select('name,duration_days').eq('id',latestSubscription.plan_id).maybeSingle();
+      if(currentPlanError) console.warn('Não foi possível carregar o nome do plano atual:',currentPlanError);
+      setHostingPlanName(currentPlan?.name||'Plano contratado');
+    } else setHostingPlanName('Sem plano registado');
+    const {data: approvedPlanPayments,error: approvedPaymentsError}=await supabase.from('payment_submissions')
+      .select('id,plan_id,created_at').eq('business_id',data.id).eq('status','approved').order('created_at',{ascending:true});
+    if(approvedPaymentsError) console.warn('Não foi possível consultar o histórico de renovações:',approvedPaymentsError);
+    const previousApprovedPayments=(approvedPlanPayments||[]).filter(item=>item.id!==undefined);
+    if(previousApprovedPayments.length>1){
+      const lastPayment=previousApprovedPayments[previousApprovedPayments.length-1];
+      const {data: lastPlan}=await supabase.from('plans').select('duration_days').eq('id',lastPayment.plan_id).maybeSingle();
+      setHostingLastAddedDays(Number(lastPlan?.duration_days)||0);
+    } else setHostingLastAddedDays(0);
     setHostingExpiry(expiryDate && !Number.isNaN(expiryDate.getTime()) ? expiryDate : null);
     setHostingExpired(Boolean(latestSubscription && !validHosting));
     if (latestSubscription && !validHosting) {
@@ -1229,6 +1248,17 @@ export default function Seller() {
             {pendingPlan && <div style={{ marginTop: 8 }}><strong>Plano escolhido:</strong> {pendingPlan.name || pendingPlan.title || pendingPlan.plan_name || pendingPlan.nome || (pendingPlan.duration_days ? pendingPlan.duration_days + ' dias' : 'Plano selecionado')}</div>}
           </div>
         )}
+
+        <section style={{marginTop:18,padding:16,border:'1px solid '+(hostingExpired?'#E7B6B6':'#BFDCCB'),borderRadius:15,background:hostingExpired?'#FFF0F0':'#F0F8F3',color:hostingExpired?'#9B1C1C':'#175B3E'}}>
+          <strong style={{display:'block',fontSize:15,marginBottom:8}}>Estado da hospedagem</strong>
+          <div style={{fontSize:13,lineHeight:1.8}}>
+            <div><strong>Plano atual:</strong> {hostingPlanName}</div>
+            <div><strong>Data de fim:</strong> {hostingExpiry?hostingExpiry.toLocaleDateString('pt-AO'):'—'}</div>
+            <div><strong>Dias restantes:</strong> <span style={{fontWeight:900,color:hostingExpired?'#B42318':'inherit'}}>{hostingRemainingDays}</span></div>
+            <div><strong>Estado:</strong> <span style={{fontWeight:950,color:hostingExpired?'#B42318':'#17643B'}}>{hostingExpired?'EXPIRADO - INATIVO':'ATIVADO'}</span></div>
+            {hostingLastAddedDays>0&&<div><strong>Última renovação:</strong> + {hostingLastAddedDays} dias acrescentados</div>}
+          </div>
+        </section>
 
         {hostingExpired && !subscriptionPending && (
           <section style={{marginTop:18,padding:18,border:'1px solid #E8D49A',borderRadius:16,background:'#FFF8E5',color:'#5B4300'}}>
