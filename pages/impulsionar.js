@@ -114,7 +114,7 @@ export default function Impulsionar() {
   }
   const premiumPlans = useMemo(() => plans.filter(plan =>
     String(plan.plan_type || '').trim().toLocaleLowerCase('pt-AO') === 'destaque premium' &&
-    plan.is_active !== false
+    plan.is_active === true
   ).sort((a,b) => new Date(a.created_at||0) - new Date(b.created_at||0)), [plans]);
   const hostingPlans = useMemo(() => {
     if (!business) return [];
