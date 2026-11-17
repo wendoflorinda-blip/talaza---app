@@ -1975,6 +1975,14 @@ export default function Admin() {
             <div style={styles.list}>
               {subscriptionRequests.filter(item => item.business_id && !item.premium_promotion_id).map(request => {
                 const pending = String(request.status || '').toLowerCase() === 'pending';
+                  const paymentApproved = String(request.status || '').toLowerCase() === 'approved';
+                  const linkedBusiness = businesses.find(item => item.id === request.business_id);
+                  const linkedPlanRow = vendorPlanRows.find(item => item.id === request.business_id);
+                  const needsActivationRepair = Boolean(request.business_id && paymentApproved && (
+                    linkedBusiness?.is_active !== true ||
+                    String(linkedBusiness?.approval_status || '').toLowerCase() !== 'approved' ||
+                    !linkedPlanRow?.subscription
+                  ));
                 return <article key={request.id} style={styles.card}>
                   <div style={styles.cardTop}>
                     <div style={styles.logoPlaceholder}>₭</div>
@@ -2023,8 +2031,8 @@ export default function Admin() {
                     })()}
                   </div>
                   <div style={styles.actions}>
-                    {pending && <><button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>
-                    <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A aprovar…' : (request.business_id && request.plan_id ? 'Aprovar + ativar loja' : 'Confirmar pagamento')}</button></>}
+                    {pending && <button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>}
+                    {(pending || needsActivationRepair) && <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A aprovar…' : (request.business_id && request.plan_id ? (paymentApproved ? 'Corrigir ativação da loja' : 'Aprovar + ativar loja') : 'Confirmar pagamento')}</button>}
                     <button type="button" disabled={deletingPaymentId === request.id} style={styles.reject} onClick={() => deletePaymentProof(request)}>{deletingPaymentId === request.id ? 'A eliminar…' : 'Eliminar comprovativo'}</button>
                   </div>
                 </article>;
