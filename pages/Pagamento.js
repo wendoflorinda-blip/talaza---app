@@ -673,7 +673,7 @@ export default function Pagamento() {
                 <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>{isOpportunitySubscription ? 'SERVIÇO' : 'NEGÓCIO'}</p>
                 <strong style={{ display: 'block', color: C.ink, marginBottom: 14 }}>{isOpportunitySubscription ? 'Acesso ao Plano de Oportunidades' : cleanText(eventRecord?.title || business?.name || 'Anúncio Talaza')}</strong>
                 <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>PLANO ESCOLHIDO</p>
-                <strong style={{ display: 'block', color: C.ink, marginBottom: 14 }}>Plano {termName(plan.duration_days)} · {durationLabel(plan.duration_days)}</strong>
+                <strong style={{ display: 'block', color: C.ink, marginBottom: 14 }}>{plan.name} · {plan.duration_days} dias</strong>
                 <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>VALOR DO PLANO</p>
                 <strong style={{ display: 'block', color: C.ink, fontSize: 23, marginBottom: 14 }}>{formatKz(plan.price)}</strong>
                 <p style={{ margin: '0 0 7px', color: C.muted, fontSize: 12 }}>ESTADO DA SOLICITAÇÃO</p>
