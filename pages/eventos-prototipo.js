@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { supabase } from '../lib/supabaseClient';
 
 const DEMO_EVENTS = [
   { id: 'demo-1', title: 'Feira de Livros e Leitura', category: 'Livros', location: 'Benguela', date: 'Sábado · 10h00', description: 'Uma oportunidade para descobrir novos livros, conhecer autores e partilhar o gosto pela leitura.', image: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=900&q=80', featured: true },
@@ -7,22 +8,18 @@ const DEMO_EVENTS = [
   { id: 'demo-3', title: 'Workshop de Empreendedorismo', category: 'Formação', location: 'Lobito', date: 'Próximo domingo · 09h00', description: 'Atividade prática para aprender, trocar ideias e transformar projetos em oportunidades.', image: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=900&q=80', featured: false },
 ];
 
-const CATEGORIES = ['Todos', 'Livros', 'Shows', 'Atividades', 'Formação', 'Vendas', 'Outros'];
-const PLANS = [
-  { id: 'basico', name: 'Evento Essencial', duration: 'Período e alcance a definir', description: 'Para anunciar um evento na Talaza.', price: 'Preço a definir' },
-  { id: 'destaque', name: 'Evento Destaque', duration: 'Período e alcance a definir', description: 'Mais destaque visual na área de eventos.', price: 'Preço a definir', popular: true },
-  { id: 'premium', name: 'Evento Premium', duration: 'Período e alcance a definir', description: 'Maior visibilidade para o teu anúncio.', price: 'Preço a definir' },
-];
 
 export default function EventosPrototipo() {
   const [tab, setTab] = useState('ver');
   const [step, setStep] = useState(0);
   const [filter, setFilter] = useState('Todos');
+  const [categories, setCategories] = useState([]);
+  const [plans, setPlans] = useState([]);
   const [openedMessage, setOpenedMessage] = useState('');
   const [sentFor, setSentFor] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('Atividades');
+  const [category, setCategory] = useState('');
   const [location, setLocation] = useState('');
   const [date, setDate] = useState('');
   const [image, setImage] = useState(null);
@@ -31,6 +28,25 @@ export default function EventosPrototipo() {
   const [proof, setProof] = useState(null);
   const [submitted, setSubmitted] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadCatalogs() {
+      const [categoryResult, planResult] = await Promise.all([
+        supabase.from('categories').select('id,name').eq('active',true).order('name',{ascending:true}),
+        supabase.from('plans').select('id,name,description,price,duration_days,plan_type').eq('is_active',true).ilike('plan_type','publicação ativa%').order('created_at',{ascending:true})
+      ]);
+      if (cancelled) return;
+      if (categoryResult.error) console.error('Erro ao carregar categorias:',categoryResult.error);
+      if (planResult.error) console.error('Erro ao carregar planos de eventos:',planResult.error);
+      setCategories(categoryResult.data||[]);
+      setPlans(planResult.data||[]);
+      if (categoryResult.data?.length) setCategory(current=>current||categoryResult.data[0].name);
+    }
+    loadCatalogs();
+    return () => { cancelled = true; };
+  }, []);
+
+  const categoryFilters = useMemo(() => ['Todos', ...categories.map(item=>item.name)], [categories]);
   const visibleEvents = useMemo(() => filter === 'Todos' ? DEMO_EVENTS : DEMO_EVENTS.filter(event => event.category === filter), [filter]);
 
   function selectImage(file) {
@@ -64,7 +80,7 @@ export default function EventosPrototipo() {
           <span className="location">📍 Eventos da tua região</span>
         </div>
         <div className="chips" aria-label="Filtrar eventos">
-          {CATEGORIES.map(item => <button key={item} className={filter === item ? 'chip chosen' : 'chip'} onClick={() => setFilter(item)}>{item}</button>)}
+          {categoryFilters.map(item => <button key={item} className={filter === item ? 'chip chosen' : 'chip'} onClick={() => setFilter(item)}>{item}</button>)}
         </div>
         <div className="feed">
           {visibleEvents.map(event => <article className={openedMessage === event.id ? 'post open' : 'post'} key={event.id}>
@@ -103,7 +119,7 @@ export default function EventosPrototipo() {
             <h2>Informações do anúncio</h2>
             <label>Título do evento<input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex.: Feira de livros e cultura" maxLength={120}/></label>
             <label>Descrição<textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Conta às pessoas o que vai acontecer..." rows={5}/></label>
-            <label>Tipo de evento<select value={category} onChange={e => setCategory(e.target.value)}>{CATEGORIES.filter(x => x !== 'Todos').map(x => <option key={x}>{x}</option>)}</select></label>
+            <label>Tipo de evento<select value={category} onChange={e => setCategory(e.target.value)}>{categories.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}</select></label>
             <label>Local<input value={location} onChange={e => setLocation(e.target.value)} placeholder="Província, município ou local"/></label>
             <label>Data e hora (opcional)<input type="datetime-local" value={date} onChange={e => setDate(e.target.value)}/></label>
             <label>Imagem do evento<div className="upload" onClick={() => document.getElementById('event-prototype-image')?.click()}>{imagePreview ? <img src={imagePreview} alt="Pré-visualização da imagem"/> : <span className="upload-inner"><b>＋</b>Escolher imagem <small>JPG, PNG ou WEBP</small></span>}</div><input id="event-prototype-image" type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e => selectImage(e.target.files?.[0])}/></label>
@@ -111,7 +127,7 @@ export default function EventosPrototipo() {
           </div>
         </> : step === 1 ? <><div className="form-card">
             <button className="back" onClick={() => setStep(0)}>← Voltar aos dados</button><h2>Escolhe o plano do teu anúncio</h2><p className="muted">Seleciona uma das opções. Os preços e a duração serão definidos antes de ativar os pagamentos reais.</p>
-            <div className="plans">{PLANS.map(plan => <button key={plan.id} className={selectedPlan?.id === plan.id ? 'plan selected' : 'plan'} onClick={() => setSelectedPlan(plan)}><div className="plan-top"><h3>{plan.name}</h3>{plan.popular && <span>Popular</span>}</div><p>{plan.description}</p><strong className="price">{plan.price}</strong><small>{plan.duration}</small><span className="plan-go">{selectedPlan?.id === plan.id ? 'Selecionado ✓' : 'Escolher plano →'}</span></button>)}</div>
+            <div className="plans">{plans.map(plan => <button key={plan.id} className={selectedPlan?.id === plan.id ? 'plan selected' : 'plan'} onClick={() => setSelectedPlan(plan)}><div className="plan-top"><h3>{plan.name}</h3></div><p>{plan.description}</p><strong className="price">{Number(plan.price||0).toLocaleString('pt-AO')} Kz</strong><small>{plan.duration_days} dias</small><span className="plan-go">{selectedPlan?.id === plan.id ? 'Selecionado ✓' : 'Escolher plano →'}</span></button>)}</div>
             <button className="primary" disabled={!selectedPlan} onClick={() => { setStep(2); window.scrollTo({top:0,behavior:'smooth'}); }}>Continuar para pagamento →</button>
           </div></> : <div className="form-card">
             <button className="back" onClick={() => setStep(1)}>← Voltar aos planos</button><h2>Pagamento e comprovativo</h2>
