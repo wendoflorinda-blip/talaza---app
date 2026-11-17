@@ -191,6 +191,7 @@ export default function Subcategory() {
             .from('subcategories')
             .select('id, name, description, category_id')
             .eq('id', id)
+            .eq('is_active', true)
             .single();
 
         if (subcategoryError) throw subcategoryError;
