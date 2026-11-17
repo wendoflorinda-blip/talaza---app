@@ -361,13 +361,9 @@ export default function Contratar() {
         <div style={{ ...styles.container, maxWidth: 760 }}>
           <section style={{ ...styles.contentCard, textAlign: 'center', marginTop: 36, padding: 'clamp(24px, 5vw, 46px)' }}>
             <div style={{ width: 76, height: 76, margin: '0 auto 20px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: COLORS.successSoft, color: COLORS.success, fontSize: 38, fontWeight: 900 }}>✓</div>
-            <h1 style={{ color: COLORS.brandDark, fontSize: 28, margin: '0 0 16px' }}>A sua vaga foi enviada com sucesso.</h1>
-            <p style={{ color: COLORS.inkSoft, fontSize: 15, lineHeight: 1.75, margin: '0 0 14px' }}>A sua publicação foi recebida e está agora em análise pela equipa Talaza, para garantir a segurança e a qualidade das oportunidades publicadas.</p>
-            <p style={{ color: COLORS.inkSoft, fontSize: 15, lineHeight: 1.75, margin: '0 0 14px' }}>Após aprovação, a sua vaga ficará visível na área de Oportunidades da província selecionada, e os profissionais com acesso ativo poderão entrar em contacto consigo diretamente através de mensagens na Talaza.</p>
-            <p style={{ color: COLORS.inkSoft, fontSize: 15, lineHeight: 1.75, margin: '0 0 14px' }}>Não é necessário fazer mais nada neste momento. Será notificado assim que a sua vaga for aprovada.</p>
-            <p style={{ color: COLORS.brandDark, fontSize: 15, lineHeight: 1.7, fontWeight: 800, margin: '0 0 28px' }}>Obrigado por confiar na Talaza.</p>
-            <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 12 }}>
-              <button type="button" onClick={() => router.push('/minhas-vagas')} style={styles.publishButton}>Ver as minhas vagas</button>
+            <h1 style={{ color: COLORS.brandDark, fontSize: 28, margin: '0 0 16px' }}>A sua vaga foi publicada com sucesso.</h1>
+            <p style={{ color: COLORS.inkSoft, fontSize: 15, lineHeight: 1.75, margin: '0 0 28px' }}>A sua vaga ficará visível na área de Oportunidades da província selecionada, e os profissionais com acesso ativo poderão entrar em contacto consigo diretamente através de mensagens na Talaza.</p>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
               <button type="button" onClick={() => router.push(exploreUrl)} style={{ ...styles.publishButton, background: '#FFFFFF', color: COLORS.brand, border: '1px solid ' + COLORS.line, boxShadow: 'none' }}>Voltar ao início</button>
             </div>
           </section>
