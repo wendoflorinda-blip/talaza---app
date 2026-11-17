@@ -225,6 +225,7 @@ export default function PostBusiness() {
       .from('subcategories')
       .select('id, name')
       .eq('category_id', id)
+      .eq('is_active', true)
       .order('name', { ascending: true });
 
     if (subcategoriesError) {
@@ -460,7 +461,7 @@ export default function PostBusiness() {
 
                 {subcategories.map((subcategory) => (
                   <option key={subcategory.id} value={subcategory.id}>
-                    {String(subcategory.name).trim()}
+                    {subcategory.name}
                   </option>
                 ))}
               </select>
