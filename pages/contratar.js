@@ -809,9 +809,9 @@ function OpportunityForm({
         >
           <option value="">Selecione uma área</option>
 
-          {AREAS_PROFISSIONAIS.map((item) => (
-            <option key={item} value={item}>
-              {item}
+          {professionalAreas.map((item) => (
+            <option key={item.id} value={item.name}>
+              {item.name}
             </option>
           ))}
         </select>
