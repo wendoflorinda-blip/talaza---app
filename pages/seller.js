@@ -214,6 +214,25 @@ export default function Seller() {
     const pendingEmail = String(authMetadata.pending_email || authUser.new_email || '').trim().toLowerCase();
     const currentAuthEmail = String(authUser.email || '').trim().toLowerCase();
 
+    // Recupera pedidos pendentes feitos pela versão anterior da interface:
+    // GoTrue expõe new_email enquanto a confirmação ainda está por concluir.
+    // Remove o timestamp incorreto gravado no pedido antigo, sem iniciar o prazo.
+    if (pendingEmail && currentAuthEmail !== pendingEmail && !authMetadata.pending_email) {
+      const pendingMetadata = { ...authMetadata };
+      delete pendingMetadata.last_email_changed_at;
+      pendingMetadata.pending_email = pendingEmail;
+      pendingMetadata.pending_email_requested_at = authUser.email_change_sent_at || null;
+      const { data: pendingMetadataUpdate, error: pendingMetadataError } = await supabase.auth.updateUser({ data: pendingMetadata });
+      if (pendingMetadataError) {
+        console.warn('Não foi possível guardar o estado do pedido pendente:', pendingMetadataError);
+      } else if (pendingMetadataUpdate?.user) {
+        authUser = pendingMetadataUpdate.user;
+        authMetadata = authUser.user_metadata || pendingMetadata;
+      } else {
+        authMetadata = pendingMetadata;
+      }
+    }
+
     // O período de seis meses só começa quando o Supabase já apresenta
     // o novo endereço como e-mail principal (confirmação concluída).
     if (pendingEmail && currentAuthEmail === pendingEmail) {
