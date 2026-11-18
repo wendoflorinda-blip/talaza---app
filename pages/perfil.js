@@ -301,8 +301,8 @@ export default function Perfil() {
       if (uploadError) {
         console.error('Falha no upload da fotografia de perfil:', uploadError);
         const detail = String(uploadError.message || '').toLowerCase();
-        if (detail.includes('bucket not found') || detail.includes('bucket does not exist')) throw new Error('Não foi possível enviar a fotografia. Tenta de novo. ou alterar qualquer configuração. Detalhe: ' + (uploadError.message || detail));
-        if (detail.includes('row-level security') || detail.includes('permission') || detail.includes('unauthorized') || detail.includes('not allowed')) throw new Error('A fotografia não foi enviada porque as regras de segurança do Storage estão a bloquear esta conta. No Supabase, abra Storage → avatars → Policies e permita ao utilizador autenticado enviar ficheiros apenas para a pasta com o seu próprio ID.');
+        if (detail.includes('bucket not found') || detail.includes('bucket does not exist')) throw new Error('Não foi possível enviar a fotografia. Tenta de novo.');
+        if (detail.includes('row-level security') || detail.includes('permission') || detail.includes('unauthorized') || detail.includes('not allowed')) throw new Error('Não foi possível enviar a fotografia. Tenta de novo.');
         throw new Error('Não foi possível enviar a fotografia. Tenta de novo.');
       }
       const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(path);
@@ -348,7 +348,7 @@ export default function Perfil() {
       const { data, error:visibilityError } = await supabase.from('profiles').update({show_email:nextValue}).eq('id',user.id).select('id,show_email').maybeSingle();
       if (visibilityError) {
         const message = String(visibilityError.message || '');
-        if (/show_email|column/i.test(message)) throw new Error('A coluna show_email não foi reconhecida nesta consulta do perfil pessoal. Como a opção já funciona no painel do vendedor, não crie outra coluna ainda: confirme se a Preview está ligada ao mesmo projeto Supabase e veja o detalhe técnico: ' + message);
+        if (/show_email|column/i.test(message)) throw new Error('Não foi possível actualizar esta preferência. Tenta de novo.');
         throw new Error('Não foi possível guardar a preferência de e-mail: ' + message);
       }
       if (!data) throw new Error('A preferência não foi guardada porque não foi encontrada a sua linha em profiles. Confirme se profiles.id corresponde ao ID da sua conta.');
