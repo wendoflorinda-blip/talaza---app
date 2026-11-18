@@ -104,6 +104,7 @@ export default function Eventos() {
 
   const [user, setUser] = useState(null);
   const [publisherBusinesses, setPublisherBusinesses] = useState([]);
+  const [publisherPersonName, setPublisherPersonName] = useState('Explorador');
   const [publisherMode, setPublisherMode] = useState('explorer');
   const [publisherBusinessId, setPublisherBusinessId] = useState('');
   const [publisherDetails, setPublisherDetails] = useState({});
@@ -167,6 +168,8 @@ export default function Eventos() {
         if (cancelled) return;
         setUser(currentUser);
         if (currentUser) {
+          const { data: personProfile } = await supabase.from('profiles').select('name').eq('id', currentUser.id).maybeSingle();
+          setPublisherPersonName(personProfile?.name || 'Explorador');
           const { data: ownedBusinesses, error: ownedBusinessesError } = await supabase.from('businesses')
             .select('id,name,logo_url').eq('owner_id', currentUser.id).order('created_at', { ascending: true });
           if (ownedBusinessesError) throw ownedBusinessesError;
@@ -175,6 +178,7 @@ export default function Eventos() {
           setPublisherMode('explorer');
         } else {
           setPublisherBusinesses([]);
+          setPublisherPersonName('Explorador');
           setPublisherBusinessId('');
           setPublisherMode('explorer');
         }
@@ -782,11 +786,11 @@ export default function Eventos() {
                 <strong style={{display:'block',marginBottom:9,color:'#083F35'}}>Publicar como:</strong>
                 <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:9}}>
                   <input type="radio" name="event-publisher" checked={publisherMode==='explorer'} onChange={()=>{setPublisherMode('explorer');setPublisherBusinessId('');}} />
-                  Explorador — perfil pessoal
+                  Explorador — {publisherPersonName}
                 </label>
                 <label style={{display:'flex',alignItems:'center',gap:8}}>
                   <input type="radio" name="event-publisher" checked={publisherMode==='store'} onChange={()=>{setPublisherMode('store');if(publisherBusinesses.length===1)setPublisherBusinessId(publisherBusinesses[0].id);}} />
-                  Loja
+                  Loja — {publisherBusinesses.length === 1 ? publisherBusinesses[0].name : (publisherBusinesses.find(item => item.id === publisherBusinessId)?.name || 'escolher loja')}
                 </label>
                 {publisherMode==='store' && <select value={publisherBusinessId} onChange={e=>setPublisherBusinessId(e.target.value)} required style={{...styles.input,marginTop:9}}>
                   <option value="">Escolhe a loja</option>
