@@ -143,142 +143,111 @@ export default function Eventos() {
     try { const saved = JSON.parse(localStorage.getItem('talaza_event_history') || '[]'); if (Array.isArray(saved)) setHistoryItems(saved.slice(0, 100)); } catch { /* histórico opcional */ }
   }, []);
 
+  const [provinceResolving, setProvinceResolving] = useState(true);
+
   useEffect(() => {
     if (!router.isReady) return;
-
     let cancelled = false;
+    const normalizeParam = value => Array.isArray(value) ? value[0] : value;
+    const isUuid = value => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
 
     async function initialise() {
       setLoading(true);
+      setProvinceResolving(true);
       setError('');
-
+      setFeedError('');
       try {
-        const { data: sessionData, error: sessionError } =
-          await supabase.auth.getSession();
-
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw sessionError;
-
         const currentUser = sessionData?.session?.user || null;
-
         if (cancelled) return;
-
-        // Não redireciona para o painel de negócio.
-        // Se não existir sessão, mantém a página de eventos visível.
         setUser(currentUser);
 
-        const normalizeParam = (value) =>
-          Array.isArray(value) ? value[0] : value;
-        const isUuid = (value) =>
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
-
-        // Prioridade de localização: contexto global, localStorage e, por último, query.
-        const savedLocation = getTalazaSessionLocation();
-        let countryCandidate = String(firstValue(
-          savedLocation.countryId, savedLocation.country,
-          normalizeParam(router.query.country_id), normalizeParam(router.query.country)
-        ) || '').trim();
-
-        // Se não há escolha nesta sessão nem localização na rota, recorrer
-        // ao perfil autenticado. Nunca inventar uma província nem usar cache antigo.
-        if ((!countryCandidate || !provinceCandidate) && currentUser) {
-          const { data: profile } = await supabase.from('profiles')
-            .select('country_id,province_id')
-            .eq('id', currentUser.id)
-            .maybeSingle();
+        // 1) Escolha do Menu nesta sessão; 2) província principal do perfil;
+        // 3) query da rota. Não consultar localStorage antigo.
+        const sessionLocation = getTalazaSessionLocation();
+        let countryCandidate = '';
+        let provinceCandidate = '';
+        if (sessionLocation.countryId && sessionLocation.provinceId) {
+          countryCandidate = String(sessionLocation.countryId);
+          provinceCandidate = String(sessionLocation.provinceId);
+        } else if (currentUser) {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles').select('country_id,province_id')
+            .eq('id', currentUser.id).maybeSingle();
+          if (profileError) throw profileError;
           if (profile?.country_id && profile?.province_id) {
-            countryCandidate = profile.country_id;
-            provinceCandidate = profile.province_id;
+            countryCandidate = String(profile.country_id);
+            provinceCandidate = String(profile.province_id);
           }
         }
 
-        let resolvedCountry = '';
-        if (countryCandidate) {
-          let countryQuery = supabase.from('countries').select('id, name');
-          countryQuery = isUuid(countryCandidate)
-            ? countryQuery.eq('id', countryCandidate)
-            : countryQuery.ilike('name', countryCandidate);
-          const { data: countryRow } = await countryQuery.maybeSingle();
-          resolvedCountry = countryRow?.id || '';
+        if (!provinceCandidate) {
+          countryCandidate = String(firstValue(normalizeParam(router.query.country_id), normalizeParam(router.query.country)) || '').trim();
+          provinceCandidate = String(firstValue(normalizeParam(router.query.province_id), normalizeParam(router.query.province)) || '').trim();
         }
 
-        let provinceCandidate = String(firstValue(
-          savedLocation.provinceId, savedLocation.province,
-          normalizeParam(router.query.province_id), normalizeParam(router.query.province)
-        ) || '').trim();
+        let countryRow = null;
+        if (countryCandidate) {
+          let query = supabase.from('countries').select('id,name');
+          query = isUuid(countryCandidate) ? query.eq('id', countryCandidate) : query.ilike('name', countryCandidate);
+          const result = await query.maybeSingle();
+          if (result.error) throw result.error;
+          countryRow = result.data || null;
+        }
 
         let provinceRow = null;
         if (provinceCandidate) {
-          let provinceQuery = supabase
-            .from('provinces')
-            .select('id, name, country_id');
-          provinceQuery = isUuid(provinceCandidate)
-            ? provinceQuery.eq('id', provinceCandidate)
-            : provinceQuery.ilike('name', provinceCandidate);
-          if (resolvedCountry) provinceQuery = provinceQuery.eq('country_id', resolvedCountry);
-          const { data } = await provinceQuery.maybeSingle();
-          provinceRow = data || null;
+          let query = supabase.from('provinces').select('id,name,country_id');
+          query = isUuid(provinceCandidate) ? query.eq('id', provinceCandidate) : query.ilike('name', provinceCandidate);
+          if (countryRow?.id) query = query.eq('country_id', countryRow.id);
+          const result = await query.maybeSingle();
+          if (result.error) throw result.error;
+          provinceRow = result.data || null;
         }
 
         if (cancelled) return;
-
-        // A província escolhida na navegação tem prioridade. Nunca usar um nome
-        // ou um ID não resolvido como se fosse um ID válido no filtro da Vitrine.
-        const finalCountryId = provinceRow?.country_id || resolvedCountry;
+        const finalCountryId = provinceRow?.country_id || countryRow?.id || '';
         const finalProvinceId = provinceRow?.id || '';
-
-        setCountryId(finalCountryId || '');
+        setCountryId(finalCountryId);
         setProvinceId(finalProvinceId);
         setProvinceName(provinceRow?.name || '');
-        if (finalCountryId && provinceRow?.id) {
-          const { data: resolvedCountryRow } = await supabase.from('countries').select('id,name').eq('id', finalCountryId).maybeSingle();
-          setTalazaLocation({ country: resolvedCountryRow?.name || savedLocation.country || '', countryId: finalCountryId, province: provinceRow.name || '', provinceId: provinceRow.id });
-        }
 
-        if (provinceCandidate && !provinceRow) {
-          setFeedError(
-            'Não foi possível identificar a província escolhida. Volta à Vitrine, seleciona a província e abre Eventos novamente.'
-          );
-        } else if (!finalProvinceId) {
-          setFeedError(
-            'Seleciona uma província na Vitrine antes de consultar ou publicar eventos.'
-          );
-        }
-
-        const { data: planRows, error: planError } =
-          await supabase.from('plans').select('*');
-
-        if (planError) throw planError;
-
-        const eventPlans = (planRows || []).filter((plan) => {
-          if (plan.active === false || plan.is_active === false) {
-            return false;
+        if (finalCountryId && finalProvinceId) {
+          let finalCountryName = countryRow?.id === finalCountryId ? countryRow.name : '';
+          if (!finalCountryName) {
+            const { data: countryInfo } = await supabase.from('countries').select('name').eq('id', finalCountryId).maybeSingle();
+            finalCountryName = countryInfo?.name || '';
           }
+          setTalazaLocation({ country: finalCountryName || sessionLocation.country || '', countryId: finalCountryId, province: provinceRow.name || '', provinceId: finalProvinceId });
+        }
 
-          const area = String(plan.area || '').trim().toLowerCase();
-          const type = String(plan.plan_type || '').trim().toLowerCase();
-          // Não misturar os planos antigos de hospedagem com publicação de eventos.
-          return area === 'eventos área' && type === 'publicação ativa';
+        const { data: planRows, error: planError } = await supabase.from('plans').select('*');
+        if (planError) throw planError;
+        const eventPlans = (planRows || []).filter(plan => {
+          if (plan.active === false || plan.is_active === false) return false;
+          return String(plan.area || '').trim().toLowerCase() === 'eventos área' &&
+            String(plan.plan_type || '').trim().toLowerCase() === 'publicação ativa';
         });
-
         if (!cancelled) setPlans(eventPlans);
       } catch (err) {
-        if (!cancelled) {
-          setError(
-            err.message ||
-              'Não foi possível carregar os dados de Eventos.'
-          );
-        }
+        if (!cancelled) setError(err.message || 'Não foi possível carregar os dados de Eventos.');
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setProvinceResolving(false);
+        }
       }
     }
 
     initialise();
-
+    const onLocationChange = () => initialise();
+    window.addEventListener('talaza:location-change', onLocationChange);
     return () => {
       cancelled = true;
+      window.removeEventListener('talaza:location-change', onLocationChange);
     };
-  }, [router.isReady, router.query]);
+  }, [router.isReady, router.query.country, router.query.country_id, router.query.province, router.query.province_id]);
 
   async function loadEvents() {
     setFeedLoading(true);
@@ -291,9 +260,6 @@ export default function Eventos() {
         setLikesByEvent({});
         setLikedByMe({});
         setCommentsByEvent({});
-        setFeedError(
-          'Não foi possível identificar a província ativa. Volta à Vitrine, escolhe a província e abre a área Eventos.'
-        );
         setFeedLoading(false);
         return;
       }
@@ -646,7 +612,7 @@ export default function Eventos() {
           <div style={styles.locationPill}>
             <span>📍</span>
             <span>
-              {provinceName || 'Província ativa não identificada'}
+              {provinceResolving || loading ? 'A carregar província...' : (provinceName || 'Escolher província')}
             </span>
           </div>
         </section>
@@ -676,11 +642,12 @@ export default function Eventos() {
               })}
             </div>
             <p style={styles.muted}>Descobre o que está a acontecer na tua província. Podes gostar, comentar e falar com o organizador através das mensagens internas da Talaza.</p>
+            {!loading && !provinceResolving && !provinceId && <div style={styles.notice}>Não foi possível identificar uma província para esta sessão. <button type="button" onClick={() => router.push({ pathname: '/explore', query: { menuOpen: '1' } })} style={styles.messageButton}>Escolher província</button></div>}
             {feedError && <div style={styles.error}>{feedError}</div>}
             {feedNotice && <div style={styles.success}>{feedNotice}</div>}
-            {feedLoading && <p style={styles.muted}>A carregar eventos...</p>}
-            {!feedLoading && events.length === 0 && <div style={styles.notice}>Ainda não existem eventos aprovados e ativos nesta província.</div>}
-            {!feedLoading && events.length > 0 && visibleEvents.length === 0 && <div style={styles.notice}>Ainda não há eventos nesta categoria. Escolhe outra categoria ou «Todas».</div>}
+            {(loading || provinceResolving || feedLoading) && <p style={styles.muted}>A carregar eventos...</p>}
+            {!loading && !provinceResolving && provinceId && !feedLoading && events.length === 0 && <div style={styles.notice}>Ainda não existem eventos aprovados e ativos nesta província.</div>}
+            {!loading && !provinceResolving && !feedLoading && events.length > 0 && visibleEvents.length === 0 && <div style={styles.notice}>Ainda não há eventos nesta categoria. Escolhe outra categoria ou «Todas».</div>}
             <div id="eventos-publicados" style={styles.eventList}>
               {visibleEvents.map(item => (
                 <article id={'evento-' + item.id} key={item.id} style={{ ...styles.eventCard, borderColor: categoryTheme(item.event_type).color + '45', background: '#FFFFFF', boxShadow: '0 6px 22px rgba(24,39,34,.07)' }} onClick={() => trackEventAction(item)}>
