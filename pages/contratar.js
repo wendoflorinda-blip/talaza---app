@@ -881,7 +881,7 @@ function OpportunityForm({
           type="tel"
           value={whatsapp}
           onChange={(e) => setWhatsapp(e.target.value)}
-          placeholder="Ex.: +244 9XX XXX XXX"
+          placeholder="Ex.: 923000000"
           style={styles.input}
           required
         />
