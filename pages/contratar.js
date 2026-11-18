@@ -100,6 +100,9 @@ export default function Contratar() {
   const [provinceName, setProvinceName] = useState('');
 
   const [user, setUser] = useState(null);
+  const [publisherBusinesses, setPublisherBusinesses] = useState([]);
+  const [publisherMode, setPublisherMode] = useState('explorer');
+  const [publisherBusinessId, setPublisherBusinessId] = useState('');
 
   const [mode, setMode] = useState('choose');
 
@@ -155,6 +158,14 @@ export default function Contratar() {
     } = await supabase.auth.getUser();
 
     setUser(currentUser || null);
+    if (currentUser) {
+      const { data: businesses, error: businessesError } = await supabase.from('businesses')
+        .select('id,name,logo_url').eq('owner_id', currentUser.id).order('created_at', { ascending: true });
+      if (businessesError) { console.warn('Não foi possível carregar os negócios associados à conta:', businessesError); setPublisherBusinesses([]); }
+      else setPublisherBusinesses(businesses || []);
+    } else setPublisherBusinesses([]);
+    setPublisherBusinessId('');
+    setPublisherMode('explorer');
     setLoadingUser(false);
   }
 
@@ -309,6 +320,8 @@ export default function Contratar() {
         .insert([
           {
             user_id: user.id,
+            publisher_mode: publisherBusinesses.length && publisherMode === 'store' && publisherBusinesses.some(item => item.id === publisherBusinessId) ? 'store' : 'explorer',
+            publisher_business_id: publisherBusinesses.length && publisherMode === 'store' && publisherBusinesses.some(item => item.id === publisherBusinessId) ? publisherBusinessId : null,
             country_id: country,
             province_id: province,
             area: area,
@@ -637,6 +650,11 @@ export default function Contratar() {
 
             <OpportunityForm
               mode="manual"
+              publisherBusinesses={publisherBusinesses}
+              publisherMode={publisherMode}
+              setPublisherMode={setPublisherMode}
+              publisherBusinessId={publisherBusinessId}
+              setPublisherBusinessId={setPublisherBusinessId}
               professionalAreas={professionalAreas}
               area={area}
               setArea={setArea}
@@ -708,6 +726,11 @@ export default function Contratar() {
 
             <OpportunityForm
               mode="post"
+              publisherBusinesses={publisherBusinesses}
+              publisherMode={publisherMode}
+              setPublisherMode={setPublisherMode}
+              publisherBusinessId={publisherBusinessId}
+              setPublisherBusinessId={setPublisherBusinessId}
               professionalAreas={professionalAreas}
               area={area}
               setArea={setArea}
@@ -747,6 +770,11 @@ export default function Contratar() {
 
 function OpportunityForm({
   mode,
+  publisherBusinesses = [],
+  publisherMode,
+  setPublisherMode,
+  publisherBusinessId,
+  setPublisherBusinessId,
   professionalAreas = [],
   area,
   setArea,
@@ -781,6 +809,21 @@ function OpportunityForm({
 
   return (
     <form onSubmit={publishOpportunity} style={styles.form}>
+      {publisherBusinesses.length > 0 && <section style={{padding:14,border:'1px solid #DDE8E2',borderRadius:14,background:'#F7FBF8',marginBottom:16}}>
+        <strong style={{display:'block',marginBottom:9,color:COLORS.brandDark}}>Publicar como:</strong>
+        <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:9}}>
+          <input type="radio" name="opportunity-publisher" checked={publisherMode==='explorer'} onChange={()=>{setPublisherMode('explorer');setPublisherBusinessId('');}} />
+          Explorador — perfil pessoal
+        </label>
+        <label style={{display:'flex',alignItems:'center',gap:8}}>
+          <input type="radio" name="opportunity-publisher" checked={publisherMode==='store'} onChange={()=>{setPublisherMode('store');if(publisherBusinesses.length===1)setPublisherBusinessId(publisherBusinesses[0].id);}} />
+          Loja
+        </label>
+        {publisherMode==='store' && <select value={publisherBusinessId} onChange={e=>setPublisherBusinessId(e.target.value)} required style={{...styles.input,marginTop:9}}>
+          <option value="">Escolhe a loja</option>
+          {publisherBusinesses.map(business=><option key={business.id} value={business.id}>{business.name}</option>)}
+        </select>}
+      </section>}
       <div style={styles.formNotice}>
         <Icon type="sparkle" size={17} color={COLORS.purple} />
 
