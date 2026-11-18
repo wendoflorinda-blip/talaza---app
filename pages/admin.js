@@ -2062,7 +2062,7 @@ export default function Admin() {
           ) : (
             <div style={styles.list}>
               {subscriptionRequests.filter(item => item.business_id && !item.premium_promotion_id).map(request => {
-                const pending = String(request.status || '').toLowerCase() === 'pending';
+                const pending = ['pending','submitted'].includes(String(request.status || '').toLowerCase());
                   const paymentApproved = String(request.status || '').toLowerCase() === 'approved';
                   const linkedBusiness = businesses.find(item => item.id === request.business_id);
                   const linkedPlanRow = vendorPlanRows.find(item => item.id === request.business_id);
@@ -2158,8 +2158,8 @@ export default function Admin() {
                       <div style={{ flex:1, minWidth:0 }}>
                         <h3 style={styles.businessName}>{profile?.name || 'Explorador / Criador Talaza'}</h3>
                         <div style={styles.meta}>Área: Acesso às Oportunidades · Plano: {planNames[request.plan_id] || 'Plano de Oportunidades'}</div>
-                        <div style={{ ...styles.meta, color: String(request.status || '').toLowerCase() === 'approved' ? '#167044' : '#A12626', fontWeight: 800 }}>
-                          Pagamento: {String(request.status || '').toLowerCase() === 'approved' ? 'Aprovado' : 'Pendente'}
+                        <div style={{ ...styles.meta, color: String(request.status || '').toLowerCase() === 'approved' ? '#167044' : String(request.status || '').toLowerCase() === 'duplicate' ? '#8A4B08' : '#A12626', fontWeight: 800 }}>
+                          Pagamento: {String(request.status || '').toLowerCase() === 'approved' ? 'Aprovado' : String(request.status || '').toLowerCase() === 'duplicate' ? 'Duplicado — não gera acesso' : ['pending','submitted'].includes(String(request.status || '').toLowerCase()) ? 'Pendente' : request.status}
                         </div>
                         {(() => {
                           const access = opportunityAccessByPayment[request.id];
@@ -2175,6 +2175,8 @@ export default function Admin() {
                       <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
                       <p><strong>Número Express:</strong> {request.express_sender_phone || 'Não informado'}</p>
                       <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
+                      {request.resubmitted_from_id && <p><strong>Relacionado com o pagamento original:</strong> <span style={{ wordBreak: 'break-all' }}>{request.resubmitted_from_id}</span></p>}
+                      {request.notes && <p><strong>Nota:</strong> {request.notes}</p>}
                       {paths.image && imageUrl && <a href={imageUrl} target="_blank" rel="noreferrer"><img src={imageUrl} alt="Comprovativo do acesso às Oportunidades" style={{ display:'block', maxWidth:'100%', width:260, maxHeight:320, objectFit:'contain', border:'1px solid #DCE6E1', borderRadius:8, background:'#fff' }} /></a>}
                       {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir/baixar comprovativo ↗</button></p>}
                       {!paths.image && !paths.file && <p style={{ color:'#9B3A28' }}>Este pedido não contém comprovativo legível.</p>}
