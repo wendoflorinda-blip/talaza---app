@@ -62,8 +62,8 @@ export default function SellerResubmissionPage() {
       setReview(status || null);
       setRejectedPayment(rejectedPaymentRow || null);
       setAmount(rejectedPaymentRow?.amount != null ? String(rejectedPaymentRow.amount) : '');
-      const initialPhone = rejectedPaymentRow?.express_sender_phone || rejectedPaymentRow?.express_number || shop.phone || '';
-      setPhone(initialPhone ? (String(initialPhone).replace(/\D/g, '').length === 9 ? '+244' + String(initialPhone).replace(/\D/g, '') : initialPhone) : '');
+      // O remetente pode ser qualquer pessoa; não preencher com o telefone do perfil nem reutilizar o anterior.
+      setPhone('');
       setLoading(false);
     })();
     return () => { alive = false; };
@@ -72,12 +72,11 @@ export default function SellerResubmissionPage() {
   async function submit(event) {
     event.preventDefault();
     if (!user || !business || busy) return;
-    const cleanPhone = phone.trim();
+    const cleanPhone = String(phone || '').replace(/[^0-9]/g, '');
     const numericAmount = Number(String(amount).replace(/[^0-9.,]/g,'').replace(',','.'));
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) { setError('Indique um valor válido para o pagamento.'); return; }
-    if (!cleanPhone) { setError('Indique o número de telefone que fez a transferência Express.'); return; }
-    const phoneDigits = cleanPhone.replace(/\D/g, '');
-    const expressPhone = phoneDigits.length === 9 ? '+244' + phoneDigits : phoneDigits.startsWith('244') ? '+' + phoneDigits : cleanPhone;
+    if (cleanPhone.length < 7 || cleanPhone.length > 15) { setError('Coloca o número Express que fez a transferência, só números, 7 a 15 dígitos.'); return; }
+    const expressPhone = cleanPhone;
     if (!file || !['application/pdf','image/jpeg','image/png'].includes(file.type)) {
       setError('Anexe um comprovativo em PDF, JPG ou PNG.'); return;
     }
@@ -142,7 +141,7 @@ export default function SellerResubmissionPage() {
       {notice && <p role="status" style={{color:'#17643B',background:'#E6F5EC',padding:12,borderRadius:10}}>{notice}</p>}
       <form onSubmit={submit}>
         <label htmlFor="express-phone" style={{display:'block',fontWeight:800,color:'#34453E',margin:'18px 0 7px'}}>Número Express que fez a transferência (telefone)</label>
-        <input id="express-phone" type="tel" value={phone} onChange={e=>setPhone(e.target.value)} required placeholder="+244 9XX XXX XXX" style={{width:'100%',boxSizing:'border-box',padding:13,border:'1px solid #C9D8D1',borderRadius:10,fontSize:16}}/>
+        <input id="express-phone" type="tel" inputMode="numeric" value={phone} onChange={e=>setPhone(String(e.target.value||'').replace(/[^0-9]/g,''))} required placeholder="Ex.: 922555333" style={{width:'100%',boxSizing:'border-box',padding:13,border:'1px solid #C9D8D1',borderRadius:10,fontSize:16}}/>
         <label htmlFor="payment-amount" style={{display:'block',fontWeight:800,color:'#34453E',margin:'18px 0 7px'}}>Valor transferido (Kz)</label>
         <input id="payment-amount" type="number" min="1" step="1" value={amount} onChange={e=>setAmount(e.target.value)} required placeholder="Ex.: 50000" style={{width:'100%',boxSizing:'border-box',padding:13,border:'1px solid #C9D8D1',borderRadius:10,fontSize:16}}/>
         <label htmlFor="proof-file" style={{display:'block',fontWeight:800,color:'#34453E',margin:'18px 0 7px'}}>Novo comprovativo (PDF ou imagem)</label>

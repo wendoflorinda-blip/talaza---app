@@ -1088,9 +1088,9 @@ export default function Admin() {
     }
 
     if (approved && String(request.payment_method || '').trim().toLowerCase() === 'express') {
-      const senderPhone = String(request.express_sender_phone || '').replace(/\s+/g, '');
-      if (!/^\+2449\d{8}$/.test(senderPhone)) {
-        alert('Não é possível confirmar este pagamento Express: falta um número de remetente válido (+244 9XX XXX XXX).');
+      const senderPhone = String(request.express_sender_phone || request.express_number || '').replace(/[^0-9]/g, '');
+      if (senderPhone.length < 7 || senderPhone.length > 15) {
+        alert('Não é possível confirmar este pagamento Express: o número do remetente deve ter entre 7 e 15 dígitos.');
         return;
       }
       const { data: planRow, error: planCheckError } = await supabase

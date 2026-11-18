@@ -10,7 +10,6 @@ declare
   v_starts_at timestamptz;
   v_expires_at timestamptz;
   v_subscription_created boolean := false;
-  v_express_phone text;
 begin
   if auth.uid() is null or not exists (select 1 from public.admin_users au where au.id = auth.uid()) then
     raise exception 'Apenas administradores podem aprovar pagamentos e ativar lojas.';
@@ -25,12 +24,6 @@ begin
   if not found or lower(trim(coalesce(v_plan.plan_type,''))) <> 'hospedagem' then raise exception 'O comprovativo não está associado a um plano de Hospedagem válido.'; end if;
   if v_plan.duration_days is null or v_plan.duration_days <= 0 then raise exception 'O plano de hospedagem não tem uma duração válida configurada.'; end if;
   if v_plan.price is not null and v_payment.amount is not null and v_plan.price <> v_payment.amount then raise exception 'O valor do comprovativo não corresponde ao preço do plano.'; end if;
-  v_express_phone := regexp_replace(coalesce(v_payment.express_sender_phone,v_payment.express_number,''),'[[:space:]]','','g');
-  if lower(trim(coalesce(v_payment.payment_method,''))) = 'express'
-     and (length(v_express_phone) <> 13 or left(v_express_phone,4) <> '+244' or substring(v_express_phone,5,1) <> '9') then
-    raise exception 'O número Express do remetente está ausente ou inválido.';
-  end if;
-
   if lower(coalesce(v_payment.status,'')) = 'approved' then
     select * into v_subscription from public.business_subscriptions
     where business_id = v_business.id order by created_at desc limit 1 for update;
