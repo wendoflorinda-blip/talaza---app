@@ -999,7 +999,7 @@ export default function Admin() {
     setSendingNotification(false);
 
     if (error) {
-      alert('Não foi possível enviar a notificação. Tenta de novo.);
+      alert('Não foi possível enviar a notificação. Tenta de novo.');
       return;
     }
 
@@ -1095,7 +1095,7 @@ export default function Admin() {
 
     if (error) {
       setReviewingPostId('');
-      alert('Não foi possível actualizar a publicação. Tenta de novo.);
+      alert('Não foi possível actualizar a publicação. Tenta de novo.');
       return;
     }
 
@@ -1241,7 +1241,7 @@ export default function Admin() {
 
     if (paymentError || !updatedPayment) {
       setReviewingPaymentId('');
-      alert('Não foi possível actualizar o pagamento. Tenta de novo.);
+      alert('Não foi possível actualizar o pagamento. Tenta de novo.');
       return;
     }
 
