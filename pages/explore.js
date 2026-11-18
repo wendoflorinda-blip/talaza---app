@@ -221,6 +221,7 @@ export default function Explore() {
   const [businessError, setBusinessError] = useState('');
   const [selectedArea, setSelectedArea] = useState('');
   const [mainHistoryCount, setMainHistoryCount] = useState(0);
+  const [fullscreenMedia, setFullscreenMedia] = useState(null);
 
   useEffect(() => {
     try { const saved = JSON.parse(localStorage.getItem('talaza_history_main') || '[]'); setMainHistoryCount(Array.isArray(saved) ? saved.length : 0); } catch { setMainHistoryCount(0); }
@@ -663,7 +664,12 @@ export default function Explore() {
                 <div className="premium-post-grid">
                   {premiumPromotions.map((item) => (
                     <article key={item.id} className="premium-post-card">
-                      {item.media_type === 'video' ? <MediaOptions url={item.media_url} isVideo fileName="destaque-premium" storagePath={item.storage_path}><video src={item.media_url} controls playsInline /></MediaOptions> : <MediaOptions url={item.media_url} fileName="destaque-premium"><img src={item.media_url} alt="Publicação Destaque Premium" /></MediaOptions>}
+                      <div className="premium-media-frame">
+                        {item.media_type === 'video'
+                          ? <MediaOptions url={item.media_url} isVideo fileName="destaque-premium" storagePath={item.storage_path}><video src={item.media_url} controls playsInline /></MediaOptions>
+                          : <MediaOptions url={item.media_url} fileName="destaque-premium"><img src={item.media_url} alt="Publicação Destaque Premium" /></MediaOptions>}
+                        <button type="button" className="media-fullscreen-button" aria-label="Ver mídia em ecrã inteiro" title="Ver completo" onClick={() => setFullscreenMedia({ type: item.media_type === 'video' ? 'video' : 'image', src: item.media_url, title: item.description || item.business?.name || 'Publicação Destaque Premium' })}>⛶</button>
+                      </div>
                       <div className="premium-post-body">
                         <span className="premium-post-label">✦ DESTAQUE PREMIUM</span>
                         <h3>{item.business?.name || 'Negócio Talaza'}</h3>
@@ -683,6 +689,13 @@ export default function Explore() {
           )}
         </section>
       </div>
+
+      {fullscreenMedia && <div role="dialog" aria-modal="true" aria-label="Visualizador de mídia" className="media-fullscreen-overlay" onClick={() => setFullscreenMedia(null)}>
+        <button type="button" className="media-fullscreen-close" aria-label="Fechar visualizador" onClick={() => setFullscreenMedia(null)}>×</button>
+        {fullscreenMedia.type === 'video'
+          ? <video src={fullscreenMedia.src} controls autoPlay playsInline onClick={event => event.stopPropagation()} />
+          : <img src={fullscreenMedia.src} alt={fullscreenMedia.title} onClick={event => event.stopPropagation()} />}
+      </div>}
 
       <style jsx>{`
         .history-link { display:inline-flex; border:1px solid #D7E2DC; border-radius:10px; padding:9px 11px; color:#145B49; background:#FFFFFF; font-size:12px; font-weight:800; text-decoration:none; white-space:nowrap; margin:0 0 12px; }
@@ -802,7 +815,11 @@ export default function Explore() {
         .categories-section, .businesses-section { margin-top: 36px; scroll-margin-top: 20px; }
         .premium-post-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:18px; }
         .premium-post-card { overflow:hidden; border:1px solid #E3E8E4; border-radius:18px; background:#fff; box-shadow:0 10px 28px rgba(24,39,34,.07); }
-        .premium-post-card :global(.talazaMediaOptions){position:relative;display:block;width:100%;aspect-ratio:1/1}.premium-post-card :global(.talazaMediaOptions > img),.premium-post-card :global(.talazaMediaOptions > video){display:block;width:100%;height:100%;object-fit:cover;background:#111}.premium-post-card > img,.premium-post-card > video { display:block; width:100%; aspect-ratio:1/1; object-fit:cover; background:#111; }
+        .premium-media-frame { position:relative; width:100%; aspect-ratio:1/1; overflow:hidden; background:transparent; }.premium-post-card :global(.talazaMediaOptions){position:relative;display:block;width:100%;height:100%;aspect-ratio:1/1}.premium-post-card :global(.talazaMediaOptions > img),.premium-post-card :global(.talazaMediaOptions > video){display:block;width:100%;height:100%;object-fit:cover;background:transparent}.premium-post-card > img,.premium-post-card > video { display:block; width:100%; aspect-ratio:1/1; object-fit:cover; background:transparent; }
+         .media-fullscreen-button { position:absolute; top:10px; right:10px; z-index:5; display:grid; place-items:center; width:32px; height:32px; padding:0; border:0; border-radius:50%; color:#fff; background:rgba(0,0,0,.4); backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px); font-size:22px; line-height:1; cursor:pointer; }
+         .media-fullscreen-overlay { position:fixed; inset:0; z-index:10000; width:100vw; height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:rgba(0,0,0,.95); }
+         .media-fullscreen-overlay img,.media-fullscreen-overlay video { display:block; max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; }
+         .media-fullscreen-close { position:absolute; top:16px; right:18px; z-index:2; width:42px; height:42px; border:0; border-radius:50%; background:rgba(0,0,0,.45); color:#fff; font-size:32px; line-height:1; cursor:pointer; }
         .premium-post-body { padding:15px; } .premium-post-label { color:#9A7100; font-size:10px; font-weight:900; letter-spacing:1px; }
         .premium-post-body h3 { margin:8px 0 5px; font-size:16px; } .premium-post-body p { color:#66736F; font-size:13px; line-height:1.55; }
         .premium-post-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }
