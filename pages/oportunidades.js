@@ -798,6 +798,8 @@ export default function Oportunidades() {
                               source: 'Oportunidades',
                               sourceId: opportunity.id,
                               box: 'explore',
+                              publisherMode: opportunity.publisher_mode === 'store' ? 'store' : 'explorer',
+                              publisherBusinessId: opportunity.publisher_mode === 'store' ? (opportunity.publisher_business_id || '') : '',
                               initialMessage: `Olá, vi a sua vaga ${opportunity.title || opportunity.profession || 'oportunidade'} em ${provinceName || ''} e gostaria de saber mais. `
                             }).toString()}`} style={{...styles.messageButton,background:'#0F6E5C',color:'#FFFFFF',border:'1px solid #0F6E5C'}}>Enviar mensagem</Link>
                           </div>
