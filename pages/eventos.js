@@ -681,6 +681,7 @@ export default function Eventos() {
                     <p style={styles.eventDescription}>{expandedDescriptions[item.id] || String(item.description || '').length <= 260 ? item.description : String(item.description || '').slice(0, 260).trimEnd() + '…'}</p>
                     {String(item.description || '').length > 260 && <button type="button" onClick={event => { event.stopPropagation(); setExpandedDescriptions(previous => ({ ...previous, [item.id]: !previous[item.id] })); }} style={styles.readMoreButton}>{expandedDescriptions[item.id] ? 'Ler menos' : 'Ler mais'}</button>}
                     <div style={styles.startDate}><strong>📅 Data de início</strong><span>{item.starts_at ? new Date(item.starts_at).toLocaleString('pt-AO', { dateStyle: 'full', timeStyle: 'short' }) : 'Data de início não indicada pelo organizador'}</span></div>
+                    <div style={styles.eventPrice}><strong>💰 Preço</strong><span>Não indicado pelo organizador</span></div>
                     <div style={styles.eventActions}>
                       <button type="button" disabled={interactionBusy === 'like:' + item.id} onClick={() => toggleLike(item.id)} style={{ ...styles.actionButton, ...(likedByMe[item.id] ? styles.likedButton : {}) }}>
                         {likedByMe[item.id] ? '♥ Gostaste' : '♡ Gostar'} · {likesByEvent[item.id] || 0}
@@ -833,6 +834,7 @@ const styles = {
   startDate: { display: 'flex', flexDirection: 'column', gap: 5, padding: '12px 14px', borderRadius: 10, margin: '12px 0', background: '#F7F5EF', border: '1px solid #E9E3D4', color: '#5C4B2D', fontSize: 14, lineHeight: 1.5 },
   eventCategoryBadge: { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '6px 10px', fontSize: 11, fontWeight: 900 },
   eventLocation: { color: '#687772', fontSize: 12 },
+  eventPrice: { display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, margin: '8px 0 12px', color: '#596560', fontSize: 13 },
   eventTitle: { margin: '6px 0 8px', fontSize: 22, color: '#12332D' },
   eventDescription: { whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: '8px 0 6px', color: '#344C45' },
   readMoreButton: { border: 0, padding: '4px 0', marginBottom: 10, background: 'transparent', color: '#176B57', fontWeight: 850, cursor: 'pointer' },
