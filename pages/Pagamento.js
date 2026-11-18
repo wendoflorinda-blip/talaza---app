@@ -325,7 +325,7 @@ export default function Pagamento() {
       .select('id, plan_id, status, created_at')
       .order('created_at', { ascending: false })
       .limit(1);
-    pendingQuery = eventId ? pendingQuery.eq('event_id', eventId) : premiumPromotionId ? pendingQuery.eq('premium_promotion_id', premiumPromotionId) : businessId ? pendingQuery.eq('business_id', businessResult.data.id) : isOpportunitySubscription ? pendingQuery.eq('user_id', session.user.id).is('business_id', null).is('event_id', null).is('job_post_id', null).is('premium_promotion_id', null).eq('plan_id', planId) : pendingQuery.eq('business_id', businessResult.data.id);
+    pendingQuery = eventId ? pendingQuery.eq('event_id', eventId) : premiumPromotionId ? pendingQuery.eq('premium_promotion_id', premiumPromotionId) : businessId ? pendingQuery.eq('business_id', businessResult.data.id) : isOpportunitySubscription ? pendingQuery.eq('user_id', session.user.id).is('business_id', null).is('event_id', null).is('job_post_id', null).is('premium_promotion_id', null).eq('plan_id', planId).eq('country_id', countryId).eq('province_id', provinceId) : pendingQuery.eq('business_id', businessResult.data.id);
     const { data: pendingPayment, error: pendingPaymentError } = await pendingQuery.maybeSingle();
     if (pendingPaymentError) console.error('Erro ao verificar comprovativo já enviado:', pendingPaymentError);
     if (pendingPayment?.id) {
