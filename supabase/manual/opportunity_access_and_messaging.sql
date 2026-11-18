@@ -13,7 +13,8 @@ if v_payment.user_id is null or v_payment.plan_id is null then raise exception '
 select * into v_plan from public.plans where id=v_payment.plan_id;
 if not found or v_plan.is_active is distinct from true or (lower(trim(coalesce(v_plan.plan_type,'')))<>'opportunities' and lower(trim(coalesce(v_plan.area,'')))<>'oportunidades') or coalesce(v_plan.duration_days,0)<=0 or (v_plan.price is not null and v_payment.amount is not null and v_plan.price<>v_payment.amount) then raise exception 'O plano, preço ou duração não são válidos para acesso às Oportunidades.'; end if;
 select * into v_profile from public.profiles where id=v_payment.user_id;
-v_country_id:=coalesce(v_payment.country_id,v_profile.country_id); v_province_id:=coalesce(v_payment.province_id,v_profile.province_id);
+-- A região de acesso vem obrigatoriamente do destino escolhido no pagamento.
+v_country_id:=v_payment.country_id; v_province_id:=v_payment.province_id;
 if v_country_id is null or v_province_id is null then raise exception 'O pagamento não contém o país e a província escolhidos.'; end if;
 select * into v_subscription from public.user_plan_subscriptions where user_id=v_payment.user_id and plan_id=v_payment.plan_id and country_id is not distinct from v_country_id and province_id is not distinct from v_province_id order by created_at desc limit 1 for update;
 if found then

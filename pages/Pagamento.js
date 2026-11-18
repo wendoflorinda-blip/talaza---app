@@ -406,6 +406,11 @@ export default function Pagamento() {
       return;
     }
 
+    if (isOpportunitySubscription && (!countryId || !provinceId)) {
+      setError('Escolhe o país e a província onde queres desbloquear as Oportunidades antes de enviar o pagamento.');
+      return;
+    }
+
     if (!user?.id || (!business?.id && !eventRecord?.id && !premiumPromotion?.id && !isOpportunitySubscription) || !plan?.id) {
       setError('A sessão ou os dados do pagamento expiraram. Atualize a página e tente novamente.');
       return;

@@ -104,6 +104,8 @@ export default function Oportunidades() {
   const [publisherNames, setPublisherNames] = useState({});
   const [publisherDetails, setPublisherDetails] = useState({});
   const [subscriptionLocations, setSubscriptionLocations] = useState([]);
+  const [availableLocations, setAvailableLocations] = useState([]);
+  const [purchaseLocation, setPurchaseLocation] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -126,6 +128,29 @@ export default function Oportunidades() {
     } = await supabase.auth.getUser();
 
     setUser(currentUser || null);
+
+    const [{ data: profileLocation }, { data: allProvinceRows }, { data: allCountryRows }] = await Promise.all([
+      currentUser
+        ? supabase.from('profiles').select('country_id,province_id').eq('id', currentUser.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase.from('provinces').select('id,name,country_id').order('name'),
+      supabase.from('countries').select('id,name').order('name')
+    ]);
+    const allLocations = (allProvinceRows || []).map(item => {
+      const matchingCountry = (allCountryRows || []).find(countryRow => String(countryRow.id) === String(item.country_id));
+      return {
+        province_id: String(item.id),
+        country_id: String(item.country_id),
+        province_name: String(item.name || '').trim() || 'Província',
+        country_name: matchingCountry?.name || 'País'
+      };
+    }).filter(item => item.country_id && item.province_id);
+    setAvailableLocations(allLocations);
+    const preferredLocation = allLocations.find(item =>
+      String(item.province_id) === String(province || profileLocation?.province_id || '') &&
+      (!country && !profileLocation?.country_id || String(item.country_id) === String(country || profileLocation?.country_id || ''))
+    ) || allLocations[0];
+    setPurchaseLocation(preferredLocation ? preferredLocation.country_id + ':' + preferredLocation.province_id : '');
 
     if (!currentUser) {
       setHasAccess(false);
@@ -336,10 +361,22 @@ export default function Oportunidades() {
     router.push({pathname:'/oportunidades',query:{country:selected.country_id,province:selected.province_id}});
   }
 
+  function handlePurchaseLocationChange(event) {
+    setPurchaseLocation(event.target.value);
+    setError('');
+  }
+
   function goToPlan() {
+    const selected = availableLocations.find(item =>
+      item.country_id + ':' + item.province_id === purchaseLocation
+    );
+    if (!selected) {
+      setError('Escolhe primeiro o país e a província onde queres desbloquear as Oportunidades.');
+      return;
+    }
     const query = new URLSearchParams();
-    if (country) query.set('country', String(country));
-    if (province) query.set('province', String(province));
+    query.set('country', selected.country_id);
+    query.set('province', selected.province_id);
     router.push('/planos-oportunidades?' + query.toString());
   }
   const exploreUrl = `/explore?country=${encodeURIComponent(
@@ -429,6 +466,14 @@ export default function Oportunidades() {
                 província. Desbloqueie o acesso para acompanhar novas vagas
                 e descobrir oportunidades que podem combinar consigo.
               </p>
+
+              <label style={{display:'grid',gap:8,margin:'18px 0',fontSize:13,fontWeight:800,color:COLORS.ink}}>
+                Escolhe a província onde queres desbloquear as Oportunidades
+                <select value={purchaseLocation} onChange={handlePurchaseLocationChange} style={{width:'100%',padding:13,borderRadius:12,border:'1px solid '+COLORS.line,background:'#fff',color:COLORS.ink,fontSize:15,fontWeight:700}}>
+                  <option value="">Seleciona país e província</option>
+                  {availableLocations.map(item=><option key={item.country_id+':'+item.province_id} value={item.country_id+':'+item.province_id}>{item.province_name} · {item.country_name}</option>)}
+                </select>
+              </label>
 
               <div style={styles.planPreview}>
                 <div style={styles.planIcon}>
@@ -531,6 +576,18 @@ export default function Oportunidades() {
                   </select>
                 </label>
               )}
+            </section>
+
+            <section style={{background:'#FFFFFF',border:'1px solid '+COLORS.line,borderRadius:16,padding:16,marginBottom:18}}>
+              <strong style={{display:'block',fontSize:14,color:COLORS.ink,marginBottom:10}}>Desbloquear acesso a outra província</strong>
+              <label style={{display:'grid',gap:8,fontSize:12,fontWeight:800,color:COLORS.ink}}>
+                Escolhe onde queres ter acesso
+                <select value={purchaseLocation} onChange={handlePurchaseLocationChange} style={{width:'100%',padding:12,borderRadius:10,border:'1px solid '+COLORS.line,background:'#fff',color:COLORS.ink,fontWeight:700}}>
+                  <option value="">Seleciona país e província</option>
+                  {availableLocations.map(item=><option key={item.country_id+':'+item.province_id} value={item.country_id+':'+item.province_id}>{item.province_name} · {item.country_name}</option>)}
+                </select>
+              </label>
+              <button type="button" onClick={goToPlan} style={{...styles.unlockButton,width:'100%',marginTop:12}}>Desbloquear outra província</button>
             </section>
 
             {loading && (
