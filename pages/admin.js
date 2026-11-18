@@ -46,6 +46,7 @@ export default function Admin() {
   const [paymentHistoryById, setPaymentHistoryById] = useState({});
   const [opportunityAccessLoadError, setOpportunityAccessLoadError] = useState('');
   const [opportunityAccessPlanIds, setOpportunityAccessPlanIds] = useState([]);
+  const [opportunityAccessByPayment, setOpportunityAccessByPayment] = useState({});
   const [girassolReactivations, setGirassolReactivations] = useState([]);
   const [girassolProofUrls, setGirassolProofUrls] = useState({});
   const [reviewingGirassolId, setReviewingGirassolId] = useState('');
@@ -361,6 +362,40 @@ export default function Admin() {
         opportunityPlanIdSet.has(String(item.plan_id || '')))
     );
     setSubscriptionRequests(requests);
+
+    // Mostra separadamente a situação real do acesso associado a cada pagamento.
+    const accessRequests = requests.filter(item => opportunityPlanIdSet.has(String(item.plan_id || '')));
+    const accessUserIds = [...new Set(accessRequests.map(item => item.user_id).filter(Boolean))];
+    const accessProvinceIds = [...new Set(accessRequests.map(item => item.province_id).filter(Boolean))];
+    const accessCountryIds = [...new Set(accessRequests.map(item => item.country_id).filter(Boolean))];
+    let accessRows = [];
+    if (accessUserIds.length && accessProvinceIds.length && accessCountryIds.length) {
+      const { data: subscriptions, error: accessError } = await supabase
+        .from('user_plan_subscriptions')
+        .select('id,user_id,plan_id,country_id,province_id,status,starts_at,expires_at')
+        .in('user_id', accessUserIds)
+        .in('province_id', accessProvinceIds)
+        .in('country_id', accessCountryIds)
+        .in('plan_id', [...opportunityPlanIdSet]);
+      if (accessError) {
+        console.error('Não foi possível carregar o estado dos acessos de Oportunidades:', accessError);
+      } else {
+        accessRows = subscriptions || [];
+      }
+    }
+    const accessMap = {};
+    accessRequests.forEach(payment => {
+      const match = accessRows
+        .filter(row => row.user_id === payment.user_id && row.plan_id === payment.plan_id &&
+          row.country_id === payment.country_id && row.province_id === payment.province_id)
+        .sort((a,b) => new Date(b.expires_at || 0) - new Date(a.expires_at || 0))[0];
+      const active = Boolean(match && String(match.status || '').trim().toLowerCase() === 'active' &&
+        match.starts_at && new Date(match.starts_at).getTime() <= Date.now() &&
+        match.expires_at && new Date(match.expires_at).getTime() > Date.now());
+      accessMap[payment.id] = { active, subscription: match || null };
+    });
+    setOpportunityAccessByPayment(accessMap);
+
     const historyResult = requests.length
       ? await supabase.from('payment_submission_history').select('*').eq('source_type','commercial')
           .in('submission_id',requests.map(item=>item.id)).order('created_at',{ascending:true})
@@ -2177,6 +2212,16 @@ export default function Admin() {
                       <div style={{ flex:1, minWidth:0 }}>
                         <h3 style={styles.businessName}>{profile?.name || 'Explorador / Criador Talaza'}</h3>
                         <div style={styles.meta}>Área: Acesso às Oportunidades · Plano: {planNames[request.plan_id] || 'Plano de Oportunidades'}</div>
+                        <div style={{ ...styles.meta, color: String(request.status || '').toLowerCase() === 'approved' ? '#167044' : '#A12626', fontWeight: 800 }}>
+                          Pagamento: {String(request.status || '').toLowerCase() === 'approved' ? 'Aprovado' : 'Pendente'}
+                        </div>
+                        {(() => {
+                          const access = opportunityAccessByPayment[request.id];
+                          const expiry = access?.subscription?.expires_at;
+                          return <div style={{ ...styles.meta, color: access?.active ? '#167044' : '#A12626', fontWeight: 800 }}>
+                            Acesso: {access?.active ? 'Ativo até ' + new Date(expiry).toLocaleDateString('pt-AO') : 'Inativo'}
+                          </div>;
+                        })()}
                       </div>
                       <span style={pending ? styles.pending : styles.paymentStatus}>{request.status || 'Sem estado'}</span>
                     </div>
