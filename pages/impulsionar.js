@@ -108,7 +108,7 @@ export default function Impulsionar() {
     setPendingRequest(lockedForVerification ? pendingData : null);
     const { data, error: plansError } = await supabase.from('plans').select('*').eq('is_active',true).order('created_at',{ascending:true});
     if (plansError) {
-      console.error(plansError); setError('Não foi possível carregar os planos. Verifique as permissões da tabela plans.'); setLoading(false); return;
+      console.error(plansError); setError('Não foi possível carregar os planos. Tenta de novo.'); setLoading(false); return;
     }
     setPlans(data || []); setLoading(false);
   }
