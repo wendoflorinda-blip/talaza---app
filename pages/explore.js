@@ -195,11 +195,16 @@ export default function Explore() {
 
   useEffect(() => {
     if (!router.isReady) return;
-    const saved = getTalazaLocation();
-    setActiveLocation({
-      country: saved.country || '', countryId: saved.countryId || '',
-      province: saved.province || '', provinceId: saved.provinceId || '',
-    });
+    const restoreLocation = () => {
+      const saved = getTalazaLocation();
+      setActiveLocation({
+        country: saved.country || '', countryId: saved.countryId || '',
+        province: saved.province || '', provinceId: saved.provinceId || '',
+      });
+    };
+    restoreLocation();
+    window.addEventListener('talaza:location-change', restoreLocation);
+    return () => window.removeEventListener('talaza:location-change', restoreLocation);
   }, [router.isReady]);
 
   const [countryName, setCountryName] = useState('');
