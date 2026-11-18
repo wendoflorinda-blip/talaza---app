@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
+import { getTalazaSessionLocation, setTalazaLocation } from '../lib/talazaLocation';
 
 const COLORS = {
   canvas: '#F8F6F3',
@@ -91,9 +92,44 @@ function Icon({ type, size = 22, color = COLORS.purple }) {
 export default function Oportunidades() {
   const router = useRouter();
 
-  const queryValue = (value) => Array.isArray(value) ? value[0] : value;
-  const country = String(queryValue(router.query.country) || '').trim();
-  const province = String(queryValue(router.query.province) || '').trim();
+  const [activeLocation, setActiveLocation] = useState({ country: '', countryId: '', province: '', provinceId: '' });
+  const country = String(activeLocation.countryId || '').trim();
+  const province = String(activeLocation.provinceId || '').trim();
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    let cancelled = false;
+    const resolveLocation = async () => {
+      const sessionLocation = getTalazaSessionLocation();
+      if (sessionLocation.countryId && sessionLocation.provinceId) {
+        setActiveLocation(sessionLocation);
+        return;
+      }
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser || cancelled) return;
+      const { data: profile } = await supabase.from('profiles')
+        .select('country_id,province_id').eq('id', currentUser.id).maybeSingle();
+      if (cancelled) return;
+      if (profile?.country_id && profile?.province_id) {
+        const [{ data: countryRow }, { data: provinceRow }] = await Promise.all([
+          supabase.from('countries').select('id,name').eq('id', profile.country_id).maybeSingle(),
+          supabase.from('provinces').select('id,name,country_id').eq('id', profile.province_id).eq('country_id', profile.country_id).maybeSingle(),
+        ]);
+        const value = { country: countryRow?.name || '', countryId: profile.country_id, province: provinceRow?.name || '', provinceId: provinceRow?.id || profile.province_id };
+        setTalazaLocation(value);
+        setActiveLocation(value);
+      } else {
+        setActiveLocation({ country: '', countryId: '', province: '', provinceId: '' });
+      }
+    };
+    resolveLocation();
+    const onLocationChange = () => {
+      const selected = getTalazaSessionLocation();
+      setActiveLocation(selected);
+    };
+    window.addEventListener('talaza:location-change', onLocationChange);
+    return () => { cancelled = true; window.removeEventListener('talaza:location-change', onLocationChange); };
+  }, [router.isReady]);
 
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
