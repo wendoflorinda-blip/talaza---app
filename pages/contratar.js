@@ -101,6 +101,7 @@ export default function Contratar() {
 
   const [user, setUser] = useState(null);
   const [publisherBusinesses, setPublisherBusinesses] = useState([]);
+  const [publisherPersonName, setPublisherPersonName] = useState('Explorador');
   const [publisherMode, setPublisherMode] = useState('explorer');
   const [publisherBusinessId, setPublisherBusinessId] = useState('');
 
@@ -159,11 +160,13 @@ export default function Contratar() {
 
     setUser(currentUser || null);
     if (currentUser) {
+      const { data: personProfile } = await supabase.from('profiles').select('name').eq('id', currentUser.id).maybeSingle();
+      setPublisherPersonName(personProfile?.name || 'Explorador');
       const { data: businesses, error: businessesError } = await supabase.from('businesses')
         .select('id,name,logo_url').eq('owner_id', currentUser.id).order('created_at', { ascending: true });
       if (businessesError) { console.warn('Não foi possível carregar os negócios associados à conta:', businessesError); setPublisherBusinesses([]); }
       else setPublisherBusinesses(businesses || []);
-    } else setPublisherBusinesses([]);
+    } else { setPublisherBusinesses([]); setPublisherPersonName('Explorador'); }
     setPublisherBusinessId('');
     setPublisherMode('explorer');
     setLoadingUser(false);
@@ -303,6 +306,10 @@ export default function Contratar() {
 
     if (![7, 15, 30].includes(Number(durationDays))) {
       setError('Selecione a duração da publicação: 7, 15 ou 30 dias.');
+      return;
+    }
+    if (publisherMode === 'store' && (!publisherBusinessId || !publisherBusinesses.some(item => item.id === publisherBusinessId))) {
+      setError('Escolhe a loja que vai publicar esta oportunidade.');
       return;
     }
 
@@ -813,11 +820,11 @@ function OpportunityForm({
         <strong style={{display:'block',marginBottom:9,color:COLORS.brandDark}}>Publicar como:</strong>
         <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:9}}>
           <input type="radio" name="opportunity-publisher" checked={publisherMode==='explorer'} onChange={()=>{setPublisherMode('explorer');setPublisherBusinessId('');}} />
-          Explorador — perfil pessoal
+          Explorador — {publisherPersonName}
         </label>
         <label style={{display:'flex',alignItems:'center',gap:8}}>
           <input type="radio" name="opportunity-publisher" checked={publisherMode==='store'} onChange={()=>{setPublisherMode('store');if(publisherBusinesses.length===1)setPublisherBusinessId(publisherBusinesses[0].id);}} />
-          Loja
+          Loja — {publisherBusinesses.length === 1 ? publisherBusinesses[0].name : (publisherBusinesses.find(item => item.id === publisherBusinessId)?.name || 'escolher loja')}
         </label>
         {publisherMode==='store' && <select value={publisherBusinessId} onChange={e=>setPublisherBusinessId(e.target.value)} required style={{...styles.input,marginTop:9}}>
           <option value="">Escolhe a loja</option>
