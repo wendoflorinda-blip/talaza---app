@@ -173,10 +173,23 @@ export default function Eventos() {
 
         // Prioridade de localização: contexto global, localStorage e, por último, query.
         const savedLocation = getTalazaSessionLocation();
-        const countryCandidate = String(firstValue(
+        let countryCandidate = String(firstValue(
           savedLocation.countryId, savedLocation.country,
           normalizeParam(router.query.country_id), normalizeParam(router.query.country)
         ) || '').trim();
+
+        // Se não há escolha nesta sessão nem localização na rota, recorrer
+        // ao perfil autenticado. Nunca inventar uma província nem usar cache antigo.
+        if ((!countryCandidate || !provinceCandidate) && currentUser) {
+          const { data: profile } = await supabase.from('profiles')
+            .select('country_id,province_id')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+          if (profile?.country_id && profile?.province_id) {
+            countryCandidate = profile.country_id;
+            provinceCandidate = profile.province_id;
+          }
+        }
 
         let resolvedCountry = '';
         if (countryCandidate) {
@@ -188,7 +201,7 @@ export default function Eventos() {
           resolvedCountry = countryRow?.id || '';
         }
 
-        const provinceCandidate = String(firstValue(
+        let provinceCandidate = String(firstValue(
           savedLocation.provinceId, savedLocation.province,
           normalizeParam(router.query.province_id), normalizeParam(router.query.province)
         ) || '').trim();
