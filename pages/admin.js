@@ -1160,12 +1160,15 @@ export default function Admin() {
     }
     if (!approved) rejectionReason = String(rejectionReasonOverride || '').trim();
     if (reviewingPaymentId) return;
-    if (approved && !['pending','submitted'].includes(String(request.status || '').toLowerCase())) {
-      alert('Este pagamento já foi analisado. Não é permitido acrescentar novamente os dias deste pagamento.');
+    const requestStatus = String(request.status || '').trim().toLowerCase();
+    const alreadyHasAccessGrant = (paymentHistoryById[request.id] || []).some(row => row.action === 'opportunity_access_activated');
+    const isOneTimeApprovedPaymentRecovery = isOpportunityAccessRequest && requestStatus === 'approved' && !alreadyHasAccessGrant;
+    if (approved && !['pending','submitted'].includes(requestStatus) && !isOneTimeApprovedPaymentRecovery) {
+      alert('Este pagamento já foi analisado, é duplicado ou já foi usado para ativar um período. Não será concedido acesso novamente.');
       return;
     }
 
-    if (approved && String(request.payment_method || '').trim().toLowerCase() === 'express') {
+    if (approved && !isOneTimeApprovedPaymentRecovery && String(request.payment_method || '').trim().toLowerCase() === 'express') {
       const senderPhone = String(request.express_sender_phone || request.express_number || '').replace(/[^0-9]/g, '');
       if (senderPhone.length < 7 || senderPhone.length > 15) {
         alert('Não é possível confirmar este pagamento Express: o número do remetente deve ter entre 7 e 15 dígitos.');
@@ -1527,7 +1530,7 @@ export default function Admin() {
               ['trocas-email', 'Trocas de e-mail pendentes', emailChangeRequests.filter(item => item.status === 'Pendente - Por confirmar').length],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
               ['reenvios', 'Reenvios', resubmissions.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
-              ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => opportunityAccessPlanIds.includes(String(item.plan_id || '')) && String(item.status || '').trim().toLowerCase() === 'pending').length],
+              ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => opportunityAccessPlanIds.includes(String(item.plan_id || '')) && (['pending','submitted'].includes(String(item.status || '').trim().toLowerCase()) || (String(item.status || '').trim().toLowerCase() === 'approved' && !(paymentHistoryById[item.id] || []).some(row => row.action === 'opportunity_access_activated') && !opportunityAccessByPayment[item.id]?.active))).length],
               ['girassol', 'Reactivação Girassol', girassolReactivations.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['destaques-premium', 'Destaques Premium', subscriptionRequests.filter(item => item.premium_promotion_id && String(item.status || '').toLowerCase() === 'pending').length],
               ['eventos', 'Eventos', events.filter(item => String(item.status || '').toLowerCase() === 'pending_payment').length],
@@ -2147,7 +2150,9 @@ export default function Admin() {
           ) : (
             <div style={styles.list}>
               {subscriptionRequests.filter(item => opportunityAccessPlanIds.includes(String(item.plan_id || ''))).map(request => {
-                const pending = String(request.status || '').toLowerCase() === 'pending';
+                const pending = ['pending','submitted'].includes(String(request.status || '').toLowerCase());
+                const alreadyGranted = (paymentHistoryById[request.id] || []).some(row => row.action === 'opportunity_access_activated');
+                const canRecoverApprovedPayment = String(request.status || '').trim().toLowerCase() === 'approved' && !alreadyGranted && !opportunityAccessByPayment[request.id]?.active;
                 const paths = getPaymentProofPaths(request);
                 const imageUrl = paymentProofUrls[request.id + ':image'];
                 const profile = profiles.find(item => item.id === request.user_id);
@@ -2182,9 +2187,9 @@ export default function Admin() {
                       {!paths.image && !paths.file && <p style={{ color:'#9B3A28' }}>Este pedido não contém comprovativo legível.</p>}
                       {paths.image && !imageUrl && <p style={{ color:'#9B3A28' }}>Não foi possível abrir o comprovativo. Verifique o bucket payment-proofs.</p>}
                     </div>
-                    {pending && <div style={styles.actions}>
-                      <button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity:reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>
-                      <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity:reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Aprovar e ativar acesso'}</button>
+                    {(pending || canRecoverApprovedPayment) && <div style={styles.actions}>
+                      {pending && <button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity:reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>}
+                      <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity:reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : canRecoverApprovedPayment ? 'Ativar acesso com pagamento original aprovado' : 'Aprovar e ativar acesso'}</button>
                     </div>}
                   </article>
                 );
