@@ -325,12 +325,12 @@ export default function Perfil() {
         primaryProvinceId = primaryProvinceId || localStorage.getItem('talaza_home_province_id') || localStorage.getItem('talaza_province_id') || '';
       } catch {}
       if (!profile && (!countryId || !primaryProvinceId)) {
-        throw new Error('A fotografia foi carregada, mas a sua conta ainda não tem um perfil pessoal completo. Volte a entrar na Talaza e confirme o país e a província principal antes de tentar novamente.');
+        throw new Error('Não foi possível actualizar a fotografia porque faltam dados do perfil. Inicia sessão novamente e tenta de novo.');
       }
       if (countryId) updates.country_id = countryId;
       if (primaryProvinceId) updates.province_id = primaryProvinceId;
       const { data: savedProfile, error: profileUpdateError } = await supabase.from('profiles').upsert(updates,{onConflict:'id'}).select('*').single();
-      if (profileUpdateError) throw new Error('Não foi possível guardar a fotografia no perfil. Tenta de novo.);
+      if (profileUpdateError) throw new Error('Não foi possível guardar a fotografia no perfil. Tenta de novo.');
       if (!savedProfile) throw new Error('Não foi possível guardar a fotografia no perfil. Tenta de novo.');
       const { error: metadataError } = await supabase.auth.updateUser({ data:{ ...(user.user_metadata || {}), avatar_url:url } });
       if (metadataError) console.warn('A fotografia foi guardada no perfil, mas os metadados de autenticação não foram atualizados:',metadataError);
@@ -349,9 +349,9 @@ export default function Perfil() {
       if (visibilityError) {
         const message = String(visibilityError.message || '');
         if (/show_email|column/i.test(message)) throw new Error('Não foi possível actualizar esta preferência. Tenta de novo.');
-        throw new Error('Não foi possível guardar a preferência de e-mail: ' + message);
+        throw new Error('Não foi possível guardar a preferência de e-mail. Tenta de novo.');
       }
-      if (!data) throw new Error('A preferência não foi guardada porque não foi encontrada a sua linha em profiles. Confirme se profiles.id corresponde ao ID da sua conta.');
+      if (!data) throw new Error('Não foi possível guardar a preferência de e-mail. Tenta de novo.');
       setShowEmail(data.show_email === true);
       setProfile(current => current ? {...current,show_email:data.show_email === true} : current);
       setNotice(data.show_email ? 'O seu e-mail ficará visível no perfil pessoal público.' : 'O seu e-mail ficará oculto no perfil pessoal público.');
