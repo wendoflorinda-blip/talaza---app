@@ -654,7 +654,7 @@ export default function Seller() {
       setNotice('As alterações do negócio foram guardadas.');
     } catch (saveError) {
       console.error(saveError);
-      setError('Não foi possível guardar as alterações. Tenta de novo.);
+      setError('Não foi possível guardar as alterações. Tenta de novo.');
     } finally {
       setSaving(false);
     }
