@@ -46,6 +46,7 @@ export default function Mensagens() {
   const [recording,setRecording] = useState(false);
   const [recordingSupported,setRecordingSupported] = useState(false);
   const fileRef = useRef(null);
+  const imageFileRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
   const endRef = useRef(null);
@@ -643,8 +644,10 @@ export default function Mensagens() {
     </section>
     {activeId && selectedFile && <div style={S.filePreview}>📎 {selectedFile.name} <button type="button" onClick={()=>setSelectedFile(null)} style={S.removeFile}>Remover</button></div>}
     {activeId && !activeBusinessInactive && <form style={S.composer} onSubmit={sendMessage}>
-      <input ref={fileRef} type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={event=>{setSelectedFile(event.target.files?.[0] || null);if(event.target.files?.[0])setNotice('Ficheiro selecionado. Toque em Enviar para o partilhar.');event.target.value='';}} hidden />
+      <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar" onChange={event=>{setSelectedFile(event.target.files?.[0] || null);if(event.target.files?.[0])setNotice('Ficheiro selecionado. Toque em Enviar para o partilhar.');event.target.value='';}} hidden />
+      <input ref={imageFileRef} type="file" accept="image/*" onChange={event=>{setSelectedFile(event.target.files?.[0] || null);if(event.target.files?.[0])setNotice('Imagem selecionada. Toque em Enviar para a partilhar.');event.target.value='';}} hidden />
       <button type="button" onClick={()=>fileRef.current?.click()} style={S.toolButton} title="Anexar ficheiro" aria-label="Anexar ficheiro">＋</button>
+      <button type="button" onClick={()=>imageFileRef.current?.click()} style={S.toolButton} title="Anexar imagem" aria-label="Anexar imagem">▧</button>
       <button type="button" onClick={toggleRecording} style={{...S.toolButton,color:recording?'#C62828':C.purple,background:recording?'#FFF0F0':'#F8F6FB'}} title={recording?'Terminar gravação':recordingSupported?'Gravar áudio':'Gravação indisponível; pode anexar áudio no botão +'} aria-label={recording?'Terminar gravação':'Gravar áudio'}>{recording?'■':'🎙'}</button>
       <textarea ref={messageInputRef} value={message} onChange={event=>setMessage(event.target.value)} placeholder={activeId?'Escreva uma mensagem…':'Escolha uma conversa para escrever…'} rows={1} maxLength={5000} style={S.input} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage(event);}}}/>
       <button type="submit" style={{...S.send,opacity:(message.trim()||selectedFile)&&activeId&&!sending?1:.5}} disabled={(!message.trim()&&!selectedFile)||!activeId||sending} aria-label="Enviar mensagem">{sending?'…':'➤'}</button>
