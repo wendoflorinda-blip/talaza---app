@@ -101,7 +101,7 @@ export default function Mensagens() {
       // O source_id é a referência principal do negócio. Não exigir source ===
       // 'Vitrine' evita que conversas antigas/gravadas com outra etiqueta caiam
       // por engano na caixa pessoal quando pertencem a uma loja do utilizador.
-      const belongsToMyStore = Boolean(row.source_id) && ownedIds.has(String(row.source_id));
+      const belongsToMyStore = (Boolean(row.publisher_business_id) && ownedIds.has(String(row.publisher_business_id))) || (Boolean(row.source_id) && ownedIds.has(String(row.source_id)));
       return box === 'store' ? belongsToMyStore : !belongsToMyStore;
     });
     const { data: participants, error: participantsError } = await supabase
@@ -118,8 +118,8 @@ export default function Mensagens() {
     // Em conversas iniciadas a partir da Vitrine, source_id identifica o negócio.
     // Usamos a identidade pública da loja sem alterar a identidade pessoal da conta.
     const businessIds = [...new Set((rows || [])
-      .filter(row => row.source === 'Vitrine' && row.source_id)
-      .map(row => String(row.source_id)))];
+      .flatMap(row => [row.publisher_business_id, row.source === 'Vitrine' ? row.source_id : null])
+      .filter(Boolean).map(String))];
     let sourceBusinesses = [];
     let sourceSubcategories = [];
     let sourceCategories = [];
@@ -150,9 +150,11 @@ export default function Mensagens() {
       const lastReadAt = storedReadMap[row.id];
       const isUnread = Boolean(last && last.sender_id !== currentUser.id && (!lastReadAt || new Date(last.created_at).getTime() > new Date(lastReadAt).getTime()));
       const peerProfile = profiles.find(p => p.id === peer?.user_id);
-      const sourceBusiness = row.source === 'Vitrine'
-        ? sourceBusinesses.find(b => String(b.id) === String(row.source_id) && String(b.owner_id) === String(peer?.user_id))
-        : null;
+      const sourceBusiness = row.publisher_business_id
+        ? sourceBusinesses.find(b => String(b.id) === String(row.publisher_business_id) && String(b.owner_id) === String(peer?.user_id))
+        : row.source === 'Vitrine'
+          ? sourceBusinesses.find(b => String(b.id) === String(row.source_id) && String(b.owner_id) === String(peer?.user_id))
+          : null;
       const subcategoryRecord = sourceSubcategories.find(s => String(s.id) === String(sourceBusiness?.subcategory_id));
       const categoryRecord = sourceCategories.find(cat => String(cat.id) === String(subcategoryRecord?.category_id));
       const category = categoryRecord?.name || '';
