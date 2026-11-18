@@ -781,7 +781,6 @@ export default function Eventos() {
           </form>
         </section>}
       </div>
-}
     </main>
   );
 }
@@ -822,18 +821,12 @@ const styles = {
   planChoose: { fontSize: 12, fontWeight: 800, color: '#08745D' },
   mediaPreview: { display: 'block', width: '100%', maxWidth: '100%', height: 'auto', maxHeight: 520, aspectRatio: '1 / 1', objectFit: 'cover', borderRadius: 12, background: '#10221D', boxSizing: 'border-box' },
   eventVideo: { display: 'block', width: '100%', height: '100%', objectFit: 'cover', background: '#10221D', boxSizing: 'border-box', margin: 0 },
-  expandMediaButton: { position: 'absolute', right: 10, bottom: 10, zIndex: 2, border: '1px solid rgba(255,255,255,.75)', borderRadius: 999, padding: '8px 12px', background: 'rgba(8,35,27,.82)', color: '#FFFFFF', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
-  mediaModal: { position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18, boxSizing: 'border-box', background: 'rgba(0,0,0,.94)' },
-  closeMediaModal: { position: 'absolute', top: 14, right: 16, zIndex: 2, width: 44, height: 44, border: 0, borderRadius: '50%', background: 'rgba(255,255,255,.16)', color: '#FFFFFF', fontSize: 32, lineHeight: 1, cursor: 'pointer' },
-  mediaModalContent: { width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 },
-  fullEventMedia: { display: 'block', maxWidth: '100%', maxHeight: 'calc(100vh - 90px)', width: 'auto', height: 'auto', objectFit: 'contain', borderRadius: 10, background: '#000000' },
-  mediaModalTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: 700, textAlign: 'center' },
   tab: { flex: 1, border: 0, borderRadius: 10, padding: '12px 14px', background: 'transparent', color: '#35534B', fontWeight: 800, cursor: 'pointer' },
   activeTab: { background: '#075B4E', color: '#FFFFFF', boxShadow: '0 3px 10px rgba(7,91,78,.18)' },
   feedSection: { background: '#FFFFFF', border: '1px solid #E5EBE8', borderRadius: 18, padding: 20, marginBottom: 20 },
   eventList: { display: 'grid', gap: 18, marginTop: 18 },
   eventCard: { border: '1px solid #E3E8E5', borderRadius: 16, overflow: 'hidden', background: '#FFFFFF', marginBottom: 4 },
-  eventMedia: { position: 'relative', display: 'block', width: '100%', height: '190px', aspectRatio: '16 / 9', overflow: 'hidden', background: '#10221D', boxSizing: 'border-box', borderRadius: '12px' },
+  eventMedia: { position: 'relative', display: 'block', width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', background: '#10221D', boxSizing: 'border-box', borderRadius: '12px' },
   eventImage: { display: 'block', width: '100%', height: '100%', objectFit: 'cover', background: '#10221D', margin: 0 },
   eventBody: { padding: 18, background: '#FFFFFF' },
   eventMeta: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, color: '#687772', fontSize: 12, lineHeight: 1.5 },
@@ -841,7 +834,8 @@ const styles = {
   eventCategoryBadge: { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '6px 10px', fontSize: 11, fontWeight: 900 },
   eventLocation: { color: '#687772', fontSize: 12 },
   eventTitle: { margin: '6px 0 8px', fontSize: 22, color: '#12332D' },
-  eventDescription: { whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: '8px 0 14px', color: '#344C45' },
+  eventDescription: { whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: '8px 0 6px', color: '#344C45' },
+  readMoreButton: { border: 0, padding: '4px 0', marginBottom: 10, background: 'transparent', color: '#176B57', fontWeight: 850, cursor: 'pointer' },
   eventActions: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', alignItems: 'stretch', gap: 7, margin: '14px 0', width: '100%', boxSizing: 'border-box' },
   actionButton: { border: '1px solid #DCE4DF', borderRadius: 10, padding: '11px 5px', background: '#FFFFFF', color: '#35564A', fontWeight: 800, fontSize: 12, lineHeight: 1.25, whiteSpace: 'normal', overflowWrap: 'anywhere', textAlign: 'center', width: '100%', minWidth: 0, minHeight: 42, boxSizing: 'border-box', cursor: 'pointer', boxShadow: '0 2px 5px rgba(67,40,91,.05)' },
   likedButton: { background: '#FFF0F0', borderColor: '#F3C4C4', color: '#B42332' },
