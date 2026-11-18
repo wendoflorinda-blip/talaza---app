@@ -820,7 +820,7 @@ const styles = {
   planPrice: { fontSize: 23, fontWeight: 900, color: '#08745D' },
   planDescription: { fontSize: 13, lineHeight: 1.5, color: '#596560', flex: 1 },
   planChoose: { fontSize: 12, fontWeight: 800, color: '#08745D' },
-  mediaPreview: { display: 'block', width: '100%', maxWidth: '100%', height: 'auto', maxHeight: 520, aspectRatio: '1 / 1', objectFit: 'cover', borderRadius: 12, background: '#10221D', boxSizing: 'border-box' },
+  mediaPreview: { display: 'block', width: '100%', maxWidth: '100%', height: 320, aspectRatio: '1 / 1', objectFit: 'cover', overflow: 'hidden', borderRadius: 12, background: '#10221D', boxSizing: 'border-box' },
   eventVideo: { display: 'block', width: '100%', height: '100%', objectFit: 'cover', background: '#10221D', boxSizing: 'border-box', margin: 0 },
   tab: { flex: 1, border: 0, borderRadius: 10, padding: '12px 14px', background: 'transparent', color: '#35534B', fontWeight: 800, cursor: 'pointer' },
   activeTab: { background: '#075B4E', color: '#FFFFFF', boxShadow: '0 3px 10px rgba(7,91,78,.18)' },
