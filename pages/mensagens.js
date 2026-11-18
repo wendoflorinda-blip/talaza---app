@@ -558,7 +558,7 @@ export default function Mensagens() {
     if (!window.confirm('Eliminar esta mensagem? Esta ação não pode ser desfeita.')) return;
     setMessageActionBusy(item.id); setError('');
     const { error: deleteError } = await supabase.from('talaza_messages').delete().eq('id', item.id).eq('sender_id', user.id);
-    if (deleteError) { setMessageActionBusy(''); setError('Não foi possível eliminar esta mensagem. Tenta de novo.); return; }
+    if (deleteError) { setMessageActionBusy(''); setError('Não foi possível eliminar esta mensagem. Tenta de novo.'); return; }
     if (item.storage_path) {
       const { error: storageError } = await supabase.storage.from('message-media').remove([item.storage_path]);
       if (storageError) console.warn('Mensagem eliminada; o anexo não pôde ser removido do armazenamento:', storageError.message);
