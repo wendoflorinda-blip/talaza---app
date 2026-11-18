@@ -41,7 +41,7 @@ export default function OportunidadeDetalhe() {
       setError('');
       const { data, error: queryError } = await supabase
         .from('job_posts')
-        .select('id,user_id,title,description,requirements,area,profession,municipality,neighborhood,salary,work_availability,professional_competence,image_url,created_at,expires_at,country_id,province_id,is_active,status,payment_status,admin_approved')
+        .select('id,user_id,title,description,area,profession,municipality,neighborhood,salary,work_availability,professional_competence,image_url,created_at,expires_at,country_id,province_id,is_active,status,payment_status,admin_approved')
         .eq('id', id)
         .eq('is_active', true)
         .in('status', ['approved', 'published'])
@@ -118,8 +118,7 @@ export default function OportunidadeDetalhe() {
               <h1 style={S.title}>{opportunity.title}</h1>
               <p style={S.meta}>Publicado em {date(opportunity.created_at)}{provinceName ? ' · ' + provinceName : ''} · Publicado por: {publisherName}{opportunity.expires_at ? ' · Disponível até ' + date(opportunity.expires_at) : ''}</p>
               <section style={S.section}><h2>Descrição</h2><p>{opportunity.description}</p></section>
-              {opportunity.requirements ? <section style={S.section}><h2>Competências e experiência</h2><p>{opportunity.requirements}</p></section> : null}
-              {opportunity.professional_competence ? <section style={S.section}><h2>Competências profissionais</h2><p>{opportunity.professional_competence}</p></section> : null}
+              {opportunity.professional_competence ? <section style={S.section}><h2>Competências e experiência</h2><p>{opportunity.professional_competence}</p></section> : null}
               {opportunity.work_availability ? <section style={S.section}><h2>Disponibilidade</h2><p>{opportunity.work_availability}</p></section> : null}
               {opportunity.salary ? <section style={S.section}><h2>Remuneração</h2><p>{opportunity.salary}</p></section> : null}
               {(opportunity.municipality || opportunity.neighborhood) ? <section style={S.section}><h2>Localização</h2><p>{[opportunity.municipality, opportunity.neighborhood].filter(Boolean).join(' · ')}</p></section> : null}

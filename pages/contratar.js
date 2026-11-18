@@ -315,7 +315,7 @@ export default function Contratar() {
             profession: profession.trim(),
             title: mode === 'post' ? (title.trim() || profession.trim() || 'Publicação visual') : title.trim(),
             description: mode === 'post' ? (description.trim() || 'Publicação visual enviada pelo responsável.') : description.trim(),
-            requirements: requirements.trim() || null,
+            professional_competence: requirements.trim() || null,
             whatsapp: whatsapp.trim(),
             work_availability: workAvailability.trim() || null,
             salary: salary.trim() || null,
@@ -637,6 +637,7 @@ export default function Contratar() {
 
             <OpportunityForm
               mode="manual"
+              professionalAreas={professionalAreas}
               area={area}
               setArea={setArea}
               profession={profession}
@@ -707,6 +708,7 @@ export default function Contratar() {
 
             <OpportunityForm
               mode="post"
+              professionalAreas={professionalAreas}
               area={area}
               setArea={setArea}
               profession={profession}
@@ -745,6 +747,7 @@ export default function Contratar() {
 
 function OpportunityForm({
   mode,
+  professionalAreas = [],
   area,
   setArea,
   profession,
@@ -774,6 +777,8 @@ function OpportunityForm({
   loading,
   publishOpportunity,
 }) {
+  const safeProfessionalAreas = Array.isArray(professionalAreas) ? professionalAreas : [];
+
   return (
     <form onSubmit={publishOpportunity} style={styles.form}>
       <div style={styles.formNotice}>
@@ -809,7 +814,7 @@ function OpportunityForm({
         >
           <option value="">Selecione uma área</option>
 
-          {professionalAreas.map((item) => (
+          {safeProfessionalAreas.map((item) => (
             <option key={item.id} value={item.name}>
               {item.name}
             </option>
