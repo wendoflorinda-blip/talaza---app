@@ -130,7 +130,7 @@ export default function Province() {
 
           {!loading && !error && provinces.length === 0 && (
             <p className="status">
-              Ainda não existem províncias registadas para este país na tabela
+              Ainda não existem províncias disponíveis para este país.
               provinces.
             </p>
           )}
