@@ -135,6 +135,7 @@ export default function Eventos() {
   const [interactionBusy, setInteractionBusy] = useState('');
   const [feedError, setFeedError] = useState('');
   const [feedNotice, setFeedNotice] = useState('');
+  const [expandedEventMedia, setExpandedEventMedia] = useState(null);
 
   useEffect(() => {
     try { const saved = JSON.parse(localStorage.getItem('talaza_event_history') || '[]'); if (Array.isArray(saved)) setHistoryItems(saved.slice(0, 100)); } catch { /* histórico opcional */ }
@@ -670,8 +671,9 @@ export default function Eventos() {
                 <article id={'evento-' + item.id} key={item.id} style={{ ...styles.eventCard, borderColor: categoryTheme(item.event_type).color + '45', background: '#FFFFFF', boxShadow: '0 6px 22px rgba(24,39,34,.07)' }} onClick={() => trackEventAction(item)}>
                   {(item.video_url || item.image_url) && <div style={styles.eventMedia}>
                     {item.video_url
-                      ? <video src={item.video_url} controls playsInline preload="metadata" poster={item.image_url || undefined} style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} />
+                      ? <video src={item.video_url} playsInline preload="metadata" poster={item.image_url || undefined} style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} />
                       : <img src={item.image_url} alt={item.title} style={styles.eventImage} />}
+                    <button type="button" onClick={event => { event.stopPropagation(); setExpandedEventMedia({ type: item.video_url ? 'video' : 'image', src: item.video_url || item.image_url, poster: item.image_url || '', title: item.title || 'Evento' }); }} style={styles.expandMediaButton}>⛶ Ver completo</button>
                   </div>}
                   <div style={styles.eventBody}>
                     <div style={styles.eventMeta}><span style={{ ...styles.eventCategoryBadge, color: categoryTheme(item.event_type).color, background: categoryTheme(item.event_type).soft }}>{item.event_type || 'Geral'}</span>{item.location ? <span style={styles.eventLocation}>📍 {item.location}</span> : null}</div>
@@ -778,6 +780,15 @@ export default function Eventos() {
           </form>
         </section>}
       </div>
+      {expandedEventMedia && <div role="dialog" aria-modal="true" aria-label="Multimédia completa do evento" onClick={() => setExpandedEventMedia(null)} style={styles.mediaModal}>
+        <button type="button" aria-label="Fechar" onClick={() => setExpandedEventMedia(null)} style={styles.closeMediaModal}>×</button>
+        <div onClick={event => event.stopPropagation()} style={styles.mediaModalContent}>
+          {expandedEventMedia.type === 'video'
+            ? <video src={expandedEventMedia.src} poster={expandedEventMedia.poster || undefined} controls autoPlay playsInline style={styles.fullEventMedia} />
+            : <img src={expandedEventMedia.src} alt={expandedEventMedia.title} style={styles.fullEventMedia} />}
+          <div style={styles.mediaModalTitle}>{expandedEventMedia.title}</div>
+        </div>
+      </div>}
     </main>
   );
 }
@@ -817,14 +828,20 @@ const styles = {
   planDescription: { fontSize: 13, lineHeight: 1.5, color: '#596560', flex: 1 },
   planChoose: { fontSize: 12, fontWeight: 800, color: '#08745D' },
   mediaPreview: { display: 'block', width: '100%', maxWidth: '100%', height: 'auto', maxHeight: 520, aspectRatio: '1 / 1', objectFit: 'cover', borderRadius: 12, background: '#10221D', boxSizing: 'border-box' },
-  eventVideo: { display: 'block', width: '100%', maxWidth: '100%', height: 'auto', maxHeight: 680, objectFit: 'contain', background: '#FFFFFF', boxSizing: 'border-box', margin: 0 },
+  eventVideo: { display: 'block', width: '100%', height: '100%', objectFit: 'cover', background: '#10221D', boxSizing: 'border-box', margin: 0 },
+  expandMediaButton: { position: 'absolute', right: 10, bottom: 10, zIndex: 2, border: '1px solid rgba(255,255,255,.75)', borderRadius: 999, padding: '8px 12px', background: 'rgba(8,35,27,.82)', color: '#FFFFFF', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
+  mediaModal: { position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18, boxSizing: 'border-box', background: 'rgba(0,0,0,.94)' },
+  closeMediaModal: { position: 'absolute', top: 14, right: 16, zIndex: 2, width: 44, height: 44, border: 0, borderRadius: '50%', background: 'rgba(255,255,255,.16)', color: '#FFFFFF', fontSize: 32, lineHeight: 1, cursor: 'pointer' },
+  mediaModalContent: { width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 },
+  fullEventMedia: { display: 'block', maxWidth: '100%', maxHeight: 'calc(100vh - 90px)', width: 'auto', height: 'auto', objectFit: 'contain', borderRadius: 10, background: '#000000' },
+  mediaModalTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: 700, textAlign: 'center' },
   tab: { flex: 1, border: 0, borderRadius: 10, padding: '12px 14px', background: 'transparent', color: '#35534B', fontWeight: 800, cursor: 'pointer' },
   activeTab: { background: '#075B4E', color: '#FFFFFF', boxShadow: '0 3px 10px rgba(7,91,78,.18)' },
   feedSection: { background: '#FFFFFF', border: '1px solid #E5EBE8', borderRadius: 18, padding: 20, marginBottom: 20 },
   eventList: { display: 'grid', gap: 18, marginTop: 18 },
   eventCard: { border: '1px solid #E3E8E5', borderRadius: 16, overflow: 'hidden', background: '#FFFFFF', marginBottom: 4 },
-  eventMedia: { display: 'block', width: '100%', aspectRatio: 'auto', maxHeight: 'none', overflow: 'hidden', background: '#FFFFFF', boxSizing: 'border-box' },
-  eventImage: { display: 'block', width: '100%', height: 'auto', maxHeight: 680, objectFit: 'contain', background: '#FFFFFF', margin: 0 },
+  eventMedia: { position: 'relative', display: 'block', width: '100%', height: '190px', aspectRatio: '16 / 9', overflow: 'hidden', background: '#10221D', boxSizing: 'border-box', borderRadius: '12px' },
+  eventImage: { display: 'block', width: '100%', height: '100%', objectFit: 'cover', background: '#10221D', margin: 0 },
   eventBody: { padding: 18, background: '#FFFFFF' },
   eventMeta: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, color: '#687772', fontSize: 12, lineHeight: 1.5 },
   startDate: { display: 'flex', flexDirection: 'column', gap: 5, padding: '12px 14px', borderRadius: 10, margin: '12px 0', background: '#F7F5EF', border: '1px solid #E9E3D4', color: '#5C4B2D', fontSize: 14, lineHeight: 1.5 },
