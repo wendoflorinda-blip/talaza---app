@@ -301,14 +301,14 @@ export default function Perfil() {
       if (uploadError) {
         console.error('Falha no upload da fotografia de perfil:', uploadError);
         const detail = String(uploadError.message || '').toLowerCase();
-        if (detail.includes('bucket not found') || detail.includes('bucket does not exist')) throw new Error('O Supabase informa que o bucket “avatars” não foi encontrado neste projeto. Confirme o projeto Supabase ligado à Preview e o nome real do bucket antes de criar ou alterar qualquer configuração. Detalhe: ' + (uploadError.message || detail));
+        if (detail.includes('bucket not found') || detail.includes('bucket does not exist')) throw new Error('Não foi possível enviar a fotografia. Tenta de novo. ou alterar qualquer configuração. Detalhe: ' + (uploadError.message || detail));
         if (detail.includes('row-level security') || detail.includes('permission') || detail.includes('unauthorized') || detail.includes('not allowed')) throw new Error('A fotografia não foi enviada porque as regras de segurança do Storage estão a bloquear esta conta. No Supabase, abra Storage → avatars → Policies e permita ao utilizador autenticado enviar ficheiros apenas para a pasta com o seu próprio ID.');
-        throw new Error('O Supabase recusou o envio da fotografia: ' + (uploadError.message || 'erro não identificado') + '. Verifique o bucket avatars e as respetivas políticas de Storage.');
+        throw new Error('Não foi possível enviar a fotografia. Tenta de novo.');
       }
       const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(path);
       const baseUrl = publicData?.publicUrl || '';
       const url = baseUrl ? baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'v=' + Date.now() : '';
-      if (!url) throw new Error('A fotografia foi enviada, mas o Supabase não devolveu o endereço da imagem. Confirme se o bucket avatars é público ou configure uma URL assinada.');
+      if (!url) throw new Error('Não foi possível enviar a fotografia. Tenta de novo.');
       const photoColumn = profile && Object.prototype.hasOwnProperty.call(profile,'avatar_url') ? 'avatar_url'
         : profile && Object.prototype.hasOwnProperty.call(profile,'photo_url') ? 'photo_url'
         : profile && Object.prototype.hasOwnProperty.call(profile,'photo') ? 'photo'
@@ -330,8 +330,8 @@ export default function Perfil() {
       if (countryId) updates.country_id = countryId;
       if (primaryProvinceId) updates.province_id = primaryProvinceId;
       const { data: savedProfile, error: profileUpdateError } = await supabase.from('profiles').upsert(updates,{onConflict:'id'}).select('*').single();
-      if (profileUpdateError) throw new Error('A imagem chegou ao armazenamento, mas não foi possível guardar a fotografia no perfil pessoal. Erro do Supabase: ' + profileUpdateError.message);
-      if (!savedProfile) throw new Error('O Supabase não confirmou a gravação da fotografia no perfil pessoal. Tente novamente.');
+      if (profileUpdateError) throw new Error('Não foi possível guardar a fotografia no perfil. Tenta de novo.);
+      if (!savedProfile) throw new Error('Não foi possível guardar a fotografia no perfil. Tenta de novo.');
       const { error: metadataError } = await supabase.auth.updateUser({ data:{ ...(user.user_metadata || {}), avatar_url:url } });
       if (metadataError) console.warn('A fotografia foi guardada no perfil, mas os metadados de autenticação não foram atualizados:',metadataError);
       setPhoto(url); setFile(null); setProfile(current => ({...(current || {}),...updates}));
@@ -389,7 +389,7 @@ export default function Perfil() {
       if (file) {
         const path = user.id + '.jpg';
         const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type });
-        if (uploadError) throw new Error('Não foi possível enviar a foto. Confirme se o bucket “avatars” está configurado no Supabase.');
+        if (uploadError) throw new Error('Não foi possível enviar a fotografia. Tenta de novo.');
         const { data } = supabase.storage.from('avatars').getPublicUrl(path);
         photoUrl = data?.publicUrl || '';
       }
@@ -417,7 +417,7 @@ export default function Perfil() {
         if (!provinceChange?.changed && (
           String(provinceChange?.province_id || '') !== String(provinceId) ||
           String(provinceChange?.country_id || '') !== String(newCountryId || '')
-        )) throw new Error('O Supabase não confirmou a alteração da província principal.');
+        )) throw new Error('Não foi possível alterar a província principal. Tenta de novo.');
 
         const chosenProvince = selectedProvince;
         setProfile(current => current ? {
@@ -442,7 +442,7 @@ export default function Perfil() {
         const { error: updateError } = await supabase.from('profiles').update(updates).eq('id', user.id);
         if (updateError) throw updateError;
       } else if (phone.trim() && !(profile && Object.prototype.hasOwnProperty.call(profile, 'phone'))) {
-        throw new Error('Não foi encontrado um campo de contacto compatível no perfil. Confirme a coluna de contacto na tabela profiles.');
+        throw new Error('Não foi possível guardar o contacto. Tenta de novo.');
       }
 
       const metadata = { ...(user.user_metadata || {}) };
@@ -579,7 +579,7 @@ export default function Perfil() {
               {provinces.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
             <p style={S.help}>A província escolhida aqui é a sua Comunidade Talaza principal. A mudança transfere todos os negócios associados à sua conta. Só poderá voltar a alterar depois de 180 dias. Explorar outras províncias no menu não muda esta definição.</p>
-            <p style={S.help}>Para mudar a fotografia, toque na imagem acima. O envio depende do bucket “avatars” no Supabase.</p>
+            <p style={S.help}>Para mudar a fotografia, toque na imagem acima.</p>
             {error && <div role="alert" style={S.error}>{error}</div>}
             {notice && <div role="status" style={S.notice}>{notice}</div>}
             <button type="submit" disabled={saving} style={S.save}>{saving ? 'A guardar…' : 'Guardar alterações'}</button>
