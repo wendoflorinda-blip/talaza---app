@@ -91,6 +91,7 @@ export default function Admin() {
   const [notificationTitle, setNotificationTitle] = useState('');
   const [notificationBody, setNotificationBody] = useState('');
   const [reviewingPaymentId, setReviewingPaymentId] = useState('');
+  const [paymentActionErrors, setPaymentActionErrors] = useState({});
   const [rejectionModalPayment, setRejectionModalPayment] = useState(null);
   const [paymentRejectionReasons, setPaymentRejectionReasons] = useState([]);
   const [paymentRejectionOther, setPaymentRejectionOther] = useState('');
@@ -1161,7 +1162,7 @@ export default function Admin() {
     if (!approved) rejectionReason = String(rejectionReasonOverride || '').trim();
     if (reviewingPaymentId) return;
     const requestStatus = String(request.status || '').trim().toLowerCase();
-    const alreadyHasAccessGrant = (paymentHistoryById[request.id] || []).some(row => row.action === 'opportunity_access_activated');
+    const alreadyHasAccessGrant = (paymentHistoryById[request.id] || []).some(row => row.action === 'approved' && String(row.reason || '').startsWith('Acesso Oportunidades ativado:'));
     const isOneTimeApprovedPaymentRecovery = isOpportunityAccessRequest && requestStatus === 'approved' && !alreadyHasAccessGrant;
     if (approved && !['pending','submitted'].includes(requestStatus) && !isOneTimeApprovedPaymentRecovery) {
       alert('Este pagamento já foi analisado, é duplicado ou já foi usado para ativar um período. Não será concedido acesso novamente.');
@@ -1184,6 +1185,7 @@ export default function Admin() {
     }
     if (approved && isOpportunityAccessRequest) {
       setReviewingPaymentId(request.id);
+      setPaymentActionErrors(previous => ({ ...previous, [request.id]: '' }));
       try {
         const { data: activation, error: activationError } = await supabase.rpc(
           'admin_approve_opportunity_access_payment',
@@ -1195,7 +1197,13 @@ export default function Admin() {
           new Date(activation.expires_at).toLocaleDateString('pt-AO') +
           '. Província: ' + activation.province_id + '.');
       } catch (activationError) {
-        alert(activationError.message || 'Não foi possível aprovar e ativar o acesso às Oportunidades.');
+        const raw = String(activationError?.message || 'Erro inesperado.');
+        const simple = raw.includes('Já existe um acesso ativo') ? 'Já existe um acesso ativo para esta província.'
+          : raw.includes('já foi usado') ? 'Este pagamento já foi utilizado para ativar um acesso.'
+          : raw.includes('duplicado') || raw.includes('reenvio') ? 'Este comprovativo é um duplicado ou reenvio.'
+          : raw.includes('constraint') ? 'O histórico do pagamento recusou a ação. Contacte o suporte.'
+          : raw.replace(/^.*?ERROR:\\s*/i, '').split('\\n')[0].slice(0, 180);
+        setPaymentActionErrors(previous => ({ ...previous, [request.id]: 'Falha ao ativar: ' + simple }));
       } finally { setReviewingPaymentId(''); }
       return;
     }
@@ -1530,7 +1538,7 @@ export default function Admin() {
               ['trocas-email', 'Trocas de e-mail pendentes', emailChangeRequests.filter(item => item.status === 'Pendente - Por confirmar').length],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
               ['reenvios', 'Reenvios', resubmissions.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
-              ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => opportunityAccessPlanIds.includes(String(item.plan_id || '')) && (['pending','submitted'].includes(String(item.status || '').trim().toLowerCase()) || (String(item.status || '').trim().toLowerCase() === 'approved' && !(paymentHistoryById[item.id] || []).some(row => row.action === 'opportunity_access_activated') && !opportunityAccessByPayment[item.id]?.active))).length],
+              ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => opportunityAccessPlanIds.includes(String(item.plan_id || '')) && (['pending','submitted'].includes(String(item.status || '').trim().toLowerCase()) || (String(item.status || '').trim().toLowerCase() === 'approved' && !(paymentHistoryById[item.id] || []).some(row => row.action === 'approved' && String(row.reason || '').startsWith('Acesso Oportunidades ativado:')) && !opportunityAccessByPayment[item.id]?.active))).length],
               ['girassol', 'Reactivação Girassol', girassolReactivations.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['destaques-premium', 'Destaques Premium', subscriptionRequests.filter(item => item.premium_promotion_id && String(item.status || '').toLowerCase() === 'pending').length],
               ['eventos', 'Eventos', events.filter(item => String(item.status || '').toLowerCase() === 'pending_payment').length],
@@ -2151,7 +2159,7 @@ export default function Admin() {
             <div style={styles.list}>
               {subscriptionRequests.filter(item => opportunityAccessPlanIds.includes(String(item.plan_id || ''))).map(request => {
                 const pending = ['pending','submitted'].includes(String(request.status || '').toLowerCase());
-                const alreadyGranted = (paymentHistoryById[request.id] || []).some(row => row.action === 'opportunity_access_activated');
+                const alreadyGranted = (paymentHistoryById[request.id] || []).some(row => row.action === 'approved' && String(row.reason || '').startsWith('Acesso Oportunidades ativado:'));
                 const canRecoverApprovedPayment = String(request.status || '').trim().toLowerCase() === 'approved' && !alreadyGranted && !opportunityAccessByPayment[request.id]?.active;
                 const paths = getPaymentProofPaths(request);
                 const imageUrl = paymentProofUrls[request.id + ':image'];
