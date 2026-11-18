@@ -478,7 +478,7 @@ export default function Seller() {
       setNotice(nextValue ? 'O e-mail de contacto ficará visível aos clientes.' : 'O e-mail de contacto ficará oculto aos clientes.');
     } catch (err) {
       console.error('Erro ao guardar preferência de e-mail:', err);
-      setError('Não foi possível guardar a preferência de e-mail. Confirme se a coluna show_email já foi criada no Supabase.');
+      setError('Não foi possível guardar a preferência de e-mail. Tenta de novo.');
     } finally { setEmailVisibilitySaving(false); }
   }
 
@@ -654,7 +654,7 @@ export default function Seller() {
       setNotice('As alterações do negócio foram guardadas.');
     } catch (saveError) {
       console.error(saveError);
-      setError('Não foi possível guardar as alterações. ' + (saveError.message || 'Confirme as permissões de edição no Supabase.'));
+      setError('Não foi possível guardar as alterações. Tenta de novo.);
     } finally {
       setSaving(false);
     }
@@ -756,7 +756,7 @@ export default function Seller() {
       return true;
     } catch (galleryTaskError) {
       console.error(galleryTaskError);
-      setError('Não foi possível guardar as alterações. ' + (galleryTaskError?.message || 'Confirme as permissões no Supabase.'));
+      setError('Não foi possível guardar as alterações. Tenta de novo.);
       return false;
     } finally {
       setGalleryBusy(false);
