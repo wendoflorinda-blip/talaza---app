@@ -756,7 +756,7 @@ export default function Seller() {
       return true;
     } catch (galleryTaskError) {
       console.error(galleryTaskError);
-      setError('Não foi possível guardar as alterações. Tenta de novo.);
+      setError('Não foi possível guardar as alterações. Tenta de novo.');
       return false;
     } finally {
       setGalleryBusy(false);
