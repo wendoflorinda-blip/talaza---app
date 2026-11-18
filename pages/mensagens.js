@@ -31,6 +31,7 @@ export default function Mensagens() {
   const [activeId,setActiveId] = useState('');
   const [activeBusinessInactive,setActiveBusinessInactive] = useState(false);
   const [activePeer,setActivePeer] = useState(null);
+  const messageInputRef = useRef(null);
   const [messages,setMessages] = useState([]);
   const [message,setMessage] = useState('');
   const [loading,setLoading] = useState(true);
@@ -71,7 +72,7 @@ export default function Mensagens() {
     const ids = [...new Set((memberships || []).map(row => row.conversation_id))];
     if (!ids.length) { setConversations([]); return []; }
     const { data: allRows, error: conversationsError } = await supabase
-      .from('conversations').select('id,source,source_id,province_id,created_at,updated_at')
+      .from('conversations').select('id,source,source_id,province_id,publisher_business_id,created_at,updated_at')
       .in('id', ids).order('updated_at', { ascending:false });
     if (conversationsError) throw conversationsError;
     // Separar a caixa pessoal da caixa da loja sem duplicar tabelas nem mensagens.
@@ -235,13 +236,20 @@ export default function Mensagens() {
         if (targetId && targetId !== currentUser.id) {
           try {
             const requestedSource = safe(router.query.source) || 'Vitrine';
-            // Sem indicação explícita de caixa, assume sempre o modo Explorador.
+            const requestedPublisherMode = safe(router.query.publisherMode) === 'store' ? 'store' : 'explorer';
+            const requestedBusinessId = requestedPublisherMode === 'store' ? safe(router.query.publisherBusinessId) : '';
             const requestedBox = String(safe(router.query.box) || 'explore').trim().toLowerCase();
             const isStoreMode = requestedBox === 'store';
-            // Guarda o modo no registo da conversa para que o RLS consiga aplicar
-            // a regra correta sem depender de parâmetros do navegador.
             const source = isStoreMode ? 'Loja' : (sourceNames.includes(requestedSource) ? requestedSource : 'Vitrine');
             const createdSourceId = safe(router.query.sourceId) || null;
+            let publisherBusiness = null;
+            if (requestedPublisherMode === 'store') {
+              if (!requestedBusinessId) throw new Error('Não foi possível identificar a loja desta publicação.');
+              const { data: business, error: businessError } = await supabase.from('businesses')
+                .select('id,owner_id,name,logo_url,province_id').eq('id', requestedBusinessId).maybeSingle();
+              if (businessError || !business || String(business.owner_id) !== String(targetId)) throw new Error('Não foi possível confirmar a loja que publicou este anúncio.');
+              publisherBusiness = business;
+            }
             if (isStoreMode && !currentProfile?.province_id) {
               throw new Error('Não foi possível confirmar a província principal da loja.');
             }
@@ -259,7 +267,7 @@ export default function Mensagens() {
             let conversationProvinceId = currentProfile?.province_id || target.province_id;
             if (source === 'Oportunidades' && createdSourceId) {
               const { data:sourceJob, error:sourceJobError } = await supabase.from('job_posts')
-                .select('id,user_id,province_id,title,status,is_active,admin_approved,expires_at')
+                .select('id,user_id,province_id,title,status,is_active,admin_approved,expires_at,publisher_mode,publisher_business_id')
                 .eq('id',createdSourceId).maybeSingle();
               if (sourceJobError || !sourceJob || String(sourceJob.user_id) !== String(targetId)) {
                 throw new Error('Não foi possível confirmar que esta vaga pertence à pessoa que vais contactar.');
@@ -269,11 +277,12 @@ export default function Mensagens() {
                   !sourceJob.expires_at || new Date(sourceJob.expires_at) <= new Date()) {
                 throw new Error('Esta vaga já não está publicada e aprovada para receber mensagens.');
               }
+              if ((sourceJob.publisher_mode === 'store' ? 'store' : 'explorer') !== requestedPublisherMode || (requestedPublisherMode === 'store' && String(sourceJob.publisher_business_id || '') !== String(requestedBusinessId))) throw new Error('A identidade desta oportunidade mudou. Atualiza a página e tenta novamente.');
               conversationProvinceId = sourceJob.province_id;
             }
             if (source === 'Eventos' && createdSourceId) {
               const { data:sourceEvent, error:sourceEventError } = await supabase
-                .from('events').select('id,user_id,province_id,status,payment_status,admin_approved')
+                .from('events').select('id,user_id,province_id,status,payment_status,admin_approved,publisher_mode,publisher_business_id')
                 .eq('id',createdSourceId).maybeSingle();
               if (sourceEventError || !sourceEvent || String(sourceEvent.user_id) !== String(targetId)) {
                 throw new Error('Não foi possível confirmar que este evento pertence à pessoa que vais contactar.');
@@ -281,6 +290,7 @@ export default function Mensagens() {
               if (sourceEvent.status !== 'published' || sourceEvent.payment_status !== 'paid' || sourceEvent.admin_approved !== true) {
                 throw new Error('Este evento não está publicado e aprovado para receber mensagens.');
               }
+              if ((sourceEvent.publisher_mode === 'store' ? 'store' : 'explorer') !== requestedPublisherMode || (requestedPublisherMode === 'store' && String(sourceEvent.publisher_business_id || '') !== String(requestedBusinessId))) throw new Error('A identidade deste evento mudou. Atualiza a página e tenta novamente.');
               conversationProvinceId = sourceEvent.province_id;
             }
             const { data:myMemberships, error:myMembershipError } = await supabase.from('conversation_participants')
@@ -311,6 +321,7 @@ export default function Mensagens() {
                 sourceLabel:existing.sourceLabel || existing.source
               });
               await loadMessages(existing.id);
+              setTimeout(() => messageInputRef.current?.focus(), 80);
             } else {
               // Gera o ID no cliente e insere sem .select(): a política SELECT
               // só permite ler conversas depois de existir uma participação, então
@@ -318,12 +329,13 @@ export default function Mensagens() {
               const createdId = crypto.randomUUID();
               const createdAt = new Date().toISOString();
               const { error:createError } = await supabase.from('conversations')
-                .insert({id:createdId,created_by:currentUser.id,province_id:conversationProvinceId,source,source_id:createdSourceId});
+                .insert({id:createdId,created_by:currentUser.id,province_id:conversationProvinceId,source,source_id:createdSourceId,publisher_business_id:publisherBusiness?.id || null});
               if (createError) throw createError;
               const created = {
                 id:createdId,
                 source,
                 source_id:createdSourceId,
+                publisher_business_id:publisherBusiness?.id || null,
                 province_id:conversationProvinceId,
                 created_at:createdAt,
                 updated_at:createdAt
@@ -361,18 +373,19 @@ export default function Mensagens() {
                   }
                 }
               }
-              const contextParts = [source, targetCategoryName, targetSubcategoryName].filter(Boolean);
+              const contextParts = [publisherBusiness?.name || source, targetCategoryName, targetSubcategoryName].filter(Boolean);
               const newConversation = {
                 ...created,
                 peerId:target.id,
-                peerName:targetBusiness?.name || target.name || 'Utilizador Talaza',
-                peerPhoto:targetBusiness?.logo_url || target.avatar_url || target.photo_url || target.photo || '',
+                peerName:publisherBusiness?.name || targetBusiness?.name || target.name || 'Utilizador Talaza',
+                peerPhoto:publisherBusiness?.logo_url || targetBusiness?.logo_url || target.avatar_url || target.photo_url || target.photo || '',
                 sourceLabel:contextParts.join(' · ')
               };
               setConversations(previous => [newConversation,...previous]);
               setActiveBusinessInactive(false);
               setActiveId(created.id);
               setActivePeer({id:target.id,name:newConversation.peerName,photo:newConversation.peerPhoto,sourceLabel:newConversation.sourceLabel});
+              setTimeout(() => messageInputRef.current?.focus(), 80);
               router.replace({pathname:'/mensagens',query:{...(safe(router.query.box) ? {box:safe(router.query.box)} : {}),...(safe(router.query.returnTo) ? {returnTo:safe(router.query.returnTo)} : {}),conversation:created.id}},undefined,{shallow:true});
               await loadMessages(created.id);
             }
@@ -632,7 +645,7 @@ export default function Mensagens() {
       <input ref={fileRef} type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={event=>{setSelectedFile(event.target.files?.[0] || null);if(event.target.files?.[0])setNotice('Ficheiro selecionado. Toque em Enviar para o partilhar.');event.target.value='';}} hidden />
       <button type="button" onClick={()=>fileRef.current?.click()} style={S.toolButton} title="Anexar ficheiro" aria-label="Anexar ficheiro">＋</button>
       <button type="button" onClick={toggleRecording} style={{...S.toolButton,color:recording?'#C62828':C.purple,background:recording?'#FFF0F0':'#F8F6FB'}} title={recording?'Terminar gravação':recordingSupported?'Gravar áudio':'Gravação indisponível; pode anexar áudio no botão +'} aria-label={recording?'Terminar gravação':'Gravar áudio'}>{recording?'■':'🎙'}</button>
-      <textarea value={message} onChange={event=>setMessage(event.target.value)} placeholder={activeId?'Escreva uma mensagem…':'Escolha uma conversa para escrever…'} rows={1} maxLength={5000} style={S.input} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage(event);}}}/>
+      <textarea ref={messageInputRef} value={message} onChange={event=>setMessage(event.target.value)} placeholder={activeId?'Escreva uma mensagem…':'Escolha uma conversa para escrever…'} rows={1} maxLength={5000} style={S.input} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage(event);}}}/>
       <button type="submit" style={{...S.send,opacity:(message.trim()||selectedFile)&&activeId&&!sending?1:.5}} disabled={(!message.trim()&&!selectedFile)||!activeId||sending} aria-label="Enviar mensagem">{sending?'…':'➤'}</button>
     </form>}
     {!activeId && <div style={S.hint}>Abra uma conversa para ativar o envio de texto, ficheiros e áudio.</div>}
