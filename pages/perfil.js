@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import TalazaMenu from '../components/TalazaMenu';
 import { loadProfileSectionBadgeCounts } from '../lib/profileBadges';
+import { setTalazaLocation } from '../lib/talazaLocation';
 
 const C = { green:'#08745F', dark:'#06483D', purple:'#64358B', gold:'#D8A319', ink:'#182722', muted:'#66736F', bg:'#F7F6F3', line:'#E3E8E4', white:'#FFFFFF', red:'#A52F3B' };
 
@@ -54,6 +55,7 @@ export default function Perfil() {
   const [provinceEvents, setProvinceEvents] = useState([]);
   const [loadingSections, setLoadingSections] = useState(false);
   const [sectionBadgeCounts, setSectionBadgeCounts] = useState({ novidades: 0, eventos: 0, parasi: 0 });
+  const [showProvinceWarning, setShowProvinceWarning] = useState(false);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -359,14 +361,29 @@ export default function Perfil() {
     } finally { setSavingEmailVisibility(false); }
   }
 
-  async function saveProfile(event) {
-    event.preventDefault();
-    setSaving(true);
+  async function saveProfile(event, provinceConfirmed = false) {
+    event?.preventDefault?.();
     setError('');
     setNotice('');
+
+    if (!user) { setError('Inicie sessão novamente para editar o perfil.'); return; }
+    if (!fullName.trim()) { setError('Digite o seu nome.'); return; }
+
+    const selectedProvince = provinces.find(item => String(item.id) === String(provinceId));
+    const newCountryId = selectedProvince?.country_id || profile?.country_id || null;
+    const changingProvince = Boolean(
+      profile?.province_id && provinceId &&
+      (String(provinceId) !== String(profile.province_id) ||
+       String(newCountryId || '') !== String(profile.country_id || ''))
+    );
+
+    if (changingProvince && !provinceConfirmed) {
+      setShowProvinceWarning(true);
+      return;
+    }
+
+    setSaving(true);
     try {
-      if (!user) throw new Error('Inicie sessão novamente para editar o perfil.');
-      if (!fullName.trim()) throw new Error('Digite o seu nome.');
       let photoUrl = photo;
 
       if (file) {
@@ -377,36 +394,60 @@ export default function Perfil() {
         photoUrl = data?.publicUrl || '';
       }
 
-      const changingProvince = Boolean(profile?.province_id && provinceId && String(provinceId) !== String(profile.province_id));
-      const changedAt = user.user_metadata?.talaza_province_changed_at;
-      if (changingProvince && changedAt && Date.now() - new Date(changedAt).getTime() < 90 * 24 * 60 * 60 * 1000) {
-        const availableDate = new Date(new Date(changedAt).getTime() + 180 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-PT');
-        throw new Error('A província principal só pode ser alterada novamente depois de 90 dias. Poderá alterar a partir de ' + availableDate + '.');
-      }
-
       const updates = {};
       if (profile && Object.prototype.hasOwnProperty.call(profile, 'name')) updates.name = fullName.trim();
       else if (profile && Object.prototype.hasOwnProperty.call(profile, 'full_name')) updates.full_name = fullName.trim();
       if (profile && Object.prototype.hasOwnProperty.call(profile, 'phone')) updates.phone = phone.trim();
       else if (profile && Object.prototype.hasOwnProperty.call(profile, 'contact')) updates.contact = phone.trim();
       else if (profile && Object.prototype.hasOwnProperty.call(profile, 'whatsapp')) updates.whatsapp = phone.trim();
-      if (changingProvince && Object.prototype.hasOwnProperty.call(profile, 'province_id')) updates.province_id = provinceId;
       if (photoUrl) {
         if (profile && Object.prototype.hasOwnProperty.call(profile, 'avatar_url')) updates.avatar_url = photoUrl;
         else if (profile && Object.prototype.hasOwnProperty.call(profile, 'photo_url')) updates.photo_url = photoUrl;
         else if (profile && Object.prototype.hasOwnProperty.call(profile, 'photo')) updates.photo = photoUrl;
       }
 
+      // A localização principal, todos os negócios e o histórico são alterados
+      // numa única transação PostgreSQL através desta RPC.
+      if (changingProvince) {
+        const { data: provinceChange, error: provinceChangeError } = await supabase.rpc('change_primary_province', {
+          p_new_country_id: newCountryId,
+          p_new_province_id: provinceId
+        });
+        if (provinceChangeError) throw provinceChangeError;
+        if (!provinceChange?.changed && (
+          String(provinceChange?.province_id || '') !== String(provinceId) ||
+          String(provinceChange?.country_id || '') !== String(newCountryId || '')
+        )) throw new Error('O Supabase não confirmou a alteração da província principal.');
+
+        const chosenProvince = selectedProvince;
+        setProfile(current => current ? {
+          ...current,
+          country_id: newCountryId,
+          province_id: provinceId
+        } : current);
+        try {
+          setTalazaLocation({
+            country: '',
+            countryId: newCountryId,
+            province: chosenProvince?.name || '',
+            provinceId
+          });
+          localStorage.setItem('talaza_home_country_id', String(newCountryId || ''));
+          localStorage.setItem('talaza_home_province_id', String(provinceId));
+        } catch {}
+        setProvinceId(String(provinceId));
+      }
+
       if (Object.keys(updates).length) {
         const { error: updateError } = await supabase.from('profiles').update(updates).eq('id', user.id);
         if (updateError) throw updateError;
-      } else if (phone.trim()) {
+      } else if (phone.trim() && !(profile && Object.prototype.hasOwnProperty.call(profile, 'phone'))) {
         throw new Error('Não foi encontrado um campo de contacto compatível no perfil. Confirme a coluna de contacto na tabela profiles.');
       }
 
       const metadata = { ...(user.user_metadata || {}), full_name: fullName.trim() };
       if (photoUrl) metadata.avatar_url = photoUrl;
-      if (changingProvince) metadata.talaza_province_changed_at = new Date().toISOString();
+      // A data da alteração da província nunca é guardada em user_metadata.
       const authUpdates = { data: metadata };
       const emailChanged = !hasBusiness && email.trim().toLowerCase() !== String(user.email || '').toLowerCase();
       if (emailChanged) authUpdates.email = email.trim().toLowerCase();
@@ -417,25 +458,28 @@ export default function Perfil() {
       const { data: updated, error: authUpdateError } = await supabase.auth.updateUser(authUpdates);
       if (authUpdateError) throw authUpdateError;
       if (updated?.user) setUser(updated.user);
-      if (changingProvince) {
-        try {
-          localStorage.setItem('talaza_home_country_id', String(profile.country_id || ''));
-          localStorage.setItem('talaza_home_province_id', String(provinceId));
-          localStorage.setItem('talaza_country_id', String(profile.country_id || ''));
-          localStorage.setItem('talaza_province_id', String(provinceId));
-        } catch {}
-      }
-      if (profile) setProfile({ ...profile, ...updates });
+
+      if (profile) setProfile({
+        ...profile,
+        ...updates,
+        ...(changingProvince ? { country_id: newCountryId, province_id: provinceId } : {})
+      });
       setPhoto(photoUrl);
       setFile(null);
       setNewPassword('');
       setShowPassword(false);
       setEditing(false);
+      setShowProvinceWarning(false);
       setNotice(emailChanged
         ? 'Perfil atualizado. A alteração do e-mail pode exigir confirmação na sua caixa de entrada.'
         : changingProvince
-          ? 'Perfil atualizado. A Comunidade Talaza passa a usar a província principal escolhida. Só poderá voltar a mudar a província principal depois de 90 dias.'
+          ? 'Província principal alterada. A sua Comunidade Talaza, a Vitrine e todos os seus negócios já usam a nova província. Reveja município, bairro e morada.'
           : 'Perfil atualizado com sucesso.');
+      if (changingProvince) {
+        // Recarrega a página na localização principal nova, sem transportar a exploração anterior.
+        await router.replace({ pathname: '/perfil', query: { tab: 'dados' } });
+        await loadProfile();
+      }
     } catch (err) {
       console.error(err);
       setError(err.message || 'Não foi possível guardar as alterações.');
@@ -532,7 +576,7 @@ export default function Perfil() {
               <option value="">Escolher província</option>
               {provinces.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
-            <p style={S.help}>A alteração muda a província da sua Comunidade Talaza. A província principal só pode ser alterada uma vez a cada 90 dias. Explorar outras províncias no menu não muda esta definição.</p>
+            <p style={S.help}>A província escolhida aqui é a sua Comunidade Talaza principal. A mudança transfere todos os negócios associados à sua conta. Só poderá voltar a alterar depois de 180 dias. Explorar outras províncias no menu não muda esta definição.</p>
             <p style={S.help}>Para mudar a fotografia, toque na imagem acima. O envio depende do bucket “avatars” no Supabase.</p>
             {error && <div role="alert" style={S.error}>{error}</div>}
             {notice && <div role="status" style={S.notice}>{notice}</div>}
@@ -635,6 +679,24 @@ export default function Perfil() {
             </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>✧</span><strong>Ainda não há destaques para si</strong><p>Quando houver publicações Premium ativas na sua província, serão apresentadas aqui.</p></div>}
           </>}
         </section>
+      )}
+      {showProvinceWarning && (
+        <div role="dialog" aria-modal="true" aria-labelledby="province-change-title" style={{position:'fixed',inset:0,zIndex:11000,background:'rgba(8,20,16,.68)',display:'flex',alignItems:'center',justifyContent:'center',padding:18}}>
+          <section style={{width:'100%',maxWidth:520,maxHeight:'90vh',overflowY:'auto',background:'#FFFFFF',borderRadius:18,padding:22,boxShadow:'0 18px 60px rgba(0,0,0,.28)'}}>
+            <h2 id="province-change-title" style={{margin:'0 0 14px',color:C.dark,fontSize:20}}>Atenção: alteração da província principal</h2>
+            <ul style={{paddingLeft:22,margin:'0 0 20px',color:C.ink,lineHeight:1.65,fontSize:14}}>
+              <li>A sua Comunidade Talaza será alterada.</li>
+              <li>A Vitrine passará a apresentar a nova província.</li>
+              <li>Os seus negócios também serão transferidos para essa província.</li>
+              <li>Deverá rever o município, bairro e morada dos seus negócios.</li>
+              <li>Só poderá voltar a alterar a província principal depois de seis meses.</li>
+            </ul>
+            <div style={{display:'flex',gap:10,justifyContent:'flex-end',flexWrap:'wrap'}}>
+              <button type="button" onClick={()=>setShowProvinceWarning(false)} disabled={saving} style={{border:'1px solid '+C.line,borderRadius:10,padding:'11px 16px',background:'#FFFFFF',color:C.ink,fontWeight:800}}>Cancelar</button>
+              <button type="button" onClick={()=>saveProfile(null,true)} disabled={saving} style={{border:0,borderRadius:10,padding:'11px 16px',background:C.dark,color:'#FFFFFF',fontWeight:800}}>{saving?'A alterar…':'Confirmar alteração'}</button>
+            </div>
+          </section>
+        </div>
       )}
     </main>
   );
