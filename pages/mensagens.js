@@ -548,7 +548,7 @@ export default function Mensagens() {
     setMessageActionBusy(item.id); setError('');
     const { data, error: updateError } = await supabase.from('talaza_messages').update({ body }).eq('id', item.id).eq('sender_id', user.id).select('id,body').maybeSingle();
     setMessageActionBusy('');
-    if (updateError || !data) { setError('Não foi possível editar esta mensagem. Tenta de novo.); return; }
+    if (updateError || !data) { setError('Não foi possível editar esta mensagem. Tenta de novo.'); return; }
     setMessages(previous => previous.map(row => row.id === item.id ? { ...row, body: data.body, edited_at: new Date().toISOString() } : row));
     setEditingMessageId(''); setEditingBody(''); setNotice('Mensagem atualizada.');
   }
