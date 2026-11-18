@@ -155,8 +155,7 @@ export default function Pagamento() {
   const [error, setError] = useState('');
 
   function formatExpressSenderPhone(value) {
-    const digits = String(value || '').replace(/\D/g, '').replace(/^244/, '');
-    return digits.length === 9 ? '+244 ' + digits.slice(0,3) + ' ' + digits.slice(3,6) + ' ' + digits.slice(6) : value;
+    return String(value || '').replace(/[^0-9]/g, '');
   }
 
   useEffect(() => {
@@ -401,9 +400,9 @@ export default function Pagamento() {
       return;
     }
 
-    const normalizedExpressPhone = '+244' + expressSenderPhone.replace(/\D/g, '').replace(/^244/, '');
-    if (!/^\+2449\d{8}$/.test(normalizedExpressPhone)) {
-      setError('Introduza um número Express angolano válido no formato +244 9XX XXX XXX.');
+    const normalizedExpressPhone = String(expressSenderPhone || '').replace(/[^0-9]/g, '');
+    if (normalizedExpressPhone.length < 7 || normalizedExpressPhone.length > 15) {
+      setError('Coloca o número Express que fez a transferência, só números, 7 a 15 dígitos.');
       return;
     }
 
@@ -826,7 +825,7 @@ export default function Pagamento() {
           </div>
 
           <div role="alert" style={{ marginTop: 18, padding: 15, borderRadius: 12, border: '2px solid #B42318', background: '#FFF1F0', color: '#9F1D16', fontWeight: 800, lineHeight: 1.6 }}>
-            ATENÇÃO: Coloca o número Express EXATO que fez a transferência. Se colocares um número errado, não vamos conseguir confirmar o teu pagamento no extrato e NÃO vais conseguir abrir / desbloquear o teu acesso.
+            Coloca o número EXATO que fez a transferência, igual ao que está no comprovativo. Se colocares um número errado, não vamos conseguir confirmar no extrato.
           </div>
           <label htmlFor="express-sender-phone" style={{ display:'block', marginTop:14, marginBottom:7, color:C.ink, fontWeight:800 }}>
             Número Express que fez a transferência
@@ -834,11 +833,10 @@ export default function Pagamento() {
           <input
             id="express-sender-phone"
             type="tel"
-            inputMode="tel"
+            inputMode="numeric"
             autoComplete="off"
-            required
             value={expressSenderPhone}
-            onChange={(event) => setExpressSenderPhone(event.target.value)}
+            onChange={(event) => setExpressSenderPhone(String(event.target.value || '').replace(/[^0-9]/g, ''))}
             placeholder="Ex: 923000000"
             style={{ width:'100%', boxSizing:'border-box', padding:14, borderRadius:12, border:'1px solid #B42318', fontSize:16, fontWeight:700 }}
           />
