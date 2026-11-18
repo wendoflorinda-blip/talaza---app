@@ -749,8 +749,6 @@ export default function Oportunidades() {
                                 box: 'explore',
                                 initialMessage: `Olá, vi a sua vaga ${opportunity.title || opportunity.profession || 'oportunidade'} em ${provinceName || ' ​'} e gostaria de saber mais. `
                               }).toString()}`} style={{...styles.messageButton,background:'#0F6E5C',color:'#FFFFFF',border:'1px solid #0F6E5C'}}>Enviar mensagem</Link>
-                            ) : user && String(opportunity.user_id) === String(user.id) ? (
-                              <span style={{...styles.messageButton,background:'#F2F4F3',color:COLORS.ink}}>É a tua vaga</span>
                             ) : null}
                             <Link href={`/oportunidade/${opportunity.id}?country=${encodeURIComponent(country || '')}&province=${encodeURIComponent(province || '')}`} style={styles.messageButton}>Ver vaga</Link>
                           </div>
@@ -1094,7 +1092,7 @@ const styles = {
     boxShadow: '0 9px 30px rgba(23,33,31,.045)',
   },
 
-  cardMedia: { position: 'relative', width: '100%', height: '190px', aspectRatio: '16 / 9', overflow: 'hidden', background: COLORS.canvas },
+  cardMedia: { position: 'relative', width: '100%', height: 'auto', aspectRatio: '1 / 2', overflow: 'hidden', background: COLORS.canvas },
   cardImage: { width: '100%', height: '100%', objectFit: 'cover', display: 'block', background: COLORS.canvas },
   expandCardImage: { position: 'absolute', right: 10, bottom: 10, zIndex: 2, border: '1px solid rgba(255,255,255,.75)', borderRadius: 999, padding: '8px 12px', background: 'rgba(8,35,27,.82)', color: '#FFFFFF', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
   imageModal: { position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18, boxSizing: 'border-box', background: 'rgba(0,0,0,.94)' },
