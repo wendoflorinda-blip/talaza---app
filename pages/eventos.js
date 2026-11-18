@@ -103,6 +103,10 @@ export default function Eventos() {
   const router = useRouter();
 
   const [user, setUser] = useState(null);
+  const [publisherBusinesses, setPublisherBusinesses] = useState([]);
+  const [publisherMode, setPublisherMode] = useState('explorer');
+  const [publisherBusinessId, setPublisherBusinessId] = useState('');
+  const [publisherDetails, setPublisherDetails] = useState({});
   const [countryId, setCountryId] = useState('');
   const [provinceId, setProvinceId] = useState('');
   const [provinceName, setProvinceName] = useState('');
@@ -162,6 +166,18 @@ export default function Eventos() {
         const currentUser = sessionData?.session?.user || null;
         if (cancelled) return;
         setUser(currentUser);
+        if (currentUser) {
+          const { data: ownedBusinesses, error: ownedBusinessesError } = await supabase.from('businesses')
+            .select('id,name,logo_url').eq('owner_id', currentUser.id).order('created_at', { ascending: true });
+          if (ownedBusinessesError) throw ownedBusinessesError;
+          setPublisherBusinesses(ownedBusinesses || []);
+          setPublisherBusinessId('');
+          setPublisherMode('explorer');
+        } else {
+          setPublisherBusinesses([]);
+          setPublisherBusinessId('');
+          setPublisherMode('explorer');
+        }
 
         // 1) Escolha do Menu nesta sessão; 2) província principal do perfil;
         // 3) query da rota. Não consultar localStorage antigo.
@@ -267,7 +283,7 @@ export default function Eventos() {
 
       let query = supabase
         .from('events')
-        .select('id,user_id,country_id,province_id,title,description,event_type,image_url,video_url,location,starts_at,expires_at,status,payment_status,admin_approved,created_at')
+        .select('id,user_id,publisher_mode,publisher_business_id,country_id,province_id,title,description,event_type,image_url,video_url,location,starts_at,expires_at,status,payment_status,admin_approved,created_at')
         .eq('province_id', provinceId)
         .eq('status', 'published')
         .eq('payment_status', 'paid')
@@ -284,7 +300,7 @@ export default function Eventos() {
       if (requestedEventId && !rows.some(row => row.id === requestedEventId)) {
         const { data: requestedEvent, error: requestedEventError } = await supabase
           .from('events')
-          .select('id,user_id,country_id,province_id,title,description,event_type,image_url,video_url,location,starts_at,expires_at,status,payment_status,admin_approved,created_at')
+          .select('id,user_id,publisher_mode,publisher_business_id,country_id,province_id,title,description,event_type,image_url,video_url,location,starts_at,expires_at,status,payment_status,admin_approved,created_at')
           .eq('id', requestedEventId)
           .eq('province_id', provinceId)
           .eq('status', 'published')
@@ -306,6 +322,22 @@ export default function Eventos() {
         return bi - ai;
       });
       setEvents(rows);
+      const publisherIds = [...new Set(rows.map(item => item.user_id).filter(Boolean))];
+      const businessIds = [...new Set(rows.filter(item => item.publisher_mode === 'store' && item.publisher_business_id).map(item => item.publisher_business_id))];
+      if (publisherIds.length) {
+        const [{ data: profiles }, { data: businesses }] = await Promise.all([
+          supabase.from('profiles').select('id,name,avatar_url').in('id', publisherIds),
+          businessIds.length ? supabase.from('businesses').select('id,owner_id,name,logo_url').in('id', businessIds) : Promise.resolve({data:[]})
+        ]);
+        const profilesById = Object.fromEntries((profiles || []).map(item => [item.id, item]));
+        const businessesById = Object.fromEntries((businesses || []).map(item => [item.id, item]));
+        setPublisherDetails(Object.fromEntries(rows.map(event => {
+          const profile = profilesById[event.user_id] || {};
+          const business = event.publisher_mode === 'store' && event.publisher_business_id ? businessesById[event.publisher_business_id] : null;
+          const validBusiness = business && String(business.owner_id) === String(event.user_id);
+          return [event.id, validBusiness ? {name:business.name,photo:business.logo_url || '',mode:'store',businessId:business.id} : {name:profile.name || 'Utilizador Talaza',photo:profile.avatar_url || '',mode:'explorer',businessId:null}];
+        })));
+      } else setPublisherDetails({});
       if (user?.id && rows.length) {
         try {
           const key = 'talaza_events_seen_ids_' + user.id;
@@ -478,6 +510,7 @@ export default function Eventos() {
     if (!EVENT_TYPES.includes(eventType)) { setStep(2); setError('Seleciona uma categoria válida para o evento.'); return; }
     if (!location.trim() || !startsAt) { setStep(2); setError('Indica o local, a data e a hora do evento.'); return; }
     if (new Date(startsAt).getTime() < Date.now() - 60000) { setStep(2); setError('A data e hora do evento não podem estar no passado.'); return; }
+    if (publisherMode === 'store' && (!publisherBusinessId || !publisherBusinesses.some(item => item.id === publisherBusinessId))) { setStep(2); setError('Escolhe a loja que vai publicar o evento.'); return; }
     if (!planId || !plans.some((plan) => plan.id === planId)) { setStep(3); setError('Seleciona um dos planos de publicação disponíveis.'); return; }
 
     setSaving(true);
@@ -515,6 +548,8 @@ export default function Eventos() {
           .from('events')
           .insert({
             user_id: user.id,
+            publisher_mode: publisherBusinesses.length && publisherMode === 'store' && publisherBusinesses.some(item => item.id === publisherBusinessId) ? 'store' : 'explorer',
+            publisher_business_id: publisherBusinesses.length && publisherMode === 'store' && publisherBusinesses.some(item => item.id === publisherBusinessId) ? publisherBusinessId : null,
             country_id: countryId,
             province_id: provinceId,
             plan_id: planId,
@@ -659,6 +694,10 @@ export default function Eventos() {
                   </div>}
                   <div style={styles.eventBody}>
                     <div style={styles.eventMeta}><span style={{ ...styles.eventCategoryBadge, color: categoryTheme(item.event_type).color, background: categoryTheme(item.event_type).soft }}>{item.event_type || 'Geral'}</span>{item.location ? <span style={styles.eventLocation}>📍 {item.location}</span> : null}</div>
+                    <div style={{display:'flex',alignItems:'center',gap:9,margin:'8px 0 12px'}}>
+                      {publisherDetails[item.id]?.photo ? <img src={publisherDetails[item.id].photo} alt="" style={{width:38,height:38,borderRadius:'50%',objectFit:'cover'}}/> : <span style={{width:38,height:38,borderRadius:'50%',background:'#E8F3F0',display:'grid',placeItems:'center',color:'#0A3D2A',fontWeight:800}}>{(publisherDetails[item.id]?.name || 'T').slice(0,1).toUpperCase()}</span>}
+                      <span style={{fontSize:12,color:'#687772'}}>Publicado por: <strong style={{color:'#173D32'}}>{publisherDetails[item.id]?.name || 'Utilizador Talaza'}</strong></span>
+                    </div>
                     <h3 style={styles.eventTitle}>{item.title}</h3>
                     <p style={styles.eventDescription}>{expandedDescriptions[item.id] || String(item.description || '').length <= 260 ? item.description : String(item.description || '').slice(0, 260).trimEnd() + '…'}</p>
                     {String(item.description || '').length > 260 && <button type="button" onClick={event => { event.stopPropagation(); setExpandedDescriptions(previous => ({ ...previous, [item.id]: !previous[item.id] })); }} style={styles.readMoreButton}>{expandedDescriptions[item.id] ? 'Ler menos' : 'Ler mais'}</button>}
@@ -739,6 +778,21 @@ export default function Eventos() {
             </>}
             {step === 2 && <>
               <h3 style={styles.wizardTitle}>Fase 2 — Adiciona os detalhes</h3>
+              {publisherBusinesses.length > 0 && <section style={{padding:14,border:'1px solid #DDE8E2',borderRadius:14,background:'#F7FBF8',margin:'12px 0'}}>
+                <strong style={{display:'block',marginBottom:9,color:'#083F35'}}>Publicar como:</strong>
+                <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:9}}>
+                  <input type="radio" name="event-publisher" checked={publisherMode==='explorer'} onChange={()=>{setPublisherMode('explorer');setPublisherBusinessId('');}} />
+                  Explorador — perfil pessoal
+                </label>
+                <label style={{display:'flex',alignItems:'center',gap:8}}>
+                  <input type="radio" name="event-publisher" checked={publisherMode==='store'} onChange={()=>{setPublisherMode('store');if(publisherBusinesses.length===1)setPublisherBusinessId(publisherBusinesses[0].id);}} />
+                  Loja
+                </label>
+                {publisherMode==='store' && <select value={publisherBusinessId} onChange={e=>setPublisherBusinessId(e.target.value)} required style={{...styles.input,marginTop:9}}>
+                  <option value="">Escolhe a loja</option>
+                  {publisherBusinesses.map(business=><option key={business.id} value={business.id}>{business.name}</option>)}
+                </select>}
+              </section>}
               <p style={styles.muted}>Escolhe a categoria e indica onde e quando o evento vai acontecer.</p>
               <label htmlFor="event-type" style={styles.label}>Categoria do evento</label>
               <select id="event-type" value={eventType} onChange={(e) => setEventType(e.target.value)} style={styles.input} required>{EVENT_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select>
