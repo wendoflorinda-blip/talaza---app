@@ -443,7 +443,7 @@ export default function Explore() {
         }
       }
 
-      if (targetCountry && targetProvince) {
+      if (area.route !== '/comunidade' && targetCountry && targetProvince) {
         setTalazaLocation({
           country: countryName || activeLocation.country || '',
           countryId: targetCountry,
