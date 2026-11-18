@@ -110,8 +110,17 @@ export default function Oportunidades() {
 
   useEffect(() => {
     if (!router.isReady) return;
-
     initialize();
+  }, [router.isReady, country, province]);
+
+  // Revalida ao regressar ao separador depois de uma aprovação administrativa.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const refreshOnFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') initialize();
+    };
+    window.addEventListener('focus', refreshOnFocus);
+    return () => window.removeEventListener('focus', refreshOnFocus);
   }, [router.isReady, country, province]);
 
   async function initialize() {
@@ -192,27 +201,14 @@ export default function Oportunidades() {
 
   async function checkOpportunityAccess(userId) {
     try {
-      if (!country || !province) return false;
+      if (!country || !province || !userId) return false;
       const now = new Date().toISOString();
-      const { data, error: subscriptionError } = await supabase
+
+      // Primeiro consulta apenas a subscrição. Evita que um JOIN embutido com
+      // plans transforme um erro de relacionamento/RLS numa falsa falta de acesso.
+      const { data: subscriptions, error: subscriptionError } = await supabase
         .from('user_plan_subscriptions')
-        .select(`
-          id,
-          user_id,
-          plan_id,
-          status,
-          starts_at,
-          expires_at,
-          country_id,
-          province_id,
-          plans (
-            id,
-            name,
-            plan_type,
-            area,
-            is_active
-          )
-        `)
+        .select('id,user_id,plan_id,status,starts_at,expires_at,country_id,province_id')
         .eq('user_id', userId)
         .eq('country_id', country)
         .eq('province_id', province)
@@ -221,21 +217,35 @@ export default function Oportunidades() {
         .gt('expires_at', now)
         .order('expires_at', { ascending: false });
 
-      if (subscriptionError) {
-        console.error('Erro ao verificar acesso:', subscriptionError);
-        return false;
-      }
+      if (subscriptionError) throw subscriptionError;
+      const rows = Array.isArray(subscriptions) ? subscriptions : [];
+      if (!rows.length) return false;
 
-      return (data || []).some((subscription) => {
-        const plan = Array.isArray(subscription.plans)
-          ? subscription.plans[0]
-          : subscription.plans;
-        if (!plan || plan.is_active === false) return false;
-        return String(plan.plan_type || '').trim().toLowerCase() === 'opportunities' ||
-          String(plan.area || '').trim().toLowerCase() === 'oportunidades';
+      const planIds = [...new Set(rows.map(row => row.plan_id).filter(Boolean))];
+      if (!planIds.length) return false;
+
+      const { data: plans, error: plansError } = await supabase
+        .from('plans')
+        .select('id,name,plan_type,area,is_active')
+        .in('id', planIds)
+        .eq('is_active', true);
+
+      if (plansError) throw plansError;
+      const planById = Object.fromEntries((plans || []).map(plan => [String(plan.id), plan]));
+
+      return rows.some(subscription => {
+        const plan = planById[String(subscription.plan_id)];
+        if (!plan || String(subscription.status || '').trim().toLowerCase() !== 'active') return false;
+        const startsAt = subscription.starts_at ? new Date(subscription.starts_at).getTime() : NaN;
+        const expiresAt = subscription.expires_at ? new Date(subscription.expires_at).getTime() : NaN;
+        return Number.isFinite(startsAt) && startsAt <= Date.now() &&
+          Number.isFinite(expiresAt) && expiresAt > Date.now() &&
+          (String(plan.plan_type || '').trim().toLowerCase() === 'opportunities' ||
+            String(plan.area || '').trim().toLowerCase() === 'oportunidades');
       });
     } catch (err) {
-      console.error(err);
+      console.error('Erro ao confirmar a subscrição de Oportunidades:', err);
+      setError('Não foi possível confirmar o teu acesso neste momento. Atualiza a página ou tenta novamente. Detalhe: ' + (err?.message || 'erro de consulta'));
       return false;
     }
   }
@@ -371,7 +381,14 @@ export default function Oportunidades() {
           </div>
         </header>
 
-        {!hasAccess && (
+        {!hasAccess && error && (
+          <section role="alert" style={{ ...styles.error, marginTop: 18 }}>
+            <p>{error}</p>
+            <button type="button" onClick={initialize} style={styles.unlockButton}>Tentar novamente</button>
+          </section>
+        )}
+
+        {!hasAccess && !error && (
           <>
             <section style={styles.exclusiveCard}>
               <div style={styles.exclusiveGlow} />
@@ -1011,7 +1028,8 @@ const styles = {
 
   cardImage: {
     width: '100%',
-    maxHeight: '430px',
+    height: '190px',
+    aspectRatio: '16 / 9',
     objectFit: 'cover',
     display: 'block',
     background: COLORS.canvas,
