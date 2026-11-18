@@ -28,16 +28,14 @@ export default function PlanosOportunidades() {
         .from('plans')
         .select('id,name,price,duration_days,description,plan_type,area,is_active')
         .eq('is_active', true)
+        .or('plan_type.eq.opportunities,area.ilike.Oportunidades')
         .order('price', { ascending: true });
       if (cancelled) return;
       if (queryError) {
         setError('Não foi possível carregar os benefícios dos planos. Tente novamente.');
         setPlans([]);
       } else {
-        const opportunityPlans = (data || []).filter(item =>
-          String(item.plan_type || '').trim().toLowerCase() === 'opportunities' ||
-          String(item.area || '').trim().toLowerCase() === 'oportunidades'
-        );
+        const opportunityPlans = data || [];
         setPlans(opportunityPlans);
         if (!opportunityPlans.length) setError('Ainda não existe um plano ativo de Oportunidades. Tente novamente mais tarde.');
       }
