@@ -483,7 +483,7 @@ export default function Admin() {
       .maybeSingle();
 
     if (error) {
-      alert('Não foi possível aprovar/recusar o negócio. Tenta novamente.);
+      alert('Não foi possível aprovar/recusar o negócio. Tenta novamente.');
       return;
     }
 
