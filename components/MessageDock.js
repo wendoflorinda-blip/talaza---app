@@ -2,17 +2,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { loadProfileSectionBadgeCounts } from '../lib/profileBadges';
 
 export default function MessageDock() {
   const router = useRouter();
-  const [msgCount, setMsgCount] = useState(0);
   const [notifCount, setNotifCount] = useState(0);
-  const [eventCount, setEventCount] = useState(0);
+  const [profileHasUpdates, setProfileHasUpdates] = useState(false);
 
   const isActive = (href) => router.pathname === href || (href === '/perfil' && router.pathname.startsWith('/perfil'));
 
-  // Conta conversas com uma última mensagem recebida ainda não lida.
-  // O mesmo registo local talaza_read é usado pela página de mensagens.
   useEffect(() => {
     let cancelled = false;
 
@@ -21,72 +19,26 @@ export default function MessageDock() {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError) throw authError;
         if (!user) {
-          if (!cancelled) { setMsgCount(0); setNotifCount(0); setEventCount(0); }
+          if (!cancelled) { setNotifCount(0); setProfileHasUpdates(false); }
           return;
         }
+
         const [{ count: unreadNotifications, error: notificationsError }, { data: profileRow, error: profileError }] = await Promise.all([
-          supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('audience', 'explorer').eq('is_read', false),
-          supabase.from('profiles').select('province_id').eq('id', user.id).maybeSingle()
+          supabase.from('notifications').select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id).eq('audience', 'explorer').eq('is_read', false),
+          supabase.from('profiles').select('province_id,country_id').eq('id', user.id).maybeSingle()
         ]);
         if (notificationsError) throw notificationsError;
         if (profileError) throw profileError;
-        let unreadEvents = 0;
-        if (profileRow?.province_id) {
-          const { data: eventRows, error: eventsError } = await supabase.from('events')
-            .select('id').eq('province_id', profileRow.province_id).eq('status', 'published')
-            .eq('payment_status', 'paid').eq('admin_approved', true).gt('expires_at', new Date().toISOString());
-          if (eventsError) throw eventsError;
-          let seenIds = [];
-          try { seenIds = JSON.parse(window.localStorage.getItem('talaza_events_seen_ids_' + user.id) || '[]'); } catch (_) { seenIds = []; }
-          const seenSet = new Set(Array.isArray(seenIds) ? seenIds.map(String) : []);
-          unreadEvents = (eventRows || []).filter(item => !seenSet.has(String(item.id))).length;
+
+        const sectionCounts = await loadProfileSectionBadgeCounts(supabase, user.id, profileRow);
+        const hasUpdates = Boolean((unreadNotifications || 0) + sectionCounts.novidades + sectionCounts.eventos + sectionCounts.parasi > 0);
+        if (!cancelled) {
+          setNotifCount(unreadNotifications || 0);
+          setProfileHasUpdates(hasUpdates);
         }
-        if (!cancelled) { setNotifCount(unreadNotifications || 0); setEventCount(unreadEvents); }
-
-        const { data: memberships, error: participantsError } = await supabase
-          .from('conversation_participants')
-          .select('conversation_id')
-          .eq('user_id', user.id);
-        if (participantsError) throw participantsError;
-
-        const ids = [...new Set((memberships || []).map(row => row.conversation_id).filter(Boolean))];
-        if (!ids.length) {
-          if (!cancelled) setMsgCount(0);
-          return;
-        }
-
-        const { data: rows, error: messagesError } = await supabase
-          .from('talaza_messages')
-          .select('conversation_id,sender_id,created_at')
-          .in('conversation_id', ids)
-          .order('created_at', { ascending: false });
-        if (messagesError) throw messagesError;
-
-        let readMap = {};
-        try {
-          readMap = JSON.parse(window.localStorage.getItem('talaza_read') || '{}') || {};
-        } catch (_) {
-          readMap = {};
-        }
-
-        const latestByConversation = {};
-        (rows || []).forEach(message => {
-          if (!latestByConversation[message.conversation_id]) {
-            latestByConversation[message.conversation_id] = message;
-          }
-        });
-
-        const unreadCount = ids.reduce((count, id) => {
-          const last = latestByConversation[id];
-          if (!last || last.sender_id === user.id) return count;
-          const readAt = readMap[id];
-          if (readAt && new Date(last.created_at).getTime() <= new Date(readAt).getTime()) return count;
-          return count + 1;
-        }, 0);
-
-        if (!cancelled) setMsgCount(unreadCount);
       } catch (error) {
-        console.warn('Não foi possível atualizar o contador de mensagens:', error);
+        console.warn('Não foi possível atualizar os indicadores do Perfil:', error);
       }
     }
 
@@ -95,11 +47,13 @@ export default function MessageDock() {
     const onFocus = () => loadCounts();
     window.addEventListener('focus', onFocus);
     window.addEventListener('storage', onFocus);
+    window.addEventListener('talaza:profile-sections-seen', onFocus);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('storage', onFocus);
+      window.removeEventListener('talaza:profile-sections-seen', onFocus);
     };
   }, []);
 
@@ -111,6 +65,11 @@ export default function MessageDock() {
     }}>{count > 9 ? '9+' : count}</span>
   ) : null;
 
+  const dot = profileHasUpdates ? <span aria-label="Há novidades por ver" style={{
+    position:'absolute', top:-2, right:-5, width:9, height:9, borderRadius:'50%',
+    background:'#E5384F', border:'1.5px solid #FFFFFF'
+  }} /> : null;
+
   return (
     <div style={{
       position:'fixed', bottom:0, left:0, right:0, height:74,
@@ -118,11 +77,11 @@ export default function MessageDock() {
       display:'flex', justifyContent:'space-around', alignItems:'center', zIndex:9999
     }}>
       <Link href="/perfil" style={{textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', color: isActive('/perfil') ? '#64358B' : '#8A9A94', fontSize:13, fontWeight: isActive('/perfil') ? 700 : 500}}>
-        <div style={{position:'relative'}}><span style={{fontSize:22}}>♙</span>{badge(notifCount + eventCount)}</div>Perfil
+        <div style={{position:'relative'}}><span style={{fontSize:22}}>♙</span>{dot}</div>Perfil
       </Link>
 
-      <Link href="/mensagens" style={{textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', color: isActive('/mensagens') ? '#0B3B2D' : '#8A9A94', fontSize:13, fontWeight: isActive('/mensagens') ? 700 : 500, position:'relative'}}>
-        <div style={{position:'relative'}}><span style={{fontSize:22}}>💬</span>{badge(msgCount)}</div>
+      <Link href="/mensagens" style={{textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', color: isActive('/mensagens') ? '#0B3B2D' : '#8A9A94', fontSize:13, fontWeight: isActive('/mensagens') ? 700 : 500}}>
+        <div style={{position:'relative'}}><span style={{fontSize:22}}>💬</span></div>
         Mensagens
       </Link>
 
