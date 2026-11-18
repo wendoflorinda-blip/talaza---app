@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
-import { getTalazaSessionLocation, setTalazaLocation } from '../lib/talazaLocation';
+import { getTalazaSessionLocation } from '../lib/talazaLocation';
 
 const COLORS = {
   canvas: '#F8F6F3',
@@ -168,7 +168,8 @@ export default function Oportunidades() {
         setActiveLocation(value);
         setCountryName(countryName);
         setProvinceName(provinceName);
-        if (countryId && provinceId) setTalazaLocation(value);
+        // Não republicar a localização daqui: isso dispara o listener desta página
+        // e reinicia a resolução indefinidamente.
       } catch (error) {
         console.error('Erro ao resolver província de Oportunidades:', error);
         if (!cancelled) {
