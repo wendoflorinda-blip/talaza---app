@@ -63,6 +63,27 @@ export default function Perfil() {
     if (['dados', 'guardados', 'novidades', 'eventos', 'parasi'].includes(requestedTab)) setActiveTab(requestedTab);
   }, [router.isReady, router.query.tab]);
 
+  useEffect(() => {
+    if (!user?.id || !profile?.province_id) return;
+    let cancelled = false;
+    const refreshSectionBadges = async () => {
+      try {
+        const counts = await loadProfileSectionBadgeCounts(supabase, user.id, profile);
+        if (!cancelled) setSectionBadgeCounts(counts);
+      } catch (badgeError) {
+        console.warn('Não foi possível atualizar os indicadores das secções:', badgeError);
+      }
+    };
+    refreshSectionBadges();
+    const intervalId = window.setInterval(refreshSectionBadges, 15000);
+    window.addEventListener('focus', refreshSectionBadges);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshSectionBadges);
+    };
+  }, [user?.id, profile?.province_id, profile?.country_id]);
+
   async function markProfileSectionSeen(section) {
     if (!user || !['novidades', 'eventos', 'parasi'].includes(section)) return;
     const seenAt = new Date().toISOString();
