@@ -340,7 +340,7 @@ export default function Eventos() {
         return acc;
       }, {}));
     } catch (err) {
-      setFeedError(err.message || 'Não foi possível carregar os eventos. Confirme as políticas RLS.');
+      setFeedError(err.message || 'Não foi possível carregar os eventos. Tenta de novo.');
     } finally {
       setFeedLoading(false);
     }
@@ -506,7 +506,7 @@ export default function Eventos() {
 
       if (!profile) {
         throw new Error(
-          'O perfil da conta não foi encontrado na tabela profiles.'
+          'Não foi possível encontrar os dados da tua conta. Inicia sessão novamente.'
         );
       }
 
