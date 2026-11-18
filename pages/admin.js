@@ -483,12 +483,12 @@ export default function Admin() {
       .maybeSingle();
 
     if (error) {
-      alert('Não foi possível aprovar/recusar o negócio. Verifique as permissões RLS de businesses: ' + error.message);
+      alert('Não foi possível aprovar/recusar o negócio. Tenta novamente.);
       return;
     }
 
     if (!updatedBusiness) {
-      alert('O Supabase não confirmou a alteração do negócio. Confirme a política RLS administrativa de businesses.');
+      alert('Não foi possível confirmar a alteração do negócio. Tenta de novo.');
       return;
     }
 
@@ -778,7 +778,7 @@ export default function Admin() {
       const { error: uploadError } = await supabase.storage.from('business-media').upload(path, file, { upsert: false, contentType: file.type });
       if (uploadError) throw uploadError;
       const { data } = supabase.storage.from('business-media').getPublicUrl(path);
-      if (!data?.publicUrl) throw new Error('O Supabase não devolveu o endereço da imagem.');
+      if (!data?.publicUrl) throw new Error('Não foi possível carregar a imagem. Tenta de novo.');
       setOfficialBackgroundImage(data.publicUrl);
       alert('Imagem carregada. Confirma a pré-visualização antes de publicar.');
     } catch (error) {
@@ -825,7 +825,7 @@ export default function Admin() {
           expires_at: expiresAt,
         });
         if (error) {
-          alert('Não foi possível guardar a motivação em community_motivation: ' + error.message + '. Vamos configurar a política RLS desta tabela a seguir.');
+          alert('Não foi possível guardar a motivação. Tenta de novo.');
           return;
         }
       } else {
@@ -861,7 +861,7 @@ export default function Admin() {
             .eq('id', activeTheme.id);
 
           if (error) {
-            alert('Não foi possível atualizar o título da semana: ' + error.message + '. Vamos configurar a política RLS administrativa a seguir.');
+            alert('Não foi possível actualizar o título da semana. Tenta de novo.');
             return;
           }
         } else {
@@ -886,7 +886,7 @@ export default function Admin() {
           });
 
           if (error) {
-            alert('Não foi possível guardar o tema em community_monthly_themes: ' + error.message + '. Vamos configurar a política RLS desta tabela a seguir.');
+            alert('Não foi possível guardar o tema. Tenta de novo.');
             return;
           }
         }
@@ -896,10 +896,10 @@ export default function Admin() {
       setOfficialTitle('');
       setOfficialBody('');
       alert(officialKind === 'motivation'
-        ? 'Motivação Talaza guardada na tabela oficial.'
+        ? 'Motivação Talaza guardada.'
         : officialKind === 'theme'
-          ? 'Tema do mês guardado na tabela oficial.'
-          : 'Título da semana atualizado na tabela oficial.');
+          ? 'Tema do mês guardado.'
+          : 'Título da semana actualizado.');
     } finally {
       setOfficialSaving(false);
     }
@@ -999,7 +999,7 @@ export default function Admin() {
     setSendingNotification(false);
 
     if (error) {
-      alert('Não foi possível enviar a notificação. Confirme se criou a tabela notifications e as políticas RLS indicadas: ' + error.message);
+      alert('Não foi possível enviar a notificação. Tenta de novo.);
       return;
     }
 
@@ -1059,7 +1059,7 @@ export default function Admin() {
       await loadSubscriptionRequests();
       alert('Comprovativo eliminado.');
     } catch (error) {
-      alert('Não foi possível eliminar o comprovativo: ' + (error.message || 'erro desconhecido') + '. Confirma as permissões administrativas no Supabase.');
+      alert('Não foi possível eliminar o comprovativo. Tenta de novo.');
     } finally { setDeletingPaymentId(''); }
   }
 
@@ -1095,13 +1095,13 @@ export default function Admin() {
 
     if (error) {
       setReviewingPostId('');
-      alert('A publicação não foi atualizada no Supabase. Verifique as permissões RLS de community_posts: ' + error.message);
+      alert('Não foi possível actualizar a publicação. Tenta de novo.);
       return;
     }
 
     if (!updatedRows || updatedRows.length === 0) {
       setReviewingPostId('');
-      alert('O Supabase não confirmou nenhuma alteração. A política RLS pode estar a bloquear a aprovação ou a publicação já não está pendente.');
+      alert('Não foi possível confirmar a alteração. Actualiza a página e tenta de novo.');
       return;
     }
 
@@ -1241,7 +1241,7 @@ export default function Admin() {
 
     if (paymentError || !updatedPayment) {
       setReviewingPaymentId('');
-      alert('Não foi possível atualizar o pagamento. Confirme as políticas RLS de payment_submissions: ' + (paymentError?.message || 'Nenhuma linha foi alterada.'));
+      alert('Não foi possível actualizar o pagamento. Tenta de novo.);
       return;
     }
 
@@ -2047,7 +2047,7 @@ export default function Admin() {
                 {item.previewUrl?(item.file_type==='pdf'
                   ?<a href={item.previewUrl} target="_blank" rel="noreferrer" download style={{display:'inline-flex',alignItems:'center',gap:9,padding:'12px 16px',borderRadius:10,background:'#173F32',color:'#FFFFFF',fontWeight:900,textDecoration:'none'}}>Ver comprovativo ↗</a>
                   :<a href={item.previewUrl} target="_blank" rel="noreferrer"><img src={item.previewUrl} alt="Comprovativo reenviado" style={{display:'block',maxWidth:'100%',maxHeight:360,objectFit:'contain',margin:'0 auto',borderRadius:8}}/></a>)
-                  :<p style={{fontSize:12,color:'#A52F3B'}}>Não foi possível gerar o preview do ficheiro. Verifica o bucket payment-proofs.</p>}
+                  :<p style={{fontSize:12,color:'#A52F3B'}}>Não foi possível apresentar o ficheiro.</p>}
               </div>
               {String(item.status||'').toLowerCase()==='pending' ? <div style={{marginTop:14,padding:12,borderRadius:10,background:'#EEF6F2',color:'#245448',fontSize:12,fontWeight:700}}>
                 Este reenvio também está listado em “Pagamentos e hospedagem”. Analise e use lá o único botão “Aprovar + ativar loja” para concluir tudo de uma vez.
@@ -2122,7 +2122,7 @@ export default function Admin() {
                           )}
                           {paths.image && !imageUrl && (
                             <p style={{ color: '#9B3A28', marginBottom: 0 }}>
-                              O caminho da imagem foi encontrado, mas o Supabase não forneceu acesso temporário. Confirme a política de leitura do bucket privado payment-proofs para administradores.
+                              Não foi possível apresentar a imagem do comprovativo.
                             </p>
                           )}
                         </div>
@@ -2193,7 +2193,7 @@ export default function Admin() {
                       {paths.image && imageUrl && <a href={imageUrl} target="_blank" rel="noreferrer"><img src={imageUrl} alt="Comprovativo do acesso às Oportunidades" style={{ display:'block', maxWidth:'100%', width:260, maxHeight:320, objectFit:'contain', border:'1px solid #DCE6E1', borderRadius:8, background:'#fff' }} /></a>}
                       {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir/baixar comprovativo ↗</button></p>}
                       {!paths.image && !paths.file && <p style={{ color:'#9B3A28' }}>Este pedido não contém comprovativo legível.</p>}
-                      {paths.image && !imageUrl && <p style={{ color:'#9B3A28' }}>Não foi possível abrir o comprovativo. Verifique o bucket payment-proofs.</p>}
+                      {paths.image && !imageUrl && <p style={{ color:'#9B3A28' }}>Não foi possível abrir o comprovativo. Tenta de novo.</p>}
                     </div>
                     {paymentActionErrors[request.id] && <p role="alert" style={{ color:'#A12626', fontWeight:700, margin:'8px 0' }}>{paymentActionErrors[request.id]}</p>}
                     {(pending || canRecoverApprovedPayment) && <div style={styles.actions}>
@@ -2229,7 +2229,7 @@ export default function Admin() {
                     {paths.image && imageUrl && <a href={imageUrl} target="_blank" rel="noreferrer"><img src={imageUrl} alt="Comprovativo Destaque Premium" style={{ display: 'block', maxWidth: '100%', width: 260, maxHeight: 320, objectFit: 'contain', border: '1px solid #DCE6E1', borderRadius: 8, background: '#fff' }} /></a>}
                     {paths.file && <p><button type="button" style={styles.proofLink} onClick={() => openProof(paths.file)}>Abrir/baixar comprovativo ↗</button></p>}
                     {!paths.image && !paths.file && <p style={{ color: '#9B3A28' }}>Este pedido não contém comprovativo legível.</p>}
-                    {paths.image && !imageUrl && <p style={{ color: '#9B3A28' }}>Não foi possível abrir o comprovativo. Verifique o bucket payment-proofs.</p>}
+                    {paths.image && !imageUrl && <p style={{ color: '#9B3A28' }}>Não foi possível abrir o comprovativo. Tenta de novo.</p>}
                   </div>
                   <div style={styles.actions}>{pending && <><button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button><button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity: reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Aprovar Destaque Premium'}</button></>}</div>
                 </article>;
