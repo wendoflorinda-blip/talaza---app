@@ -163,41 +163,17 @@ export default function Eventos() {
         // Se não existir sessão, mantém a página de eventos visível.
         setUser(currentUser);
 
-        let storedCountry = '';
-        let storedProvince = '';
-
-        try {
-          storedCountry =
-            localStorage.getItem('talaza_country_id') || '';
-          storedProvince =
-            localStorage.getItem('talaza_province_id') || '';
-        } catch {
-          // O armazenamento do navegador pode estar indisponível.
-        }
-
-        let profile = null;
-
-        if (currentUser) {
-          const { data } = await supabase
-            .from('profiles')
-            .select('id, country_id, province_id')
-            .eq('id', currentUser.id)
-            .maybeSingle();
-
-          profile = data;
-        }
-
         const normalizeParam = (value) =>
           Array.isArray(value) ? value[0] : value;
         const isUuid = (value) =>
           /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
 
+        // O contexto escolhido no Menu chega por query string desde /explore.
+        // Não usar localStorage antigo nem a província do perfil como fallback.
         const countryCandidate = String(
           normalizeParam(firstValue(
             router.query.country_id,
-            router.query.country,
-            storedCountry,
-            profile?.country_id
+            router.query.country
           )) || ''
         ).trim();
 
@@ -214,9 +190,7 @@ export default function Eventos() {
         const provinceCandidate = String(
           normalizeParam(firstValue(
             router.query.province_id,
-            router.query.province,
-            storedProvince,
-            profile?.province_id
+            router.query.province
           )) || ''
         ).trim();
 

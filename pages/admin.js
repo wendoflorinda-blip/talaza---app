@@ -638,15 +638,58 @@ export default function Admin() {
   async function moderateEvent(event, approved) {
     const reason = approved ? '' : window.prompt('Indique o motivo da recusa do evento:');
     if (!approved && (!reason || !reason.trim())) return;
-    const alreadyPaid = ['approved', 'paid', 'completed'].includes(String(event.payment_status || '').toLowerCase());
+
+    const { data: currentEvent, error: readError } = await supabase
+      .from('events')
+      .select('id,user_id,admin_approved,payment_status,plan_id,expires_at,country_id,province_id')
+      .eq('id', event.id)
+      .maybeSingle();
+    if (readError || !currentEvent) {
+      alert('Não foi possível confirmar o evento antes da aprovação: ' + (readError?.message || 'Evento não encontrado.'));
+      return;
+    }
+
+    const alreadyPaid = ['approved', 'paid', 'completed'].includes(String(currentEvent.payment_status || '').toLowerCase());
     const patch = approved
       ? { status: alreadyPaid ? 'published' : 'pending_payment', admin_approved: true }
       : { status: 'rejected', admin_approved: false };
-    const { data, error } = await supabase.from('events').update(patch).eq('id', event.id).select('id, user_id').maybeSingle();
-    if (error || !data) { alert('Não foi possível atualizar o evento: ' + (error?.message || 'Nenhuma linha foi alterada.')); return; }
-    await notifyUser(data.user_id || event.user_id, approved ? 'Evento aprovado pela Talaza' : 'Evento recusado pela Talaza', approved ? (alreadyPaid ? 'O seu evento foi aprovado e publicado.' : 'O seu evento foi aprovado na análise administrativa. Para ficar visível, ainda precisa de confirmação do pagamento.') : 'O seu evento não foi aprovado. Motivo: ' + reason.trim(), 'event_review');
+
+    if (approved && alreadyPaid) {
+      const { data: plan, error: planError } = await supabase
+        .from('plans').select('duration_days').eq('id', currentEvent.plan_id).maybeSingle();
+      const durationDays = Number(plan?.duration_days) || 0;
+      if (planError || durationDays <= 0) {
+        alert('O pagamento está confirmado, mas o plano do evento não tem uma duração válida. Corrija o plano antes de publicar.');
+        return;
+      }
+      const currentExpiry = currentEvent.expires_at ? new Date(currentEvent.expires_at) : null;
+      patch.expires_at = currentExpiry && currentExpiry > new Date()
+        ? currentExpiry.toISOString()
+        : new Date(Date.now() + durationDays * 86400000).toISOString();
+    }
+
+    const { data, error } = await supabase.from('events').update(patch)
+      .eq('id', event.id).select('id,user_id,country_id,province_id').maybeSingle();
+    if (error || !data) {
+      alert('Não foi possível atualizar o evento: ' + (error?.message || 'Nenhuma linha foi alterada.'));
+      return;
+    }
+
+    const eventLink = '/eventos?country=' + encodeURIComponent(data.country_id || '') +
+      '&province=' + encodeURIComponent(data.province_id || '');
+    await notifyUser(
+      data.user_id || currentEvent.user_id,
+      approved ? 'Evento aprovado pela Talaza' : 'Evento recusado pela Talaza',
+      approved
+        ? (alreadyPaid ? 'O seu evento foi aprovado e publicado.' : 'O seu evento foi aprovado na análise administrativa. Para ficar visível, ainda precisa de confirmação do pagamento.')
+        : 'O seu evento não foi aprovado. Motivo: ' + reason.trim(),
+      'event_review',
+      data.id,
+      'explorer',
+      eventLink
+    );
     await loadEvents();
-    alert(approved ? 'Evento aprovado.' : 'Evento recusado e motivo enviado nas notificações do responsável.');
+    alert(approved ? (alreadyPaid ? 'Evento aprovado e publicado.' : 'Evento aprovado; aguarda confirmação do pagamento.') : 'Evento recusado e motivo enviado nas notificações do responsável.');
   }
 
   async function moderateJob(post, approved) {
@@ -1201,7 +1244,7 @@ export default function Admin() {
     if (approved && request.event_id) {
       const { data: event, error: eventReadError } = await supabase
         .from('events')
-        .select('id, user_id, admin_approved')
+        .select('id,user_id,admin_approved,plan_id,expires_at,country_id,province_id')
         .eq('id', request.event_id)
         .maybeSingle();
 
@@ -1209,14 +1252,40 @@ export default function Admin() {
         activationMessage += ' O pagamento foi aprovado, mas o evento associado não foi encontrado.';
       } else {
         const eventPatch = { payment_status: 'paid' };
-        if (event.admin_approved === true) eventPatch.status = 'published';
+        let canPublish = event.admin_approved === true;
+        if (canPublish) {
+          const { data: plan, error: planError } = await supabase
+            .from('plans').select('duration_days').eq('id', event.plan_id || request.plan_id).maybeSingle();
+          const durationDays = Number(plan?.duration_days) || 0;
+          if (planError || durationDays <= 0) {
+            canPublish = false;
+            activationMessage += ' O pagamento foi aprovado, mas o plano do evento não tem uma duração válida; a publicação aguarda correção do plano.';
+          } else {
+            const currentExpiry = event.expires_at ? new Date(event.expires_at) : null;
+            eventPatch.status = 'published';
+            eventPatch.expires_at = currentExpiry && currentExpiry > new Date()
+              ? currentExpiry.toISOString()
+              : new Date(Date.now() + durationDays * 86400000).toISOString();
+          }
+        }
         const { error: eventUpdateError } = await supabase.from('events').update(eventPatch).eq('id', event.id);
-        if (eventUpdateError) activationMessage += ' O pagamento foi aprovado, mas não foi possível atualizar o evento: ' + eventUpdateError.message;
-        else {
-          activationMessage += event.admin_approved === true
-            ? ' O evento foi publicado após confirmação do pagamento.'
-            : ' O pagamento está confirmado; o evento ainda precisa de aprovação administrativa.';
-          await notifyUser(event.user_id || request.user_id, 'Pagamento de evento aprovado — Talaza', event.admin_approved === true ? 'O pagamento foi confirmado e o evento foi publicado.' : 'O pagamento foi confirmado. O evento ainda aguarda aprovação administrativa.', 'payment_review');
+        if (eventUpdateError) {
+          activationMessage += ' O pagamento foi aprovado, mas não foi possível atualizar o evento: ' + eventUpdateError.message;
+        } else {
+          activationMessage += canPublish
+            ? ' O evento foi publicado após confirmação do pagamento e recebeu a validade do plano.'
+            : ' O pagamento está confirmado; o evento ainda aguarda aprovação administrativa ou correção da duração do plano.';
+          const eventLink = '/eventos?country=' + encodeURIComponent(event.country_id || '') +
+            '&province=' + encodeURIComponent(event.province_id || '');
+          await notifyUser(
+            event.user_id || request.user_id,
+            'Pagamento de evento aprovado — Talaza',
+            canPublish ? 'O pagamento foi confirmado e o evento foi publicado.' : 'O pagamento foi confirmado. O evento ainda aguarda aprovação administrativa.',
+            'payment_review',
+            event.id,
+            'explorer',
+            eventLink
+          );
         }
       }
     }

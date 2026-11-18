@@ -91,7 +91,9 @@ function Icon({ type, size = 22, color = COLORS.purple }) {
 export default function Oportunidades() {
   const router = useRouter();
 
-  const { country, province } = router.query;
+  const queryValue = (value) => Array.isArray(value) ? value[0] : value;
+  const country = String(queryValue(router.query.country) || '').trim();
+  const province = String(queryValue(router.query.province) || '').trim();
 
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
@@ -103,10 +105,6 @@ export default function Oportunidades() {
   const [opportunities, setOpportunities] = useState([]);
   const [publisherNames, setPublisherNames] = useState({});
   const [publisherDetails, setPublisherDetails] = useState({});
-  const [subscriptionLocations, setSubscriptionLocations] = useState([]);
-  const [availableLocations, setAvailableLocations] = useState([]);
-  const [purchaseLocation, setPurchaseLocation] = useState('');
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -129,28 +127,16 @@ export default function Oportunidades() {
 
     setUser(currentUser || null);
 
-    const [{ data: profileLocation }, { data: allProvinceRows }, { data: allCountryRows }] = await Promise.all([
-      currentUser
-        ? supabase.from('profiles').select('country_id,province_id').eq('id', currentUser.id).maybeSingle()
-        : Promise.resolve({ data: null }),
-      supabase.from('provinces').select('id,name,country_id').order('name'),
-      supabase.from('countries').select('id,name').order('name')
-    ]);
-    const allLocations = (allProvinceRows || []).map(item => {
-      const matchingCountry = (allCountryRows || []).find(countryRow => String(countryRow.id) === String(item.country_id));
-      return {
-        province_id: String(item.id),
-        country_id: String(item.country_id),
-        province_name: String(item.name || '').trim() || 'Província',
-        country_name: matchingCountry?.name || 'País'
-      };
-    }).filter(item => item.country_id && item.province_id);
-    setAvailableLocations(allLocations);
-    const preferredLocation = allLocations.find(item =>
-      String(item.province_id) === String(province || profileLocation?.province_id || '') &&
-      (!country && !profileLocation?.country_id || String(item.country_id) === String(country || profileLocation?.country_id || ''))
-    ) || allLocations[0];
-    setPurchaseLocation(preferredLocation ? preferredLocation.country_id + ':' + preferredLocation.province_id : '');
+    setHasAccess(false);
+    setOpportunities([]);
+    setPublisherNames({});
+    setPublisherDetails({});
+    if (!country || !province) {
+      setError('A província ativa não foi identificada. Volta ao Menu, escolhe a província e abre Oportunidades novamente.');
+      setCheckingAccess(false);
+      setLoading(false);
+      return;
+    }
 
     if (!currentUser) {
       setHasAccess(false);
@@ -161,38 +147,6 @@ export default function Oportunidades() {
       return;
     }
 
-    const { data: subscriptionRows, error: subscriptionRowsError } = await supabase
-      .from('user_plan_subscriptions')
-      .select('id,country_id,province_id,status,starts_at,expires_at,plans(plan_type,area,is_active)')
-      .eq('user_id', currentUser.id).eq('status', 'active')
-      .lte('starts_at', new Date().toISOString()).gt('expires_at', new Date().toISOString())
-      .order('expires_at', { ascending: false });
-    if (subscriptionRowsError) console.error('Não foi possível carregar as subscrições de Oportunidades:', subscriptionRowsError);
-    const activeOpportunityRows = (subscriptionRows || []).filter(row => {
-      const plan = Array.isArray(row.plans) ? row.plans[0] : row.plans;
-      return plan && plan.is_active !== false &&
-        (String(plan.plan_type || '').trim().toLowerCase() === 'opportunities' ||
-         String(plan.area || '').trim().toLowerCase() === 'oportunidades') && row.country_id && row.province_id;
-    });
-    const provinceIds = [...new Set(activeOpportunityRows.map(row => String(row.province_id)))];
-    const countryIds = [...new Set(activeOpportunityRows.map(row => String(row.country_id)))];
-    const [{ data: provinceRows }, { data: countryRows }] = await Promise.all([
-      provinceIds.length ? supabase.from('provinces').select('id,name,country_id').in('id', provinceIds) : Promise.resolve({data:[]}),
-      countryIds.length ? supabase.from('countries').select('id,name').in('id', countryIds) : Promise.resolve({data:[]})
-    ]);
-    const nextLocations = activeOpportunityRows.map(row => {
-      const pr=(provinceRows||[]).find(item=>String(item.id)===String(row.province_id));
-      const co=(countryRows||[]).find(item=>String(item.id)===String(row.country_id));
-      return {province_id:String(row.province_id),country_id:String(row.country_id),province_name:pr?.name||'Província',country_name:co?.name||'País'};
-    }).filter((item,index,array)=>array.findIndex(other=>other.province_id===item.province_id&&other.country_id===item.country_id)===index);
-    setSubscriptionLocations(nextLocations);
-    const selectedLocation=nextLocations.find(item=>String(item.province_id)===String(province||'')&&(!country||String(item.country_id)===String(country)));
-    if(nextLocations.length&&!selectedLocation){
-      const first=nextLocations[0];
-      setCheckingAccess(false);setLoading(false);
-      router.replace({pathname:'/oportunidades',query:{country:first.country_id,province:first.province_id}});
-      return;
-    }
     const access = await checkOpportunityAccess(currentUser.id);
     setHasAccess(access);
     if (access) {
@@ -238,7 +192,8 @@ export default function Oportunidades() {
 
   async function checkOpportunityAccess(userId) {
     try {
-      if (!province) return false;
+      if (!country || !province) return false;
+      const now = new Date().toISOString();
       const { data, error: subscriptionError } = await supabase
         .from('user_plan_subscriptions')
         .select(`
@@ -259,8 +214,11 @@ export default function Oportunidades() {
           )
         `)
         .eq('user_id', userId)
+        .eq('country_id', country)
+        .eq('province_id', province)
         .eq('status', 'active')
-        .gt('expires_at', new Date().toISOString())
+        .lte('starts_at', now)
+        .gt('expires_at', now)
         .order('expires_at', { ascending: false });
 
       if (subscriptionError) {
@@ -268,24 +226,13 @@ export default function Oportunidades() {
         return false;
       }
 
-      // O acesso regional depende da província da subscrição escolhida,
-      // não da província principal guardada no perfil.
-      return Boolean(province) && (data || []).some((subscription) => {
+      return (data || []).some((subscription) => {
         const plan = Array.isArray(subscription.plans)
           ? subscription.plans[0]
           : subscription.plans;
-        if (!plan) return false;
-
-        const planType = String(plan.plan_type || '').trim().toLowerCase();
-        const planArea = String(plan.area || '').trim().toLowerCase();
-        const isOpportunityPlan =
-          planType === 'opportunities' || planArea === 'oportunidades';
-
-        if (!isOpportunityPlan || plan.is_active === false) return false;
-        if (subscription.starts_at && new Date(subscription.starts_at) > new Date()) return false;
-        if (!subscription.province_id || String(subscription.province_id) !== String(province)) return false;
-        if (country && subscription.country_id && String(subscription.country_id) !== String(country)) return false;
-        return true;
+        if (!plan || plan.is_active === false) return false;
+        return String(plan.plan_type || '').trim().toLowerCase() === 'opportunities' ||
+          String(plan.area || '').trim().toLowerCase() === 'oportunidades';
       });
     } catch (err) {
       console.error(err);
@@ -355,29 +302,15 @@ export default function Oportunidades() {
   }
 
 
-  function handleProvinceChange(event) {
-    const selected=subscriptionLocations.find(item=>item.province_id===event.target.value);
-    if(!selected)return;
-    router.push({pathname:'/oportunidades',query:{country:selected.country_id,province:selected.province_id}});
-  }
-
-  function handlePurchaseLocationChange(event) {
-    setPurchaseLocation(event.target.value);
-    setError('');
-  }
-
   function goToPlan() {
-    const selected = availableLocations.find(item =>
-      item.country_id + ':' + item.province_id === purchaseLocation
-    );
-    if (!selected) {
-      setError('Escolhe primeiro o país e a província onde queres desbloquear as Oportunidades.');
+    if (!country || !province) {
+      setError('Volta ao Menu, escolhe a província e tenta novamente.');
       return;
     }
-    const query = new URLSearchParams();
-    query.set('country', selected.country_id);
-    query.set('province', selected.province_id);
-    router.push('/planos-oportunidades?' + query.toString());
+    router.push({
+      pathname: '/planos-oportunidades',
+      query: { country, province },
+    });
   }
   const exploreUrl = `/explore?country=${encodeURIComponent(
     country || ''
@@ -417,7 +350,7 @@ export default function Oportunidades() {
             <span style={styles.eyebrow}>TALAZA</span>
 
             <h1 style={styles.title}>
-              Oportunidades
+              {provinceName ? 'Oportunidades em ' + provinceName : 'Oportunidades'}
             </h1>
 
             {(countryName || provinceName) && (
@@ -462,18 +395,8 @@ export default function Oportunidades() {
               </h2>
 
               <p style={styles.exclusiveText}>
-                Esta área reúne oportunidades publicadas para a sua
-                província. Desbloqueie o acesso para acompanhar novas vagas
-                e descobrir oportunidades que podem combinar consigo.
+                Esta área reúne oportunidades publicadas para {provinceName || 'a província que escolheste no Menu'}. Desbloqueie o acesso para acompanhar novas vagas e descobrir oportunidades que podem combinar consigo.
               </p>
-
-              <label style={{display:'grid',gap:8,margin:'18px 0',fontSize:13,fontWeight:800,color:COLORS.ink}}>
-                Escolhe a província onde queres desbloquear as Oportunidades
-                <select value={purchaseLocation} onChange={handlePurchaseLocationChange} style={{width:'100%',padding:13,borderRadius:12,border:'1px solid '+COLORS.line,background:'#fff',color:COLORS.ink,fontSize:15,fontWeight:700}}>
-                  <option value="">Seleciona país e província</option>
-                  {availableLocations.map(item=><option key={item.country_id+':'+item.province_id} value={item.country_id+':'+item.province_id}>{item.province_name} · {item.country_name}</option>)}
-                </select>
-              </label>
 
               <div style={styles.planPreview}>
                 <div style={styles.planIcon}>
@@ -565,30 +488,11 @@ export default function Oportunidades() {
                 </h2>
 
                 <p style={styles.accessDescription}>
-                  Veja as oportunidades publicadas na sua província.
+                  Veja as oportunidades publicadas em {provinceName || 'na província selecionada no Menu'}.
                 </p>
               </div>
-              {subscriptionLocations.length>0&&(
-                <label style={{display:'grid',gap:6,minWidth:220,maxWidth:320,marginTop:14,fontSize:12,fontWeight:800,color:COLORS.ink}}>
-                  Ver oportunidades em
-                  <select value={String(province||'')} onChange={handleProvinceChange} style={{padding:'11px 12px',borderRadius:10,border:'1px solid '+COLORS.line,background:'#fff',color:COLORS.ink,fontWeight:700}}>
-                    {subscriptionLocations.map(item=><option key={item.country_id+':'+item.province_id} value={item.province_id}>{item.province_name} · {item.country_name}</option>)}
-                  </select>
-                </label>
-              )}
             </section>
 
-            <section style={{background:'#FFFFFF',border:'1px solid '+COLORS.line,borderRadius:16,padding:16,marginBottom:18}}>
-              <strong style={{display:'block',fontSize:14,color:COLORS.ink,marginBottom:10}}>Desbloquear acesso a outra província</strong>
-              <label style={{display:'grid',gap:8,fontSize:12,fontWeight:800,color:COLORS.ink}}>
-                Escolhe onde queres ter acesso
-                <select value={purchaseLocation} onChange={handlePurchaseLocationChange} style={{width:'100%',padding:12,borderRadius:10,border:'1px solid '+COLORS.line,background:'#fff',color:COLORS.ink,fontWeight:700}}>
-                  <option value="">Seleciona país e província</option>
-                  {availableLocations.map(item=><option key={item.country_id+':'+item.province_id} value={item.country_id+':'+item.province_id}>{item.province_name} · {item.country_name}</option>)}
-                </select>
-              </label>
-              <button type="button" onClick={goToPlan} style={{...styles.unlockButton,width:'100%',marginTop:12}}>Desbloquear outra província</button>
-            </section>
 
             {loading && (
               <div style={styles.emptyBox}>
