@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
-import { setTalazaLocation, getTalazaLocation } from '../lib/talazaLocation';
+import { setTalazaLocation, getTalazaSessionLocation } from '../lib/talazaLocation';
 
 const COLORS = {
   brand: '#0F6E5C',
@@ -329,7 +329,7 @@ export default function TalazaMenu({
 
   useEffect(() => {
     if (router.isReady && router.query.menuOpen === '1') setOpen(true);
-    const stored = getTalazaLocation();
+    const stored = getTalazaSessionLocation();
     setCurrentProvinceId(stored.provinceId || province || '');
   }, [router.isReady, router.query.menuOpen, province]);
 
@@ -381,7 +381,7 @@ export default function TalazaMenu({
 
   async function loadProvinces() {
     // O vendedor fica vinculado à província do negócio; o explorador pode navegar.
-    const savedLocation = getTalazaLocation();
+    const savedLocation = getTalazaSessionLocation();
     const selectedCountry = country || savedLocation.countryId || '';
     setCurrentProvinceId(savedLocation.provinceId || province || '');
     if (!selectedCountry) {
