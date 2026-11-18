@@ -130,7 +130,23 @@ function UploadBox({ id, icon, title, hint, accept, file, thumb, onPick }) {
 
 export default function Pagamento() {
   const router = useRouter();
-  const { plan: planId, business: businessId, event_id: eventId, premium_promotion_id: premiumPromotionId, subscription, country_id: countryId, province_id: provinceId, returnTo } = router.query;
+  const {
+    plan: planId,
+    business: businessId,
+    event_id: eventId,
+    premium_promotion_id: premiumPromotionId,
+    subscription,
+    country_id: countryIdParam,
+    province_id: provinceIdParam,
+    country: menuCountryParam,
+    province: menuProvinceParam,
+    returnTo,
+  } = router.query;
+  const firstQueryValue = (value) => Array.isArray(value) ? value[0] : value;
+  // Eventos chegam com country/province a partir do Menu; planos de Oportunidades
+  // chegam com country_id/province_id. Ambos representam o mesmo contexto ativo.
+  const countryId = String(firstQueryValue(countryIdParam) || firstQueryValue(menuCountryParam) || '');
+  const provinceId = String(firstQueryValue(provinceIdParam) || firstQueryValue(menuProvinceParam) || '');
   const isOpportunitySubscription = subscription === 'opportunities';
 
   const [user, setUser] = useState(null);
