@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
+import { setTalazaLocation } from '../lib/talazaLocation';
 
 const C = {
   green: '#0F6E5C',
@@ -145,6 +146,25 @@ export default function Login() {
 
       const sellerAccount = ['vendedor', 'seller', 'business'].includes(accountType);
 
+      // Repor a província principal do perfil ao iniciar sessão, sem herdar
+      // a última província visitada durante a exploração.
+      if (profile?.country_id && profile?.province_id) {
+        const [{ data: countryRow }, { data: provinceRow }] = await Promise.all([
+          supabase.from('countries').select('id,name').eq('id', profile.country_id).maybeSingle(),
+          supabase.from('provinces').select('id,name,country_id').eq('id', profile.province_id).eq('country_id', profile.country_id).maybeSingle(),
+        ]);
+        setTalazaLocation({
+          country: countryRow?.name || '',
+          countryId: profile.country_id,
+          province: provinceRow?.name || '',
+          provinceId: profile.province_id,
+        });
+        try {
+          localStorage.setItem('talaza_home_country_id', String(profile.country_id));
+          localStorage.setItem('talaza_home_province_id', String(profile.province_id));
+        } catch {}
+      }
+
       const { data: ownedBusiness, error: businessError } = await supabase
         .from('businesses')
         .select('id')
@@ -176,13 +196,6 @@ export default function Login() {
         await router.replace('/signup?mode=complete');
         return;
       }
-
-      try {
-        localStorage.setItem('talaza_country_id', String(profile.country_id));
-        localStorage.setItem('talaza_province_id', String(profile.province_id));
-        localStorage.setItem('talaza_home_country_id', String(profile.country_id));
-        localStorage.setItem('talaza_home_province_id', String(profile.province_id));
-      } catch {}
 
       await router.replace({
         pathname: '/explore',
