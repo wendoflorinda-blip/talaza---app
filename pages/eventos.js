@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import CommentThread from '../components/CommentThread';
-import { getTalazaSessionLocation, setTalazaLocation } from '../lib/talazaLocation';
+import { getTalazaSessionLocation } from '../lib/talazaLocation';
 
 const BUCKET = 'event-images';
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -219,7 +219,8 @@ export default function Eventos() {
             const { data: countryInfo } = await supabase.from('countries').select('name').eq('id', finalCountryId).maybeSingle();
             finalCountryName = countryInfo?.name || '';
           }
-          setTalazaLocation({ country: finalCountryName || sessionLocation.country || '', countryId: finalCountryId, province: provinceRow.name || '', provinceId: finalProvinceId });
+          // A resolução apenas lê a localização; não a publica novamente.
+          // setTalazaLocation dispara talaza:location-change e criaria um ciclo de re-resolução.
         }
 
         const { data: planRows, error: planError } = await supabase.from('plans').select('*');
