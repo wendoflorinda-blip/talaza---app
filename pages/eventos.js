@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import CommentThread from '../components/CommentThread';
-import { getTalazaLocation, setTalazaLocation } from '../lib/talazaLocation';
+import { getTalazaSessionLocation, setTalazaLocation } from '../lib/talazaLocation';
 
 const BUCKET = 'event-images';
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -172,7 +172,7 @@ export default function Eventos() {
           /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
 
         // Prioridade de localização: contexto global, localStorage e, por último, query.
-        const savedLocation = getTalazaLocation();
+        const savedLocation = getTalazaSessionLocation();
         const countryCandidate = String(firstValue(
           savedLocation.countryId, savedLocation.country,
           normalizeParam(router.query.country_id), normalizeParam(router.query.country)
