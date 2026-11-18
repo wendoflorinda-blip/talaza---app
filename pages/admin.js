@@ -1450,7 +1450,7 @@ export default function Admin() {
           <h1 style={{ margin: '0 0 12px', color: '#12332D' }}>Administração temporariamente em pausa</h1>
           <p style={{ color: '#52635E', lineHeight: 1.6 }}>
             A área administrativa da versão Dev está temporariamente em modo de segurança para proteger os dados reais da Talaza.
-            As operações administrativas serão reativadas quando a versão Dev tiver uma base Supabase independente.
+            As operações administrativas estarão disponíveis em breve.
           </p>
           <p style={{ color: '#8A6500', fontWeight: 700, marginBottom: 0 }}>A produção (Main) não foi alterada.</p>
         </section>
@@ -1953,7 +1953,7 @@ export default function Admin() {
               {officialKind==='weekly_question' && <span style={{ marginTop:8, fontSize:14 }}>{officialBody || 'A descrição da semana aparecerá aqui.'}</span>}
             </div>
             <div style={styles.actions}><button type="button" disabled={officialSaving} style={styles.approve} onClick={publishOfficialCommunityContent}>{officialSaving ? 'A publicar…' : 'Publicar conteúdo oficial'}</button></div>
-            <p style={styles.meta}>Motivação e temas ficam guardados nas tabelas oficiais, mesmo depois de expirarem. A expiração apenas os retira da apresentação pública.</p>
+            <p style={styles.meta}>A motivação e os temas ficam guardados, mesmo depois de expirarem. A expiração apenas os retira da apresentação pública.</p>
             <div style={{ marginTop: 22 }}>
               <h3 style={{ ...styles.title, fontSize: 20 }}>Histórico de motivações e temas</h3>
               {officialArchive.length === 0 ? <div style={styles.empty}><p>Ainda não existem conteúdos guardados.</p></div> : <div style={styles.list}>{officialArchive.map(item => {
