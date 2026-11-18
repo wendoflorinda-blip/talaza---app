@@ -67,7 +67,7 @@ export default function Mensagens() {
     const { data: memberships, error: memberError } = await supabase
       .from('conversation_participants').select('conversation_id')
       .eq('user_id', currentUser.id);
-    if (memberError) { console.error('Erro ao consultar conversation_participants:', memberError); throw new Error('Não foi possível consultar os participantes das conversas: ' + (memberError.message || memberError.code || 'erro desconhecido') + '. Verifique as permissões desta tabela no Supabase.'); }
+    if (memberError) { console.error('Erro ao consultar participantes das conversas:', memberError); throw new Error('Não foi possível carregar as conversas. Tenta de novo.'); }
     const ids = [...new Set((memberships || []).map(row => row.conversation_id))];
     if (!ids.length) { setConversations([]); return []; }
     const { data: allRows, error: conversationsError } = await supabase
@@ -209,7 +209,7 @@ export default function Mensagens() {
       const { data:currentProfile, error:profileError } = await supabase.from('profiles')
         .select('*')
         .eq('id',currentUser.id).maybeSingle();
-      if (profileError) { console.error('Falha ao consultar o perfil do utilizador nas mensagens:', profileError); setProfile(null); setNotice('Não foi possível ler o seu perfil pessoal na tabela profiles. A mensagem interna não pode iniciar sem confirmar a sua província principal. Detalhe técnico: ' + (profileError.message || profileError.code || 'erro não identificado') + '.'); }
+      if (profileError) { console.error('Falha ao consultar o perfil nas mensagens:', profileError); setProfile(null); setNotice('Não foi possível confirmar os dados do teu perfil. Tenta de novo.'); }
       setProfile(currentProfile || null);
       let rows = [];
       try { rows = await loadConversations(currentUser); }
