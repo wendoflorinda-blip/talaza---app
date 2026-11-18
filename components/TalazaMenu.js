@@ -381,7 +381,10 @@ export default function TalazaMenu({
 
   async function loadProvinces() {
     // O vendedor fica vinculado à província do negócio; o explorador pode navegar.
-    if (!country) {
+    const savedLocation = getTalazaLocation();
+    const selectedCountry = country || savedLocation.countryId || '';
+    setCurrentProvinceId(savedLocation.provinceId || province || '');
+    if (!selectedCountry) {
       setProvinces([]);
       return;
     }
@@ -392,7 +395,7 @@ export default function TalazaMenu({
       const { data, error } = await supabase
         .from('provinces')
         .select('id, name, country_id')
-        .eq('country_id', country)
+        .eq('country_id', selectedCountry)
         .order('name', {
           ascending: true,
         });
