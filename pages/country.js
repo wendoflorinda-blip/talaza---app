@@ -121,7 +121,7 @@ export default function Country() {
 
           {!loading && !error && countries.length === 0 && (
             <p className="status">
-              Angola ainda não está configurada na tabela de países. Confirme
+              Ainda não há países disponíveis. Tenta novamente mais tarde.
               se existe um registo com o nome Angola.
             </p>
           )}
