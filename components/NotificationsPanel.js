@@ -25,7 +25,7 @@ export default function NotificationsPanel({ userId: suppliedUserId, audience = 
   useEffect(()=>{if(userId)loadNotifications();},[userId,loadNotifications]);
   useEffect(()=>{if(!userId)return;const channel=supabase.channel('talaza-notifications-'+userId).on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+userId},()=>loadNotifications()).subscribe();return()=>{supabase.removeChannel(channel);};},[userId,loadNotifications]);
   async function openNotification(item){
-    if(!item.is_read){const {error:updateError}=await supabase.from('notifications').update({is_read:true}).eq('id',item.id).eq('user_id',userId).eq('audience',audience);if(updateError){setError('Não foi possível marcar como lida: '+updateError.message);return;}setNotifications(rows=>rows.map(row=>row.id===item.id?{...row,is_read:true}:row));}
+    if(!item.is_read){const {error:updateError}=await supabase.from('notifications').update({is_read:true}).eq('id',item.id).eq('user_id',userId).eq('audience',audience);if(updateError){setError('Não foi possível actualizar a notificação. Tenta de novo.');return;}setNotifications(rows=>rows.map(row=>row.id===item.id?{...row,is_read:true}:row));}
     setOpen(false);
     const title=String(item.title||'').toLowerCase();
     const type=String(item.type||'').toLowerCase();
