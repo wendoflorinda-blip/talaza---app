@@ -137,6 +137,7 @@ export default function Eventos() {
   const [feedError, setFeedError] = useState('');
   const [feedNotice, setFeedNotice] = useState('');
   const [expandedDescriptions, setExpandedDescriptions] = useState({});
+  const [fullscreenMedia, setFullscreenMedia] = useState(null);
 
   useEffect(() => {
     try { const saved = JSON.parse(localStorage.getItem('talaza_event_history') || '[]'); if (Array.isArray(saved)) setHistoryItems(saved.slice(0, 100)); } catch { /* histórico opcional */ }
@@ -674,6 +675,7 @@ export default function Eventos() {
                     {item.video_url
                       ? <video src={item.video_url} playsInline preload="metadata" poster={item.image_url || undefined} style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} />
                       : <img src={item.image_url} alt={item.title} style={styles.eventImage} />}
+                    <button type="button" aria-label="Ver mídia em ecrã inteiro" title="Ver completo" onClick={event => { event.stopPropagation(); setFullscreenMedia({ type: item.video_url ? 'video' : 'image', src: item.video_url || item.image_url, poster: item.image_url, title: item.title }); }} style={styles.fullscreenButton}>⛶</button>
                   </div>}
                   <div style={styles.eventBody}>
                     <div style={styles.eventMeta}><span style={{ ...styles.eventCategoryBadge, color: categoryTheme(item.event_type).color, background: categoryTheme(item.event_type).soft }}>{item.event_type || 'Geral'}</span>{item.location ? <span style={styles.eventLocation}>📍 {item.location}</span> : null}</div>
@@ -704,6 +706,13 @@ export default function Eventos() {
             </div>
           </section>
         )}
+
+        {fullscreenMedia && <div role="dialog" aria-modal="true" aria-label="Visualizador de mídia" onClick={() => setFullscreenMedia(null)} style={styles.fullscreenOverlay}>
+          <button type="button" aria-label="Fechar visualizador" onClick={() => setFullscreenMedia(null)} style={styles.fullscreenClose}>×</button>
+          {fullscreenMedia.type === 'video'
+            ? <video src={fullscreenMedia.src} poster={fullscreenMedia.poster || undefined} controls autoPlay playsInline onClick={event => event.stopPropagation()} style={styles.fullscreenContent} />
+            : <img src={fullscreenMedia.src} alt={fullscreenMedia.title || 'Imagem completa'} onClick={event => event.stopPropagation()} style={styles.fullscreenContent} />}
+        </div>}
 
         {view === 'publish' && <section style={styles.card}>
           <h2 style={styles.sectionTitle}>Publicar eventos</h2>
@@ -821,14 +830,18 @@ const styles = {
   planDescription: { fontSize: 13, lineHeight: 1.5, color: '#596560', flex: 1 },
   planChoose: { fontSize: 12, fontWeight: 800, color: '#08745D' },
   mediaPreview: { display: 'block', width: '100%', maxWidth: '100%', height: 320, aspectRatio: '1 / 1', objectFit: 'cover', overflow: 'hidden', borderRadius: 12, background: '#10221D', boxSizing: 'border-box' },
-  eventVideo: { display: 'block', width: '100%', height: '100%', objectFit: 'cover', background: '#10221D', boxSizing: 'border-box', margin: 0 },
+  eventVideo: { display: 'block', width: '100%', height: '100%', objectFit: 'cover', background: 'transparent', boxSizing: 'border-box', margin: 0 },
   tab: { flex: 1, border: 0, borderRadius: 10, padding: '12px 14px', background: 'transparent', color: '#35534B', fontWeight: 800, cursor: 'pointer' },
   activeTab: { background: '#075B4E', color: '#FFFFFF', boxShadow: '0 3px 10px rgba(7,91,78,.18)' },
   feedSection: { background: '#FFFFFF', border: '1px solid #E5EBE8', borderRadius: 18, padding: 20, marginBottom: 20 },
   eventList: { display: 'grid', gap: 18, marginTop: 18 },
   eventCard: { border: '1px solid #E3E8E5', borderRadius: 16, overflow: 'hidden', background: '#FFFFFF', marginBottom: 4 },
-  eventMedia: { position: 'relative', display: 'block', width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', background: '#10221D', boxSizing: 'border-box', borderRadius: '12px' },
-  eventImage: { display: 'block', width: '100%', height: '100%', objectFit: 'cover', background: '#10221D', margin: 0 },
+  eventMedia: { position: 'relative', display: 'block', width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', background: 'transparent', boxSizing: 'border-box', borderRadius: '12px' },
+  eventImage: { display: 'block', width: '100%', height: '100%', objectFit: 'cover', background: 'transparent', margin: 0 },
+  fullscreenButton: { position: 'absolute', top: 10, right: 10, zIndex: 2, display: 'grid', placeItems: 'center', width: 32, height: 32, padding: 0, border: 0, borderRadius: '50%', color: '#FFFFFF', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)', fontSize: 22, lineHeight: 1, cursor: 'pointer' },
+  fullscreenOverlay: { position: 'fixed', inset: 0, zIndex: 10000, width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, boxSizing: 'border-box', background: 'rgba(0,0,0,0.95)' },
+  fullscreenContent: { display: 'block', maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain' },
+  fullscreenClose: { position: 'absolute', top: 16, right: 18, zIndex: 2, width: 42, height: 42, border: 0, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', color: '#FFFFFF', fontSize: 32, lineHeight: 1, cursor: 'pointer' },
   eventBody: { padding: 18, background: '#FFFFFF' },
   eventMeta: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, color: '#687772', fontSize: 12, lineHeight: 1.5 },
   startDate: { display: 'flex', flexDirection: 'column', gap: 5, padding: '12px 14px', borderRadius: 10, margin: '12px 0', background: '#F7F5EF', border: '1px solid #E9E3D4', color: '#5C4B2D', fontSize: 14, lineHeight: 1.5 },
