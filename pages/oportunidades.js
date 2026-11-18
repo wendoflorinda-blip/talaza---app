@@ -108,6 +108,7 @@ export default function Oportunidades() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedOpportunityImage, setExpandedOpportunityImage] = useState(null);
+  const [accessPlan, setAccessPlan] = useState(null);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -164,6 +165,19 @@ export default function Oportunidades() {
     } else {
       setOpportunities([]);
       setPublisherNames({});
+      const { data: planRows, error: planError } = await supabase
+        .from('plans')
+        .select('id,name,price,duration_days,plan_type,area,is_active')
+        .eq('is_active', true)
+        .or('plan_type.eq.opportunities,area.ilike.Oportunidades')
+        .order('price', { ascending: true });
+      if (planError) {
+        console.error('Erro ao carregar plano de Oportunidades:', planError);
+        setError('Não foi possível carregar os dados atuais do plano. Tenta novamente.');
+        setAccessPlan(null);
+      } else {
+        setAccessPlan((planRows || [])[0] || null);
+      }
     }
 
     setCheckingAccess(false);
@@ -427,11 +441,11 @@ export default function Oportunidades() {
                   </span>
 
                   <strong>
-                    Plano Semestral Promocional
+                    {accessPlan?.name || 'Plano de acesso a Oportunidades'}
                   </strong>
 
                   <span>
-                    Acesso a Oportunidades
+                    {accessPlan ? `${Number(accessPlan.duration_days)} dias · ${Number(accessPlan.price).toLocaleString('pt-AO')} Kz` : 'Acesso a Oportunidades'}
                   </span>
                 </div>
 
