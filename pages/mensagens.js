@@ -54,7 +54,7 @@ export default function Mensagens() {
     const { data, error: queryError } = await supabase
       .from('talaza_messages').select('*')
       .eq('conversation_id', conversationId).order('created_at', { ascending:true }).limit(300);
-    if (queryError) { setError('Não foi possível carregar as mensagens. Confirme se a migração de mensagens foi executada no Supabase.'); return; }
+    if (queryError) { setError('Não foi possível carregar as mensagens. Tenta de novo.'); return; }
     const hydrated = await Promise.all((data || []).map(async item => {
       if (!item.storage_path) return item;
       const { data: signed } = await supabase.storage.from('message-media').createSignedUrl(item.storage_path,3600);
@@ -215,7 +215,7 @@ export default function Mensagens() {
       try { rows = await loadConversations(currentUser); }
       catch (err) {
         console.error(err);
-        setError('Não foi possível carregar as conversas: ' + (err?.message || err?.code || 'erro não identificado') + '. Não execute SQL novamente antes de confirmar este erro e as permissões das tabelas.');
+        setError('Não foi possível carregar as conversas. Tenta de novo.');
       }
       if (cancelled) return;
       const initialMessage = safe(router.query.initialMessage);
@@ -427,12 +427,12 @@ export default function Mensagens() {
         attachmentName = selectedFile.name;
         messageType = selectedFile.type.startsWith('audio/') ? 'audio' : selectedFile.type.startsWith('image/') ? 'image' : 'file';
         const { error: uploadError } = await supabase.storage.from('message-media').upload(attachmentPath, selectedFile, { upsert:false, contentType:selectedFile.type || 'application/octet-stream' });
-        if (uploadError) throw new Error('Não foi possível anexar o ficheiro: ' + uploadError.message + '. Confirme se executou a atualização de supabase_talaza_messaging_safe.sql e se o bucket message-media existe.');
+        if (uploadError) throw new Error('Não foi possível anexar o ficheiro. Tenta de novo.');
       }
       const { data, error:sendError } = await supabase.from('talaza_messages')
         .insert({conversation_id:activeId,sender_id:user.id,body,storage_path:attachmentPath,attachment_name:attachmentName,message_type:messageType})
         .select('*').single();
-      if (sendError) throw new Error('O ficheiro foi carregado, mas a mensagem não foi guardada: ' + sendError.message + '. Confirme a migração supabase_talaza_messaging_safe.sql.');
+      if (sendError) throw new Error('Não foi possível enviar a mensagem. Tenta de novo.');
       let rendered = data;
       if (data.storage_path) {
         const { data: signed } = await supabase.storage.from('message-media').createSignedUrl(data.storage_path,3600);
@@ -443,7 +443,7 @@ export default function Mensagens() {
       await supabase.from('conversations').update({updated_at:new Date().toISOString()}).eq('id',activeId);
     } catch (err) {
       console.error('Falha ao enviar mensagem:',err);
-      setError(err.message || 'Não foi possível enviar a mensagem. Verifique a configuração das mensagens no Supabase.');
+      setError(err.message || 'Não foi possível enviar a mensagem. Tenta de novo.');
     } finally { setSending(false); }
   }
 
@@ -532,7 +532,7 @@ export default function Mensagens() {
     setMessageActionBusy(item.id); setError('');
     const { data, error: updateError } = await supabase.from('talaza_messages').update({ body }).eq('id', item.id).eq('sender_id', user.id).select('id,body').maybeSingle();
     setMessageActionBusy('');
-    if (updateError || !data) { setError('Não foi possível editar esta mensagem. Confirme as permissões de edição no Supabase. ' + (updateError?.message || 'Nenhuma mensagem foi atualizada.')); return; }
+    if (updateError || !data) { setError('Não foi possível editar esta mensagem. Tenta de novo.); return; }
     setMessages(previous => previous.map(row => row.id === item.id ? { ...row, body: data.body, edited_at: new Date().toISOString() } : row));
     setEditingMessageId(''); setEditingBody(''); setNotice('Mensagem atualizada.');
   }
@@ -542,7 +542,7 @@ export default function Mensagens() {
     if (!window.confirm('Eliminar esta mensagem? Esta ação não pode ser desfeita.')) return;
     setMessageActionBusy(item.id); setError('');
     const { error: deleteError } = await supabase.from('talaza_messages').delete().eq('id', item.id).eq('sender_id', user.id);
-    if (deleteError) { setMessageActionBusy(''); setError('Não foi possível eliminar a mensagem. Confirme as permissões no Supabase. ' + deleteError.message); return; }
+    if (deleteError) { setMessageActionBusy(''); setError('Não foi possível eliminar esta mensagem. Tenta de novo.); return; }
     if (item.storage_path) {
       const { error: storageError } = await supabase.storage.from('message-media').remove([item.storage_path]);
       if (storageError) console.warn('Mensagem eliminada; o anexo não pôde ser removido do armazenamento:', storageError.message);
@@ -554,7 +554,7 @@ export default function Mensagens() {
   async function openAttachment(item) {
     if (!item.storage_path) return;
     const { data, error: urlError } = await supabase.storage.from('message-media').createSignedUrl(item.storage_path,3600);
-    if (urlError || !data?.signedUrl) { setError('Não foi possível abrir este anexo. Confirme se o bucket message-media e as permissões estão configurados.'); return; }
+    if (urlError || !data?.signedUrl) { setError('Não foi possível abrir este anexo. Tenta de novo.'); return; }
     window.open(data.signedUrl,'_blank','noopener,noreferrer');
   }
 
