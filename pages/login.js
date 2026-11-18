@@ -86,6 +86,53 @@ export default function Login() {
         throw new Error('LOGIN_SESSION_UNAVAILABLE');
       }
 
+      // O login repõe sempre a localização principal consultada no Supabase.
+      // Nunca reutilizar a província persistida por uma sessão anterior.
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id,name,country_id,province_id,account_type')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Login aceite; não foi possível ler o perfil:', {
+          code: profileError.code,
+          message: profileError.message,
+        });
+        setTalazaLocation({});
+        try {
+          localStorage.removeItem('talaza_home_country_id');
+          localStorage.removeItem('talaza_home_province_id');
+        } catch {}
+        setError('A tua sessão foi iniciada, mas não foi possível consultar o teu perfil. Atualiza a página e tenta novamente.');
+        return;
+      }
+
+      const profile = profileData || null;
+      if (profile?.country_id && profile?.province_id) {
+        const [{ data: countryRow }, { data: provinceRow }] = await Promise.all([
+          supabase.from('countries').select('id,name').eq('id', profile.country_id).maybeSingle(),
+          supabase.from('provinces').select('id,name,country_id').eq('id', profile.province_id).eq('country_id', profile.country_id).maybeSingle(),
+        ]);
+        setTalazaLocation({
+          country: countryRow?.name || '',
+          countryId: profile.country_id,
+          province: provinceRow?.name || '',
+          provinceId: provinceRow?.id || profile.province_id,
+        });
+        try {
+          localStorage.setItem('talaza_home_country_id', String(profile.country_id));
+          localStorage.setItem('talaza_home_province_id', String(profile.province_id));
+        } catch {}
+      } else {
+        // Perfil sem localização: limpar completamente a sessão anterior.
+        setTalazaLocation({});
+        try {
+          localStorage.removeItem('talaza_home_country_id');
+          localStorage.removeItem('talaza_home_province_id');
+        } catch {}
+      }
+
       // Um destino interno explícito (ex.: /media) tem prioridade.
       const nextPath =
         typeof router.query.next === 'string' &&
@@ -119,24 +166,6 @@ export default function Login() {
 
       // Consultas de perfil/negócio apenas escolhem o painel. Não são
       // autenticação e, se falharem, não devem expulsar uma sessão válida.
-      let profile = null;
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id,name,country_id,province_id,account_type')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error('Login aceite; não foi possível ler o perfil:', {
-          code: profileError.code,
-          message: profileError.message,
-        });
-        setError('A tua sessão foi iniciada, mas não foi possível consultar o teu perfil. Atualiza a página e tenta novamente.');
-        return;
-      } else {
-        profile = profileData;
-      }
-
       const accountType = String(
         profile?.account_type ||
         metadata.account_type ||
@@ -145,25 +174,6 @@ export default function Login() {
       ).trim().toLowerCase();
 
       const sellerAccount = ['vendedor', 'seller', 'business'].includes(accountType);
-
-      // Repor a província principal do perfil ao iniciar sessão, sem herdar
-      // a última província visitada durante a exploração.
-      if (profile?.country_id && profile?.province_id) {
-        const [{ data: countryRow }, { data: provinceRow }] = await Promise.all([
-          supabase.from('countries').select('id,name').eq('id', profile.country_id).maybeSingle(),
-          supabase.from('provinces').select('id,name,country_id').eq('id', profile.province_id).eq('country_id', profile.country_id).maybeSingle(),
-        ]);
-        setTalazaLocation({
-          country: countryRow?.name || '',
-          countryId: profile.country_id,
-          province: provinceRow?.name || '',
-          provinceId: profile.province_id,
-        });
-        try {
-          localStorage.setItem('talaza_home_country_id', String(profile.country_id));
-          localStorage.setItem('talaza_home_province_id', String(profile.province_id));
-        } catch {}
-      }
 
       const { data: ownedBusiness, error: businessError } = await supabase
         .from('businesses')
