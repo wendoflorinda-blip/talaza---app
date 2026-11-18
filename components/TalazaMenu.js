@@ -902,7 +902,7 @@ export default function TalazaMenu({
                         style={{
                           background:
                             COLORS.surface,
-                          border: `1px solid ${String(item.id) === String(currentProvinceId || province) ? COLORS.brand : COLORS.line}`,
+                          border: `1px solid ${COLORS.line}`,
                           borderRadius: 13,
                           padding: 14,
                           color:
@@ -924,9 +924,9 @@ export default function TalazaMenu({
                         }
                         style={{
                           width: '100%',
-                          border: `1px solid ${COLORS.line}`,
+                          border: `1px solid ${String(item.id) === String(currentProvinceId || province) ? COLORS.brand : COLORS.line}`,
                           background:
-                            COLORS.surface,
+                            String(item.id) === String(currentProvinceId || province) ? COLORS.brandSoft : COLORS.surface,
                           borderRadius: 13,
                           padding:
                             '13px 14px',
@@ -943,19 +943,12 @@ export default function TalazaMenu({
                           textAlign: 'left',
                         }}
                       >
-                        <span>
-                          {item.name}
-                        </span>
-
-                        <span
-                          style={{
-                            color:
-                              COLORS.purple,
-                            fontSize: 18,
-                          }}
-                        >
-                          ›
-                        </span>
+                        <span>{item.name}</span>
+                        {String(item.id) === String(currentProvinceId || province) ? (
+                          <strong style={{ color: COLORS.brand }}>✓ Atual</strong>
+                        ) : (
+                          <span style={{ color: COLORS.purple, fontSize: 18 }}>›</span>
+                        )}
                       </button>
                     ))}
                 </SubScreen>
