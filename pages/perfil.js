@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import TalazaMenu from '../components/TalazaMenu';
+import { loadProfileSectionBadgeCounts } from '../lib/profileBadges';
 
 const C = { green:'#08745F', dark:'#06483D', purple:'#64358B', gold:'#D8A319', ink:'#182722', muted:'#66736F', bg:'#F7F6F3', line:'#E3E8E4', white:'#FFFFFF', red:'#A52F3B' };
 
@@ -52,8 +53,7 @@ export default function Perfil() {
   const [removingBusinessId, setRemovingBusinessId] = useState('');
   const [provinceEvents, setProvinceEvents] = useState([]);
   const [loadingSections, setLoadingSections] = useState(false);
-  const [unreadEventCount, setUnreadEventCount] = useState(0);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [sectionBadgeCounts, setSectionBadgeCounts] = useState({ novidades: 0, eventos: 0, parasi: 0 });
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -63,15 +63,29 @@ export default function Perfil() {
     if (['dados', 'guardados', 'novidades', 'eventos', 'parasi'].includes(requestedTab)) setActiveTab(requestedTab);
   }, [router.isReady, router.query.tab]);
 
+  async function markProfileSectionSeen(section) {
+    if (!user || !['novidades', 'eventos', 'parasi'].includes(section)) return;
+    const seenAt = new Date().toISOString();
+    try {
+      const { error: seenError } = await supabase.from('profile_section_views').upsert(
+        { user_id: user.id, section, last_seen_at: seenAt },
+        { onConflict: 'user_id,section' }
+      );
+      if (seenError) throw seenError;
+      setSectionBadgeCounts(current => ({ ...current, [section]: 0 }));
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('talaza:profile-sections-seen'));
+    } catch (seenError) {
+      console.warn('Não foi possível guardar que a secção foi vista:', seenError);
+      setError('Não foi possível guardar que esta secção foi vista. Verifique a ligação e tente novamente.');
+    }
+  }
+
   async function loadProfile() {
     try {
       const { data: { user: current }, error: authError } = await supabase.auth.getUser();
       if (authError || !current) { await router.replace('/login'); return; }
       setUser(current);
       setEmail(current.email || '');
-      const { count: unreadNotifications, error: notificationError } = await supabase.from('notifications').select('id', { count:'exact', head:true }).eq('user_id', current.id).eq('is_read', false);
-      if (notificationError) console.warn('Não foi possível carregar notificações pendentes:', notificationError);
-      else setUnreadNotificationCount(unreadNotifications || 0);
       const { data: ownedBusiness, error: ownedBusinessError } = await supabase.from('businesses').select('id').eq('owner_id', current.id).limit(1).maybeSingle();
       if (ownedBusinessError) console.warn('Não foi possível verificar o negócio associado:', ownedBusinessError);
       setHasBusiness(Boolean(ownedBusiness?.id));
@@ -82,6 +96,12 @@ export default function Perfil() {
       if (profileError) throw profileError;
       setProfile(data || null);
       setShowEmail(data?.show_email === true);
+      try {
+        const counts = await loadProfileSectionBadgeCounts(supabase, current.id, data || null);
+        setSectionBadgeCounts(counts);
+      } catch (badgeError) {
+        console.warn('Não foi possível carregar os indicadores das secções do perfil:', badgeError);
+      }
       if (data?.province_id) {
         setLoadingSections(true);
         const [savedResult, eventsResult, premiumPlansResult, savedPromotionsResult] = await Promise.all([
@@ -172,11 +192,7 @@ export default function Perfil() {
         else {
           const eventRows = eventsResult.data || [];
           setProvinceEvents(eventRows);
-          try {
-            const seenIds = JSON.parse(localStorage.getItem('talaza_events_seen_ids_' + current.id) || '[]');
-            const seenSet = new Set(Array.isArray(seenIds) ? seenIds.map(String) : []);
-            setUnreadEventCount(eventRows.filter(item => !seenSet.has(String(item.id))).length);
-          } catch { setUnreadEventCount(eventRows.length); }
+
         }
         setLoadingSections(false);
       }
@@ -450,18 +466,12 @@ export default function Perfil() {
         ].map(([id,label]) => (
           <button key={id} type="button" onClick={() => {
             setActiveTab(id);
-            if (id === 'eventos' && user) {
-              try {
-                const seenIds = JSON.parse(localStorage.getItem('talaza_events_seen_ids_' + user.id) || '[]');
-                const nextSeen = [...new Set([...(Array.isArray(seenIds) ? seenIds.map(String) : []), ...provinceEvents.map(item => String(item.id))])];
-                localStorage.setItem('talaza_events_seen_ids_' + user.id, JSON.stringify(nextSeen));
-              } catch {}
-              setUnreadEventCount(0);
-            }
+            if (['novidades', 'eventos', 'parasi'].includes(id)) markProfileSectionSeen(id);
           }} aria-current={activeTab===id?'page':undefined}
             style={{...S.tab,borderBottom:activeTab===id?'3px solid '+C.gold:'3px solid transparent',color:activeTab===id?C.dark:C.muted}}>
             <span style={{position:'relative',display:'inline-flex',alignItems:'center',justifyContent:'center',lineHeight:1}}><ProfileTabIcon type={id} color={activeTab===id?'#06483D':'#182722'} />
-              {id === 'eventos' && unreadEventCount > 0 && <span style={S.unreadBadge}>{unreadEventCount > 9 ? '9+' : unreadEventCount}</span>}
+              {['dados', 'guardados'].includes(id) && <span aria-label="Secção do perfil" style={S.fixedSectionDot} />}
+              {['novidades', 'eventos', 'parasi'].includes(id) && sectionBadgeCounts[id] > 0 && <span style={S.unreadBadge}>{sectionBadgeCounts[id] > 99 ? '99+' : sectionBadgeCounts[id]}</span>}
             </span><strong>{label}</strong>
           </button>
         ))}
@@ -615,6 +625,7 @@ const S = {
   editProfileButton:{width:'100%',padding:'14px 18px',border:0,borderRadius:14,background:C.gold,color:C.dark,fontWeight:900,fontSize:15,cursor:'pointer'},
   tabs:{maxWidth:700,margin:'20px auto 0',display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',background:C.bg,borderBottom:'1px solid '+C.line},
   unreadBadge:{position:'absolute',top:-7,right:-13,minWidth:18,height:18,padding:'0 4px',borderRadius:999,background:'#C43C45',color:'#FFFFFF',fontSize:10,fontWeight:900,display:'grid',placeItems:'center',border:'2px solid '+C.bg},
+  fixedSectionDot:{position:'absolute',top:-2,right:-4,width:9,height:9,borderRadius:'50%',background:'#E5384F',border:'1.5px solid '+C.bg},
   eventMessageButton:{width:'100%',padding:'13px 16px',border:0,borderRadius:12,background:C.green,color:'#FFFFFF',fontSize:14,fontWeight:900,cursor:'pointer',boxShadow:'0 4px 12px rgba(8,116,95,.16)'},
   tab:{minWidth:0,minHeight:76,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:7,border:0,background:'transparent',fontSize:12,cursor:'pointer',padding:'8px 3px'},
   sectionPanel:{maxWidth:700,margin:'22px auto',padding:'22px',border:'1px solid '+C.line,borderRadius:22,background:C.white,boxShadow:'0 12px 34px rgba(20,50,43,.045)'},
