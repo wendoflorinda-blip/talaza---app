@@ -15,6 +15,7 @@ declare
   v_expires_at timestamptz;
   v_created boolean := false;
   v_link text;
+  v_was_already_approved boolean := false;
 begin
   if auth.uid() is null or not exists (
     select 1 from public.admin_users au where au.id = auth.uid()
@@ -28,17 +29,27 @@ begin
   for update;
 
   if not found then raise exception 'Comprovativo não encontrado.'; end if;
-  if lower(coalesce(v_payment.status,'')) not in ('pending','submitted') then
-    raise exception 'Este comprovativo já foi analisado. Atualize a página.';
+  if lower(coalesce(v_payment.status,'')) not in ('pending','submitted','approved') then
+    raise exception 'Este comprovativo foi recusado ou marcado como duplicado e não pode ativar acesso.';
   end if;
   if v_payment.resubmitted_from_id is not null then
-    raise exception 'Este comprovativo é um reenvio/duplicado e não pode criar nem prolongar acesso.';
+    raise exception 'Este comprovativo está ligado a outro pagamento como reenvio/duplicado e não pode criar nem prolongar acesso.';
   end if;
+
+  v_was_already_approved := lower(coalesce(v_payment.status,'')) = 'approved';
+  if v_was_already_approved and exists (
+    select 1 from public.payment_submission_history h
+    where h.source_type='commercial'
+      and h.submission_id=v_payment.id
+      and h.action='opportunity_access_activated'
+  ) then
+    raise exception 'Este pagamento original já foi usado para ativar um período de acesso.';
+  end if;
+
   if v_payment.user_id is null or v_payment.plan_id is null then
     raise exception 'O comprovativo não tem utilizador ou plano associado.';
   end if;
 
-  -- Preço e duração são sempre lidos do registo atual do plano no Supabase.
   select * into v_plan
   from public.plans
   where id = v_payment.plan_id
@@ -65,7 +76,6 @@ begin
     raise exception 'A província escolhida não pertence ao país indicado no pagamento.';
   end if;
 
-  -- Um novo pagamento nunca acrescenta dias a uma subscrição ainda ativa.
   select * into v_subscription
   from public.user_plan_subscriptions
   where user_id = v_payment.user_id
@@ -82,7 +92,6 @@ begin
     raise exception 'Já existe um acesso ativo para esta província e plano. Este pagamento não será somado nem prolongado automaticamente.';
   end if;
 
-  -- Se existir uma linha antiga expirada/inativa, reutiliza-a; não cria duplicados.
   select * into v_subscription
   from public.user_plan_subscriptions
   where user_id = v_payment.user_id
@@ -110,10 +119,21 @@ begin
     v_created := true;
   end if;
 
-  update public.payment_submissions
-  set status = 'approved', reviewed_at = v_now
-  where id = v_payment.id and status in ('pending','submitted');
-  if not found then raise exception 'O comprovativo já foi analisado.'; end if;
+  if not v_was_already_approved then
+    update public.payment_submissions
+    set status = 'approved', reviewed_at = v_now
+    where id = v_payment.id and status in ('pending','submitted');
+    if not found then raise exception 'O comprovativo já foi analisado.'; end if;
+  end if;
+
+  -- Marca este pagamento como consumido uma única vez para evitar reativações futuras.
+  insert into public.payment_submission_history
+    (source_type, submission_id, user_id, action, status, reason)
+  values
+    ('commercial', v_payment.id, v_payment.user_id,
+     'opportunity_access_activated', 'active',
+     case when v_was_already_approved then 'Ativação única usando o pagamento original já aprovado após limpeza administrativa.'
+          else 'Acesso ativado na mesma transação da aprovação do pagamento.' end);
 
   v_link := '/oportunidades?country=' || v_country_id::text || '&province=' || v_province_id::text;
   insert into public.notifications
@@ -127,6 +147,7 @@ begin
   return jsonb_build_object(
     'payment_id', v_payment.id,
     'subscription_created', v_created,
+    'payment_was_already_approved', v_was_already_approved,
     'country_id', v_country_id,
     'province_id', v_province_id,
     'starts_at', v_now,
