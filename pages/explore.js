@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import TalazaMenu from '../components/TalazaMenu';
 import MediaOptions from '../components/MediaOptions';
+import { getTalazaLocation, setTalazaLocation } from '../lib/talazaLocation';
 
 const C = {
   green: '#0F6E5C',
@@ -188,8 +189,18 @@ function CategoryIcon({ type }) {
 export default function Explore() {
   const router = useRouter();
 
-  const country = safeValue(router.query.country);
-  const province = safeValue(router.query.province);
+  const [activeLocation, setActiveLocation] = useState({ country: '', countryId: '', province: '', provinceId: '' });
+  const country = activeLocation.countryId || activeLocation.country || safeValue(router.query.country) || '';
+  const province = activeLocation.provinceId || activeLocation.province || safeValue(router.query.province) || '';
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    const saved = getTalazaLocation();
+    setActiveLocation({
+      country: saved.country || '', countryId: saved.countryId || '',
+      province: saved.province || '', provinceId: saved.provinceId || '',
+    });
+  }, [router.isReady]);
 
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
@@ -289,7 +300,13 @@ export default function Explore() {
 
           if (provinceError) throw provinceError;
 
-          if (!cancelled) setProvinceName(provinceData?.name || '');
+          if (!cancelled) {
+            setProvinceName(provinceData?.name || '');
+            setTalazaLocation({
+              country: countryData?.name || '', countryId: country,
+              province: provinceData?.name || '', provinceId: province,
+            });
+          }
         }
       } catch (error) {
         console.error('Erro ao carregar localização:', error);
@@ -421,6 +438,14 @@ export default function Explore() {
         }
       }
 
+      if (targetCountry && targetProvince) {
+        setTalazaLocation({
+          country: countryName || activeLocation.country || '',
+          countryId: targetCountry,
+          province: provinceName || activeLocation.province || '',
+          provinceId: targetProvince,
+        });
+      }
       router.push({
         pathname: area.route,
         query: {
