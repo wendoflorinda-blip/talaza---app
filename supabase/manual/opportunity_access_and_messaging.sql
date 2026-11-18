@@ -41,7 +41,7 @@ begin
     select 1 from public.payment_submission_history h
     where h.source_type='commercial'
       and h.submission_id=v_payment.id
-      and h.action='opportunity_access_activated'
+      and h.action='approved' and h.reason like 'Acesso Oportunidades ativado:%'
   ) then
     raise exception 'Este pagamento original já foi usado para ativar um período de acesso.';
   end if;
@@ -131,9 +131,9 @@ begin
     (source_type, submission_id, user_id, action, status, reason)
   values
     ('commercial', v_payment.id, v_payment.user_id,
-     'opportunity_access_activated', 'active',
-     case when v_was_already_approved then 'Ativação única usando o pagamento original já aprovado após limpeza administrativa.'
-          else 'Acesso ativado na mesma transação da aprovação do pagamento.' end);
+     'approved', 'active',
+     case when v_was_already_approved then 'Acesso Oportunidades ativado: pagamento original já aprovado; ativação única após limpeza administrativa.'
+          else 'Acesso Oportunidades ativado: ativado na mesma transação da aprovação do pagamento.' end);
 
   v_link := '/oportunidades?country=' || v_country_id::text || '&province=' || v_province_id::text;
   insert into public.notifications
