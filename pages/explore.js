@@ -293,7 +293,7 @@ export default function Explore() {
         console.error('Erro ao carregar categorias:', error);
         if (!cancelled) {
           setCategories([]);
-          setCategoryError('Não foi possível carregar as categorias do Supabase.');
+          setCategoryError('Não foi possível carregar as categorias. Tenta de novo.');
         }
       } finally {
         if (!cancelled) setLoadingCategories(false);
@@ -615,7 +615,7 @@ export default function Explore() {
 
           {!loadingCategories && !categoryError && categories.length === 0 && (
             <div className="empty-card">
-              Ainda não existem categorias registadas no Supabase.
+              Ainda não existem categorias disponíveis.
             </div>
           )}
 
