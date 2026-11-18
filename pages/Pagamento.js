@@ -321,6 +321,20 @@ export default function Pagamento() {
       setPaymentHistory(historyRows || []);
     }
     const latestPaymentStatus = String(pendingPayment?.status || '').toLowerCase();
+    let opportunityApprovalStillPending = false;
+    if (pendingPayment && latestPaymentStatus === 'approved' && isOpportunitySubscription) {
+      const { data: activeSubscription, error: activeSubscriptionError } = await supabase
+        .from('user_plan_subscriptions').select('id')
+        .eq('user_id', session.user.id).eq('plan_id', pendingPayment.plan_id || planResult.data.id)
+        .eq('status', 'active').lte('starts_at', new Date().toISOString())
+        .gt('expires_at', new Date().toISOString())
+        .eq('country_id', countryId || '').eq('province_id', provinceId || '')
+        .limit(1).maybeSingle();
+      if (activeSubscriptionError) {
+        console.error('Não foi possível confirmar a ativação das Oportunidades:', activeSubscriptionError);
+        opportunityApprovalStillPending = true;
+      } else opportunityApprovalStillPending = !activeSubscription;
+    }
     if (
       pendingPayment &&
       (
@@ -334,7 +348,7 @@ export default function Pagamento() {
               : premiumPromotionId
                 ? premiumResult.data.status !== 'active'
                 : isOpportunitySubscription
-                  ? true
+                  ? opportunityApprovalStillPending
                   : String(businessResult.data.approval_status || '').toLowerCase() !== 'approved'
           )
         )

@@ -146,12 +146,17 @@ export default function Notificacoes() {
 
     if (type.includes('payment_review')) {
       const { data: payment } = await supabase.from('payment_submissions')
-        .select('id,plan_id,business_id,event_id,premium_promotion_id,country_id,province_id,status')
+        .select('id,plan_id,business_id,event_id,premium_promotion_id,country_id,province_id,status,plans(plan_type,area)')
         .eq('id', id).eq('user_id', user?.id).maybeSingle();
       if (!payment) return null;
       if (payment.premium_promotion_id) return { pathname:'/Pagamento', query:{ plan:payment.plan_id, premium_promotion_id:payment.premium_promotion_id } };
       if (payment.event_id) return { pathname:'/Pagamento', query:{ plan:payment.plan_id, event_id:payment.event_id } };
       if (payment.business_id) return { pathname:'/Pagamento', query:{ plan:payment.plan_id, business:payment.business_id } };
+      const linkedPlan = Array.isArray(payment.plans) ? payment.plans[0] : payment.plans;
+      if (String(linkedPlan?.plan_type || '').trim().toLowerCase() === 'opportunities' ||
+          String(linkedPlan?.area || '').trim().toLowerCase() === 'oportunidades') {
+        return { pathname:'/oportunidades', query:{ country:payment.country_id, province:payment.province_id } };
+      }
       return { pathname:'/Pagamento', query:{ plan:payment.plan_id, subscription:'opportunities', country_id:payment.country_id, province_id:payment.province_id } };
     }
     if (type.includes('motivation') || type.includes('week_theme')) {

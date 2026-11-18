@@ -33,7 +33,6 @@ export default function Mensagens() {
   const [activePeer,setActivePeer] = useState(null);
   const [messages,setMessages] = useState([]);
   const [message,setMessage] = useState('');
-  const [initialDraftApplied, setInitialDraftApplied] = useState(false);
   const [loading,setLoading] = useState(true);
   const [sending,setSending] = useState(false);
   const [error,setError] = useState('');
@@ -220,10 +219,6 @@ export default function Mensagens() {
       }
       if (cancelled) return;
       const initialMessage = safe(router.query.initialMessage);
-      if (initialMessage && !initialDraftApplied) {
-        setMessage(String(initialMessage));
-        setInitialDraftApplied(true);
-      }
       const requestedId = safe(router.query.conversation);
       if (requestedId) {
         const found = rows.find(row => row.id === requestedId);
@@ -260,6 +255,20 @@ export default function Mensagens() {
               throw new Error('A conta da loja só pode iniciar mensagens dentro da sua província principal.');
             }
             let conversationProvinceId = currentProfile?.province_id || target.province_id;
+            if (source === 'Oportunidades' && createdSourceId) {
+              const { data:sourceJob, error:sourceJobError } = await supabase.from('job_posts')
+                .select('id,user_id,province_id,title,status,is_active,admin_approved,expires_at')
+                .eq('id',createdSourceId).maybeSingle();
+              if (sourceJobError || !sourceJob || String(sourceJob.user_id) !== String(targetId)) {
+                throw new Error('Não foi possível confirmar que esta vaga pertence à pessoa que vais contactar.');
+              }
+              if (sourceJob.is_active !== true || sourceJob.admin_approved !== true ||
+                  !['approved','published'].includes(String(sourceJob.status || '').toLowerCase()) ||
+                  !sourceJob.expires_at || new Date(sourceJob.expires_at) <= new Date()) {
+                throw new Error('Esta vaga já não está publicada e aprovada para receber mensagens.');
+              }
+              conversationProvinceId = sourceJob.province_id;
+            }
             if (source === 'Eventos' && createdSourceId) {
               const { data:sourceEvent, error:sourceEventError } = await supabase
                 .from('events').select('id,user_id,province_id,status,payment_status,admin_approved')
@@ -322,6 +331,13 @@ export default function Mensagens() {
                 {conversation_id:created.id,user_id:targetId}
               ]);
               if (joinError) throw joinError;
+              if (source === 'Oportunidades' && initialMessage) {
+                const { error:initialMessageError } = await supabase.from('talaza_messages').insert({
+                  conversation_id:created.id, sender_id:currentUser.id,
+                  body:String(initialMessage).slice(0,2000), message_type:'text'
+                });
+                if (initialMessageError) throw initialMessageError;
+              }
               let targetBusiness = null;
               let targetCategoryName = '';
               let targetSubcategoryName = '';

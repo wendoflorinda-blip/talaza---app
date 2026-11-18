@@ -102,6 +102,8 @@ export default function Oportunidades() {
 
   const [opportunities, setOpportunities] = useState([]);
   const [publisherNames, setPublisherNames] = useState({});
+  const [publisherDetails, setPublisherDetails] = useState({});
+  const [subscriptionLocations, setSubscriptionLocations] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -134,6 +136,38 @@ export default function Oportunidades() {
       return;
     }
 
+    const { data: subscriptionRows, error: subscriptionRowsError } = await supabase
+      .from('user_plan_subscriptions')
+      .select('id,country_id,province_id,status,starts_at,expires_at,plans(plan_type,area,is_active)')
+      .eq('user_id', currentUser.id).eq('status', 'active')
+      .lte('starts_at', new Date().toISOString()).gt('expires_at', new Date().toISOString())
+      .order('expires_at', { ascending: false });
+    if (subscriptionRowsError) console.error('Não foi possível carregar as subscrições de Oportunidades:', subscriptionRowsError);
+    const activeOpportunityRows = (subscriptionRows || []).filter(row => {
+      const plan = Array.isArray(row.plans) ? row.plans[0] : row.plans;
+      return plan && plan.is_active !== false &&
+        (String(plan.plan_type || '').trim().toLowerCase() === 'opportunities' ||
+         String(plan.area || '').trim().toLowerCase() === 'oportunidades') && row.country_id && row.province_id;
+    });
+    const provinceIds = [...new Set(activeOpportunityRows.map(row => String(row.province_id)))];
+    const countryIds = [...new Set(activeOpportunityRows.map(row => String(row.country_id)))];
+    const [{ data: provinceRows }, { data: countryRows }] = await Promise.all([
+      provinceIds.length ? supabase.from('provinces').select('id,name,country_id').in('id', provinceIds) : Promise.resolve({data:[]}),
+      countryIds.length ? supabase.from('countries').select('id,name').in('id', countryIds) : Promise.resolve({data:[]})
+    ]);
+    const nextLocations = activeOpportunityRows.map(row => {
+      const pr=(provinceRows||[]).find(item=>String(item.id)===String(row.province_id));
+      const co=(countryRows||[]).find(item=>String(item.id)===String(row.country_id));
+      return {province_id:String(row.province_id),country_id:String(row.country_id),province_name:pr?.name||'Província',country_name:co?.name||'País'};
+    }).filter((item,index,array)=>array.findIndex(other=>other.province_id===item.province_id&&other.country_id===item.country_id)===index);
+    setSubscriptionLocations(nextLocations);
+    const selectedLocation=nextLocations.find(item=>String(item.province_id)===String(province||'')&&(!country||String(item.country_id)===String(country)));
+    if(nextLocations.length&&!selectedLocation){
+      const first=nextLocations[0];
+      setCheckingAccess(false);setLoading(false);
+      router.replace({pathname:'/oportunidades',query:{country:first.country_id,province:first.province_id}});
+      return;
+    }
     const access = await checkOpportunityAccess(currentUser.id);
     setHasAccess(access);
     if (access) {
@@ -179,21 +213,7 @@ export default function Oportunidades() {
 
   async function checkOpportunityAccess(userId) {
     try {
-      // O plano desbloqueia exclusivamente a província principal guardada no perfil.
-      // Selecionar outra província na navegação não deve conceder acesso nessa região.
-      const { data: mainProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('country_id, province_id')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (profileError || !mainProfile?.province_id || !province) {
-        if (profileError) console.error('Não foi possível consultar a província principal:', profileError);
-        return false;
-      }
-      if (String(mainProfile.province_id) !== String(province)) return false;
-      if (mainProfile.country_id && country && String(mainProfile.country_id) !== String(country)) return false;
-
+      if (!province) return false;
       const { data, error: subscriptionError } = await supabase
         .from('user_plan_subscriptions')
         .select(`
@@ -223,8 +243,8 @@ export default function Oportunidades() {
         return false;
       }
 
-      // Qualquer plano ativo de Oportunidades é válido; a região continua
-      // limitada à província principal e à província associada à subscrição.
+      // O acesso regional depende da província da subscrição escolhida,
+      // não da província principal guardada no perfil.
       return Boolean(province) && (data || []).some((subscription) => {
         const plan = Array.isArray(subscription.plans)
           ? subscription.plans[0]
@@ -237,6 +257,7 @@ export default function Oportunidades() {
           planType === 'opportunities' || planArea === 'oportunidades';
 
         if (!isOpportunityPlan || plan.is_active === false) return false;
+        if (subscription.starts_at && new Date(subscription.starts_at) > new Date()) return false;
         if (!subscription.province_id || String(subscription.province_id) !== String(province)) return false;
         if (country && subscription.country_id && String(subscription.country_id) !== String(country)) return false;
         return true;
@@ -275,10 +296,16 @@ export default function Oportunidades() {
       setOpportunities(data || []);
       const publisherIds = [...new Set((data || []).map(item => item.user_id).filter(Boolean))];
       if (publisherIds.length) {
-        const { data: publishers, error: publisherError } = await supabase.from('profiles').select('id,name').in('id', publisherIds);
+        const [{ data: publishers, error: publisherError }, { data: publisherBusinesses }] = await Promise.all([
+          supabase.from('profiles').select('id,name,avatar_url').in('id', publisherIds),
+          supabase.from('businesses').select('id,owner_id,name,logo_url').in('owner_id', publisherIds)
+        ]);
         if (publisherError) console.warn('Não foi possível carregar os nomes dos responsáveis pelas vagas:', publisherError.message);
         setPublisherNames(Object.fromEntries((publishers || []).map(item => [item.id, item.name || 'Utilizador Talaza'])));
-      } else setPublisherNames({});
+        const byOwner={};(publisherBusinesses||[]).forEach(item=>{if(!byOwner[item.owner_id])byOwner[item.owner_id]=item;});
+        const byId=Object.fromEntries((publishers||[]).map(item=>[item.id,item]));
+        setPublisherDetails(Object.fromEntries(publisherIds.map(id=>{const profile=byId[id]||{};const business=byOwner[id];return [id,{name:business?.name||profile.name||'Utilizador Talaza',photo:business?.logo_url||profile.avatar_url||''}];})));
+      } else { setPublisherNames({}); setPublisherDetails({}); }
     } catch (err) {
       console.error(err);
       setError(
@@ -302,6 +329,12 @@ export default function Oportunidades() {
     });
   }
 
+
+  function handleProvinceChange(event) {
+    const selected=subscriptionLocations.find(item=>item.province_id===event.target.value);
+    if(!selected)return;
+    router.push({pathname:'/oportunidades',query:{country:selected.country_id,province:selected.province_id}});
+  }
 
   function goToPlan() {
     const query = new URLSearchParams();
@@ -490,7 +523,14 @@ export default function Oportunidades() {
                   Veja as oportunidades publicadas na sua província.
                 </p>
               </div>
-
+              {subscriptionLocations.length>0&&(
+                <label style={{display:'grid',gap:6,minWidth:220,maxWidth:320,marginTop:14,fontSize:12,fontWeight:800,color:COLORS.ink}}>
+                  Ver oportunidades em
+                  <select value={String(province||'')} onChange={handleProvinceChange} style={{padding:'11px 12px',borderRadius:10,border:'1px solid '+COLORS.line,background:'#fff',color:COLORS.ink,fontWeight:700}}>
+                    {subscriptionLocations.map(item=><option key={item.country_id+':'+item.province_id} value={item.province_id}>{item.province_name} · {item.country_name}</option>)}
+                  </select>
+                </label>
+              )}
             </section>
 
             {loading && (
@@ -656,8 +696,9 @@ export default function Oportunidades() {
                           <span style={styles.date}>
                             Publicado em {formatDate(opportunity.created_at)}
                             <br />Província: {provinceName || '—'}
-                            <br />Publicado por: {publisherNames[opportunity.user_id] || 'Utilizador Talaza'}
+                            <br />Publicado por: {publisherDetails[opportunity.user_id]?.name || publisherNames[opportunity.user_id] || 'Utilizador Talaza'}
                           </span>
+                          {publisherDetails[opportunity.user_id]?.photo&&<img src={publisherDetails[opportunity.user_id].photo} alt={publisherDetails[opportunity.user_id].name} style={{width:38,height:38,borderRadius:'50%',objectFit:'cover',marginLeft:8}}/>}
                           <div style={styles.actions}>
                             {!hasAccess ? (
                               <button type="button" onClick={goToPlan} style={styles.messageButton}>Aderir ao Plano para contactar</button>
@@ -669,6 +710,8 @@ export default function Oportunidades() {
                                 box: 'explore',
                                 initialMessage: `Olá, vi a sua vaga ${opportunity.title || opportunity.profession || 'oportunidade'} em ${provinceName || ' ​'} e gostaria de saber mais. `
                               }).toString()}`} style={{...styles.messageButton,background:'#0F6E5C',color:'#FFFFFF',border:'1px solid #0F6E5C'}}>Enviar mensagem</Link>
+                            ) : user && String(opportunity.user_id) === String(user.id) ? (
+                              <span style={{...styles.messageButton,background:'#F2F4F3',color:COLORS.ink}}>É a tua vaga</span>
                             ) : null}
                             <Link href={`/oportunidade/${opportunity.id}?country=${encodeURIComponent(country || '')}&province=${encodeURIComponent(province || '')}`} style={styles.messageButton}>Ver vaga</Link>
                           </div>

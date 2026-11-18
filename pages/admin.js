@@ -1101,6 +1101,24 @@ export default function Admin() {
       }
       if (!window.confirm('Confirma que verificou no extrato Express que o número ' + senderPhone + ' enviou exatamente ' + Number(request.amount).toLocaleString('pt-AO') + ' Kz? Só confirme se número e valor coincidirem.')) return;
     }
+    if (approved && isOpportunityAccessRequest) {
+      setReviewingPaymentId(request.id);
+      try {
+        const { data: activation, error: activationError } = await supabase.rpc(
+          'admin_approve_opportunity_access_payment',
+          { p_payment_id: request.id }
+        );
+        if (activationError) throw activationError;
+        await Promise.all([loadSubscriptionRequests(), loadJobPosts()]);
+        alert('Pagamento aprovado. O acesso às Oportunidades está ativo até ' +
+          new Date(activation.expires_at).toLocaleDateString('pt-AO') +
+          '. Província: ' + activation.province_id + '.');
+      } catch (activationError) {
+        alert(activationError.message || 'Não foi possível aprovar e ativar o acesso às Oportunidades.');
+      } finally { setReviewingPaymentId(''); }
+      return;
+    }
+
     if (approved && request.business_id && request.plan_id) {
       setReviewingPaymentId(request.id);
       try {
