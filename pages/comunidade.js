@@ -301,7 +301,7 @@ export default function Comunidade() {
 
     if (error) {
       setMessage(
-        'Não foi possível carregar as publicações. Confirma as tabelas e as políticas de segurança no Supabase.'
+        'Não foi possível carregar as publicações. Tenta de novo.'
       );
       setPosts([]);
     } else {
@@ -500,7 +500,7 @@ export default function Comunidade() {
     } catch (uploadError) {
       setSending(false);
       setMessage(
-        'Não foi possível carregar a imagem. Confirma se o bucket community-posts existe e permite este envio.'
+        'Não foi possível enviar a imagem. Tenta de novo.'
       );
       return;
     }
