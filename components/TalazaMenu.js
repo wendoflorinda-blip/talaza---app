@@ -434,6 +434,9 @@ export default function TalazaMenu({
 
   function goHome() {
     closeMenu();
+    const homeCountryId = primaryCountry || country || '';
+    const homeProvinceId = primaryProvince || province || '';
+    setTalazaLocation({ country: '', countryId: homeCountryId, province: '', provinceId: homeProvinceId });
 
     router.push({
       pathname: '/explore',
