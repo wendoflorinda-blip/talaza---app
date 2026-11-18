@@ -792,7 +792,7 @@ export default function Oportunidades() {
                               box: 'explore',
                               initialMessage: `Olá, vi a sua vaga ${opportunity.title || opportunity.profession || 'oportunidade'} em ${provinceName || ''} e gostaria de saber mais. `
                             }).toString()}`} style={{...styles.messageButton,background:'#0F6E5C',color:'#FFFFFF',border:'1px solid #0F6E5C'}}>Enviar mensagem</Link>
-                          </div>>
+                          </div>
                         </div>
 
                         <div style={styles.expiry}>
