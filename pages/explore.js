@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import TalazaMenu from '../components/TalazaMenu';
 import MediaOptions from '../components/MediaOptions';
-import { getTalazaLocation, setTalazaLocation } from '../lib/talazaLocation';
+import { getTalazaSessionLocation, setTalazaLocation } from '../lib/talazaLocation';
 
 const C = {
   green: '#0F6E5C',
@@ -190,21 +190,38 @@ export default function Explore() {
   const router = useRouter();
 
   const [activeLocation, setActiveLocation] = useState({ country: '', countryId: '', province: '', provinceId: '' });
-  const country = activeLocation.countryId || activeLocation.country || safeValue(router.query.country) || '';
-  const province = activeLocation.provinceId || activeLocation.province || safeValue(router.query.province) || '';
+  const country = activeLocation.countryId || safeValue(router.query.country) || '';
+  const province = activeLocation.provinceId || safeValue(router.query.province) || '';
 
   useEffect(() => {
     if (!router.isReady) return;
-    const restoreLocation = () => {
-      const saved = getTalazaLocation();
-      setActiveLocation({
-        country: saved.country || '', countryId: saved.countryId || '',
-        province: saved.province || '', provinceId: saved.provinceId || '',
-      });
+    let cancelled = false;
+    const restoreLocation = async () => {
+      const saved = getTalazaSessionLocation();
+      if (saved.countryId && saved.provinceId) {
+        setActiveLocation(saved);
+        return;
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+      const { data: profile } = await supabase.from('profiles')
+        .select('country_id,province_id').eq('id', user.id).maybeSingle();
+      if (cancelled) return;
+      if (profile?.country_id && profile?.province_id) {
+        const [{ data: countryRow }, { data: provinceRow }] = await Promise.all([
+          supabase.from('countries').select('id,name').eq('id', profile.country_id).maybeSingle(),
+          supabase.from('provinces').select('id,name,country_id').eq('id', profile.province_id).eq('country_id', profile.country_id).maybeSingle(),
+        ]);
+        const value = { country: countryRow?.name || '', countryId: profile.country_id, province: provinceRow?.name || '', provinceId: provinceRow?.id || profile.province_id };
+        setTalazaLocation(value);
+        setActiveLocation(value);
+      } else {
+        setActiveLocation({ country: '', countryId: '', province: '', provinceId: '' });
+      }
     };
     restoreLocation();
     window.addEventListener('talaza:location-change', restoreLocation);
-    return () => window.removeEventListener('talaza:location-change', restoreLocation);
+    return () => { cancelled = true; window.removeEventListener('talaza:location-change', restoreLocation); };
   }, [router.isReady]);
 
   const [countryName, setCountryName] = useState('');
