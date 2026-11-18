@@ -388,16 +388,23 @@ export default function Oportunidades() {
 
       setOpportunities(data || []);
       const publisherIds = [...new Set((data || []).map(item => item.user_id).filter(Boolean))];
+      const businessIds = [...new Set((data || []).filter(item => item.publisher_mode === 'store' && item.publisher_business_id).map(item => item.publisher_business_id))];
       if (publisherIds.length) {
-        const [{ data: publishers, error: publisherError }, { data: publisherBusinesses }] = await Promise.all([
+        const [{ data: publishers, error: publisherError }, { data: publisherBusinesses, error: businessError }] = await Promise.all([
           supabase.from('profiles').select('id,name,avatar_url').in('id', publisherIds),
-          supabase.from('businesses').select('id,owner_id,name,logo_url').in('owner_id', publisherIds)
+          businessIds.length ? supabase.from('businesses').select('id,owner_id,name,logo_url').in('id', businessIds) : Promise.resolve({data:[],error:null})
         ]);
         if (publisherError) console.warn('Não foi possível carregar os nomes dos responsáveis pelas vagas:', publisherError.message);
+        if (businessError) console.warn('Não foi possível carregar as lojas associadas às publicações:', businessError.message);
+        const profilesById = Object.fromEntries((publishers || []).map(item => [item.id, item]));
+        const businessesById = Object.fromEntries((publisherBusinesses || []).map(item => [item.id, item]));
         setPublisherNames(Object.fromEntries((publishers || []).map(item => [item.id, item.name || 'Utilizador Talaza'])));
-        const byOwner={};(publisherBusinesses||[]).forEach(item=>{if(!byOwner[item.owner_id])byOwner[item.owner_id]=item;});
-        const byId=Object.fromEntries((publishers||[]).map(item=>[item.id,item]));
-        setPublisherDetails(Object.fromEntries(publisherIds.map(id=>{const profile=byId[id]||{};const business=byOwner[id];return [id,{name:business?.name||profile.name||'Utilizador Talaza',photo:business?.logo_url||profile.avatar_url||''}];})));
+        setPublisherDetails(Object.fromEntries((data || []).map(post => {
+          const profile = profilesById[post.user_id] || {};
+          const business = post.publisher_mode === 'store' && post.publisher_business_id ? businessesById[post.publisher_business_id] : null;
+          const validBusiness = business && String(business.owner_id) === String(post.user_id);
+          return [post.id, validBusiness ? {name:business.name,photo:business.logo_url || '',mode:'store',businessId:business.id} : {name:profile.name || 'Utilizador Talaza',photo:profile.avatar_url || '',mode:'explorer',businessId:null}];
+        })));
       } else { setPublisherNames({}); setPublisherDetails({}); }
     } catch (err) {
       console.error(err);
@@ -782,9 +789,9 @@ export default function Oportunidades() {
                           <span style={styles.date}>
                             Publicado em {formatDate(opportunity.created_at)}
                             <br />Província: {provinceName || '—'}
-                            <br />Publicado por: {publisherDetails[opportunity.user_id]?.name || publisherNames[opportunity.user_id] || 'Utilizador Talaza'}
+                            <br />Publicado por: {publisherDetails[opportunity.id]?.name || publisherNames[opportunity.user_id] || 'Utilizador Talaza'}
                           </span>
-                          {publisherDetails[opportunity.user_id]?.photo&&<img src={publisherDetails[opportunity.user_id].photo} alt={publisherDetails[opportunity.user_id].name} style={{width:38,height:38,borderRadius:'50%',objectFit:'cover',marginLeft:8}}/>}
+                          {publisherDetails[opportunity.id]?.photo&&<img src={publisherDetails[opportunity.id].photo} alt={publisherDetails[opportunity.id].name} style={{width:38,height:38,borderRadius:'50%',objectFit:'cover',marginLeft:8}}/>}
                           <div style={styles.actions}>
                             <Link href={`/mensagens?${new URLSearchParams({
                               to: String(opportunity.user_id || ''),
