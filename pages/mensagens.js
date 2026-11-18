@@ -230,6 +230,7 @@ export default function Mensagens() {
           await refreshBusinessConversationStatus(found);
           setActivePeer({id:found.peerId,name:found.peerName,photo:found.peerPhoto,sourceLabel:found.sourceLabel || found.source});
           await loadMessages(found.id);
+          setTimeout(() => messageInputRef.current?.focus(), 80);
         }
       } else {
         const targetId = safe(router.query.to);
