@@ -1202,7 +1202,7 @@ export default function Admin() {
           : raw.includes('já foi usado') ? 'Este pagamento já foi utilizado para ativar um acesso.'
           : raw.includes('duplicado') || raw.includes('reenvio') ? 'Este comprovativo é um duplicado ou reenvio.'
           : raw.includes('constraint') ? 'O histórico do pagamento recusou a ação. Contacte o suporte.'
-          : raw.replace(/^.*?ERROR:\\s*/i, '').split('\\n')[0].slice(0, 180);
+          : raw.replace(/^.*?ERROR:\s*/i, '').split('\n')[0].slice(0, 180);
         setPaymentActionErrors(previous => ({ ...previous, [request.id]: 'Falha ao ativar: ' + simple }));
       } finally { setReviewingPaymentId(''); }
       return;
@@ -2195,6 +2195,7 @@ export default function Admin() {
                       {!paths.image && !paths.file && <p style={{ color:'#9B3A28' }}>Este pedido não contém comprovativo legível.</p>}
                       {paths.image && !imageUrl && <p style={{ color:'#9B3A28' }}>Não foi possível abrir o comprovativo. Verifique o bucket payment-proofs.</p>}
                     </div>
+                    {paymentActionErrors[request.id] && <p role="alert" style={{ color:'#A12626', fontWeight:700, margin:'8px 0' }}>{paymentActionErrors[request.id]}</p>}
                     {(pending || canRecoverApprovedPayment) && <div style={styles.actions}>
                       {pending && <button disabled={reviewingPaymentId === request.id} style={{ ...styles.reject, opacity:reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, false)}>{reviewingPaymentId === request.id ? 'A guardar…' : 'Rejeitar pagamento'}</button>}
                       <button disabled={reviewingPaymentId === request.id} style={{ ...styles.approve, opacity:reviewingPaymentId === request.id ? .6 : 1 }} onClick={() => reviewPayment(request, true)}>{reviewingPaymentId === request.id ? 'A guardar…' : canRecoverApprovedPayment ? 'Ativar acesso com pagamento original aprovado' : 'Aprovar e ativar acesso'}</button>
