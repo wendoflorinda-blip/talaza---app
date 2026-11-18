@@ -105,6 +105,20 @@ export default function Oportunidades() {
         setActiveLocation(sessionLocation);
         return;
       }
+      const routeCountry = Array.isArray(router.query.country) ? router.query.country[0] : router.query.country;
+      const routeProvince = Array.isArray(router.query.province) ? router.query.province[0] : router.query.province;
+      if (routeCountry && routeProvince) {
+        const [{ data: countryRow }, { data: provinceRow }] = await Promise.all([
+          supabase.from('countries').select('id,name').eq('id', routeCountry).maybeSingle(),
+          supabase.from('provinces').select('id,name,country_id').eq('id', routeProvince).eq('country_id', routeCountry).maybeSingle(),
+        ]);
+        if (countryRow?.id && provinceRow?.id) {
+          const value = { country: countryRow.name || '', countryId: countryRow.id, province: provinceRow.name || '', provinceId: provinceRow.id };
+          setTalazaLocation(value);
+          setActiveLocation(value);
+          return;
+        }
+      }
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser || cancelled) return;
       const { data: profile } = await supabase.from('profiles')
@@ -129,7 +143,7 @@ export default function Oportunidades() {
     };
     window.addEventListener('talaza:location-change', onLocationChange);
     return () => { cancelled = true; window.removeEventListener('talaza:location-change', onLocationChange); };
-  }, [router.isReady]);
+  }, [router.isReady, router.query.country, router.query.province]);
 
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
