@@ -445,7 +445,9 @@ export default function Perfil() {
         throw new Error('Não foi encontrado um campo de contacto compatível no perfil. Confirme a coluna de contacto na tabela profiles.');
       }
 
-      const metadata = { ...(user.user_metadata || {}), full_name: fullName.trim() };
+      const metadata = { ...(user.user_metadata || {}) };
+      delete metadata.talaza_province_changed_at;
+      metadata.full_name = fullName.trim();
       if (photoUrl) metadata.avatar_url = photoUrl;
       // A data da alteração da província nunca é guardada em user_metadata.
       const authUpdates = { data: metadata };
@@ -684,6 +686,7 @@ export default function Perfil() {
         <div role="dialog" aria-modal="true" aria-labelledby="province-change-title" style={{position:'fixed',inset:0,zIndex:11000,background:'rgba(8,20,16,.68)',display:'flex',alignItems:'center',justifyContent:'center',padding:18}}>
           <section style={{width:'100%',maxWidth:520,maxHeight:'90vh',overflowY:'auto',background:'#FFFFFF',borderRadius:18,padding:22,boxShadow:'0 18px 60px rgba(0,0,0,.28)'}}>
             <h2 id="province-change-title" style={{margin:'0 0 14px',color:C.dark,fontSize:20}}>Atenção: alteração da província principal</h2>
+            {error && <div role="alert" style={{...S.error,marginBottom:14}}>{error}</div>}
             <ul style={{paddingLeft:22,margin:'0 0 20px',color:C.ink,lineHeight:1.65,fontSize:14}}>
               <li>A sua Comunidade Talaza será alterada.</li>
               <li>A Vitrine passará a apresentar a nova província.</li>
