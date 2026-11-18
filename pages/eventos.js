@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import CommentThread from '../components/CommentThread';
+import { getTalazaLocation, setTalazaLocation } from '../lib/talazaLocation';
 
 const BUCKET = 'event-images';
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -135,7 +136,7 @@ export default function Eventos() {
   const [interactionBusy, setInteractionBusy] = useState('');
   const [feedError, setFeedError] = useState('');
   const [feedNotice, setFeedNotice] = useState('');
-  const [expandedEventMedia, setExpandedEventMedia] = useState(null);
+  const [expandedDescriptions, setExpandedDescriptions] = useState({});
 
   useEffect(() => {
     try { const saved = JSON.parse(localStorage.getItem('talaza_event_history') || '[]'); if (Array.isArray(saved)) setHistoryItems(saved.slice(0, 100)); } catch { /* histórico opcional */ }
@@ -169,14 +170,12 @@ export default function Eventos() {
         const isUuid = (value) =>
           /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
 
-        // O contexto escolhido no Menu chega por query string desde /explore.
-        // Não usar localStorage antigo nem a província do perfil como fallback.
-        const countryCandidate = String(
-          normalizeParam(firstValue(
-            router.query.country_id,
-            router.query.country
-          )) || ''
-        ).trim();
+        // Prioridade de localização: contexto global, localStorage e, por último, query.
+        const savedLocation = getTalazaLocation();
+        const countryCandidate = String(firstValue(
+          savedLocation.countryId, savedLocation.country,
+          normalizeParam(router.query.country_id), normalizeParam(router.query.country)
+        ) || '').trim();
 
         let resolvedCountry = '';
         if (countryCandidate) {
@@ -188,12 +187,10 @@ export default function Eventos() {
           resolvedCountry = countryRow?.id || '';
         }
 
-        const provinceCandidate = String(
-          normalizeParam(firstValue(
-            router.query.province_id,
-            router.query.province
-          )) || ''
-        ).trim();
+        const provinceCandidate = String(firstValue(
+          savedLocation.provinceId, savedLocation.province,
+          normalizeParam(router.query.province_id), normalizeParam(router.query.province)
+        ) || '').trim();
 
         let provinceRow = null;
         if (provinceCandidate) {
@@ -218,6 +215,10 @@ export default function Eventos() {
         setCountryId(finalCountryId || '');
         setProvinceId(finalProvinceId);
         setProvinceName(provinceRow?.name || '');
+        if (finalCountryId && provinceRow?.id) {
+          const { data: resolvedCountryRow } = await supabase.from('countries').select('id,name').eq('id', finalCountryId).maybeSingle();
+          setTalazaLocation({ country: resolvedCountryRow?.name || savedLocation.country || '', countryId: finalCountryId, province: provinceRow.name || '', provinceId: provinceRow.id });
+        }
 
         if (provinceCandidate && !provinceRow) {
           setFeedError(
@@ -673,13 +674,12 @@ export default function Eventos() {
                     {item.video_url
                       ? <video src={item.video_url} playsInline preload="metadata" poster={item.image_url || undefined} style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} />
                       : <img src={item.image_url} alt={item.title} style={styles.eventImage} />}
-                    <button type="button" onClick={event => { event.stopPropagation(); setExpandedEventMedia({ type: item.video_url ? 'video' : 'image', src: item.video_url || item.image_url, poster: item.image_url || '', title: item.title || 'Evento' }); }} style={styles.expandMediaButton}>⛶ Ver completo</button>
                   </div>}
                   <div style={styles.eventBody}>
                     <div style={styles.eventMeta}><span style={{ ...styles.eventCategoryBadge, color: categoryTheme(item.event_type).color, background: categoryTheme(item.event_type).soft }}>{item.event_type || 'Geral'}</span>{item.location ? <span style={styles.eventLocation}>📍 {item.location}</span> : null}</div>
                     <h3 style={styles.eventTitle}>{item.title}</h3>
-                    <button type="button" onClick={event => { event.stopPropagation(); trackEventAction(item); router.push('/evento/' + item.id); }} style={styles.actionButton}>Ver detalhes</button>
-                    <p style={styles.eventDescription}>{item.description}</p>
+                    <p style={styles.eventDescription}>{expandedDescriptions[item.id] || String(item.description || '').length <= 260 ? item.description : String(item.description || '').slice(0, 260).trimEnd() + '…'}</p>
+                    {String(item.description || '').length > 260 && <button type="button" onClick={event => { event.stopPropagation(); setExpandedDescriptions(previous => ({ ...previous, [item.id]: !previous[item.id] })); }} style={styles.readMoreButton}>{expandedDescriptions[item.id] ? 'Ler menos' : 'Ler mais'}</button>}
                     <div style={styles.startDate}><strong>📅 Data de início</strong><span>{item.starts_at ? new Date(item.starts_at).toLocaleString('pt-AO', { dateStyle: 'full', timeStyle: 'short' }) : 'Data de início não indicada pelo organizador'}</span></div>
                     <div style={styles.eventActions}>
                       <button type="button" disabled={interactionBusy === 'like:' + item.id} onClick={() => toggleLike(item.id)} style={{ ...styles.actionButton, ...(likedByMe[item.id] ? styles.likedButton : {}) }}>
@@ -781,15 +781,7 @@ export default function Eventos() {
           </form>
         </section>}
       </div>
-      {expandedEventMedia && <div role="dialog" aria-modal="true" aria-label="Multimédia completa do evento" onClick={() => setExpandedEventMedia(null)} style={styles.mediaModal}>
-        <button type="button" aria-label="Fechar" onClick={() => setExpandedEventMedia(null)} style={styles.closeMediaModal}>×</button>
-        <div onClick={event => event.stopPropagation()} style={styles.mediaModalContent}>
-          {expandedEventMedia.type === 'video'
-            ? <video src={expandedEventMedia.src} poster={expandedEventMedia.poster || undefined} controls autoPlay playsInline style={styles.fullEventMedia} />
-            : <img src={expandedEventMedia.src} alt={expandedEventMedia.title} style={styles.fullEventMedia} />}
-          <div style={styles.mediaModalTitle}>{expandedEventMedia.title}</div>
-        </div>
-      </div>}
+}
     </main>
   );
 }
