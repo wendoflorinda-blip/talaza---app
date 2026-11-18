@@ -1160,7 +1160,7 @@ export default function Admin() {
     }
     if (!approved) rejectionReason = String(rejectionReasonOverride || '').trim();
     if (reviewingPaymentId) return;
-    if (approved && String(request.status || '').toLowerCase() !== 'pending') {
+    if (approved && !['pending','submitted'].includes(String(request.status || '').toLowerCase())) {
       alert('Este pagamento já foi analisado. Não é permitido acrescentar novamente os dias deste pagamento.');
       return;
     }
@@ -1325,61 +1325,7 @@ export default function Admin() {
       }
     }
     
-    // Este pagamento compra acesso às oportunidades (não paga a publicação de uma vaga).
-    if (isOpportunityAccessRequest) {
-      if (approved) {
-        const [{ data: plan, error: planError }, { data: profile, error: profileError }] = await Promise.all([
-          supabase.from('plans').select('id, duration_days, is_active, plan_type, area')
-            .eq('id', request.plan_id).maybeSingle(),
-          supabase.from('profiles').select('country_id, province_id')
-            .eq('id', request.user_id).maybeSingle(),
-        ]);
-        const durationDays = Number(plan?.duration_days) || 0;
-        const validPlan = plan && plan.is_active === true &&
-          (String(plan.plan_type || '').trim().toLowerCase() === 'opportunities' ||
-            String(plan.area || '').trim().toLowerCase() === 'oportunidades');
-        if (planError || profileError || !validPlan || durationDays <= 0) {
-          activationMessage += ' O pagamento foi aprovado, mas não foi possível validar o plano, a duração ou a localização da conta.';
-        } else {
-          const { data: existing, error: readError } = await supabase
-            .from('user_plan_subscriptions')
-            .select('id, starts_at, expires_at, status')
-            .eq('user_id', request.user_id)
-            .eq('plan_id', request.plan_id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (readError) {
-            activationMessage += ' O pagamento foi aprovado, mas não foi possível consultar o acesso anterior: ' + readError.message;
-          } else {
-            const now = new Date();
-            const previousExpiry = existing?.expires_at ? new Date(existing.expires_at) : null;
-            const baseDate = previousExpiry && !Number.isNaN(previousExpiry.getTime()) && previousExpiry > now
-              ? previousExpiry : now;
-            const expiresAt = new Date(baseDate.getTime() + durationDays * 86400000).toISOString();
-            const subscriptionData = {
-              user_id: request.user_id,
-              plan_id: request.plan_id,
-              country_id: request.country_id || profile?.country_id || null,
-              province_id: request.province_id || profile?.province_id || null,
-              status: 'active',
-              starts_at: existing?.starts_at || now.toISOString(),
-              expires_at: expiresAt,
-            };
-            const result = existing?.id
-              ? await supabase.from('user_plan_subscriptions').update(subscriptionData).eq('id', existing.id).select('id').maybeSingle()
-              : await supabase.from('user_plan_subscriptions').insert(subscriptionData).select('id').maybeSingle();
-            if (result.error || !result.data) {
-              activationMessage += ' O pagamento foi aprovado, mas não foi possível ativar o acesso às Oportunidades: ' + (result.error?.message || 'O Supabase não confirmou a assinatura.');
-            } else {
-              activationMessage += ' O acesso às Oportunidades está ativo até ' + new Date(expiresAt).toLocaleDateString('pt-AO') + '.';
-            }
-          }
-        }
-      } else {
-        activationMessage += ' O pedido de acesso às Oportunidades foi recusado.';
-      }
-    }
+    // A aprovação e a ativação de Oportunidades são feitas exclusivamente pela RPC transacional.
 
 
     const opportunityId = request.job_post_id || request.opportunity_id || null;
