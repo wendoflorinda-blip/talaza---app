@@ -93,57 +93,102 @@ export default function Oportunidades() {
   const router = useRouter();
 
   const [activeLocation, setActiveLocation] = useState({ country: '', countryId: '', province: '', provinceId: '' });
+  const [locationResolved, setLocationResolved] = useState(false);
   const country = String(activeLocation.countryId || '').trim();
   const province = String(activeLocation.provinceId || '').trim();
 
   useEffect(() => {
     if (!router.isReady) return;
     let cancelled = false;
+    const normalizeParam = value => Array.isArray(value) ? value[0] : value;
+
     const resolveLocation = async () => {
-      const sessionLocation = getTalazaSessionLocation();
-      if (sessionLocation.countryId && sessionLocation.provinceId) {
-        setActiveLocation(sessionLocation);
-        return;
-      }
-      const routeCountry = Array.isArray(router.query.country) ? router.query.country[0] : router.query.country;
-      const routeProvince = Array.isArray(router.query.province) ? router.query.province[0] : router.query.province;
-      if (routeCountry && routeProvince) {
-        const [{ data: countryRow }, { data: provinceRow }] = await Promise.all([
-          supabase.from('countries').select('id,name').eq('id', routeCountry).maybeSingle(),
-          supabase.from('provinces').select('id,name,country_id').eq('id', routeProvince).eq('country_id', routeCountry).maybeSingle(),
-        ]);
-        if (countryRow?.id && provinceRow?.id) {
-          const value = { country: countryRow.name || '', countryId: countryRow.id, province: provinceRow.name || '', provinceId: provinceRow.id };
-          setTalazaLocation(value);
-          setActiveLocation(value);
-          return;
+      setLocationResolved(false);
+      setLoading(true);
+      let countryId = '';
+      let provinceId = '';
+      let countryName = '';
+      let provinceName = '';
+      try {
+        const sessionLocation = getTalazaSessionLocation();
+        if (sessionLocation.countryId && sessionLocation.provinceId) {
+          countryId = String(sessionLocation.countryId);
+          provinceId = String(sessionLocation.provinceId);
         }
-      }
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser || cancelled) return;
-      const { data: profile } = await supabase.from('profiles')
-        .select('country_id,province_id').eq('id', currentUser.id).maybeSingle();
-      if (cancelled) return;
-      if (profile?.country_id && profile?.province_id) {
-        const [{ data: countryRow }, { data: provinceRow }] = await Promise.all([
-          supabase.from('countries').select('id,name').eq('id', profile.country_id).maybeSingle(),
-          supabase.from('provinces').select('id,name,country_id').eq('id', profile.province_id).eq('country_id', profile.country_id).maybeSingle(),
-        ]);
-        const value = { country: countryRow?.name || '', countryId: profile.country_id, province: provinceRow?.name || '', provinceId: provinceRow?.id || profile.province_id };
-        setTalazaLocation(value);
+
+        if (!provinceId) {
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          if (currentUser && !cancelled) {
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles').select('country_id,province_id')
+              .eq('id', currentUser.id).maybeSingle();
+            if (profileError) throw profileError;
+            if (profile?.country_id && profile?.province_id) {
+              countryId = String(profile.country_id);
+              provinceId = String(profile.province_id);
+            }
+          }
+        }
+
+        if (!provinceId) {
+          countryId = String(normalizeParam(router.query.country_id) || normalizeParam(router.query.country) || '');
+          provinceId = String(normalizeParam(router.query.province_id) || normalizeParam(router.query.province) || '');
+        }
+
+        if (provinceId) {
+          const { data: provinceRow, error: provinceError } = await supabase
+            .from('provinces').select('id,name,country_id').eq('id', provinceId).maybeSingle();
+          if (provinceError) throw provinceError;
+          if (provinceRow?.id) {
+            provinceId = provinceRow.id;
+            countryId = provinceRow.country_id || countryId;
+            provinceName = provinceRow.name || '';
+          } else {
+            countryId = '';
+            provinceId = '';
+          }
+        }
+
+        if (countryId) {
+          const { data: countryRow, error: countryError } = await supabase
+            .from('countries').select('id,name').eq('id', countryId).maybeSingle();
+          if (countryError) throw countryError;
+          if (countryRow?.id) {
+            countryId = countryRow.id;
+            countryName = countryRow.name || '';
+          } else {
+            countryId = '';
+            provinceId = '';
+            provinceName = '';
+          }
+        }
+
+        if (cancelled) return;
+        const value = { country: countryName, countryId, province: provinceName, provinceId };
         setActiveLocation(value);
-      } else {
-        setActiveLocation({ country: '', countryId: '', province: '', provinceId: '' });
+        setCountryName(countryName);
+        setProvinceName(provinceName);
+        if (countryId && provinceId) setTalazaLocation(value);
+      } catch (error) {
+        console.error('Erro ao resolver província de Oportunidades:', error);
+        if (!cancelled) {
+          setActiveLocation({ country: '', countryId: '', province: '', provinceId: '' });
+          setCountryName('');
+          setProvinceName('');
+        }
+      } finally {
+        if (!cancelled) setLocationResolved(true);
       }
     };
+
     resolveLocation();
-    const onLocationChange = () => {
-      const selected = getTalazaSessionLocation();
-      setActiveLocation(selected);
-    };
+    const onLocationChange = () => resolveLocation();
     window.addEventListener('talaza:location-change', onLocationChange);
-    return () => { cancelled = true; window.removeEventListener('talaza:location-change', onLocationChange); };
-  }, [router.isReady, router.query.country, router.query.province]);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('talaza:location-change', onLocationChange);
+    };
+  }, [router.isReady, router.query.country, router.query.country_id, router.query.province, router.query.province_id]);
 
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
@@ -161,19 +206,19 @@ export default function Oportunidades() {
   const [accessPlan, setAccessPlan] = useState(null);
 
   useEffect(() => {
-    if (!router.isReady) return;
+    if (!router.isReady || !locationResolved) return;
     initialize();
-  }, [router.isReady, country, province]);
+  }, [router.isReady, locationResolved, country, province]);
 
   // Revalida ao regressar ao separador depois de uma aprovação administrativa.
   useEffect(() => {
-    if (!router.isReady) return;
+    if (!router.isReady || !locationResolved) return;
     const refreshOnFocus = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') initialize();
     };
     window.addEventListener('focus', refreshOnFocus);
     return () => window.removeEventListener('focus', refreshOnFocus);
-  }, [router.isReady, country, province]);
+  }, [router.isReady, locationResolved, country, province]);
 
   async function initialize() {
     setCheckingAccess(true);
@@ -193,7 +238,7 @@ export default function Oportunidades() {
     setPublisherNames({});
     setPublisherDetails({});
     if (!country || !province) {
-      setError('A província ativa não foi identificada. Volta ao Menu, escolhe a província e abre Oportunidades novamente.');
+      setError('');
       setCheckingAccess(false);
       setLoading(false);
       return;
@@ -446,14 +491,16 @@ export default function Oportunidades() {
           </div>
         </header>
 
-        {!hasAccess && error && (
+        {!locationResolved && <section style={styles.emptyBox}><p>A carregar província...</p></section>}
+        {locationResolved && !province && <section style={styles.emptyBox}><p>Não foi possível identificar a província ativa.</p><button type="button" onClick={() => router.push({ pathname: '/explore', query: { menuOpen: '1' } })} style={styles.unlockButton}>Escolher província</button></section>}
+        {locationResolved && province && !hasAccess && error && (
           <section role="alert" style={{ ...styles.error, marginTop: 18 }}>
             <p>{error}</p>
             <button type="button" onClick={initialize} style={styles.unlockButton}>Tentar novamente</button>
           </section>
         )}
 
-        {!hasAccess && !error && (
+        {locationResolved && province && !hasAccess && !error && (
           <>
             <section style={styles.exclusiveCard}>
               <div style={styles.exclusiveGlow} />
@@ -557,7 +604,7 @@ export default function Oportunidades() {
           </>
         )}
 
-        {hasAccess && (
+        {locationResolved && province && hasAccess && (
           <>
             <section style={styles.accessHeader}>
               <div>
@@ -634,7 +681,6 @@ export default function Oportunidades() {
                       {opportunity.image_url && (
                         <div style={styles.cardMedia}>
                           <img src={opportunity.image_url} alt={opportunity.title || 'Oportunidade'} style={styles.cardImage} />
-                          <button type="button" onClick={() => setExpandedOpportunityImage({ src: opportunity.image_url, title: opportunity.title || 'Oportunidade' })} style={styles.expandCardImage}>⛶ Ver completo</button>
                         </div>
                       )}
 
@@ -739,19 +785,14 @@ export default function Oportunidades() {
                           </span>
                           {publisherDetails[opportunity.user_id]?.photo&&<img src={publisherDetails[opportunity.user_id].photo} alt={publisherDetails[opportunity.user_id].name} style={{width:38,height:38,borderRadius:'50%',objectFit:'cover',marginLeft:8}}/>}
                           <div style={styles.actions}>
-                            {!hasAccess ? (
-                              <button type="button" onClick={goToPlan} style={styles.messageButton}>Aderir ao Plano para contactar</button>
-                            ) : user && String(opportunity.user_id) !== String(user.id) ? (
-                              <Link href={`/mensagens?${new URLSearchParams({
-                                to: opportunity.user_id,
-                                source: 'Oportunidades',
-                                sourceId: opportunity.id,
-                                box: 'explore',
-                                initialMessage: `Olá, vi a sua vaga ${opportunity.title || opportunity.profession || 'oportunidade'} em ${provinceName || ' ​'} e gostaria de saber mais. `
-                              }).toString()}`} style={{...styles.messageButton,background:'#0F6E5C',color:'#FFFFFF',border:'1px solid #0F6E5C'}}>Enviar mensagem</Link>
-                            ) : null}
-                            <Link href={`/oportunidade/${opportunity.id}?country=${encodeURIComponent(country || '')}&province=${encodeURIComponent(province || '')}`} style={styles.messageButton}>Ver vaga</Link>
-                          </div>
+                            <Link href={`/mensagens?${new URLSearchParams({
+                              to: String(opportunity.user_id || ''),
+                              source: 'Oportunidades',
+                              sourceId: opportunity.id,
+                              box: 'explore',
+                              initialMessage: `Olá, vi a sua vaga ${opportunity.title || opportunity.profession || 'oportunidade'} em ${provinceName || ''} e gostaria de saber mais. `
+                            }).toString()}`} style={{...styles.messageButton,background:'#0F6E5C',color:'#FFFFFF',border:'1px solid #0F6E5C'}}>Enviar mensagem</Link>
+                          </div>>
                         </div>
 
                         <div style={styles.expiry}>
@@ -1092,7 +1133,7 @@ const styles = {
     boxShadow: '0 9px 30px rgba(23,33,31,.045)',
   },
 
-  cardMedia: { position: 'relative', width: '100%', height: 'auto', aspectRatio: '1 / 2', overflow: 'hidden', background: COLORS.canvas },
+  cardMedia: { position: 'relative', width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', background: COLORS.canvas },
   cardImage: { width: '100%', height: '100%', objectFit: 'cover', display: 'block', background: COLORS.canvas },
   expandCardImage: { position: 'absolute', right: 10, bottom: 10, zIndex: 2, border: '1px solid rgba(255,255,255,.75)', borderRadius: 999, padding: '8px 12px', background: 'rgba(8,35,27,.82)', color: '#FFFFFF', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
   imageModal: { position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18, boxSizing: 'border-box', background: 'rgba(0,0,0,.94)' },
