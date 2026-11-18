@@ -285,6 +285,7 @@ export default function Eventos() {
           .from('events')
           .select('id,user_id,country_id,province_id,title,description,event_type,image_url,video_url,location,starts_at,expires_at,status,payment_status,admin_approved,created_at')
           .eq('id', requestedEventId)
+          .eq('province_id', provinceId)
           .eq('status', 'published')
           .eq('payment_status', 'paid')
           .eq('admin_approved', true)
@@ -465,9 +466,7 @@ export default function Eventos() {
     }
 
     if (!countryId || !provinceId) {
-      setError(
-        'Não foi possível identificar a província ativa. Abre Eventos a partir da província que estás a consultar.'
-      );
+      setError('Escolhe uma província no Menu antes de publicar um evento.');
       return;
     }
 
