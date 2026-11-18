@@ -678,6 +678,7 @@ export default function Eventos() {
                   <div style={styles.eventBody}>
                     <div style={styles.eventMeta}><span style={{ ...styles.eventCategoryBadge, color: categoryTheme(item.event_type).color, background: categoryTheme(item.event_type).soft }}>{item.event_type || 'Geral'}</span>{item.location ? <span style={styles.eventLocation}>📍 {item.location}</span> : null}</div>
                     <h3 style={styles.eventTitle}>{item.title}</h3>
+                    <button type="button" onClick={event => { event.stopPropagation(); trackEventAction(item); router.push('/evento/' + item.id); }} style={styles.actionButton}>Ver detalhes</button>
                     <p style={styles.eventDescription}>{item.description}</p>
                     <div style={styles.startDate}><strong>📅 Data de início</strong><span>{item.starts_at ? new Date(item.starts_at).toLocaleString('pt-AO', { dateStyle: 'full', timeStyle: 'short' }) : 'Data de início não indicada pelo organizador'}</span></div>
                     <div style={styles.eventActions}>
