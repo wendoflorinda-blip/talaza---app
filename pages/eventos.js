@@ -340,7 +340,7 @@ export default function Eventos() {
         return acc;
       }, {}));
     } catch (err) {
-      setFeedError(err.message || 'Não foi possível carregar os eventos. Tenta de novo.');
+      setFeedError('Não foi possível carregar os eventos. Tenta de novo.');
     } finally {
       setFeedLoading(false);
     }
@@ -423,7 +423,7 @@ export default function Eventos() {
       }
       await loadEvents();
     } catch (err) {
-      setFeedError(err.message || 'Não foi possível atualizar o gosto.');
+      setFeedError('Não foi possível carregar os eventos. Tenta de novo.');
     } finally {
       setInteractionBusy('');
     }
@@ -448,7 +448,7 @@ export default function Eventos() {
       await loadEvents();
       setFeedNotice('Comentário publicado.');
     } catch (err) {
-      setFeedError(err.message || 'Não foi possível publicar o comentário.');
+      setFeedError('Não foi possível carregar os eventos. Tenta de novo.');
     } finally {
       setInteractionBusy('');
     }
