@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
+import { setTalazaLocation, getTalazaLocation } from '../lib/talazaLocation';
 
 const COLORS = {
   brand: '#0F6E5C',
@@ -318,6 +319,7 @@ export default function TalazaMenu({
   const [isSellerAccount, setIsSellerAccount] = useState(null);
   const [primaryCountry, setPrimaryCountry] = useState(country || '');
   const [primaryProvince, setPrimaryProvince] = useState(province || '');
+  const [currentProvinceId, setCurrentProvinceId] = useState(province || '');
   const [loadingProvinces, setLoadingProvinces] = useState(false);
   const [message, setMessage] = useState('');
   const [supportSent, setSupportSent] = useState(false);
@@ -327,7 +329,9 @@ export default function TalazaMenu({
 
   useEffect(() => {
     if (router.isReady && router.query.menuOpen === '1') setOpen(true);
-  }, [router.isReady, router.query.menuOpen]);
+    const stored = getTalazaLocation();
+    setCurrentProvinceId(stored.provinceId || province || '');
+  }, [router.isReady, router.query.menuOpen, province]);
 
   useEffect(() => {
     if (!open) return;
@@ -403,14 +407,7 @@ export default function TalazaMenu({
         return;
       }
 
-      const filtered =
-        (data || []).filter(
-          (item) =>
-            String(item.id) !==
-            String(province)
-        );
-
-      setProvinces(filtered);
+      setProvinces(data || []);
     } catch (error) {
       console.error(
         'Erro ao carregar províncias:',
@@ -448,11 +445,19 @@ export default function TalazaMenu({
 
   function chooseProvince(item) {
     closeMenu();
+    const selectedCountryId = item.country_id || country || primaryCountry || '';
+    setTalazaLocation({
+      country: countryName || '',
+      countryId: selectedCountryId,
+      province: item.name || '',
+      provinceId: item.id || '',
+    });
+    setCurrentProvinceId(item.id || '');
 
     router.push({
       pathname: '/explore',
       query: {
-        country: item.country_id || country,
+        country: selectedCountryId,
         province: item.id,
         homeCountry: primaryCountry || country,
         homeProvince: primaryProvince || province,
@@ -871,8 +876,7 @@ export default function TalazaMenu({
                       lineHeight: 1.5,
                     }}
                   >
-                    A província atual não aparece
-                    nesta lista.
+                    Escolhe uma província para explorar. A atual está assinalada com ✓.
                   </div>
 
                   {loadingProvinces && (
@@ -898,7 +902,7 @@ export default function TalazaMenu({
                         style={{
                           background:
                             COLORS.surface,
-                          border: `1px solid ${COLORS.line}`,
+                          border: `1px solid ${String(item.id) === String(currentProvinceId || province) ? COLORS.brand : COLORS.line}`,
                           borderRadius: 13,
                           padding: 14,
                           color:
@@ -906,8 +910,7 @@ export default function TalazaMenu({
                           fontSize: 12,
                         }}
                       >
-                        Não existem outras
-                        províncias disponíveis.
+                        Não existem províncias disponíveis para este país.
                       </div>
                     )}
 
