@@ -392,7 +392,8 @@ export default function Mensagens() {
               await loadMessages(created.id);
             }
           } catch (err) {
-            setError(err.message || 'Não foi possível iniciar esta conversa.');
+            console.error('Falha ao iniciar/abrir conversa Talaza:', err);
+            setError('Não foi possível enviar a mensagem. Tenta de novo.');
           }
         }
       }
@@ -460,7 +461,7 @@ export default function Mensagens() {
       await supabase.from('conversations').update({updated_at:new Date().toISOString()}).eq('id',activeId);
     } catch (err) {
       console.error('Falha ao enviar mensagem:',err);
-      setError(err.message || 'Não foi possível enviar a mensagem. Tenta de novo.');
+      setError('Não foi possível enviar a mensagem. Tenta de novo.');
     } finally { setSending(false); }
   }
 
