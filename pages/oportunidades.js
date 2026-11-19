@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 import { getTalazaSessionLocation } from '../lib/talazaLocation';
+import ExpandableImage from '../components/ExpandableImage';
 
 const COLORS = {
   canvas: '#F8F6F3',
@@ -203,7 +204,6 @@ export default function Oportunidades() {
   const [publisherDetails, setPublisherDetails] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [expandedOpportunityImage, setExpandedOpportunityImage] = useState(null);
   const [accessPlan, setAccessPlan] = useState(null);
 
   useEffect(() => {
@@ -687,9 +687,7 @@ export default function Oportunidades() {
                       style={styles.card}
                     >
                       {opportunity.image_url && (
-                        <div style={styles.cardMedia}>
-                          <img src={opportunity.image_url} alt={opportunity.title || 'Oportunidade'} style={styles.cardImage} />
-                        </div>
+                        <ExpandableImage src={opportunity.image_url} alt={opportunity.title || 'Oportunidade'} frameStyle={styles.cardMedia} imageStyle={styles.cardImage} />
                       )}
 
                       <div style={styles.cardContent}>
@@ -819,13 +817,6 @@ export default function Oportunidades() {
           </>
         )}
       </div>
-      {expandedOpportunityImage && <div role="dialog" aria-modal="true" aria-label="Imagem completa da oportunidade" onClick={() => setExpandedOpportunityImage(null)} style={styles.imageModal}>
-        <button type="button" aria-label="Fechar" onClick={() => setExpandedOpportunityImage(null)} style={styles.closeImageModal}>×</button>
-        <div onClick={event => event.stopPropagation()} style={styles.imageModalContent}>
-          <img src={expandedOpportunityImage.src} alt={expandedOpportunityImage.title} style={styles.fullCardImage} />
-          <div style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 700 }}>{expandedOpportunityImage.title}</div>
-        </div>
-      </div>}
     </main>
   );
 }
@@ -1145,11 +1136,6 @@ const styles = {
 
   cardMedia: { position: 'relative', width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', background: COLORS.canvas },
   cardImage: { width: '100%', height: '100%', objectFit: 'cover', display: 'block', background: COLORS.canvas },
-  expandCardImage: { position: 'absolute', right: 10, bottom: 10, zIndex: 2, border: '1px solid rgba(255,255,255,.75)', borderRadius: 999, padding: '8px 12px', background: 'rgba(8,35,27,.82)', color: '#FFFFFF', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
-  imageModal: { position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18, boxSizing: 'border-box', background: 'rgba(0,0,0,.94)' },
-  closeImageModal: { position: 'absolute', top: 14, right: 16, zIndex: 2, width: 44, height: 44, border: 0, borderRadius: '50%', background: 'rgba(255,255,255,.16)', color: '#FFFFFF', fontSize: 32, lineHeight: 1, cursor: 'pointer' },
-  imageModalContent: { width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 },
-  fullCardImage: { display: 'block', maxWidth: '100%', maxHeight: 'calc(100vh - 90px)', width: 'auto', height: 'auto', objectFit: 'contain', borderRadius: 10, background: '#000000' },
   cardContent: {
     padding: '21px',
   },
