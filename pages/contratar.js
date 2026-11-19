@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Component, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
@@ -91,7 +91,17 @@ function Icon({ type, size = 22, color = COLORS.purple }) {
   return <svg {...common}>{icons[type] || icons.sparkle}</svg>;
 }
 
-export default function Contratar() {
+class ContratarErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error, info) { console.error('Erro ao abrir a área Contratar:', error, info); }
+  render() {
+    if (this.state.hasError) return <main style={{minHeight:'100vh',display:'grid',placeItems:'center',padding:24,background:'#F8F6F3',color:'#17211F',fontFamily:'Arial,sans-serif'}}><section role="alert" style={{maxWidth:480,padding:28,borderRadius:18,background:'#fff',border:'1px solid #E5E9E7',textAlign:'center'}}><h1 style={{fontSize:22}}>Não foi possível abrir a contratação.</h1><p>Volta atrás e tenta de novo.</p><a href="/explore" style={{display:'inline-block',marginTop:12,padding:'11px 18px',borderRadius:10,background:'#0F6E5C',color:'#fff',fontWeight:800,textDecoration:'none'}}>Voltar à Vitrine</a></section></main>;
+    return this.props.children;
+  }
+}
+
+function ContratarContent() {
   const router = useRouter();
 
   const { country, province } = router.query;
@@ -153,23 +163,50 @@ export default function Contratar() {
 
   async function loadUser() {
     setLoadingUser(true);
+    try {
+      const { data, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      const currentUser = data?.user || null;
+      setUser(currentUser);
+      if (currentUser?.id) {
+        const { data: personProfile, error: profileError } = await supabase.from('profiles').select('name').eq('id', currentUser.id).maybeSingle();
+        if (profileError) console.warn('Não foi possível carregar o nome do explorador:', profileError);
+        setPublisherPersonName(personProfile?.name || 'Explorador');
+        const { data: businesses, error: businessesError } = await supabase.from('businesses')
+          .select('id,name,logo_url').eq('owner_id', currentUser.id).order('created_at', { ascending: true });
+        if (businessesError) { console.warn('Não foi possível carregar os negócios associados à conta:', businessesError); setPublisherBusinesses([]); }
+        else setPublisherBusinesses(Array.isArray(businesses) ? businesses.filter(item => item?.id) : []);
+      } else {
+        setPublisherBusinesses([]);
+        setPublisherPersonName('Explorador');
+      }
+      setPublisherBusinessId('');
+      setPublisherMode('explorer');
+    } catch (loadError) {
+      console.error('Não foi possível preparar a área Contratar:', loadError);
+      setUser(null);
+      setPublisherBusinesses([]);
+      setPublisherPersonName('Explorador');
+      setPublisherBusinessId('');
+      setPublisherMode('explorer');
+      setError('Não foi possível abrir a contratação. Volta atrás e tenta de novo.');
+    } finally {
+      setLoadingUser(false);
+    }
+  }
 
-    const {
-      data: { user: currentUser },
-    } = await supabase.auth.getUser();
-
-    setUser(currentUser || null);
-    if (currentUser) {
-      const { data: personProfile } = await supabase.from('profiles').select('name').eq('id', currentUser.id).maybeSingle();
-      setPublisherPersonName(personProfile?.name || 'Explorador');
-      const { data: businesses, error: businessesError } = await supabase.from('businesses')
-        .select('id,name,logo_url').eq('owner_id', currentUser.id).order('created_at', { ascending: true });
-      if (businessesError) { console.warn('Não foi possível carregar os negócios associados à conta:', businessesError); setPublisherBusinesses([]); }
-      else setPublisherBusinesses(businesses || []);
-    } else { setPublisherBusinesses([]); setPublisherPersonName('Explorador'); }
-    setPublisherBusinessId('');
-    setPublisherMode('explorer');
-    setLoadingUser(false);
+  function selectPublicationMode(nextMode) {
+    try {
+      if (!user) {
+        setError('Entre na sua conta antes de publicar.');
+        return;
+      }
+      setError('');
+      setMode(nextMode);
+    } catch (clickError) {
+      console.error('Erro ao abrir o formulário de contratação:', clickError);
+      setError('Não foi possível abrir a contratação. Volta atrás e tenta de novo.');
+    }
   }
 
   async function loadLocationNames() {
@@ -499,15 +536,7 @@ export default function Contratar() {
               <div style={styles.options}>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (!user) {
-                      setError('Entre na sua conta antes de publicar.');
-                      return;
-                    }
-
-                    setError('');
-                    setMode('manual');
-                  }}
+                  onClick={() => selectPublicationMode('manual')}
                   style={styles.optionCard}
                 >
                   <div
@@ -545,15 +574,7 @@ export default function Contratar() {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    if (!user) {
-                      setError('Entre na sua conta antes de publicar.');
-                      return;
-                    }
-
-                    setError('');
-                    setMode('post');
-                  }}
+                  onClick={() => selectPublicationMode('post')}
                   style={styles.optionCard}
                 >
                   <div
@@ -657,6 +678,7 @@ export default function Contratar() {
 
             <OpportunityForm
               mode="manual"
+              publisherPersonName={publisherPersonName}
               publisherBusinesses={publisherBusinesses}
               publisherMode={publisherMode}
               setPublisherMode={setPublisherMode}
@@ -733,6 +755,7 @@ export default function Contratar() {
 
             <OpportunityForm
               mode="post"
+              publisherPersonName={publisherPersonName}
               publisherBusinesses={publisherBusinesses}
               publisherMode={publisherMode}
               setPublisherMode={setPublisherMode}
@@ -777,6 +800,7 @@ export default function Contratar() {
 
 function OpportunityForm({
   mode,
+  publisherPersonName = 'Explorador',
   publisherBusinesses = [],
   publisherMode,
   setPublisherMode,
@@ -1597,4 +1621,9 @@ export async function getServerSideProps() {
   return {
     props: {},
   };
+}
+
+
+export default function Contratar() {
+  return <ContratarErrorBoundary><ContratarContent /></ContratarErrorBoundary>;
 }
