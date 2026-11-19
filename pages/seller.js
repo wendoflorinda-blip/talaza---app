@@ -77,12 +77,25 @@ export default function Seller() {
   const [updateError, setUpdateError] = useState('');
   const [musicEditorOpen, setMusicEditorOpen] = useState(false);
   const [musicTargetItem, setMusicTargetItem] = useState(null);
+  const [productEditorOpen, setProductEditorOpen] = useState(false);
+  const [productPhotos, setProductPhotos] = useState([]);
+  const [productPhotoPreviews, setProductPhotoPreviews] = useState([]);
+  const [productTitle, setProductTitle] = useState('');
+  const [productDescription, setProductDescription] = useState('');
+  const [productPrice, setProductPrice] = useState('');
+  const [productError, setProductError] = useState('');
 
   useEffect(() => {
     if (!router.isReady) return;
 
     loadBusiness();
   }, [router.isReady, country, province]);
+
+  useEffect(() => {
+    const urls = productPhotos.map(file => URL.createObjectURL(file));
+    setProductPhotoPreviews(urls);
+    return () => urls.forEach(url => URL.revokeObjectURL(url));
+  }, [productPhotos]);
 
   // Atualiza os contadores dos botões de mensagens sem precisar abrir a caixa.
   useEffect(() => {
@@ -828,7 +841,7 @@ export default function Seller() {
           const { url, path, mediaType } = await uploadGalleryFile(file, false);
           const { error: insertError } = await supabase
             .from('business_images')
-            .insert({ business_id: business.id, kind: 'panel', image_url: mediaType === 'video' ? null : url, video_url: mediaType === 'video' ? url : null, media_type: mediaType || 'image', storage_path: path, ...(mediaType === 'video' && metadata ? { name: metadata.name || null, description: metadata.description || null, price: metadata.price ?? null } : {}) });
+            .insert({ business_id: business.id, kind: 'panel', image_url: mediaType === 'video' ? null : url, video_url: mediaType === 'video' ? url : null, media_type: mediaType || 'image', storage_path: path, ...(metadata ? { name: metadata.name || null, description: metadata.description || null, price: metadata.price ?? null } : {}) });
           if (insertError) {
             await removeStored(path);
             throw insertError;
@@ -843,6 +856,43 @@ export default function Seller() {
           (files.length > 10 ? ' Só as primeiras 10 foram adicionadas de uma vez.' : '')
       );
     });
+  }
+
+  function chooseProductPhotos(files) {
+    const selected = Array.from(files || []);
+    if (!selected.length) return;
+    const invalid = selected.find(file => !file.type.startsWith('image/'));
+    if (invalid) { setProductError('Adiciona apenas fotografias do produto.'); return; }
+    if (selected.some(file => file.size > 15 * 1024 * 1024)) { setProductError('Cada fotografia deve ter no máximo 15 MB.'); return; }
+    setProductError('');
+    setProductPhotos(selected.slice(0, 10));
+  }
+
+  async function saveProductPhotos(event) {
+    event.preventDefault();
+    if (!productPhotos.length) { setProductError('Adiciona pelo menos uma fotografia do produto.'); return; }
+    const raw = productPrice.trim().replace(/\\s/g, '').replace(',', '.');
+    const price = raw === '' ? null : Number(raw);
+    if (price !== null && (!Number.isFinite(price) || price < 0)) { setProductError('Indica um preço válido em Kz.'); return; }
+    setProductError('');
+    const saved = await addPanelImages(productPhotos, { name: productTitle.trim(), description: productDescription.trim(), price });
+    if (saved) {
+      setProductEditorOpen(false);
+      setProductPhotos([]);
+      setProductTitle('');
+      setProductDescription('');
+      setProductPrice('');
+    }
+  }
+
+  function closeProductEditor() {
+    if (galleryBusy) return;
+    setProductEditorOpen(false);
+    setProductPhotos([]);
+    setProductTitle('');
+    setProductDescription('');
+    setProductPrice('');
+    setProductError('');
   }
 
   async function replaceImage(item, file) {
@@ -1482,9 +1532,12 @@ export default function Seller() {
           <div className="gal-head">
             <h2>Conteúdo do painel</h2>
             <span className="gal-count">{panelImages.length}</span>
-            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button type="button" className="gal-add" disabled={locked} onClick={() => { setMusicTargetItem(null); setMusicEditorOpen(true); }}>＋ Adicionar vídeos/fotografias</button></div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+              <button type="button" className="gal-add" disabled={locked || galleryBusy} onClick={() => { setProductError(''); setProductEditorOpen(true); }}>＋ Adicionar fotos do produto</button>
+              <button type="button" className="gal-add" disabled={locked || galleryBusy} onClick={() => { setMusicTargetItem(null); setMusicEditorOpen(true); }}>＋ Criar vídeo no TALAZA STUDIO</button>
+            </div>
           </div>
-          <div className="gal-rot">Escolha Todos, Imagens ou Vídeos; depois seleccione a forma de visualização.</div>
+          <div className="gal-rot">Adiciona fotografias dos produtos aqui. Para criar um vídeo, usa separadamente o TALAZA STUDIO.</div>
           <ProductsView
             items={panelImages}
             mode={viewMode}
@@ -1555,6 +1608,23 @@ export default function Seller() {
               businessName={business.name}
             />
           </div>
+        </div>
+      )}
+
+      {productEditorOpen && (
+        <div className="veu" onClick={(event) => { if (event.target === event.currentTarget) closeProductEditor(); }}>
+          <form className="folha" role="dialog" aria-modal="true" aria-label="Adicionar produto" onSubmit={saveProductPhotos}>
+            <h3 style={{fontSize:19,marginBottom:6}}>Adicionar produto</h3>
+            <p style={{fontSize:12,color:'#65756E',margin:'0 0 14px'}}>As fotografias são obrigatórias. O vídeo é opcional e pode ser criado separadamente no TALAZA STUDIO.</p>
+            <label style={{display:'block',fontSize:12,fontWeight:800,color:'#29443B',marginBottom:7}}>Adicionar fotos do produto *</label>
+            <input type="file" accept="image/*" multiple required={productPhotos.length===0} onChange={event=>chooseProductPhotos(event.target.files)} style={{width:'100%',boxSizing:'border-box',padding:12,border:'1px dashed #9BB8AA',borderRadius:11,background:'#F7FBF8'}} />
+            {productPhotoPreviews.length>0 && <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(82px,1fr))',gap:8,marginTop:12}}>{productPhotoPreviews.map((url,index)=><img key={url} src={url} alt={'Pré-visualização da fotografia '+(index+1)} style={{width:'100%',aspectRatio:'1/1',objectFit:'cover',borderRadius:10,border:'1px solid #D9E5DF'}} />)}</div>}
+            <label style={{display:'grid',gap:5,fontSize:12,fontWeight:800,color:'#29443B',marginTop:14}}>Nome do produto<input value={productTitle} onChange={event=>setProductTitle(event.target.value)} maxLength={80} placeholder="Nome do produto" style={{width:'100%',boxSizing:'border-box',padding:11,border:'1px solid #D9E5DF',borderRadius:10,font:'inherit'}} /></label>
+            <label style={{display:'grid',gap:5,fontSize:12,fontWeight:800,color:'#29443B',marginTop:10}}>Descrição<textarea value={productDescription} onChange={event=>setProductDescription(event.target.value)} rows={3} maxLength={500} placeholder="Descreve o produto" style={{width:'100%',boxSizing:'border-box',padding:11,border:'1px solid #D9E5DF',borderRadius:10,font:'inherit',resize:'vertical'}} /></label>
+            <label style={{display:'grid',gap:5,fontSize:12,fontWeight:800,color:'#29443B',marginTop:10}}>Preço em Kz (opcional)<input type="number" min="0" step="any" value={productPrice} onChange={event=>setProductPrice(event.target.value)} placeholder="Ex.: 15000" style={{width:'100%',boxSizing:'border-box',padding:11,border:'1px solid #D9E5DF',borderRadius:10,font:'inherit'}} /></label>
+            {productError && <p role="alert" style={{margin:'10px 0 0',padding:10,borderRadius:9,background:'#FFF0EF',color:'#A52F3B',fontSize:12}}>{productError}</p>}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:16}}><button type="button" className="cancelar" onClick={closeProductEditor} disabled={galleryBusy}>Cancelar</button><button type="submit" className="guardar" disabled={galleryBusy || !productPhotos.length}>{galleryBusy?'A guardar…':'Guardar produto'}</button></div>
+          </form>
         </div>
       )}
 
