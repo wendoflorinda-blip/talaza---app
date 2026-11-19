@@ -690,8 +690,9 @@ export default function Eventos() {
             <div id="eventos-publicados" style={styles.eventList}>
               {visibleEvents.map(item => (
                 <article id={'evento-' + item.id} key={item.id} style={{ ...styles.eventCard, borderColor: categoryTheme(item.event_type).color + '45', background: '#FFFFFF', boxShadow: '0 6px 22px rgba(24,39,34,.07)' }} onClick={() => trackEventAction(item)}>
-                  {item.image_url && <ExpandableImage src={item.image_url} alt={item.title || 'Imagem do evento'} frameStyle={{ ...styles.eventMedia, aspectRatio: '1 / 1' }} imageStyle={styles.eventImage} />}
-                  {item.video_url && <div style={styles.eventMedia}><video src={item.video_url} playsInline preload="metadata" poster={item.image_url || undefined} style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} controls /></div>}
+                  {item.video_url
+                    ? <div style={styles.eventMedia}><video src={item.video_url} playsInline preload="metadata" poster={item.image_url || undefined} style={styles.eventVideo} aria-label={'Vídeo do evento: ' + item.title} controls /></div>
+                    : item.image_url ? <ExpandableImage src={item.image_url} alt={item.title || 'Imagem do evento'} frameStyle={{ ...styles.eventMedia, aspectRatio: '1 / 1' }} imageStyle={styles.eventImage} /> : null}
                   <div style={styles.eventBody}>
                     <div style={styles.eventMeta}><span style={{ ...styles.eventCategoryBadge, color: categoryTheme(item.event_type).color, background: categoryTheme(item.event_type).soft }}>{item.event_type || 'Geral'}</span>{item.location ? <span style={styles.eventLocation}>📍 {item.location}</span> : null}</div>
                     <div style={{display:'flex',alignItems:'center',gap:9,margin:'8px 0 12px'}}>
