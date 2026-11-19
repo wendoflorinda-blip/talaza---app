@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabaseClient';
 import TalazaMenu from '../components/TalazaMenu';
 import { loadProfileSectionBadgeCounts } from '../lib/profileBadges';
 import { setTalazaLocation } from '../lib/talazaLocation';
+import ExpandableImage from '../components/ExpandableImage';
 
 const C = { green:'#08745F', dark:'#06483D', purple:'#64358B', gold:'#D8A319', ink:'#182722', muted:'#66736F', bg:'#F7F6F3', line:'#E3E8E4', white:'#FFFFFF', red:'#A52F3B' };
 
@@ -620,7 +621,7 @@ export default function Perfil() {
             <p style={S.sectionIntro}>Não perca as novidades dos seus negócios favoritos! Guarde os perfis dos negócios que mais lhe interessam e acompanhe as suas novas imagens, vídeos e atualizações nesta área. Sempre que publicarem uma novidade, poderá encontrá-la aqui. As atualizações são apresentadas apenas aos exploradores que guardaram o respetivo perfil.</p>
             {loadingSections ? <p style={S.empty}>A carregar Novidades…</p> : savedBusinessUpdates.length ? <div style={S.savedGrid}>
               {savedBusinessUpdates.map(item=><article key={item.id} style={S.savedCard}>
-                {item.media_type==='video' ? <video src={item.signedUrl} controls playsInline style={{width:'100%',height:260,objectFit:'cover',background:'#111'}}/> : <img src={item.signedUrl} alt="Novidade do negócio" style={{width:'100%',height:260,objectFit:'cover'}}/>}
+                {item.media_type==='video' ? <video src={item.signedUrl} controls playsInline style={{width:'100%',height:260,objectFit:'cover',background:'#111'}}/> : <ExpandableImage src={item.signedUrl} alt="Novidade do negócio" frameStyle={{width:'100%',height:260}} />}
                 <div style={{padding:14}}><strong>{item.businessName}</strong><p style={S.cardDescription}>Publicado em {new Date(item.created_at).toLocaleDateString('pt-PT')}</p><Link href={{pathname:'/businesses/'+item.business_id,query:{returnTo:'/perfil?tab=novidades'}}} style={S.openBusiness}>Ver perfil do negócio</Link></div>
               </article>)}
             </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>✦</span><strong>Ainda não há Novidades para si</strong><p>Guarde os perfis dos negócios que mais lhe interessam para acompanhar novas imagens, vídeos e atualizações. Só verá publicações dos negócios que guardou.</p><Link href="/explore" style={S.openBusiness}>Explorar negócios</Link></div>}
@@ -630,7 +631,7 @@ export default function Perfil() {
             <p style={S.sectionIntro}>Aqui aparecem apenas eventos publicados, pagos e aprovados na sua província principal: {provinceName}.</p>
             {loadingSections ? <p style={S.empty}>A carregar eventos…</p> : provinceEvents.length ? <div style={S.savedGrid}>
               {provinceEvents.map(event => <article key={event.id} style={S.savedCard}>
-                {event.video_url ? <video src={event.video_url} controls playsInline preload="metadata" style={S.savedImage} /> : event.image_url ? <img src={event.image_url} alt={event.title || 'Imagem do evento'} style={S.savedImage}/> : <div style={S.savedImagePlaceholder}>✦</div>}
+                {event.video_url ? <video src={event.video_url} controls playsInline preload="metadata" style={S.savedImage} /> : event.image_url ? <ExpandableImage src={event.image_url} alt={event.title || 'Imagem do evento'} frameStyle={S.savedImage}/> : <div style={S.savedImagePlaceholder}>✦</div>}
                 <div style={{padding:14}}>
                   <strong>{event.title}</strong>
                   <p style={S.cardDescription}>{event.description || event.location || 'Evento na sua província'}</p>
