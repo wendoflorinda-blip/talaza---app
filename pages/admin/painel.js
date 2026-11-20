@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
+import ProductsView from '../../components/ProductsView';
+import { Field, ImagePicker, CountrySelect, inputStyle } from '../../components/Fields';
 
 const colors = { green: '#075B4E', ink: '#173B35', gold: '#D4AF37', muted: '#66756F', border: '#DCE6E0', pale: '#F4F8F5' };
 const input = { width: '100%', boxSizing: 'border-box', border: '1px solid #D8E2DC', borderRadius: 10, padding: '12px 13px', font: 'inherit', color: colors.ink, background: '#fff' };
@@ -252,18 +254,17 @@ export default function AdminStoreDashboard() {
           <p style={{ color: colors.muted, lineHeight: 1.6 }}>O formulário está disponível apenas para o administrador principal autenticado. A loja fica ativa imediatamente depois da validação do código secreto.</p>
           <form onSubmit={createStore}>
             <h3 style={{ margin: '22px 0 8px' }}>Dados da loja</h3>
-            <label style={label}>Nome da loja *</label><input required maxLength={120} value={storeForm.nome} onChange={e => updateStoreField('nome', e.target.value)} placeholder="Nome oficial da loja" style={input} />
-            <label style={label}>Descrição</label><textarea rows={4} maxLength={1200} value={storeForm.descricao} onChange={e => updateStoreField('descricao', e.target.value)} placeholder="Apresentação da Loja do Administrador" style={{ ...input, resize: 'vertical' }} />
-            <label style={label}>WhatsApp / Telefone *</label><input required maxLength={40} value={storeForm.telefone} onChange={e => updateStoreField('telefone', e.target.value)} placeholder="+244 ..." style={input} />
-            <label style={label}>Logo / Foto</label><input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => chooseStorePhoto(e.target.files?.[0])} style={{ ...input, padding: 9 }} />
-            {photoPreview && <img src={photoPreview} alt="Pré-visualização do logótipo" style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 18, marginTop: 12 }} />}
+            <Field id="admin-store-name" label="Nome da loja" required><input id="admin-store-name" required maxLength={120} value={storeForm.nome} onChange={e => updateStoreField('nome', e.target.value)} placeholder="Nome oficial da loja" style={inputStyle} /></Field>
+            <Field id="admin-store-description" label="Descrição"><textarea id="admin-store-description" rows={4} maxLength={1200} value={storeForm.descricao} onChange={e => updateStoreField('descricao', e.target.value)} placeholder="Apresentação da Loja do Administrador" style={{ ...inputStyle, resize: 'vertical' }} /></Field>
+            <Field id="admin-store-phone" label="WhatsApp / Telefone" required><input id="admin-store-phone" type="tel" required maxLength={40} value={storeForm.telefone} onChange={e => updateStoreField('telefone', e.target.value)} placeholder="+244 ..." style={inputStyle} /></Field>
+            <Field id="admin-store-logo" label="Logo / Foto"><ImagePicker id="admin-store-logo" preview={photoPreview} onFile={chooseStorePhoto} caption="Escolher logótipo da loja" icon="🖼️" /></Field>
 
             <h3 style={{ margin: '26px 0 8px' }}>Categoria e subcategoria</h3>
             <label style={label}>Categoria *</label><select required value={storeForm.categoryId} onChange={e => { updateStoreField('categoryId', e.target.value); updateStoreField('subcategoryId', ''); }} style={input}><option value="">Escolher categoria</option>{catalog.categories.map(item => <option key={item.id} value={item.id}>{item.name.trim()}</option>)}</select>
             <label style={label}>Subcategoria *</label><select required disabled={!storeForm.categoryId} value={storeForm.subcategoryId} onChange={e => updateStoreField('subcategoryId', e.target.value)} style={input}><option value="">Escolher subcategoria</option>{subcategories.map(item => <option key={item.id} value={item.id}>{item.name.trim()}</option>)}</select>
 
             <h3 style={{ margin: '26px 0 8px' }}>País e províncias de hospedagem</h3>
-            <label style={label}>País *</label><select required value={storeForm.countryId} onChange={e => { updateStoreField('countryId', e.target.value); setSelectedProvinceIds([]); setAreasByProvince({}); }} style={input}><option value="">Escolher primeiro o país</option>{catalog.countries.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+            <Field id="admin-store-country" label="País" required><CountrySelect id="admin-store-country" countries={catalog.countries} value={storeForm.countryId} onChange={value => { updateStoreField('countryId', value); setSelectedProvinceIds([]); setAreasByProvince({}); }} /></Field>
             {storeForm.countryId && <><p style={{ color: colors.muted, fontSize: 13, margin: '12px 0' }}>Escolha uma ou várias províncias. É sempre a mesma loja, não serão criadas lojas separadas.</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
                 {currentCountryProvinces.map(item => <label key={item.id} style={{ display: 'flex', gap: 9, alignItems: 'center', border: '1px solid ' + colors.border, borderRadius: 10, padding: 11, cursor: 'pointer' }}><input type="checkbox" checked={selectedProvinceIds.includes(item.id)} onChange={() => toggleProvince(item.id)} />{item.name}</label>)}
@@ -332,12 +333,7 @@ export default function AdminStoreDashboard() {
             </form>
             <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 24 }}>
               <h2 style={{ marginTop: 0 }}>Produtos da loja ({data.products?.length || 0})</h2>
-              {!data.products?.length ? <p style={{ color: colors.muted }}>Ainda não há produtos publicados.</p> : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 14 }}>
-                {data.products.map(product => <article key={product.id} style={{ border: '1px solid ' + colors.border, borderRadius: 13, overflow: 'hidden' }}>
-                  {product.image_url && <img src={product.image_url} alt={product.name || 'Produto'} style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover' }} />}
-                  <div style={{ padding: 12 }}><strong>{product.name || 'Produto'}</strong><p style={{ fontSize: 13, color: colors.muted }}>{product.description || ''}</p>{product.price != null && <p style={{ fontWeight: 800 }}>{Number(product.price).toLocaleString('pt-PT')} Kz</p>}<button type="button" onClick={() => deleteProduct(product.id)} style={{ ...secondary, color: '#A3332C' }}>Remover</button></div>
-                </article>)}
-              </div>}
+              <ProductsView items={data.products || []} mode="normal" editable onDelete={item => deleteProduct(item.id)} businessName={data.store.nome_da_loja} businessId={data.store.business_id || ''} />
             </section>
           </section>}
 

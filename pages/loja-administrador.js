@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
+import ProductsView from '../components/ProductsView';
 
 const panel = { width: '100%', maxWidth: 900, margin: '0 auto', padding: '28px 16px 60px', boxSizing: 'border-box' };
 const field = { width: '100%', boxSizing: 'border-box', border: '1px solid #D8E2DC', borderRadius: 10, padding: 12, font: 'inherit' };
@@ -55,12 +56,7 @@ export default function AdminPublicStore() {
 
           <section style={{ marginTop: 24 }}>
             <h2>Produtos</h2>
-            {!data.products?.length ? <p style={{ color: '#66756F' }}>Os produtos desta loja serão apresentados aqui.</p> : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))', gap: 14 }}>
-              {data.products.map(product => <article key={product.id} style={{ background: '#fff', border: '1px solid #DCE6E0', borderRadius: 14, overflow: 'hidden' }}>
-                {product.image_url && <img src={product.image_url} alt={product.name || 'Produto'} style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover' }} />}
-                <div style={{ padding: 13 }}><strong>{product.name || 'Produto'}</strong><p style={{ color: '#66756F', fontSize: 13 }}>{product.description || ''}</p>{product.price != null && <b>{Number(product.price).toLocaleString('pt-PT')} Kz</b>}</div>
-              </article>)}
-            </div>}
+            <ProductsView items={data.products || []} mode="normal" editable={false} businessName={data.store.nome_da_loja} businessId={data.store.business_id || ''} />
           </section>
 
           <section style={{ marginTop: 28, background: '#fff', border: '1px solid #DCE6E0', borderRadius: 18, padding: 22 }}>
