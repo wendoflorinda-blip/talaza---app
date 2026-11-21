@@ -35,6 +35,7 @@ export default function AdminStoreDashboard() {
   const [dashboardReadFailed, setDashboardReadFailed] = useState(false);
   const [catalog, setCatalog] = useState({ countries: [], provinces: [], categories: [], subcategories: [] });
   const [tab, setTab] = useState('loja');
+  const [editingStore, setEditingStore] = useState(false);
 
   const [storeForm, setStoreForm] = useState({ nome: '', descricao: '', telefone: '', countryId: '', categoryId: '', subcategoryId: '', secretCode: '' });
   const [photo, setPhoto] = useState(null);
@@ -214,6 +215,22 @@ export default function AdminStoreDashboard() {
     finally { setProductBusy(false); }
   }
 
+  async function saveStoreDetails(event) {
+    event.preventDefault(); setError(''); setNotice('');
+    setSaving(true);
+    try {
+      const photoDataUrl = photo ? await fileToDataUrl(photo) : null;
+      const result = await api('/api/admin-store/editar', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome: storeForm.nome, descricao: storeForm.descricao, telefone: storeForm.telefone, categoryId: storeForm.categoryId, subcategoryId: storeForm.subcategoryId, photoDataUrl }),
+      });
+      setNotice(result.message || 'Dados da loja atualizados.');
+      setPhoto(null); setPhotoPreview(''); setEditingStore(false);
+      await loadDashboard(token);
+    } catch (err) { setError(err.message || 'Não foi possível atualizar a loja.'); }
+    finally { setSaving(false); }
+  }
+
   async function deleteProduct(id) {
     if (!window.confirm('Queres remover este produto da loja?')) return;
     setError(''); setNotice('');
@@ -307,6 +324,20 @@ export default function AdminStoreDashboard() {
               {data.store.foto_url ? <img src={data.store.foto_url} alt="Logo da loja" style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 18 }} /> : <div style={{ width: 88, height: 88, display: 'grid', placeItems: 'center', borderRadius: 18, background: '#E7F1EC', color: colors.green, fontSize: 28, fontWeight: 900 }}>T</div>}
               <div><h2 style={{ margin: 0 }}>{data.store.nome_da_loja}</h2><p style={{ color: colors.muted, margin: '6px 0' }}>{data.store.country} · {data.provinces.length} província(s)</p><span style={{ color: '#17633A', fontWeight: 800, fontSize: 12 }}>LOJA ATIVA</span></div>
             </div>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:14}}>
+              <button type="button" onClick={() => { setStoreForm({ nome:data.store.nome_da_loja||'', descricao:data.store.descricao||'', telefone:data.store.telefone||'', countryId:data.store.country_id||'', categoryId:data.store.category_id||'', subcategoryId:data.store.subcategory_id||'', secretCode:'' }); setPhoto(null); setPhotoPreview(''); setEditingStore(v=>!v); setError(''); }} style={secondary}>{editingStore?'Cancelar edição':'Editar'}</button>
+              <button type="button" onClick={async()=>{setError('');setNotice('');setLoading(true);try{await loadDashboard(token);setNotice('Dados da loja atualizados.')}catch(e){setError(e.message||'Falha na leitura.')}finally{setLoading(false)}}} style={secondary}>Atualizar dados</button>
+            </div>
+            {editingStore && <form onSubmit={saveStoreDetails} style={{marginTop:18,padding:18,border:'1px solid '+colors.border,borderRadius:14,background:colors.pale}}>
+              <h3 style={{marginTop:0}}>Editar dados da loja</h3>
+              <label style={label}>Nome da loja *</label><input required maxLength={120} value={storeForm.nome} onChange={e=>updateStoreField('nome',e.target.value)} style={input}/>
+              <label style={label}>Descrição</label><textarea rows={4} maxLength={1200} value={storeForm.descricao} onChange={e=>updateStoreField('descricao',e.target.value)} style={{...input,resize:'vertical'}}/>
+              <label style={label}>WhatsApp / Telefone *</label><input required maxLength={40} value={storeForm.telefone} onChange={e=>updateStoreField('telefone',e.target.value)} style={input}/>
+              <label style={label}>Logo / Foto (opcional)</label><ImagePicker id="admin-store-edit-logo" preview={photoPreview} onFile={chooseStorePhoto} caption="Trocar logótipo da loja" icon="🖼️"/>
+              <label style={label}>Categoria *</label><select required value={storeForm.categoryId} onChange={e=>{updateStoreField('categoryId',e.target.value);updateStoreField('subcategoryId','')}} style={input}><option value="">Escolher categoria</option>{catalog.categories.map(item=><option key={item.id} value={item.id}>{item.name.trim()}</option>)}</select>
+              <label style={label}>Subcategoria *</label>{!storeForm.categoryId?<p style={{color:colors.muted,fontSize:13}}>Escolha primeiro a categoria.</p>:<SubcategoryCards items={subcategories} value={storeForm.subcategoryId} onChange={value=>updateStoreField('subcategoryId',value)} idPrefix="admin-store-edit-subcategory"/>}
+              <button disabled={saving} type="submit" style={{...primary,marginTop:16}}>{saving?'A guardar…':'Guardar alterações'}</button>
+            </form>}
             <p style={{ lineHeight: 1.65 }}>{data.store.descricao || 'Sem descrição.'}</p>
             <p><strong>WhatsApp / Telefone:</strong> {data.store.telefone}</p>
             <p><strong>Categoria:</strong> {catalog.categories.find(item => item.id === data.store.category_id)?.name || '—'}</p>
