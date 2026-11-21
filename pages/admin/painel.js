@@ -23,6 +23,33 @@ function fileToDataUrl(file) {
 function splitAreas(value) {
   return [...new Set(String(value || '').split(/[\n,;]+/).map(item => item.trim()).filter(Boolean))];
 }
+function optimizedImageDataUrl(file, square = false, maxSize = 1600) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const width = Math.max(1, Math.round(img.width * scale));
+        const height = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = square ? 600 : width;
+        canvas.height = square ? 600 : height;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Não foi possível processar a imagem.');
+        if (square) {
+          const size = Math.min(img.width, img.height);
+          const sx = Math.round((img.width - size) / 2), sy = Math.round((img.height - size) / 2);
+          context.drawImage(img, sx, sy, size, size, 0, 0, 600, 600);
+        } else context.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.88));
+      } catch (error) { reject(error); }
+      finally { URL.revokeObjectURL(objectUrl); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Não foi possível abrir a imagem.')); };
+    img.src = objectUrl;
+  });
+}
 
 export default function AdminStoreDashboard() {
   const router = useRouter();
@@ -50,6 +77,12 @@ export default function AdminStoreDashboard() {
   const [productBusy, setProductBusy] = useState(false);
   const [messages, setMessages] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [adminThreads, setAdminThreads] = useState([]);
+  const [allBusinesses, setAllBusinesses] = useState([]);
+  const [adminThreadsLoading, setAdminThreadsLoading] = useState(false);
+  const [selectedBusinessFilter, setSelectedBusinessFilter] = useState('');
+  const [selectedThreadId, setSelectedThreadId] = useState('');
+  const [assetBusy, setAssetBusy] = useState('');
 
   const currentCountryProvinces = useMemo(
     () => catalog.provinces.filter(item => item.country_id === storeForm.countryId),
@@ -93,6 +126,19 @@ export default function AdminStoreDashboard() {
     finally { setMessagesLoading(false); }
   }, [api, token, data?.store]);
 
+  const loadAllStoreConversations = useCallback(async () => {
+    if (!token) return;
+    setAdminThreadsLoading(true);
+    try {
+      const result = await api('/api/admin-store/conversas');
+      setAllBusinesses(result.businesses || []);
+      setAdminThreads(result.threads || []);
+      setSelectedBusinessFilter(current => current || '');
+      setSelectedThreadId(current => (result.threads || []).some(t => t.conversationId === current) ? current : '');
+    } catch (err) { setError(err.message || 'Não foi possível carregar mensagens das lojas.'); }
+    finally { setAdminThreadsLoading(false); }
+  }, [api, token]);
+
   useEffect(() => {
     let active = true;
     async function start() {
@@ -129,8 +175,11 @@ export default function AdminStoreDashboard() {
   }, [router]);
 
   useEffect(() => {
-    if (tab === 'mensagens' && data?.store && token) loadMessages();
-  }, [tab, data?.store, token, loadMessages]);
+    if (tab === 'mensagens' && token) {
+      if (data?.store) loadMessages();
+      loadAllStoreConversations();
+    }
+  }, [tab, data?.store, token, loadMessages, loadAllStoreConversations]);
 
   function updateStoreField(key, value) {
     setStoreForm(current => ({ ...current, [key]: value }));
@@ -146,6 +195,21 @@ export default function AdminStoreDashboard() {
     if (!file.type.startsWith('image/')) { setError('Escolha uma imagem para o logótipo.'); return; }
     if (file.size > 4 * 1024 * 1024) { setError('O logótipo deve ter no máximo 4 MB.'); return; }
     setPhoto(file); setPhotoPreview(URL.createObjectURL(file)); setError('');
+  }
+
+  async function uploadAdminStoreAsset(action, file, slot = null) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setError('Escolha uma imagem válida.'); return; }
+    if (file.size > 15 * 1024 * 1024) { setError('A imagem deve ter no máximo 15 MB.'); return; }
+    const key = action === 'main' ? 'main-' + slot : action;
+    setAssetBusy(key); setError(''); setNotice('');
+    try {
+      const imageDataUrl = await optimizedImageDataUrl(file, action === 'main', action === 'main' ? 600 : action === 'logo' ? 800 : 1600);
+      const result = await api('/api/admin-store/assets', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action,slot,imageDataUrl}) });
+      setNotice(result.message || 'Imagem atualizada.');
+      await loadDashboard(token);
+    } catch(err) { setError(err.message || 'Não foi possível atualizar a imagem.'); }
+    finally { setAssetBusy(''); }
   }
 
   async function createStore(event) {
@@ -222,7 +286,7 @@ export default function AdminStoreDashboard() {
       const photoDataUrl = photo ? await fileToDataUrl(photo) : null;
       const result = await api('/api/admin-store/editar', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome: storeForm.nome, descricao: storeForm.descricao, telefone: storeForm.telefone, categoryId: storeForm.categoryId, subcategoryId: storeForm.subcategoryId, photoDataUrl }),
+        body: JSON.stringify({ nome: storeForm.nome, descricao: storeForm.descricao, telefone: storeForm.telefone, whatsapp: storeForm.whatsapp, address: storeForm.address, municipality: storeForm.municipality, neighborhood: storeForm.neighborhood, openingHours: storeForm.openingHours, categoryId: storeForm.categoryId, subcategoryId: storeForm.subcategoryId, photoDataUrl }),
       });
       setNotice(result.message || 'Dados da loja atualizados.');
       setPhoto(null); setPhotoPreview(''); setEditingStore(false);
@@ -324,12 +388,32 @@ export default function AdminStoreDashboard() {
           </nav>
 
           {tab === 'loja' && <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 24 }}>
-            <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
-              {data.store.foto_url ? <img src={data.store.foto_url} alt="Logo da loja" style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 18 }} /> : <div style={{ width: 88, height: 88, display: 'grid', placeItems: 'center', borderRadius: 18, background: '#E7F1EC', color: colors.green, fontSize: 28, fontWeight: 900 }}>T</div>}
-              <div><h2 style={{ margin: 0 }}>{data.store.nome_da_loja}</h2><p style={{ color: colors.muted, margin: '6px 0' }}>{data.store.country} · {data.provinces.length} província(s)</p><span style={{ color: '#17633A', fontWeight: 800, fontSize: 12 }}>LOJA ATIVA</span></div>
+            <div style={{position:'relative',minHeight:220,borderRadius:15,overflow:'hidden',background:'#0B5A4A',marginBottom:18}}>
+              {data.business?.cover_url && <img src={data.business.cover_url} alt="Capa da Loja Administrador" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}}/>}
+              <div style={{position:'absolute',inset:0,background:'linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.72))'}}/>
+              <label style={{position:'absolute',right:14,top:14,padding:'9px 12px',background:'#fff',color:colors.green,borderRadius:9,fontSize:12,fontWeight:800,cursor:'pointer'}}>Alterar capa
+                <input type="file" accept="image/*" hidden disabled={!!assetBusy} onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)uploadAdminStoreAsset('cover',file);}}/>
+              </label>
+              <div style={{position:'absolute',left:16,bottom:16,display:'flex',alignItems:'center',gap:14,color:'#fff'}}>
+                <div style={{position:'relative',width:80,height:80,borderRadius:18,border:'2px solid #C9A24B',background:'#fff',overflow:'hidden'}}>
+                  {data.store.foto_url ? <img src={data.store.foto_url} alt="Logótipo" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : <div style={{display:'grid',placeItems:'center',width:'100%',height:'100%',fontSize:25,fontWeight:900,color:colors.green}}>T</div>}
+                  <label style={{position:'absolute',right:1,bottom:1,width:26,height:26,display:'grid',placeItems:'center',borderRadius:'50%',background:'#C9A24B',color:colors.green,fontSize:20,fontWeight:900,cursor:'pointer'}}>+
+                    <input type="file" accept="image/*" hidden disabled={!!assetBusy} onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)uploadAdminStoreAsset('logo',file);}}/>
+                  </label>
+                </div>
+                <div><div style={{fontSize:11,fontWeight:900,letterSpacing:1.5,color:'#F5D98B'}}>LOJA OFICIAL · ATIVA SEM HOSPEDAGEM</div><h2 style={{margin:'4px 0',fontSize:24}}>{data.store.nome_da_loja}</h2><p style={{margin:0,fontSize:13}}>{data.store.country} · {data.provinces.length} província(s)</p></div>
+              </div>
+              {assetBusy && <span style={{position:'absolute',left:14,top:14,background:'#fff',color:colors.green,padding:'6px 9px',borderRadius:8,fontSize:11,fontWeight:800}}>A carregar imagem…</span>}
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:8,marginBottom:18}}>
+              {[0,1,2].map(slot=>{const item=(data.mainImages||[]).find(row=>Number(row.slot)===slot);return <label key={slot} style={{position:'relative',display:'block',aspectRatio:'1/1',border:'1px dashed '+colors.border,borderRadius:12,overflow:'hidden',background:'#F3F6F2',cursor:'pointer'}}>
+                {item?.image_url?<img src={item.image_url} alt={'Imagem principal '+(slot+1)} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<div style={{height:'100%',display:'grid',placeItems:'center',color:colors.green,fontWeight:800}}>＋ Imagem {slot+1}</div>}
+                {item && <span style={{position:'absolute',bottom:6,left:6,right:6,textAlign:'center',background:'#fff',color:colors.green,borderRadius:7,padding:5,fontSize:11,fontWeight:800}}>Alterar imagem</span>}
+                <input type="file" accept="image/*" hidden disabled={!!assetBusy} onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)uploadAdminStoreAsset('main',file,slot);}}/>
+              </label>})}
             </div>
             <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:14}}>
-              <button type="button" onClick={() => { setStoreForm({ nome:data.store.nome_da_loja||'', descricao:data.store.descricao||'', telefone:data.store.telefone||'', countryId:data.store.country_id||'', categoryId:data.store.category_id||'', subcategoryId:data.store.subcategory_id||'', secretCode:'' }); setPhoto(null); setPhotoPreview(''); setEditingStore(v=>!v); setError(''); }} style={secondary}>{editingStore?'Cancelar edição':'Editar'}</button>
+              <button type="button" onClick={() => { setStoreForm({ nome:data.store.nome_da_loja||'', descricao:data.store.descricao||'', telefone:data.store.telefone||'', whatsapp:data.business?.whatsapp||'', address:data.business?.address||'', municipality:data.business?.municipality||'', neighborhood:data.business?.neighborhood||'', openingHours:data.business?.opening_hours||'', countryId:data.store.country_id||'', categoryId:data.store.category_id||'', subcategoryId:data.store.subcategory_id||'', secretCode:'' }); setPhoto(null); setPhotoPreview(''); setEditingStore(v=>!v); setError(''); }} style={secondary}>{editingStore?'Cancelar edição':'Editar'}</button>
               <button type="button" onClick={async()=>{setError('');setNotice('');setLoading(true);try{await loadDashboard(token);setNotice('Dados da loja atualizados.')}catch(e){setError(e.message||'Falha na leitura.')}finally{setLoading(false)}}} style={secondary}>Atualizar dados</button>
             </div>
             {editingStore && <form onSubmit={saveStoreDetails} style={{marginTop:18,padding:18,border:'1px solid '+colors.border,borderRadius:14,background:colors.pale}}>
@@ -337,6 +421,11 @@ export default function AdminStoreDashboard() {
               <label style={label}>Nome da loja *</label><input required maxLength={120} value={storeForm.nome} onChange={e=>updateStoreField('nome',e.target.value)} style={input}/>
               <label style={label}>Descrição</label><textarea rows={4} maxLength={1200} value={storeForm.descricao} onChange={e=>updateStoreField('descricao',e.target.value)} style={{...input,resize:'vertical'}}/>
               <label style={label}>WhatsApp / Telefone *</label><input required maxLength={40} value={storeForm.telefone} onChange={e=>updateStoreField('telefone',e.target.value)} style={input}/>
+              <label style={label}>WhatsApp</label><input maxLength={40} value={storeForm.whatsapp||''} onChange={e=>updateStoreField('whatsapp',e.target.value)} style={input}/>
+              <label style={label}>Endereço</label><input maxLength={240} value={storeForm.address||''} onChange={e=>updateStoreField('address',e.target.value)} style={input}/>
+              <label style={label}>Município</label><input maxLength={100} value={storeForm.municipality||''} onChange={e=>updateStoreField('municipality',e.target.value)} style={input}/>
+              <label style={label}>Bairro</label><input maxLength={100} value={storeForm.neighborhood||''} onChange={e=>updateStoreField('neighborhood',e.target.value)} style={input}/>
+              <label style={label}>Horário de funcionamento</label><input maxLength={200} value={storeForm.openingHours||''} onChange={e=>updateStoreField('openingHours',e.target.value)} placeholder="Ex.: Segunda a sábado, 08h–18h" style={input}/>
               <label style={label}>Logo / Foto (opcional)</label><ImagePicker id="admin-store-edit-logo" preview={photoPreview} onFile={chooseStorePhoto} caption="Trocar logótipo da loja" icon="🖼️"/>
               <label style={label}>Categoria *</label><select required value={storeForm.categoryId} onChange={e=>{updateStoreField('categoryId',e.target.value);updateStoreField('subcategoryId','')}} style={input}><option value="">Escolher categoria</option>{catalog.categories.map(item=><option key={item.id} value={item.id}>{item.name.trim()}</option>)}</select>
               <label style={label}>Subcategoria *</label>{!storeForm.categoryId?<p style={{color:colors.muted,fontSize:13}}>Escolha primeiro a categoria.</p>:<SubcategoryCards items={subcategories} value={storeForm.subcategoryId} onChange={value=>updateStoreField('subcategoryId',value)} idPrefix="admin-store-edit-subcategory"/>}
