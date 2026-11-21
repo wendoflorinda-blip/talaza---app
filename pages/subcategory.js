@@ -599,7 +599,7 @@ export default function Subcategory() {
 
                 {!loading &&
                   !error &&
-                  filteredBusinesses.length === 0 && (
+                  filteredBusinesses.length === 0 && !visibleAdminStore && (
                     <div className="emptyState">
                       <span className="emptyIcon">⌕</span>
                       <h3>Nenhum negócio encontrado</h3>
@@ -619,7 +619,7 @@ export default function Subcategory() {
                     </div>
                   )}
 
-                {!loading && !error && filteredBusinesses.length > 0 && (
+                {!loading && !error && (filteredBusinesses.length > 0 || visibleAdminStore) && (
                   <div className="businessGrid">
                     {visibleAdminStore && <article className="businessCard adminStoreCard" key="talaza-admin-store">
                       <div className="cardCover">
