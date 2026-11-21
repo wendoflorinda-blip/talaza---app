@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     if (error) throw error;
     if (!store) return res.status(200).json({ isAdmin: true, store: null, provinces: [], products: [] });
 
-    const [provinceResult, productResult, mainImagesResult] = await Promise.all([
+    const [provinceResult, productResult, mainImagesResult, businessResult] = await Promise.all([
       auth.supabase.from('admin_store_provinces')
         .select('id,country,province,country_id,province_id,areas')
         .eq('store_id', store.id).order('province'),
@@ -26,16 +26,19 @@ export default async function handler(req, res) {
       store.business_id
         ? auth.supabase.from('business_images').select('id,slot,image_url,storage_path,created_at').eq('business_id', store.business_id).eq('kind', 'main').order('slot')
         : Promise.resolve({ data: [], error: null }),
+      auth.supabase.from('businesses').select('id,name,description,phone,whatsapp,address,municipality,neighborhood,opening_hours,logo_url,cover_url,country_id,province_id,category_id,subcategory_id,is_active,approval_status').eq('id',store.business_id).maybeSingle(),
     ]);
     if (provinceResult.error) console.error('Admin store provinces read failed:', provinceResult.error.code, provinceResult.error.message);
     if (productResult.error) console.error('Admin store products read failed:', productResult.error.code, productResult.error.message);
     if (mainImagesResult.error) console.error('Admin store main images read failed:', mainImagesResult.error.code, mainImagesResult.error.message);
+    if (businessResult.error) console.error('Admin store business read failed:', businessResult.error.code, businessResult.error.message);
     return res.status(200).json({
       isAdmin: true,
       store,
       provinces: provinceResult.data || [],
       products: productResult.data || [],
       mainImages: mainImagesResult.data || [],
+      business: businessResult.data || null,
       provincesReadError: provinceResult.error ? 'Não foi possível carregar as províncias.' : null,
       productsReadError: productResult.error ? 'Não foi possível carregar os produtos.' : null,
     });
