@@ -19,6 +19,11 @@ export default async function handler(req, res) {
   const nome = cleanText(body.nome, 120);
   const descricao = cleanText(body.descricao, 1200);
   const telefone = cleanText(body.telefone, 40);
+  const whatsapp = cleanText(body.whatsapp, 40);
+  const address = cleanText(body.address, 240);
+  const municipality = cleanText(body.municipality, 100);
+  const neighborhood = cleanText(body.neighborhood, 100);
+  const openingHours = cleanText(body.openingHours, 200);
   const categoryId = cleanText(body.categoryId, 80);
   const subcategoryId = cleanText(body.subcategoryId, 80);
   if (!nome || !telefone || !categoryId || !subcategoryId) return res.status(400).json({ error: 'Preencha nome, telefone, categoria e subcategoria.' });
@@ -53,7 +58,7 @@ export default async function handler(req, res) {
     if (updateStoreError) throw updateStoreError;
     if (store.business_id) {
       const { error: updateBusinessError } = await auth.supabase.from('businesses').update({
-        name: nome, description: descricao || null, phone: telefone, whatsapp: telefone, logo_url: photoUrl, category_id: categoryId, subcategory_id: subcategoryId
+        name: nome, description: descricao || null, phone: telefone, whatsapp: whatsapp || telefone, address: address || null, municipality: municipality || null, neighborhood: neighborhood || null, opening_hours: openingHours || null, logo_url: photoUrl, category_id: categoryId, subcategory_id: subcategoryId
       }).eq('id', store.business_id).eq('owner_id', auth.user.id);
       if (updateBusinessError) throw updateBusinessError;
     }
