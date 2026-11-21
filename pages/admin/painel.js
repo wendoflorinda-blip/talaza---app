@@ -73,7 +73,7 @@ export default function AdminStoreDashboard() {
   const [locationProvinceIds, setLocationProvinceIds] = useState([]);
   const [locationAreas, setLocationAreas] = useState({});
   const [productForm, setProductForm] = useState({ name: '', description: '', price: '' });
-  const [productPhoto, setProductPhoto] = useState(null);
+  const [productPhotos, setProductPhotos] = useState([]);
   const [productBusy, setProductBusy] = useState(false);
   const [messages, setMessages] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -263,17 +263,17 @@ export default function AdminStoreDashboard() {
 
   async function addProduct(event) {
     event.preventDefault(); setError(''); setNotice('');
-    if (!productPhoto) { setError('Escolha uma fotografia do produto.'); return; }
+    if (!productPhotos.length) { setError('Escolha pelo menos uma fotografia do produto.'); return; }
     setProductBusy(true);
     try {
-      const photoDataUrl = await fileToDataUrl(productPhoto);
+      const photosDataUrls = await Promise.all(productPhotos.slice(0,10).map(file => optimizedImageDataUrl(file, false, 1200)));
       const result = await api('/api/admin-store/produtos', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...productForm, photoDataUrl }),
+        body: JSON.stringify({ ...productForm, photosDataUrls }),
       });
-      setData(current => ({ ...current, products: [result.product, ...(current.products || [])] }));
+      setData(current => ({ ...current, products: [...(result.products || []), ...(current.products || [])] }));
       setProductForm({ name: '', description: '', price: '' });
-      setProductPhoto(null);
+      setProductPhotos([]);
       setNotice('Produto adicionado à Loja do Administrador.');
     } catch (err) { setError(err.message); }
     finally { setProductBusy(false); }
@@ -337,7 +337,7 @@ export default function AdminStoreDashboard() {
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
           {data?.store && <a href="/loja-administrador" target="_blank" rel="noreferrer" style={{ ...secondary, textDecoration: 'none' }}>Ver loja pública ↗</a>}
           <button type="button" onClick={async()=>{if(window.confirm('Para criar uma conta normal, vamos terminar a sessão administrativa e abrir o cadastro. Depois poderá voltar a entrar como administrador.')){await supabase.auth.signOut();router.replace('/signup');}}} style={{...secondary}}>Criar Conta</button>
-          <button type="button" on={logout} style={{ border: '1px solid #ffffff70', borderRadius: 10, padding: '10px 14px', color: '#fff', background: 'transparent', fontWeight: 700, cursor: 'pointer' }}>Terminar sessão</button>
+          <button type="button" onClick={logout} style={{ border: '1px solid #ffffff70', borderRadius: 10, padding: '10px 14px', color: '#fff', background: 'transparent', fontWeight: 700, cursor: 'pointer' }}>Terminar sessão</button>
         </div>
       </header>
 
@@ -468,7 +468,8 @@ export default function AdminStoreDashboard() {
               <label style={label}>Nome do produto *</label><input required maxLength={120} value={productForm.name} onChange={e => setProductForm(current => ({ ...current, name: e.target.value }))} style={input} />
               <label style={label}>Descrição</label><textarea rows={3} maxLength={1000} value={productForm.description} onChange={e => setProductForm(current => ({ ...current, description: e.target.value }))} style={{ ...input, resize: 'vertical' }} />
               <label style={label}>Preço (opcional)</label><input type="number" min="0" step="any" value={productForm.price} onChange={e => setProductForm(current => ({ ...current, price: e.target.value }))} style={input} />
-              <label style={label}>Fotografia do produto *</label><input required type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setProductPhoto(e.target.files?.[0] || null)} style={{ ...input, padding: 9 }} />
+              <label style={label}>Fotografias do produto * (até 10)</label><input required type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={e => setProductPhotos(Array.from(e.target.files||[]).slice(0,10))} style={{ ...input, padding: 9 }} />
+              {productPhotos.length>0 && <p style={{fontSize:12,color:colors.muted}}>{productPhotos.length} fotografia(s) selecionada(s): {productPhotos.map(f=>f.name).join(', ')}</p>}
               <button disabled={productBusy} type="submit" style={{ ...primary, marginTop: 18 }}>{productBusy ? 'A adicionar…' : 'Adicionar Produto'}</button>
             </form>
             <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 24 }}>
