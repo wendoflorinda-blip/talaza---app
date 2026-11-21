@@ -143,15 +143,8 @@ export default function Login() {
 
       const { data: mainAdmin, error: mainAdminError } = await supabase
         .from('admin_users').select('id').eq('id', user.id).maybeSingle();
-      if (mainAdminError) {
-        console.error('Falha na verificação de administrador; bloqueada a navegação para painéis comerciais:', mainAdminError);
-        await router.replace('/admin/painel');
-        return;
-      }
-      if (mainAdmin?.id) {
-        await router.replace('/admin/painel');
-        return;
-      }
+      if (mainAdminError) console.warn('Admin check failed; normal explorer flow will continue:', mainAdminError);
+      const isMainAdmin = Boolean(mainAdmin?.id);
 
       if (nextPath) {
         await router.replace(nextPath);
@@ -171,7 +164,7 @@ export default function Login() {
       }
 
       // Retomar um cadastro de vendedor já autenticado sem o converter em explorador.
-      if (metadata.talaza_pending_signup_type === 'seller') {
+      if (!isMainAdmin && metadata.talaza_pending_signup_type === 'seller') {
         await router.replace('/post-business?resume=1');
         return;
       }
@@ -202,8 +195,17 @@ export default function Login() {
         });
       }
 
-      if (ownedBusiness?.id || sellerAccount) {
+      if (!isMainAdmin && (ownedBusiness?.id || sellerAccount)) {
         await router.replace('/seller');
+        return;
+      }
+
+      if (isMainAdmin) {
+        if (!profile?.country_id || !profile?.province_id) {
+          await router.replace('/signup?mode=complete');
+          return;
+        }
+        await router.replace({ pathname:'/explore', query:{country:profile.country_id,province:profile.province_id,homeCountry:profile.country_id,homeProvince:profile.province_id} });
         return;
       }
 
