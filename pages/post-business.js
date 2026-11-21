@@ -126,6 +126,18 @@ export default function PostBusiness() {
 
     if (!session?.user) return;
 
+    const { data: mainAdmin, error: mainAdminError } = await supabase
+      .from('admin_users').select('id').eq('id', session.user.id).maybeSingle();
+    if (mainAdminError) {
+      console.warn('Não foi possível verificar o perfil de administrador:', mainAdminError);
+      setError('Não foi possível validar esta conta. Tenta novamente.');
+      return;
+    }
+    if (mainAdmin?.id) {
+      window.location.replace('/admin/painel');
+      return;
+    }
+
     setUser(session.user);
     setEmail(session.user.email || '');
 
