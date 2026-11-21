@@ -54,6 +54,21 @@ export default async function handler(req, res) {
       }
     }
 
+    if (req.method === 'PATCH') {
+      const id=cleanText(req.body?.id,80);
+      const name=cleanText(req.body?.name,120);
+      const description=cleanText(req.body?.description,1000);
+      const rawPrice=req.body?.price===''||req.body?.price==null?null:Number(req.body.price);
+      if(!id||!name) return res.status(400).json({error:'Indique o nome do produto.'});
+      if(rawPrice!==null&&(!Number.isFinite(rawPrice)||rawPrice<0)) return res.status(400).json({error:'Indique um preço válido.'});
+      const {data:product,error:updateError}=await auth.supabase.from('business_images').update({name,description:description||null,price:rawPrice})
+        .eq('id',id).eq('business_id',store.business_id).eq('kind','panel')
+        .select('id,image_url,name,description,price,created_at,media_type,storage_path').maybeSingle();
+      if(updateError) throw updateError;
+      if(!product) return res.status(404).json({error:'Produto não encontrado.'});
+      return res.status(200).json({ok:true,product});
+    }
+
     if (req.method === 'DELETE') {
       const id = cleanText(req.body?.id, 80);
       if (!id) return res.status(400).json({ error: 'Produto inválido.' });
