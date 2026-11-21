@@ -80,6 +80,14 @@ export default function AuthCallback() {
         }
 
         if (signupType === 'seller') {
+          const { data: mainAdmin, error: mainAdminError } = await supabase
+            .from('admin_users').select('id').eq('id', user.id).maybeSingle();
+          if (mainAdminError) throw new Error('ADMIN_ROLE_CHECK_FAILED');
+          if (mainAdmin?.id) {
+            setMessage('Esta conta é de administrador. A Loja do Administrador é gerida separadamente.');
+            await router.replace('/admin/painel');
+            return;
+          }
           const pending = metadata.talaza_pending_seller || {};
           const source = payload || pending;
           if (!source.name || !source.country_id || !source.province_id || !pending.store_name ||
