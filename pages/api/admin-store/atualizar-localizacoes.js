@@ -28,7 +28,6 @@ export default async function handler(req, res) {
         : [];
       return { store_id: store.id, country: store.country, province: row.name, country_id: store.country_id, province_id: row.id, areas };
     });
-    if (payload.some(row => !row.areas.length)) return res.status(400).json({ error: 'Indique pelo menos um Município / Área em cada província selecionada.' });
 
     const { error: upsertError } = await auth.supabase
       .from('admin_store_provinces')
