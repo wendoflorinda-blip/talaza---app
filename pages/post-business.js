@@ -1,4 +1,5 @@
 import DateOfBirthFields from '../components/DateOfBirthFields';
+import SubcategoryCards from '../components/SubcategoryCards';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
@@ -223,7 +224,7 @@ export default function PostBusiness() {
   async function loadSubcategories(id) {
     const { data, error: subcategoriesError } = await supabase
       .from('subcategories')
-      .select('id, name')
+      .select('id, name, description')
       .eq('category_id', id)
       .eq('is_active', true)
       .order('name', { ascending: true });
@@ -446,25 +447,7 @@ export default function PostBusiness() {
             </Field>
 
             <Field id="subcategory" label="Subcategoria" required>
-              <select
-                id="subcategory"
-                value={subcategoryId}
-                onChange={(e) => setSubcategoryId(e.target.value)}
-                disabled={!categoryId}
-                style={inputStyle}
-              >
-                <option value="">
-                  {categoryId
-                    ? 'Escolher subcategoria'
-                    : 'Escolha primeiro a categoria'}
-                </option>
-
-                {subcategories.map((subcategory) => (
-                  <option key={subcategory.id} value={subcategory.id}>
-                    {subcategory.name}
-                  </option>
-                ))}
-              </select>
+              {!categoryId ? <p style={{color:C.muted,fontSize:13,margin:'8px 0'}}>Escolha primeiro a categoria.</p> : <SubcategoryCards items={subcategories} value={subcategoryId} onChange={setSubcategoryId} idPrefix="signup-subcategory" />}
             </Field>
 
 
