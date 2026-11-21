@@ -158,8 +158,13 @@ export default function Login() {
         metadata.media_creator_onboarding === true ||
         appMetadata.media_account_type === 'creator';
 
-      if (isMediaCreator) {
+      if (!isMainAdmin && isMediaCreator) {
         await router.replace('/media');
+        return;
+      }
+
+      if (!isMainAdmin && metadata.talaza_admin_created_seller === true) {
+        await router.replace('/post-business');
         return;
       }
 
