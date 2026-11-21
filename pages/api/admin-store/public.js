@@ -2,7 +2,7 @@ import { getSupabaseAdminServer } from '../../../lib/supabaseAdminServer';
 import { cleanText } from '../../../lib/adminStoreAccess';
 
 function slugifyStoreName(value) {
-  return String(value||'loja-administrador').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'loja-administrador';
+  return String(value||'loja-administrador').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'loja-administrador';
 }
 
 const attempts = new Map();
