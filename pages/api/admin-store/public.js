@@ -21,14 +21,18 @@ export default async function handler(req, res) {
         .limit(1).maybeSingle();
       if (storeError) throw storeError;
       if (!store) return res.status(404).json({ error: 'A Loja do Administrador ainda não foi publicada.' });
-      const [locations, products] = await Promise.all([
+      const [locations, products, mainImages, business] = await Promise.all([
         supabase.from('admin_store_provinces').select('id,country,province,areas').eq('store_id', store.id).order('province'),
         store.business_id ? supabase.from('business_images')
           .select('id,image_url,name,description,price,created_at').eq('business_id', store.business_id).eq('kind', 'panel').order('created_at', { ascending: false })
           : Promise.resolve({ data: [], error: null }),
+        store.business_id ? supabase.from('business_images').select('id,slot,image_url,created_at').eq('business_id',store.business_id).eq('kind','main').order('slot')
+          : Promise.resolve({ data: [], error: null }),
+        store.business_id ? supabase.from('businesses').select('address,municipality,neighborhood,opening_hours,whatsapp,cover_url,logo_url').eq('id',store.business_id).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
       ]);
-      if (locations.error || products.error) throw locations.error || products.error;
-      return res.status(200).json({ store, provinces: locations.data || [], products: products.data || [] });
+      if (locations.error || products.error || mainImages.error || business.error) throw locations.error || products.error || mainImages.error || business.error;
+      return res.status(200).json({ store, provinces: locations.data || [], products: products.data || [], mainImages:mainImages.data||[], business:business.data||null });
     }
     if (req.method === 'POST') {
       if (limited(req)) return res.status(429).json({ error: 'Muitas mensagens enviadas. Aguarde alguns minutos e tente novamente.' });
