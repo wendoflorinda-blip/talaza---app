@@ -12,6 +12,10 @@ const label = { display: 'block', margin: '14px 0 7px', color: colors.ink, fontS
 const primary = { border: 0, borderRadius: 10, padding: '12px 17px', color: '#fff', background: colors.green, fontWeight: 800, cursor: 'pointer' };
 const secondary = { border: '1px solid #D8E2DC', borderRadius: 10, padding: '10px 14px', color: colors.ink, background: '#fff', fontWeight: 700, cursor: 'pointer' };
 
+function slugifyAdminStore(value) {
+  return String(value||'loja-administrador').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'loja-administrador';
+}
+
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -366,7 +370,7 @@ export default function AdminStoreDashboard() {
       <header style={{ background: colors.green, color: '#fff', padding: '16px clamp(16px,4vw,40px)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <div><div style={{ color: colors.gold, fontWeight: 900, letterSpacing: 2 }}>TALAZA</div><div style={{ fontSize: 13, opacity: .88 }}>Painel da Loja do Administrador</div></div>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-          {data?.store && <a href="/loja-administrador" target="_blank" rel="noreferrer" style={{ ...secondary, textDecoration: 'none' }}>Ver loja pública ↗</a>}
+          {data?.store && <a href={'/loja/'+(data.publicSlug || slugifyAdminStore(data.store.nome_da_loja))} target="_blank" rel="noreferrer" style={{ ...secondary, textDecoration: 'none' }}>Ver loja pública ↗</a>}
           <button type="button" onClick={()=>setAccountCreationOpen(true)} style={{...secondary}}>Criar Conta</button>
           <button type="button" onClick={logout} style={{ border: '1px solid #ffffff70', borderRadius: 10, padding: '10px 14px', color: '#fff', background: 'transparent', fontWeight: 700, cursor: 'pointer' }}>Terminar sessão</button>
         </div>
