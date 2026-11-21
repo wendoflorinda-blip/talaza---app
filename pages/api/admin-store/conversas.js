@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     if (conversationError) throw conversationError;
     const businessRows=businesses||[];
     const businessIds=new Set(businessRows.map(row=>String(row.id)));
-    const relevant=(conversations||[]).filter(row=>businessIds.has(String(row.publisher_business_id||'')) || (String(row.source||'').toLowerCase()==='vitrine' && businessIds.has(String(row.source_id||''))));
+    const relevant=(conversations||[]).filter(row=>businessIds.has(String(row.publisher_business_id||'')) || businessIds.has(String(row.source_id||'')));
     const ids=relevant.map(row=>row.id);
     if(!ids.length) return res.status(200).json({ businesses: businessRows, threads: [] });
     const [{data:messages,error:messagesError},{data:participants,error:participantsError}] = await Promise.all([
