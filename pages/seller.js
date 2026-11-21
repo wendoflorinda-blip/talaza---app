@@ -223,6 +223,15 @@ export default function Seller() {
       return;
     }
 
+    const { data: mainAdmin, error: mainAdminError } = await supabase
+      .from('admin_users').select('id').eq('id', session.user.id).maybeSingle();
+    if (mainAdminError) console.warn('Não foi possível verificar o perfil de administrador:', mainAdminError);
+    if (mainAdmin?.id) {
+      await router.replace('/admin/painel');
+      setLoading(false);
+      return;
+    }
+
     const { data: refreshedAuthData, error: refreshedAuthError } = await supabase.auth.getUser();
     if (refreshedAuthError) console.warn('Não foi possível atualizar os dados de autenticação:', refreshedAuthError);
     let authUser = refreshedAuthData?.user || session.user;
