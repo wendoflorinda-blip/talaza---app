@@ -32,6 +32,7 @@ export default function AdminStoreDashboard() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [data, setData] = useState(null);
+  const [dashboardReadFailed, setDashboardReadFailed] = useState(false);
   const [catalog, setCatalog] = useState({ countries: [], provinces: [], categories: [], subcategories: [] });
   const [tab, setTab] = useState('loja');
 
@@ -73,6 +74,7 @@ export default function AdminStoreDashboard() {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Não foi possível carregar o painel.');
     setData(result);
+    setDashboardReadFailed(false);
     if (result.store) {
       setLocationProvinceIds((result.provinces || []).map(row => row.province_id).filter(Boolean));
       setLocationAreas(Object.fromEntries((result.provinces || []).map(row => [row.province_id, (row.areas || []).join(', ')])));
@@ -118,7 +120,7 @@ export default function AdminStoreDashboard() {
           setLocationAreas(Object.fromEntries((dashboard.provinces || []).map(row => [row.province_id, (row.areas || []).join(', ')])));
         }
       } catch (err) {
-        if (active) setError(err.message || 'Não foi possível abrir o painel administrativo.');
+        if (active) { setError(err.message || 'Não foi possível abrir o painel administrativo.'); setDashboardReadFailed(true); }
       } finally { if (active) setLoading(false); }
     }
     start();
@@ -161,8 +163,19 @@ export default function AdminStoreDashboard() {
         body: JSON.stringify({ ...storeForm, provinces: provincePayload, photoDataUrl }),
       });
       setNotice(result.message || 'Loja criada e ativada.');
+      setError('');
       setStoreForm(current => ({ ...current, secretCode: '' }));
-      await loadDashboard(token);
+      if (result.store) {
+        setData({ isAdmin: true, store: result.store, provinces: result.provinces || [], products: [] });
+        setLocationProvinceIds((result.provinces || []).map(row => row.province_id).filter(Boolean));
+        setLocationAreas(Object.fromEntries((result.provinces || []).map(row => [row.province_id, (row.areas || []).join(', ')])));
+      }
+      try {
+        await loadDashboard(token);
+      } catch (refreshError) {
+        setError('');
+        setNotice('Loja criada e ativada. A leitura atualizada falhou temporariamente; a loja já aparece no painel. Usa Atualizar para tentar novamente.');
+      }
       setTab('loja');
     } catch (err) { setError(err.message); }
     finally { setSaving(false); }
@@ -248,7 +261,7 @@ export default function AdminStoreDashboard() {
         {error && <div role="alert" style={{ background: '#FFF0EE', color: '#9C3027', border: '1px solid #F0C8C2', padding: 13, borderRadius: 11, marginBottom: 15 }}>{error}<button onClick={() => setError('')} style={{ float: 'right', border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer' }}>×</button></div>}
         {notice && <div role="status" style={{ background: '#EAF6EE', color: '#17633A', border: '1px solid #C8E5D1', padding: 13, borderRadius: 11, marginBottom: 15 }}>{notice}</div>}
 
-        {!data?.store ? <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 'clamp(18px,4vw,30px)' }}>
+        {!data ? <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 'clamp(18px,4vw,30px)' }}><h2 style={{ marginTop: 0 }}>Não foi possível confirmar a Loja do Administrador</h2><p style={{ color: colors.muted, lineHeight: 1.6 }}>Por segurança, o formulário de criação não é mostrado enquanto a leitura da loja não for confirmada.</p><button type="button" onClick={async () => { setError(''); setNotice(''); setLoading(true); try { await loadDashboard(token); setDashboardReadFailed(false); } catch (refreshError) { setError(refreshError.message || 'Não foi possível carregar os dados da loja.'); setDashboardReadFailed(true); } finally { setLoading(false); } }} style={primary}>Atualizar dados</button></section> : !data.store ? <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 'clamp(18px,4vw,30px)' }}>
           <h2 style={{ marginTop: 0 }}>Criar a única Loja do Administrador</h2>
           <p style={{ color: colors.muted, lineHeight: 1.6 }}>O formulário está disponível apenas para o administrador principal autenticado. A loja fica ativa imediatamente depois da validação do código secreto.</p>
           <form onSubmit={createStore}>
