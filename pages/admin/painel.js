@@ -151,7 +151,6 @@ export default function AdminStoreDashboard() {
       provinceId,
       areas: splitAreas(areasByProvince[provinceId]),
     }));
-    if (provincePayload.some(row => !row.areas.length)) { setError('Indique os Municípios / Áreas de cada província selecionada.'); return; }
     setSaving(true);
     try {
       const photoDataUrl = photo ? await fileToDataUrl(photo) : null;
@@ -172,7 +171,6 @@ export default function AdminStoreDashboard() {
     event.preventDefault(); setError(''); setNotice('');
     if (!locationProvinceIds.length) { setError('A loja precisa de pelo menos uma província.'); return; }
     const provinces = locationProvinceIds.map(provinceId => ({ provinceId, areas: splitAreas(locationAreas[provinceId]) }));
-    if (provinces.some(row => !row.areas.length)) { setError('Indique os Municípios / Áreas de cada província selecionada.'); return; }
     setSaving(true);
     try {
       const result = await api('/api/admin-store/atualizar-localizacoes', {
@@ -274,8 +272,8 @@ export default function AdminStoreDashboard() {
               const province = currentCountryProvinces.find(item => item.id === id);
               return <div key={id} style={{ marginTop: 13, padding: 14, border: '1px solid ' + colors.border, borderRadius: 12 }}>
                 <strong>{province?.name}</strong>
-                <label style={label}>Municípios / Áreas onde a loja vai aparecer *</label>
-                <textarea required rows={2} value={areasByProvince[id] || ''} onChange={e => setAreasByProvince(current => ({ ...current, [id]: e.target.value }))} placeholder="Ex.: Talatona, Kilamba, Benfica" style={{ ...input, resize: 'vertical' }} />
+                <label style={label}>Municípios / Áreas (opcional — vazio significa toda a província)</label>
+                <textarea rows={2} value={areasByProvince[id] || ''} onChange={e => setAreasByProvince(current => ({ ...current, [id]: e.target.value }))} placeholder="Ex.: Talatona, Kilamba, Benfica" style={{ ...input, resize: 'vertical' }} />
                 <small style={{ color: colors.muted }}>Separe os nomes por vírgula ou escreva um por linha.</small>
               </div>;
             })}
@@ -313,8 +311,8 @@ export default function AdminStoreDashboard() {
                 const province = catalog.provinces.find(item => item.id === id);
                 return <div key={id} style={{ marginTop: 13, padding: 14, border: '1px solid ' + colors.border, borderRadius: 12 }}>
                   <strong>{province?.name}</strong>
-                  <label style={label}>Municípios / Áreas *</label>
-                  <textarea required rows={2} value={locationAreas[id] || ''} onChange={e => setLocationAreas(current => ({ ...current, [id]: e.target.value }))} placeholder="Separe por vírgula ou linha" style={{ ...input, resize: 'vertical' }} />
+                  <label style={label}>Municípios / Áreas (opcional — vazio significa toda a província)</label>
+                  <textarea rows={2} value={locationAreas[id] || ''} onChange={e => setLocationAreas(current => ({ ...current, [id]: e.target.value }))} placeholder="Separe por vírgula ou linha" style={{ ...input, resize: 'vertical' }} />
                 </div>;
               })}
               <button disabled={saving} type="submit" style={{ ...primary, marginTop: 20 }}>{saving ? 'A guardar…' : 'Guardar localizações'}</button>
