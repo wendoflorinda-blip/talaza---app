@@ -120,7 +120,7 @@ export default async function handler(req, res) {
       municipio: firstArea, bairro: '', nome_da_loja: nome, username: 'talaza-oficial',
       descricao: descricao || null, telefone, foto_url: photoUrl, is_lifetime: true,
       business_id: businessId, country_id: country.id, category_id: categoryId, subcategory_id: subcategoryId,
-    }).select('id').single();
+    }).select('*').single();
     if (storeError) throw storeError;
     storeId = store.id;
 
@@ -128,9 +128,9 @@ export default async function handler(req, res) {
       store_id: storeId, country: country.name, province: row.name,
       country_id: country.id, province_id: row.id, areas: row.areas,
     }));
-    const { error: locationsError } = await auth.supabase.from('admin_store_provinces').insert(provinceInsertRows);
+    const { data: insertedProvinces, error: locationsError } = await auth.supabase.from('admin_store_provinces').insert(provinceInsertRows).select('*');
     if (locationsError) throw locationsError;
-    return res.status(201).json({ ok: true, message: 'Loja administrativa criada e ativada.', storeId, businessId });
+    return res.status(201).json({ ok: true, message: 'Loja administrativa criada e ativada.', storeId, businessId, store, provinces: insertedProvinces || [] });
   } catch (error) {
     console.error('Admin store creation failed:', JSON.stringify({ code: error?.code || null, message: error?.message || null, details: error?.details || null, hint: error?.hint || null }));
     if (storeId) await auth.supabase.from('admin_stores').delete().eq('id', storeId);
