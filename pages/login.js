@@ -134,12 +134,9 @@ export default function Login() {
       }
 
       // Um destino interno explícito (ex.: /media) tem prioridade.
-      const nextPath =
-        typeof router.query.next === 'string' &&
-        router.query.next.startsWith('/') &&
-        !router.query.next.startsWith('//')
-          ? router.query.next
-          : '';
+      const requestedPath = typeof router.query.next === 'string' ? router.query.next :
+        typeof router.query.redirect === 'string' ? router.query.redirect : '';
+      const nextPath = requestedPath.startsWith('/') && !requestedPath.startsWith('//') ? requestedPath : '';
 
       const { data: mainAdmin, error: mainAdminError } = await supabase
         .from('admin_users').select('id').eq('id', user.id).maybeSingle();
