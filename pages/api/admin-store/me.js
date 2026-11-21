@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     if (error) throw error;
     if (!store) return res.status(200).json({ isAdmin: true, store: null, provinces: [], products: [] });
 
-    const [provinceResult, productResult] = await Promise.all([
+    const [provinceResult, productResult, mainImagesResult] = await Promise.all([
       auth.supabase.from('admin_store_provinces')
         .select('id,country,province,country_id,province_id,areas')
         .eq('store_id', store.id).order('province'),
@@ -23,14 +23,19 @@ export default async function handler(req, res) {
             .select('id,image_url,video_url,media_type,storage_path,name,description,price,created_at')
             .eq('business_id', store.business_id).eq('kind', 'panel').order('created_at', { ascending: false })
         : Promise.resolve({ data: [], error: null }),
+      store.business_id
+        ? auth.supabase.from('business_images').select('id,slot,image_url,storage_path,created_at').eq('business_id', store.business_id).eq('kind', 'main').order('slot')
+        : Promise.resolve({ data: [], error: null }),
     ]);
     if (provinceResult.error) console.error('Admin store provinces read failed:', provinceResult.error.code, provinceResult.error.message);
     if (productResult.error) console.error('Admin store products read failed:', productResult.error.code, productResult.error.message);
+    if (mainImagesResult.error) console.error('Admin store main images read failed:', mainImagesResult.error.code, mainImagesResult.error.message);
     return res.status(200).json({
       isAdmin: true,
       store,
       provinces: provinceResult.data || [],
       products: productResult.data || [],
+      mainImages: mainImagesResult.data || [],
       provincesReadError: provinceResult.error ? 'Não foi possível carregar as províncias.' : null,
       productsReadError: productResult.error ? 'Não foi possível carregar os produtos.' : null,
     });
