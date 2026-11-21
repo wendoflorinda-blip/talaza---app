@@ -13,7 +13,7 @@ const primary = { border: 0, borderRadius: 10, padding: '12px 17px', color: '#ff
 const secondary = { border: '1px solid #D8E2DC', borderRadius: 10, padding: '10px 14px', color: colors.ink, background: '#fff', fontWeight: 700, cursor: 'pointer' };
 
 function slugifyAdminStore(value) {
-  return String(value||'loja-administrador').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'loja-administrador';
+  return String(value||'loja-administrador').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'loja-administrador';
 }
 
 function fileToDataUrl(file) {
