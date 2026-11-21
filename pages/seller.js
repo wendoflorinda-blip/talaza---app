@@ -225,7 +225,11 @@ export default function Seller() {
 
     const { data: mainAdmin, error: mainAdminError } = await supabase
       .from('admin_users').select('id').eq('id', session.user.id).maybeSingle();
-    if (mainAdminError) console.warn('Não foi possível verificar o perfil de administrador:', mainAdminError);
+    if (mainAdminError) {
+      setError('Não foi possível confirmar o tipo da conta. Por segurança, o painel de vendedor foi bloqueado.');
+      setLoading(false);
+      return;
+    }
     if (mainAdmin?.id) {
       await router.replace('/admin/painel');
       setLoading(false);
