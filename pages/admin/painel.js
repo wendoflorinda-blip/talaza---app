@@ -64,6 +64,9 @@ export default function AdminStoreDashboard() {
   const [tab, setTab] = useState('loja');
   const [editingStore, setEditingStore] = useState(false);
   const [accountCreationOpen, setAccountCreationOpen] = useState(false);
+  const [accountForm, setAccountForm] = useState({ type: 'client', name: '', email: '', password: '', phone: '' });
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountResult, setAccountResult] = useState('');
 
   const [storeForm, setStoreForm] = useState({ nome: '', descricao: '', telefone: '', countryId: '', categoryId: '', subcategoryId: '', secretCode: '' });
   const [photo, setPhoto] = useState(null);
@@ -370,14 +373,26 @@ export default function AdminStoreDashboard() {
       </header>
 
       <div style={{ maxWidth: 1120, margin: '0 auto', padding: '28px 16px 60px' }}>
-      {accountCreationOpen && <div role="dialog" aria-modal="true" aria-label="Criar conta normal" style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(8,25,20,.55)',display:'grid',placeItems:'center',padding:16}}>
-        <section style={{width:'100%',maxWidth:420,background:'#fff',borderRadius:18,padding:22,boxShadow:'0 20px 70px rgba(0,0,0,.2)'}}>
-          <h2 style={{marginTop:0,color:colors.green}}>Criar Conta</h2><p style={{fontSize:13,color:colors.muted,lineHeight:1.6}}>Escolha o tipo de conta. Para proteger a sessão administrativa, será necessário terminar sessão antes de abrir o cadastro normal.</p>
-          <div style={{display:'grid',gap:9}}>
-            <button type="button" onClick={async()=>{setAccountCreationOpen(false);await supabase.auth.signOut();router.replace('/signup');}} style={primary}>Criar conta Cliente</button>
-            <button type="button" onClick={async()=>{setAccountCreationOpen(false);await supabase.auth.signOut();router.replace('/post-business');}} style={secondary}>Criar conta Vendedor</button>
-            <button type="button" onClick={()=>setAccountCreationOpen(false)} style={secondary}>Cancelar</button>
-          </div>
+      {accountCreationOpen && <div role="dialog" aria-modal="true" aria-label="Criar conta Talaza pelo administrador" style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(8,25,20,.55)',display:'grid',placeItems:'center',padding:16,overflowY:'auto'}}>
+        <section style={{width:'100%',maxWidth:520,background:'#fff',borderRadius:18,padding:22,boxShadow:'0 20px 70px rgba(0,0,0,.2)',maxHeight:'90vh',overflowY:'auto'}}>
+          <h2 style={{marginTop:0,color:colors.green}}>Criar Conta</h2><p style={{fontSize:13,color:colors.muted,lineHeight:1.6}}>Cria uma conta Cliente ou Vendedor sem terminar a sessão administrativa. Não será criada automaticamente nenhuma loja de vendedor.</p>
+          {accountResult && <div role="status" style={{padding:12,background:'#EAF6EE',color:'#17633A',borderRadius:10,marginBottom:12}}>{accountResult}</div>}
+          <form onSubmit={async event=>{
+            event.preventDefault();setAccountBusy(true);setAccountResult('');setError('');
+            try {
+              const result=await api('/api/admin-store/criar-conta',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(accountForm)});
+              setAccountResult('Conta '+(accountForm.type==='client'?'Cliente':'Vendedor')+' criada com sucesso. ID: '+result.account.id);
+              setAccountForm({type:accountForm.type,name:'',email:'',password:'',phone:''});
+            } catch(err) {setAccountResult(err.message||'Falha ao criar a conta.');}
+            finally {setAccountBusy(false);}
+          }}>
+            <label style={label}>Tipo de conta</label><select value={accountForm.type} onChange={e=>setAccountForm(v=>({...v,type:e.target.value}))} style={input}><option value="client">Cliente</option><option value="seller">Vendedor</option></select>
+            <label style={label}>Nome completo</label><input required maxLength={120} value={accountForm.name} onChange={e=>setAccountForm(v=>({...v,name:e.target.value}))} style={input} placeholder="Nome"/>
+            <label style={label}>E-mail</label><input required type="email" value={accountForm.email} onChange={e=>setAccountForm(v=>({...v,email:e.target.value}))} style={input} placeholder="email@exemplo.com"/>
+            <label style={label}>Palavra-passe</label><input required minLength={6} maxLength={72} type="password" value={accountForm.password} onChange={e=>setAccountForm(v=>({...v,password:e.target.value}))} style={input}/>
+            <label style={label}>Telefone</label><input required type="tel" maxLength={40} value={accountForm.phone} onChange={e=>setAccountForm(v=>({...v,phone:e.target.value}))} style={input} placeholder="+244 ..."/>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:16}}><button disabled={accountBusy} type="submit" style={primary}>{accountBusy?'A criar…':'Criar conta'}</button><button type="button" disabled={accountBusy} onClick={()=>{setAccountCreationOpen(false);setAccountResult('');}} style={secondary}>Fechar</button></div>
+          </form>
         </section>
       </div>}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
