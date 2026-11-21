@@ -178,6 +178,14 @@ export default function Signup() {
         return;
       }
 
+      const { data: mainAdmin, error: mainAdminError } = await supabase
+        .from('admin_users').select('id').eq('id', user.id).maybeSingle();
+      if (mainAdminError) console.warn('Não foi possível verificar o perfil de administrador:', mainAdminError);
+      if (mainAdmin?.id) {
+        await router.replace('/admin/painel');
+        return;
+      }
+
       if (metadata.talaza_pending_signup_type === 'seller') {
         await router.replace('/post-business?resume=1');
         return;
