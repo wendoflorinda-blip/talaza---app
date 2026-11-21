@@ -226,7 +226,11 @@ export default function AdminStoreDashboard() {
       });
       setNotice(result.message || 'Dados da loja atualizados.');
       setPhoto(null); setPhotoPreview(''); setEditingStore(false);
-      await loadDashboard(token);
+      try { await loadDashboard(token); }
+      catch (refreshError) {
+        setError('');
+        setNotice('Alterações guardadas. A leitura atualizada falhou temporariamente; usa Atualizar dados para recarregar.');
+      }
     } catch (err) { setError(err.message || 'Não foi possível atualizar a loja.'); }
     finally { setSaving(false); }
   }
