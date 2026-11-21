@@ -10,7 +10,7 @@ export default async function handler(req, res) {
       auth.supabase.from('countries').select('id,name,is_enabled').order('name'),
       auth.supabase.from('provinces').select('id,name,country_id').order('name'),
       auth.supabase.from('categories').select('id,name').eq('active', true).eq('signup_visible', true).order('name'),
-      auth.supabase.from('subcategories').select('id,name,category_id').eq('is_active', true).order('name'),
+      auth.supabase.from('subcategories').select('id,name,category_id,description').eq('is_active', true).order('name'),
     ]);
     const issue = countries.error || provinces.error || categories.error || subcategories.error;
     if (issue) throw issue;
