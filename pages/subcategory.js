@@ -59,6 +59,7 @@ export default function Subcategory() {
 
   const [subcategory, setSubcategory] = useState(null);
   const [businesses, setBusinesses] = useState([]);
+  const [adminStoreData, setAdminStoreData] = useState(null);
   const [businessImagesById, setBusinessImagesById] = useState({});
   const [premiumPromotions, setPremiumPromotions] = useState([]);
   const [savedPromotionIds, setSavedPromotionIds] = useState([]);
@@ -249,6 +250,13 @@ export default function Subcategory() {
         if (cancelled) return;
 
         setBusinesses(businessData || []);
+        try {
+          const adminStoreResponse = await fetch('/api/admin-store/public');
+          const adminStoreResult = await adminStoreResponse.json();
+          if (!cancelled && adminStoreResponse.ok) setAdminStoreData(adminStoreResult);
+        } catch (adminStoreError) {
+          if (!cancelled) setAdminStoreData(null);
+        }
         const { data: authData } = await supabase.auth.getUser();
         if (authData?.user?.id) {
           const { data: savedRows, error: savedError } = await supabase.from('saved_businesses').select('business_id').eq('user_id', authData.user.id);
@@ -388,6 +396,22 @@ export default function Subcategory() {
       return matchesSearch && matchesMunicipality;
     });
   }, [businesses, search, municipality]);
+
+  const visibleAdminStore = useMemo(() => {
+    const store = adminStoreData?.store;
+    if (!store || String(store.subcategory_id) !== String(id) || (country && String(store.country_id) !== String(country))) return null;
+    const provinceRows = (adminStoreData.provinces || []).filter(row => !province || String(row.province_id) === String(province));
+    if (!provinceRows.length) return null;
+    const selectedMunicipality = cleanText(municipality).toLocaleLowerCase('pt-AO');
+    const selectedNeighborhood = cleanText(neighborhood).toLocaleLowerCase('pt-AO');
+    const searchTerm = cleanText(search).toLocaleLowerCase('pt-AO');
+    const areas = provinceRows.flatMap(row => row.areas || []).map(value => cleanText(value).toLocaleLowerCase('pt-AO'));
+    const hasAnyAreaRestriction = areas.length > 0;
+    if (selectedMunicipality && hasAnyAreaRestriction && !areas.some(area => area.includes(selectedMunicipality))) return null;
+    if (selectedNeighborhood && hasAnyAreaRestriction && !areas.some(area => area.includes(selectedNeighborhood))) return null;
+    if (searchTerm && !cleanText(store.nome_da_loja).toLocaleLowerCase('pt-AO').includes(searchTerm) && !areas.some(area => area.includes(searchTerm))) return null;
+    return store;
+  }, [adminStoreData, id, country, province, municipality, neighborhood, search]);
 
   function getBackHref() {
     const categoryId = subcategory?.category_id;
@@ -597,6 +621,20 @@ export default function Subcategory() {
 
                 {!loading && !error && filteredBusinesses.length > 0 && (
                   <div className="businessGrid">
+                    {visibleAdminStore && <article className="businessCard adminStoreCard" key="talaza-admin-store">
+                      <div className="cardCover">
+                        {visibleAdminStore.foto_url ? <img src={visibleAdminStore.foto_url} alt="Loja oficial Talaza" loading="lazy" /> : <div className="coverFallback"><span>{visibleAdminStore.nome_da_loja}</span></div>}
+                        <div className="cardLogo">{visibleAdminStore.foto_url ? <img src={visibleAdminStore.foto_url} alt="Logótipo da Loja Administrador" loading="lazy" /> : <span>TA</span>}</div>
+                      </div>
+                      <div className="businessInfo">
+                        <div className="businessTitleRow"><h3>{visibleAdminStore.nome_da_loja}</h3></div>
+                        <div className="mainImagesPreview">{[0,1,2].map(slot=><div className="mainPreview" key={slot}><span className="mainPlaceholder">{slot===0?'Loja Oficial':'Produtos'}</span></div>)}</div>
+                        <p className="businessDescription">{cleanText(visibleAdminStore.descricao) || 'Conhece a Loja Oficial Talaza.'}</p>
+                        <div className="businessActions">
+                          <Link className="profileButton" href="/loja-administrador"><span className="actionIcon">🏪</span><span>Ver loja</span></Link>
+                        </div>
+                      </div>
+                    </article>}
                     {filteredBusinesses.map((business) => {
                       const mainImages = (businessImagesById[business.id] || [])
                         .filter((image) => image.kind === 'main')
