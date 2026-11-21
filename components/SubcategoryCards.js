@@ -1,39 +1,70 @@
 import React from 'react';
 
 const PALETTE = [
-  { accent: '#496A63', soft: '#F0F5F3' },
-  { accent: '#6C647E', soft: '#F4F1F7' },
-  { accent: '#8A6D4F', soft: '#F7F3EE' },
-  { accent: '#526C8A', soft: '#F0F3F7' },
-  { accent: '#65764E', soft: '#F3F5EF' },
-  { accent: '#8A5F66', soft: '#F7F1F2' },
-  { accent: '#66727B', soft: '#F2F4F5' },
-  { accent: '#7C7054', soft: '#F6F4EF' },
+  '#496A63', '#6C647E', '#8A6D4F', '#526C8A',
+  '#65764E', '#8A5F66', '#66727B', '#7C7054',
 ];
 
-function NeutralIcon() {
+function NeutralIcon({ color = '#0B5A4A' }) {
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{display:'block'}}>
     <path d="M4.5 7.5h15v12h-15zM8 7.5V5.7a4 4 0 0 1 8 0v1.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M9.5 12h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
   </svg>;
 }
 
+function Chevron({ selected }) {
+  if (selected) return <span className="subcatCheck" aria-label="Selecionada">✓</span>;
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="subcatChevron">
+    <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>;
+}
+
 export default function SubcategoryCards({ items = [], value = '', onChange, idPrefix = 'subcat' }) {
-  const selected = items.find(item => String(item.id) === String(value));
-  return <div>
-    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(155px,1fr))',gap:10,marginTop:10}}>
-      {items.map((item,index)=>{
-        const tone=PALETTE[index%PALETTE.length];
-        const active=String(item.id)===String(value);
-        return <button key={item.id} type="button" aria-pressed={active} onClick={()=>onChange(item.id)} style={{textAlign:'left',display:'flex',gap:10,alignItems:'center',minHeight:68,padding:12,borderRadius:13,border:'1px solid '+(active?tone.accent:'#E0E7E3'),background:active?tone.soft:'#FFFFFF',color:'#243B35',boxShadow:active?'0 0 0 2px '+tone.accent+'20':'0 2px 7px rgba(25,55,45,.035)',cursor:'pointer',transition:'border-color .15s,background .15s'}}>
-          <span style={{width:38,height:38,flex:'0 0 38px',display:'grid',placeItems:'center',borderRadius:11,background:tone.soft,color:tone.accent}}><NeutralIcon/></span>
-          <span style={{fontSize:13,fontWeight:800,lineHeight:1.35}}>{String(item.name||'').trim()}</span>
-        </button>;
-      })}
-    </div>
-    {selected && (() => {const idx=items.findIndex(item=>String(item.id)===String(selected.id));const tone=PALETTE[idx%PALETTE.length];return <div id={idPrefix+'-description'} role="status" style={{marginTop:12,padding:15,border:'1px solid '+tone.accent+'55',borderLeft:'4px solid '+tone.accent,borderRadius:12,background:tone.soft,color:'#33433D'}}>
-      <div style={{fontSize:13,fontWeight:800,marginBottom:5,color:tone.accent}}>{selected.name}</div>
-      <p style={{margin:0,fontSize:13,lineHeight:1.65}}>{String(selected.description||'').trim()||'Sem descrição disponível'}</p>
-    </div>;})()}
+  return <div className="subcatCardsWrap" id={idPrefix}>
+    <style>{`
+      .subcatCardsWrap {
+        --green: #0B5A4A; --gold: #C9A24B; --soft: #F3F6F2;
+        --sel: #EAF2EC; --ink: #10261F; --muted: #5E6F68; --line: #DDE5DF;
+        display:flex; flex-direction:column; gap:8px; width:100%; max-width:520px;
+      }
+      .subcatCard {
+        width:100%; box-sizing:border-box; display:flex; align-items:flex-start; gap:12px;
+        padding:14px; border:1.5px solid var(--line); border-radius:12px; background:#FFFFFF;
+        color:var(--ink); text-align:left; cursor:pointer; transition:border-color .15s,background .15s;
+      }
+      .subcatCardSelected { border:2px solid var(--green); background:var(--sel); }
+      .subcatIcon {
+        width:40px; height:40px; flex:0 0 40px; display:grid; place-items:center;
+        border-radius:10px; background:var(--soft); color:var(--green);
+      }
+      .subcatCardSelected .subcatIcon { background:var(--green); color:#FFFFFF; }
+      .subcatText { min-width:0; flex:1; display:flex; flex-direction:column; gap:3px; text-align:center; }
+      .subcatTitle { font-size:14px; line-height:1.35; font-weight:700; color:var(--ink); }
+      .subcatSubtitle { font-size:12px; line-height:1.35; color:var(--muted); }
+      .subcatDescription { margin-top:9px; border-left:3px solid var(--gold); padding-left:10px; font-size:13px; line-height:1.45; color:var(--muted); text-align:left; }
+      .subcatChevron { flex:0 0 18px; color:var(--muted); margin-top:10px; }
+      .subcatCheck { flex:0 0 18px; display:flex; align-items:center; justify-content:center; color:var(--green); font-size:19px; font-weight:800; margin-top:8px; }
+      @media (prefers-color-scheme: dark) {
+        .subcatCardsWrap { --green:#66B5A1; --gold:#C9A24B; --soft:#25342F; --sel:#1E3831; --ink:#E8F1EC; --muted:#AABBB3; --line:#3A4B43; }
+        .subcatCard { background:#18231F; color:var(--ink); }
+        .subcatCardSelected { background:var(--sel); }
+        .subcatIcon { background:var(--soft); color:var(--green); }
+        .subcatCardSelected .subcatIcon { background:var(--green); color:#10261F; }
+      }
+    `}</style>
+    {items.map((item,index)=>{
+      const selected=String(item.id)===String(value);
+      const accent=item.color || PALETTE[index%PALETTE.length];
+      const iconAvailable=Boolean(item.icon);
+      return <button key={item.id} type="button" aria-pressed={selected} className={`subcatCard${selected?' subcatCardSelected':''}`} onClick={()=>onChange(item.id)}>
+        <span className="subcatIcon" style={iconAvailable ? undefined : {color:'inherit'}}>{iconAvailable ? <span aria-hidden="true">{item.icon}</span> : <NeutralIcon color={accent}/>}</span>
+        <span className="subcatText">
+          <span className="subcatTitle">{String(item.name||'').trim()}</span>
+          <span className="subcatSubtitle">Selecionar esta subcategoria</span>
+          {selected && <span className="subcatDescription">{String(item.description||'').trim()||'Sem descrição disponível'}</span>}
+        </span>
+        <Chevron selected={selected}/>
+      </button>;
+    })}
   </div>;
 }
