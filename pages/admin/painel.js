@@ -324,6 +324,9 @@ export default function AdminStoreDashboard() {
     router.replace('/login');
   }
 
+  const filteredAdminThreads = adminThreads.filter(thread => !selectedBusinessFilter || String(thread.businessId) === String(selectedBusinessFilter));
+  const selectedAdminThread = filteredAdminThreads.find(thread => thread.conversationId === selectedThreadId) || filteredAdminThreads[0] || null;
+
   if (loading) return <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: colors.pale, color: colors.green }}>A carregar o painel da Loja do Administrador…</main>;
 
   return <>
@@ -333,7 +336,8 @@ export default function AdminStoreDashboard() {
         <div><div style={{ color: colors.gold, fontWeight: 900, letterSpacing: 2 }}>TALAZA</div><div style={{ fontSize: 13, opacity: .88 }}>Painel da Loja do Administrador</div></div>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
           {data?.store && <a href="/loja-administrador" target="_blank" rel="noreferrer" style={{ ...secondary, textDecoration: 'none' }}>Ver loja pública ↗</a>}
-          <button type="button" onClick={logout} style={{ border: '1px solid #ffffff70', borderRadius: 10, padding: '10px 14px', color: '#fff', background: 'transparent', fontWeight: 700, cursor: 'pointer' }}>Terminar sessão</button>
+          <button type="button" onClick={async()=>{if(window.confirm('Para criar uma conta normal, vamos terminar a sessão administrativa e abrir o cadastro. Depois poderá voltar a entrar como administrador.')){await supabase.auth.signOut();router.replace('/signup');}}} style={{...secondary}}>Criar Conta</button>
+          <button type="button" on={logout} style={{ border: '1px solid #ffffff70', borderRadius: 10, padding: '10px 14px', color: '#fff', background: 'transparent', fontWeight: 700, cursor: 'pointer' }}>Terminar sessão</button>
         </div>
       </header>
 
@@ -384,7 +388,7 @@ export default function AdminStoreDashboard() {
           </form>
         </section> : <>
           <nav style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-            {[['loja','A loja'],['localizacoes','Províncias e áreas'],['produtos','Produtos'],['mensagens','Painel de mensagens']].map(([id,title]) => <button key={id} type="button" onClick={() => setTab(id)} style={{ ...(tab === id ? primary : secondary), padding: '11px 15px' }}>{title}</button>)}
+            {[['loja','A loja'],['localizacoes','Províncias e áreas'],['produtos','Produtos'],['mensagens','Ver Mensagens']].map(([id,title]) => <button key={id} type="button" onClick={() => setTab(id)} style={{ ...(tab === id ? primary : secondary), padding: '11px 15px' }}>{title}</button>)}
           </nav>
 
           {tab === 'loja' && <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 24 }}>
@@ -473,17 +477,39 @@ export default function AdminStoreDashboard() {
             </section>
           </section>}
 
-          {tab === 'mensagens' && <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}><h2 style={{ margin: 0 }}>Painel de Mensagens do Administrador</h2><button type="button" onClick={loadMessages} style={secondary}>Atualizar</button></div>
-            <p style={{ color: colors.muted }}>Aqui chegam as mensagens enviadas pelos clientes na Loja do Administrador. Não são misturadas com as conversas das lojas normais.</p>
-            {messagesLoading ? <p>A carregar mensagens…</p> : !messages.length ? <p style={{ color: colors.muted }}>Ainda não recebeu mensagens.</p> : <div style={{ display: 'grid', gap: 12, marginTop: 18 }}>
-              {messages.map(message => <article key={message.id} style={{ border: '1px solid ' + colors.border, borderRadius: 13, padding: 15, background: message.lida ? '#fff' : '#F5FAF6' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}><strong>{message.nome_cliente}</strong><small style={{ color: colors.muted }}>{new Date(message.created_at).toLocaleString('pt-PT')}</small></div>
-                <p style={{ margin: '7px 0', color: colors.muted, fontSize: 13 }}>{message.country} · {message.province_origem}</p>
-                <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{message.mensagem}</p>
-                <button type="button" onClick={() => markMessage(message)} style={secondary}>{message.lida ? 'Marcar como não lida' : 'Marcar como lida'}</button>
-              </article>)}
-            </div>}
+          {tab === 'mensagens' && <section style={{ display:'grid',gap:18 }}>
+            <section style={{background:'#fff',border:'1px solid '+colors.border,borderRadius:18,padding:24}}>
+              <div style={{display:'flex',justifyContent:'space-between',gap:12,flexWrap:'wrap',alignItems:'center'}}><h2 style={{margin:0}}>Mensagens de todas as lojas</h2><button type="button" onClick={loadAllStoreConversations} style={secondary}>Atualizar</button></div>
+              <p style={{color:colors.muted,fontSize:13,lineHeight:1.55}}>Lista das lojas e conversas de clientes ligadas aos negócios. Selecione uma loja e depois uma conversa.</p>
+              <label style={label}>Loja</label><select value={selectedBusinessFilter} onChange={e=>{setSelectedBusinessFilter(e.target.value);setSelectedThreadId('');}} style={input}><option value="">Todas as lojas</option>{allBusinesses.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select>
+              {adminThreadsLoading?<p>A carregar conversas…</p>:!filteredAdminThreads.length?<p style={{color:colors.muted}}>Não existem conversas com mensagens para esta seleção.</p>:<div style={{display:'grid',gridTemplateColumns:'minmax(210px,1fr) minmax(0,2fr)',gap:12,marginTop:14}}>
+                <div style={{display:'grid',gap:8,alignContent:'start'}}>
+                  {filteredAdminThreads.map(thread=><button key={thread.conversationId} type="button" onClick={()=>setSelectedThreadId(thread.conversationId)} style={{textAlign:'left',padding:12,borderRadius:11,border:'1px solid '+(selectedAdminThread?.conversationId===thread.conversationId?colors.green:colors.border),background:selectedAdminThread?.conversationId===thread.conversationId?'#EAF2EC':'#fff',color:colors.ink,cursor:'pointer'}}>
+                    <strong style={{display:'block',fontSize:13}}>{thread.businessName}</strong><span style={{display:'block',fontSize:11,color:colors.muted,marginTop:4}}>{thread.source||'Conversa'} · {thread.messages.length} mensagem(ns)</span><small style={{color:colors.muted}}>{new Date(thread.updated_at||thread.created_at).toLocaleString('pt-PT')}</small>
+                  </button>)}
+                </div>
+                <div style={{border:'1px solid '+colors.border,borderRadius:12,padding:14,minHeight:240,maxHeight:560,overflowY:'auto',background:'#F7FAF8'}}>
+                  {selectedAdminThread? <div style={{display:'grid',gap:10}}>
+                    <h3 style={{margin:'0 0 4px'}}>{selectedAdminThread.businessName}</h3>
+                    {selectedAdminThread.messages.map(message=><article key={message.id} style={{background:'#fff',border:'1px solid #E2EBE6',borderRadius:10,padding:11}}>
+                      <div style={{display:'flex',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}><strong style={{fontSize:12}}>{message.sender_name}</strong><small style={{color:colors.muted}}>{new Date(message.created_at).toLocaleString('pt-PT')}</small></div>
+                      <p style={{whiteSpace:'pre-wrap',lineHeight:1.5,fontSize:13,margin:'7px 0 0'}}>{message.body||((message.attachment_name)?'Anexo: '+message.attachment_name:'[Mensagem sem texto]')}</p>
+                      {message.attachment_name&&<small style={{color:colors.muted}}>Anexo: {message.attachment_name}</small>}
+                    </article>)}
+                  </div>:<p style={{color:colors.muted}}>Escolha uma conversa para ver o histórico.</p>}
+                </div>
+              </div>}
+            </section>
+            {data?.store && <section style={{background:'#fff',border:'1px solid '+colors.border,borderRadius:18,padding:24}}>
+              <div style={{display:'flex',justifyContent:'space-between',gap:12,flexWrap:'wrap',alignItems:'center'}}><h2 style={{margin:0}}>Mensagens da Loja do Administrador</h2><button type="button" onClick={loadMessages} style={secondary}>Atualizar</button></div>
+              {messagesLoading?<p>A carregar…</p>:!messages.length?<p style={{color:colors.muted}}>Ainda não recebeu mensagens diretas na loja oficial.</p>:<div style={{display:'grid',gap:12,marginTop:18}}>
+                {messages.map(message=><article key={message.id} style={{border:'1px solid '+colors.border,borderRadius:13,padding:15,background:message.lida?'#fff':'#F5FAF6'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}><strong>{message.nome_cliente}</strong><small style={{color:colors.muted}}>{new Date(message.created_at).toLocaleString('pt-PT')}</small></div>
+                  <p style={{margin:'7px 0',color:colors.muted,fontSize:13}}>{message.country} · {message.province_origem}</p><p style={{whiteSpace:'pre-wrap',lineHeight:1.6}}>{message.mensagem}</p>
+                  <button type="button" onClick={()=>markMessage(message)} style={secondary}>{message.lida?'Marcar como não lida':'Marcar como lida'}</button>
+                </article>)}
+              </div>}
+            </section>}
           </section>}
         </>}
       </div>
