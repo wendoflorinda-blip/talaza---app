@@ -24,15 +24,18 @@ export default async function handler(req, res) {
             .eq('business_id', store.business_id).eq('kind', 'panel').order('created_at', { ascending: false })
         : Promise.resolve({ data: [], error: null }),
     ]);
-    if (provinceResult.error || productResult.error) throw provinceResult.error || productResult.error;
+    if (provinceResult.error) console.error('Admin store provinces read failed:', provinceResult.error.code, provinceResult.error.message);
+    if (productResult.error) console.error('Admin store products read failed:', productResult.error.code, productResult.error.message);
     return res.status(200).json({
       isAdmin: true,
       store,
       provinces: provinceResult.data || [],
       products: productResult.data || [],
+      provincesReadError: provinceResult.error ? 'Não foi possível carregar as províncias.' : null,
+      productsReadError: productResult.error ? 'Não foi possível carregar os produtos.' : null,
     });
   } catch (error) {
-    console.error('Admin store dashboard load failed:', error?.code || error?.message);
-    return res.status(503).json({ error: 'Não foi possível carregar os dados da Loja do Administrador.' });
+    console.error('Admin store dashboard load failed:', JSON.stringify({ code: error?.code || null, message: error?.message || null, details: error?.details || null, hint: error?.hint || null }));
+    return res.status(503).json({ error: 'Falha ao ler a loja administrativa no Supabase: ' + (error?.message || 'erro desconhecido') + (error?.code ? ' (' + error.code + ')' : '') });
   }
 }
