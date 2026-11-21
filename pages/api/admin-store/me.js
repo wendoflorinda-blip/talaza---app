@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   try {
     const { data: store, error } = await auth.supabase
       .from('admin_stores')
-      .select('id,owner_id,country,province,municipio,bairro,nome_da_loja,username,descricao,telefone,foto_url,is_lifetime,created_at,business_id,country_id,category_id,subcategory_id')
+      .select('id,owner_id,country,province,municipio,bairro,nome_da_loja,username,descricao,telefone,foto_url,is_lifetime,account_type,hosting_status,hosting_type,premium_payment_required,hosting_expires_at,created_at,business_id,country_id,category_id,subcategory_id')
       .eq('owner_id', auth.user.id)
       .maybeSingle();
     if (error) throw error;
