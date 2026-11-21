@@ -1,6 +1,10 @@
 import { getSupabaseAdminServer } from '../../../lib/supabaseAdminServer';
 import { cleanText } from '../../../lib/adminStoreAccess';
 
+function slugifyStoreName(value) {
+  return String(value||'loja-administrador').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'loja-administrador';
+}
+
 const attempts = new Map();
 function limited(req) {
   const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
@@ -21,6 +25,9 @@ export default async function handler(req, res) {
         .limit(1).maybeSingle();
       if (storeError) throw storeError;
       if (!store) return res.status(404).json({ error: 'A Loja do Administrador ainda não foi publicada.' });
+      const publicSlug=slugifyStoreName(store.nome_da_loja);
+      const requestedSlug=cleanText(req.query?.slug,180);
+      if(requestedSlug && requestedSlug!==publicSlug) return res.status(404).json({error:'Esta página pública da loja não existe.'});
       const [locations, products, mainImages, business] = await Promise.all([
         supabase.from('admin_store_provinces').select('id,country,province,areas').eq('store_id', store.id).order('province'),
         store.business_id ? supabase.from('business_images')
@@ -32,7 +39,7 @@ export default async function handler(req, res) {
           : Promise.resolve({ data: null, error: null }),
       ]);
       if (locations.error || products.error || mainImages.error || business.error) throw locations.error || products.error || mainImages.error || business.error;
-      return res.status(200).json({ store, provinces: locations.data || [], products: products.data || [], mainImages:mainImages.data||[], business:business.data||null });
+      return res.status(200).json({ store, publicSlug, provinces: locations.data || [], products: products.data || [], mainImages:mainImages.data||[], business:business.data||null });
     }
     if (req.method === 'POST') {
       if (limited(req)) return res.status(429).json({ error: 'Muitas mensagens enviadas. Aguarde alguns minutos e tente novamente.' });
