@@ -119,6 +119,7 @@ export default async function handler(req, res) {
       owner_id: auth.user.id, country: country.name, province: firstProvince.name,
       municipio: firstArea, bairro: '', nome_da_loja: nome, username: 'talaza-oficial',
       descricao: descricao || null, telefone, foto_url: photoUrl, is_lifetime: true,
+      account_type: 'admin_store', hosting_status: 'active', hosting_type: 'lifetime', premium_payment_required: false, hosting_expires_at: null,
       business_id: businessId, country_id: country.id, category_id: categoryId, subcategory_id: subcategoryId,
     }).select('*').single();
     if (storeError) throw storeError;
