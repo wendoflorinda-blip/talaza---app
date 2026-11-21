@@ -173,7 +173,7 @@ export default function Signup() {
         metadata.media_creator_onboarding === true ||
         appMetadata.media_account_type === 'creator';
 
-      if (isCreator) {
+      if (!isMainAdmin && isCreator) {
         await router.replace('/media');
         return;
       }
@@ -183,7 +183,12 @@ export default function Signup() {
       if (mainAdminError) console.warn('Admin check failed while completing signup:', mainAdminError);
       const isMainAdmin = Boolean(mainAdmin?.id);
 
-      if (metadata.talaza_pending_signup_type === 'seller') {
+      if (!isMainAdmin && metadata.talaza_admin_created_seller === true) {
+        await router.replace('/post-business');
+        return;
+      }
+
+      if (!isMainAdmin && metadata.talaza_pending_signup_type === 'seller') {
         await router.replace('/post-business?resume=1');
         return;
       }
