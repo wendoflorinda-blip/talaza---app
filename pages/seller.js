@@ -231,7 +231,7 @@ export default function Seller() {
       return;
     }
     if (mainAdmin?.id) {
-      await router.replace('/admin/painel');
+      await router.replace('/explore');
       setLoading(false);
       return;
     }
