@@ -47,11 +47,20 @@ export default function AdminPublicStore() {
         {loading && <p>A carregar a loja…</p>}
         {error && <p role="alert" style={{ background: '#FFF0EE', color: '#9C3027', padding: 12, borderRadius: 10 }}>{error}</p>}
         {data && <>
-          <section style={{ background: '#fff', border: '1px solid #DCE6E0', borderRadius: 18, padding: 22, display: 'flex', gap: 17, alignItems: 'center', flexWrap: 'wrap' }}>
-            {data.store.foto_url && <img src={data.store.foto_url} alt="Logótipo da loja" style={{ width: 92, height: 92, objectFit: 'cover', borderRadius: 18 }} />}
-            <div><h1 style={{ margin: 0 }}>{data.store.nome_da_loja}</h1><p style={{ color: '#66756F', marginBottom: 0 }}>{data.store.country} · Loja oficial Talaza</p></div>
-            <p style={{ flexBasis: '100%', lineHeight: 1.65 }}>{data.store.descricao || ''}</p>
-            {data.store.telefone && <p style={{ margin: 0 }}><strong>WhatsApp / Telefone:</strong> {data.store.telefone}</p>}
+          <section style={{position:'relative',minHeight:260,borderRadius:18,overflow:'hidden',background:'#075B4E',padding:22,boxSizing:'border-box',display:'flex',alignItems:'flex-end'}}>
+            {data.business?.cover_url&&<img src={data.business.cover_url} alt="Capa da loja oficial" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}}/>}
+            <div style={{position:'absolute',inset:0,background:'linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.7))'}}/>
+            <div style={{position:'relative',zIndex:1,display:'flex',alignItems:'center',gap:14,color:'#fff',flexWrap:'wrap'}}>
+              {data.store.foto_url&&<img src={data.store.foto_url} alt="Logótipo da loja" style={{width:92,height:92,objectFit:'cover',borderRadius:18,border:'2px solid #D4AF37'}}/>}
+              <div><h1 style={{margin:0}}>{data.store.nome_da_loja}</h1><p style={{color:'#F2D78D',margin:'6px 0 0'}}>{data.store.country} · Loja oficial Talaza</p><p style={{margin:'7px 0 0',fontSize:14,lineHeight:1.6}}>{data.store.descricao||''}</p></div>
+            </div>
+          </section>
+          {data.mainImages?.length>0&&<section style={{marginTop:18,display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:8}}>{[0,1,2].map(slot=>{const item=data.mainImages.find(row=>Number(row.slot)===slot);return item?.image_url?<img key={slot} src={item.image_url} alt={'Imagem da loja '+(slot+1)} style={{width:'100%',aspectRatio:'1/1',objectFit:'cover',borderRadius:12}}/>:<div key={slot} style={{aspectRatio:'1/1',borderRadius:12,background:'#EAF2EC'}}/>})}</section>}
+          <section style={{marginTop:18,background:'#fff',border:'1px solid #DCE6E0',borderRadius:18,padding:20,display:'grid',gap:8}}>
+            {data.store.telefone&&<p style={{margin:0}}><strong>Telefone:</strong> {data.store.telefone}</p>}
+            {data.business?.whatsapp&&<p style={{margin:0}}><strong>WhatsApp:</strong> {data.business.whatsapp}</p>}
+            {data.business?.opening_hours&&<p style={{margin:0}}><strong>Horário:</strong> {data.business.opening_hours}</p>}
+            {[data.business?.address,data.business?.municipality,data.business?.neighborhood].filter(Boolean).length>0&&<p style={{margin:0}}><strong>Localização:</strong> {[data.business?.address,data.business?.municipality,data.business?.neighborhood].filter(Boolean).join(' · ')}</p>}
           </section>
 
           <section style={{ marginTop: 24 }}>
