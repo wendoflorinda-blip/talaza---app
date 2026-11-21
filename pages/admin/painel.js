@@ -75,6 +75,7 @@ export default function AdminStoreDashboard() {
   const [locationAreas, setLocationAreas] = useState({});
   const [productForm, setProductForm] = useState({ name: '', description: '', price: '' });
   const [productPhotos, setProductPhotos] = useState([]);
+  const [productPhotoPreviews, setProductPhotoPreviews] = useState([]);
   const [productBusy, setProductBusy] = useState(false);
   const [messages, setMessages] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -84,6 +85,12 @@ export default function AdminStoreDashboard() {
   const [selectedBusinessFilter, setSelectedBusinessFilter] = useState('');
   const [selectedThreadId, setSelectedThreadId] = useState('');
   const [assetBusy, setAssetBusy] = useState('');
+
+  useEffect(() => {
+    const urls=productPhotos.map(file=>URL.createObjectURL(file));
+    setProductPhotoPreviews(urls);
+    return ()=>urls.forEach(url=>URL.revokeObjectURL(url));
+  }, [productPhotos]);
 
   const currentCountryProvinces = useMemo(
     () => catalog.provinces.filter(item => item.country_id === storeForm.countryId),
@@ -480,6 +487,7 @@ export default function AdminStoreDashboard() {
               <label style={label}>Descrição</label><textarea rows={3} maxLength={1000} value={productForm.description} onChange={e => setProductForm(current => ({ ...current, description: e.target.value }))} style={{ ...input, resize: 'vertical' }} />
               <label style={label}>Preço (opcional)</label><input type="number" min="0" step="any" value={productForm.price} onChange={e => setProductForm(current => ({ ...current, price: e.target.value }))} style={input} />
               <label style={label}>Fotografias do produto * (até 10)</label><input required type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={e => setProductPhotos(Array.from(e.target.files||[]).slice(0,10))} style={{ ...input, padding: 9 }} />
+              {productPhotoPreviews.length>0 && <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(75px,1fr))',gap:8,marginTop:10}}>{productPhotoPreviews.map((url,index)=><img key={url} src={url} alt={'Pré-visualização '+(index+1)} style={{width:'100%',aspectRatio:'1/1',objectFit:'cover',borderRadius:9,border:'1px solid '+colors.border}}/> )}</div>}
               {productPhotos.length>0 && <p style={{fontSize:12,color:colors.muted}}>{productPhotos.length} fotografia(s) selecionada(s): {productPhotos.map(f=>f.name).join(', ')}</p>}
               <button disabled={productBusy} type="submit" style={{ ...primary, marginTop: 18 }}>{productBusy ? 'A adicionar…' : 'Adicionar Produto'}</button>
             </form>
