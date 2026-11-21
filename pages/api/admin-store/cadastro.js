@@ -19,8 +19,10 @@ export default async function handler(req, res) {
   const expectedCode = process.env.ADMIN_STORE_SECRET_CODE;
   if (!expectedCode) return res.status(503).json({ error: 'O código secreto ADMIN_STORE_SECRET_CODE não está configurado no Preview da Vercel.' });
   const body = req.body || {};
-  if (!String(body.secretCode || '') || String(body.secretCode) !== expectedCode) {
-    return res.status(403).json({ error: 'Código Secreto da Loja do Administrador incorreto.' });
+  const submittedCode = String(body.secretCode || '').trim();
+  const normalizedExpectedCode = String(expectedCode).trim();
+  if (!submittedCode || submittedCode !== normalizedExpectedCode) {
+    return res.status(403).json({ error: 'Código Secreto da Loja do Administrador incorreto. Espaços no início/fim são ignorados; letras maiúsculas/minúsculas precisam corresponder.' });
   }
 
   const nome = cleanText(body.nome, 120);
@@ -83,11 +85,21 @@ export default async function handler(req, res) {
 
     const firstProvince = provincePayload[0];
     const firstArea = firstProvince.areas[0] || '';
+
+    // Businesses are constrained by Talaza to the owner's primary country/province.
+    // The admin storefront's multi-province hosting is stored separately below.
+    const { data: ownerProfile, error: ownerProfileError } = await auth.supabase
+      .from('profiles').select('country_id,province_id').eq('id', auth.user.id).maybeSingle();
+    if (ownerProfileError) throw ownerProfileError;
+    if (!ownerProfile?.country_id || !ownerProfile?.province_id) {
+      return res.status(400).json({ error: 'O perfil do administrador não tem País e Província principais definidos. Atualize o perfil e tente novamente.' });
+    }
+
     const { data: business, error: businessError } = await auth.supabase.from('businesses').insert({
       owner_id: auth.user.id, name: nome, description: descricao || null,
-      country_id: country.id, province_id: firstProvince.id,
+      country_id: ownerProfile.country_id, province_id: ownerProfile.province_id,
       category_id: categoryId, subcategory_id: subcategoryId,
-      municipality: firstArea, neighborhood: '', phone: telefone, whatsapp: telefone,
+      municipality: null, neighborhood: '', phone: telefone, whatsapp: telefone,
       is_active: true, approval_status: 'approved',
     }).select('id').single();
     if (businessError) throw businessError;
@@ -123,11 +135,14 @@ export default async function handler(req, res) {
     if (locationsError) throw locationsError;
     return res.status(201).json({ ok: true, message: 'Loja administrativa criada e ativada.', storeId, businessId });
   } catch (error) {
-    console.error('Admin store creation failed:', error?.code || error?.message);
+    console.error('Admin store creation failed:', JSON.stringify({ code: error?.code || null, message: error?.message || null, details: error?.details || null, hint: error?.hint || null }));
     if (storeId) await auth.supabase.from('admin_stores').delete().eq('id', storeId);
     if (businessId) await auth.supabase.from('businesses').delete().eq('id', businessId);
     if (photoPath) await auth.supabase.storage.from('business-media').remove([photoPath]);
     if (error?.code === '23505') return res.status(409).json({ error: 'A loja única já existe ou ocorreu um conflito de registo.' });
-    return res.status(500).json({ error: 'Não foi possível criar a loja. Nenhum e-mail foi enviado.' });
+    if (error?.code === '23514' && String(error?.message || '').includes('província e o país principais')) {
+      return res.status(400).json({ error: 'A localização do negócio auxiliar não corresponde ao País e Província principais do administrador. A Loja do Administrador mantém as províncias de hospedagem selecionadas.' });
+    }
+    return res.status(500).json({ error: 'Erro Supabase: ' + (error?.message || 'erro desconhecido') + (error?.code ? ' (' + error.code + ')' : '') });
   }
 }
