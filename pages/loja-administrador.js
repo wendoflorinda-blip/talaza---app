@@ -5,7 +5,7 @@ import ProductsView from '../components/ProductsView';
 const panel = { width: '100%', maxWidth: 900, margin: '0 auto', padding: '28px 16px 60px', boxSizing: 'border-box' };
 const field = { width: '100%', boxSizing: 'border-box', border: '1px solid #D8E2DC', borderRadius: 10, padding: 12, font: 'inherit' };
 
-export default function AdminPublicStore() {
+export default function AdminPublicStore({ slug }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -16,13 +16,21 @@ export default function AdminPublicStore() {
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    fetch('/api/admin-store/public').then(async response => {
+    if (slug === undefined) {
+      fetch('/api/admin-store/public').then(async response => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Loja indisponível.');
+        setData(result); setProvinceId(result.provinces?.[0]?.id || '');
+      }).catch(err => setError(err.message)).finally(() => setLoading(false));
+      return;
+    }
+    if (!slug) return;
+    fetch('/api/admin-store/public?slug='+encodeURIComponent(slug)).then(async response => {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Loja indisponível.');
-      setData(result);
-      setProvinceId(result.provinces?.[0]?.id || '');
+      setData(result); setProvinceId(result.provinces?.[0]?.id || '');
     }).catch(err => setError(err.message)).finally(() => setLoading(false));
-  }, []);
+  }, [slug]);
 
   async function sendMessage(event) {
     event.preventDefault(); setSending(true); setError(''); setNotice('');
