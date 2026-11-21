@@ -1,12 +1,12 @@
 import { requireMainAdmin, cleanText } from '../../../lib/adminStoreAccess';
 
-export const config = { api: { bodyParser: { sizeLimit: '10mb' } } };
+export const config = { api: { bodyParser: { sizeLimit: '70mb' } } };
 
 function parseImage(dataUrl) {
   const match = String(dataUrl || '').match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/);
-  if (!match) throw new Error('Escolha uma imagem JPG, PNG ou WEBP.');
+  if (!match) throw new Error('Escolha imagens JPG, PNG ou WEBP.');
   const buffer = Buffer.from(match[2], 'base64');
-  if (!buffer.length || buffer.length > 6 * 1024 * 1024) throw new Error('A imagem deve ter no máximo 6 MB.');
+  if (!buffer.length || buffer.length > 6 * 1024 * 1024) throw new Error('Cada imagem deve ter no máximo 6 MB.');
   return { buffer, contentType: 'image/' + match[1], extension: match[1] === 'jpeg' ? 'jpg' : match[1] };
 }
 
@@ -25,29 +25,33 @@ export default async function handler(req, res) {
       const rawPrice = req.body?.price === '' || req.body?.price == null ? null : Number(req.body.price);
       if (!name) return res.status(400).json({ error: 'Indique o nome do produto.' });
       if (rawPrice !== null && (!Number.isFinite(rawPrice) || rawPrice < 0)) return res.status(400).json({ error: 'Indique um preço válido.' });
-      let image;
-      try { image = parseImage(req.body?.photoDataUrl); }
-      catch (error) { return res.status(400).json({ error: error.message }); }
+      const rawImages = Array.isArray(req.body?.photosDataUrls) ? req.body.photosDataUrls : [req.body?.photoDataUrl];
+      const imageDataUrls = rawImages.filter(Boolean).slice(0, 10);
+      if (!imageDataUrls.length) return res.status(400).json({ error: 'Escolha pelo menos uma fotografia do produto.' });
+      let images;
+      try { images = imageDataUrls.map(parseImage); } catch (error) { return res.status(400).json({ error: error.message }); }
 
-      const path = store.business_id + '/admin-product-' + Date.now() + '.' + image.extension;
-      const { error: uploadError } = await auth.supabase.storage.from('business-media')
-        .upload(path, image.buffer, { contentType: image.contentType, cacheControl: '3600', upsert: false });
-      if (uploadError) throw uploadError;
-      const imageUrl = auth.supabase.storage.from('business-media').getPublicUrl(path).data?.publicUrl;
-      if (!imageUrl) {
-        await auth.supabase.storage.from('business-media').remove([path]);
-        throw new Error('Não foi possível obter a imagem do produto.');
+      const paths=[];
+      try {
+        const rows=[];
+        for (let i=0;i<images.length;i++) {
+          const image=images[i];
+          const path=store.business_id+'/admin-product-'+Date.now()+'-'+i+'-'+Math.random().toString(36).slice(2,7)+'.'+image.extension;
+          const {error:uploadError}=await auth.supabase.storage.from('business-media').upload(path,image.buffer,{contentType:image.contentType,cacheControl:'3600',upsert:false});
+          if(uploadError) throw uploadError;
+          paths.push(path);
+          const imageUrl=auth.supabase.storage.from('business-media').getPublicUrl(path).data?.publicUrl;
+          if(!imageUrl) throw new Error('Não foi possível obter a imagem do produto.');
+          rows.push({business_id:store.business_id,kind:'panel',image_url:imageUrl,video_url:null,media_type:'image',storage_path:path,name,description:description||null,price:rawPrice});
+        }
+        const {data:products,error:insertError}=await auth.supabase.from('business_images').insert(rows).select('id,image_url,name,description,price,created_at,media_type,storage_path');
+        if(insertError) throw insertError;
+        return res.status(201).json({ok:true,products:products||[],product:products?.[0]||null});
+      } catch(error) {
+        if(paths.length) await auth.supabase.storage.from('business-media').remove(paths);
+        console.error('Admin store product upload failed:',error?.code||error?.message);
+        throw error;
       }
-      const { data: product, error: insertError } = await auth.supabase.from('business_images').insert({
-        business_id: store.business_id, kind: 'panel', image_url: imageUrl,
-        video_url: null, media_type: 'image', storage_path: path,
-        name, description: description || null, price: rawPrice,
-      }).select('id,image_url,name,description,price,created_at,media_type,storage_path').single();
-      if (insertError) {
-        await auth.supabase.storage.from('business-media').remove([path]);
-        throw insertError;
-      }
-      return res.status(201).json({ ok: true, product });
     }
 
     if (req.method === 'DELETE') {
