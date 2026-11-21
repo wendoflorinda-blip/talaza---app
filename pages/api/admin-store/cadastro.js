@@ -79,9 +79,6 @@ export default async function handler(req, res) {
         : [];
       return { ...row, areas };
     });
-    if (provincePayload.some(row => !row.areas.length)) {
-      return res.status(400).json({ error: 'Indique pelo menos um Município / Área em cada província selecionada.' });
-    }
 
     const firstProvince = provincePayload[0];
     const firstArea = firstProvince.areas[0] || '';
