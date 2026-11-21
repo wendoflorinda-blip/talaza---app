@@ -180,11 +180,8 @@ export default function Signup() {
 
       const { data: mainAdmin, error: mainAdminError } = await supabase
         .from('admin_users').select('id').eq('id', user.id).maybeSingle();
-      if (mainAdminError) throw mainAdminError;
-      if (mainAdmin?.id) {
-        await router.replace('/admin/painel');
-        return;
-      }
+      if (mainAdminError) console.warn('Admin check failed while completing signup:', mainAdminError);
+      const isMainAdmin = Boolean(mainAdmin?.id);
 
       if (metadata.talaza_pending_signup_type === 'seller') {
         await router.replace('/post-business?resume=1');
@@ -203,7 +200,7 @@ export default function Signup() {
         profile?.account_type || metadata.account_type || appMetadata.account_type || ''
       ).trim().toLowerCase();
 
-      if (['vendedor', 'seller', 'business'].includes(accountType)) {
+      if (!isMainAdmin && ['vendedor', 'seller', 'business'].includes(accountType)) {
         await router.replace('/seller');
         return;
       }
@@ -218,7 +215,7 @@ export default function Signup() {
 
       if (businessError) throw businessError;
 
-      if (existingBusiness?.id) {
+      if (!isMainAdmin && existingBusiness?.id) {
         await router.replace('/seller');
         return;
       }
