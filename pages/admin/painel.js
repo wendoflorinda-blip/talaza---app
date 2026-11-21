@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
 import ProductsView from '../../components/ProductsView';
 import { Field, ImagePicker, CountrySelect, inputStyle } from '../../components/Fields';
+import SubcategoryCards from '../../components/SubcategoryCards';
 
 const colors = { green: '#075B4E', ink: '#173B35', gold: '#D4AF37', muted: '#66756F', border: '#DCE6E0', pale: '#F4F8F5' };
 const input = { width: '100%', boxSizing: 'border-box', border: '1px solid #D8E2DC', borderRadius: 10, padding: '12px 13px', font: 'inherit', color: colors.ink, background: '#fff' };
@@ -259,7 +260,7 @@ export default function AdminStoreDashboard() {
 
             <h3 style={{ margin: '26px 0 8px' }}>Categoria e subcategoria</h3>
             <label style={label}>Categoria *</label><select required value={storeForm.categoryId} onChange={e => { updateStoreField('categoryId', e.target.value); updateStoreField('subcategoryId', ''); }} style={input}><option value="">Escolher categoria</option>{catalog.categories.map(item => <option key={item.id} value={item.id}>{item.name.trim()}</option>)}</select>
-            <label style={label}>Subcategoria *</label><select required disabled={!storeForm.categoryId} value={storeForm.subcategoryId} onChange={e => updateStoreField('subcategoryId', e.target.value)} style={input}><option value="">Escolher subcategoria</option>{subcategories.map(item => <option key={item.id} value={item.id}>{item.name.trim()}</option>)}</select>
+            <label style={label}>Subcategoria *</label>{!storeForm.categoryId ? <p style={{color:colors.muted,fontSize:13}}>Escolha primeiro a categoria.</p> : <SubcategoryCards items={subcategories} value={storeForm.subcategoryId} onChange={value => updateStoreField('subcategoryId', value)} idPrefix="admin-store-subcategory" />}
 
             <h3 style={{ margin: '26px 0 8px' }}>País e províncias de hospedagem</h3>
             <Field id="admin-store-country" label="País" required><CountrySelect id="admin-store-country" countries={catalog.countries} value={storeForm.countryId} onChange={value => { updateStoreField('countryId', value); setSelectedProvinceIds([]); setAreasByProvince({}); }} /></Field>
