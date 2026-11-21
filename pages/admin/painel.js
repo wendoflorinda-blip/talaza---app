@@ -165,7 +165,7 @@ export default function AdminStoreDashboard() {
         if (sessionError) throw sessionError;
         const accessToken = sessionData?.session?.access_token;
         if (!accessToken) {
-          router.replace('/login?redirect=' + encodeURIComponent('/admin/painel'));
+          router.replace('/login?next=' + encodeURIComponent('/admin/painel'));
           return;
         }
         if (!active) return;
@@ -445,7 +445,7 @@ export default function AdminStoreDashboard() {
           </form>
         </section> : <>
           <nav style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-            {[['loja','A loja'],['localizacoes','Províncias e áreas'],['produtos','Produtos'],['mensagens','Ver Mensagens']].map(([id,title]) => <button key={id} type="button" onClick={() => setTab(id)} style={{ ...(tab === id ? primary : secondary), padding: '11px 15px' }}>{title}</button>)}
+            {[['loja','A loja'],['localizacoes','Províncias e áreas'],['produtos','Produtos'],['premium','Destaque Premium'],['mensagens','Ver Mensagens']].map(([id,title]) => <button key={id} type="button" onClick={() => setTab(id)} style={{ ...(tab === id ? primary : secondary), padding: '11px 15px' }}>{title}</button>)}
           </nav>
 
           {tab === 'loja' && <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 24 }}>
