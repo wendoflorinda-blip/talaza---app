@@ -74,6 +74,9 @@ export default function AdminStoreDashboard() {
   const [locationProvinceIds, setLocationProvinceIds] = useState([]);
   const [locationAreas, setLocationAreas] = useState({});
   const [productForm, setProductForm] = useState({ name: '', description: '', price: '' });
+  const [editingProductId, setEditingProductId] = useState('');
+  const [editProductForm, setEditProductForm] = useState({ name: '', description: '', price: '' });
+  const [productEditBusy, setProductEditBusy] = useState(false);
   const [productPhotos, setProductPhotos] = useState([]);
   const [productPhotoPreviews, setProductPhotoPreviews] = useState([]);
   const [productBusy, setProductBusy] = useState(false);
@@ -307,6 +310,23 @@ export default function AdminStoreDashboard() {
     finally { setSaving(false); }
   }
 
+  function beginEditProduct(item) {
+    setEditingProductId(item.id);
+    setEditProductForm({ name:item.name||'', description:item.description||'', price:item.price==null?'':String(item.price) });
+  }
+
+  async function saveEditedProduct(event) {
+    event.preventDefault();
+    if(!editingProductId) return;
+    setProductEditBusy(true); setError(''); setNotice('');
+    try {
+      const result=await api('/api/admin-store/produtos',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editingProductId,...editProductForm})});
+      setData(current=>({...current,products:(current.products||[]).map(item=>item.id===editingProductId?result.product:item)}));
+      setEditingProductId(''); setNotice('Produto atualizado.');
+    } catch(err) { setError(err.message||'Não foi possível editar o produto.'); }
+    finally { setProductEditBusy(false); }
+  }
+
   async function deleteProduct(id) {
     if (!window.confirm('Queres remover este produto da loja?')) return;
     setError(''); setNotice('');
@@ -491,9 +511,16 @@ export default function AdminStoreDashboard() {
               {productPhotos.length>0 && <p style={{fontSize:12,color:colors.muted}}>{productPhotos.length} fotografia(s) selecionada(s): {productPhotos.map(f=>f.name).join(', ')}</p>}
               <button disabled={productBusy} type="submit" style={{ ...primary, marginTop: 18 }}>{productBusy ? 'A adicionar…' : 'Adicionar Produto'}</button>
             </form>
+            {editingProductId && <form onSubmit={saveEditedProduct} style={{background:'#F4F8F5',border:'1px solid '+colors.border,borderRadius:16,padding:20}}>
+              <h3 style={{marginTop:0}}>Editar produto</h3>
+              <label style={label}>Nome</label><input required maxLength={120} value={editProductForm.name} onChange={e=>setEditProductForm(current=>({...current,name:e.target.value}))} style={input}/>
+              <label style={label}>Descrição</label><textarea rows={3} maxLength={1000} value={editProductForm.description} onChange={e=>setEditProductForm(current=>({...current,description:e.target.value}))} style={{...input,resize:'vertical'}}/>
+              <label style={label}>Preço (opcional)</label><input type="number" min="0" step="any" value={editProductForm.price} onChange={e=>setEditProductForm(current=>({...current,price:e.target.value}))} style={input}/>
+              <div style={{display:'flex',gap:8,marginTop:14,flexWrap:'wrap'}}><button type="submit" disabled={productEditBusy} style={primary}>{productEditBusy?'A guardar…':'Guardar'}</button><button type="button" disabled={productEditBusy} onClick={()=>setEditingProductId('')} style={secondary}>Cancelar</button></div>
+            </form>}
             <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 24 }}>
               <h2 style={{ marginTop: 0 }}>Produtos da loja ({data.products?.length || 0})</h2>
-              <ProductsView items={data.products || []} mode="normal" editable onDelete={item => deleteProduct(item.id)} businessName={data.store.nome_da_loja} businessId={data.store.business_id || ''} />
+              <ProductsView items={data.products || []} mode="normal" editable onEdit={beginEditProduct} onDelete={item => deleteProduct(item.id)} businessName={data.store.nome_da_loja} businessId={data.store.business_id || ''} />
             </section>
           </section>}
 
