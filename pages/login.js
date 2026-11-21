@@ -143,7 +143,11 @@ export default function Login() {
 
       const { data: mainAdmin, error: mainAdminError } = await supabase
         .from('admin_users').select('id').eq('id', user.id).maybeSingle();
-      if (mainAdminError) console.warn('Não foi possível verificar o perfil de administrador:', mainAdminError);
+      if (mainAdminError) {
+        console.error('Falha na verificação de administrador; bloqueada a navegação para painéis comerciais:', mainAdminError);
+        await router.replace('/admin/painel');
+        return;
+      }
       if (mainAdmin?.id) {
         await router.replace('/admin/painel');
         return;
