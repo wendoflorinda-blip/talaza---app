@@ -134,7 +134,7 @@ export default function PostBusiness() {
       return;
     }
     if (mainAdmin?.id) {
-      window.location.replace('/admin/painel');
+      setError('A conta de administrador não pode criar uma loja de vendedor. A Loja do Administrador é gerida separadamente.');
       return;
     }
 
