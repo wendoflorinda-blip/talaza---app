@@ -141,6 +141,14 @@ export default function Login() {
           ? router.query.next
           : '';
 
+      const { data: mainAdmin, error: mainAdminError } = await supabase
+        .from('admin_users').select('id').eq('id', user.id).maybeSingle();
+      if (mainAdminError) console.warn('Não foi possível verificar o perfil de administrador:', mainAdminError);
+      if (mainAdmin?.id) {
+        await router.replace('/admin/painel');
+        return;
+      }
+
       if (nextPath) {
         await router.replace(nextPath);
         return;
