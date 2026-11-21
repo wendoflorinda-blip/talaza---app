@@ -168,6 +168,11 @@ export default function Signup() {
       setSessionUser(user);
       setEmail(user.email || '');
 
+      const { data: mainAdmin, error: mainAdminError } = await supabase
+        .from('admin_users').select('id').eq('id', user.id).maybeSingle();
+      if (mainAdminError) console.warn('Admin check failed while completing signup:', mainAdminError);
+      const isMainAdmin = Boolean(mainAdmin?.id);
+
       const isCreator =
         metadata.media_account_type === 'creator' ||
         metadata.media_creator_onboarding === true ||
@@ -177,11 +182,6 @@ export default function Signup() {
         await router.replace('/media');
         return;
       }
-
-      const { data: mainAdmin, error: mainAdminError } = await supabase
-        .from('admin_users').select('id').eq('id', user.id).maybeSingle();
-      if (mainAdminError) console.warn('Admin check failed while completing signup:', mainAdminError);
-      const isMainAdmin = Boolean(mainAdmin?.id);
 
       if (!isMainAdmin && metadata.talaza_admin_created_seller === true) {
         await router.replace('/post-business');
