@@ -63,6 +63,7 @@ export default function AdminStoreDashboard() {
   const [catalog, setCatalog] = useState({ countries: [], provinces: [], categories: [], subcategories: [] });
   const [tab, setTab] = useState('loja');
   const [editingStore, setEditingStore] = useState(false);
+  const [accountCreationOpen, setAccountCreationOpen] = useState(false);
 
   const [storeForm, setStoreForm] = useState({ nome: '', descricao: '', telefone: '', countryId: '', categoryId: '', subcategoryId: '', secretCode: '' });
   const [photo, setPhoto] = useState(null);
@@ -336,12 +337,22 @@ export default function AdminStoreDashboard() {
         <div><div style={{ color: colors.gold, fontWeight: 900, letterSpacing: 2 }}>TALAZA</div><div style={{ fontSize: 13, opacity: .88 }}>Painel da Loja do Administrador</div></div>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
           {data?.store && <a href="/loja-administrador" target="_blank" rel="noreferrer" style={{ ...secondary, textDecoration: 'none' }}>Ver loja pública ↗</a>}
-          <button type="button" onClick={async()=>{if(window.confirm('Para criar uma conta normal, vamos terminar a sessão administrativa e abrir o cadastro. Depois poderá voltar a entrar como administrador.')){await supabase.auth.signOut();router.replace('/signup');}}} style={{...secondary}}>Criar Conta</button>
+          <button type="button" onClick={()=>setAccountCreationOpen(true)} style={{...secondary}}>Criar Conta</button>
           <button type="button" onClick={logout} style={{ border: '1px solid #ffffff70', borderRadius: 10, padding: '10px 14px', color: '#fff', background: 'transparent', fontWeight: 700, cursor: 'pointer' }}>Terminar sessão</button>
         </div>
       </header>
 
       <div style={{ maxWidth: 1120, margin: '0 auto', padding: '28px 16px 60px' }}>
+      {accountCreationOpen && <div role="dialog" aria-modal="true" aria-label="Criar conta normal" style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(8,25,20,.55)',display:'grid',placeItems:'center',padding:16}}>
+        <section style={{width:'100%',maxWidth:420,background:'#fff',borderRadius:18,padding:22,boxShadow:'0 20px 70px rgba(0,0,0,.2)'}}>
+          <h2 style={{marginTop:0,color:colors.green}}>Criar Conta</h2><p style={{fontSize:13,color:colors.muted,lineHeight:1.6}}>Escolha o tipo de conta. Para proteger a sessão administrativa, será necessário terminar sessão antes de abrir o cadastro normal.</p>
+          <div style={{display:'grid',gap:9}}>
+            <button type="button" onClick={async()=>{setAccountCreationOpen(false);await supabase.auth.signOut();router.replace('/signup');}} style={primary}>Criar conta Cliente</button>
+            <button type="button" onClick={async()=>{setAccountCreationOpen(false);await supabase.auth.signOut();router.replace('/post-business');}} style={secondary}>Criar conta Vendedor</button>
+            <button type="button" onClick={()=>setAccountCreationOpen(false)} style={secondary}>Cancelar</button>
+          </div>
+        </section>
+      </div>}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
           <div><h1 style={{ margin: 0, fontSize: 27 }}>Loja do Administrador</h1><p style={{ color: colors.muted, margin: '7px 0 0' }}>Uma única loja oficial, com presença em várias províncias.</p></div>
           {data?.store && <span style={{ background: '#E5F4EB', color: '#17633A', borderRadius: 999, padding: '8px 13px', fontWeight: 800, fontSize: 12 }}>● ATIVA</span>}
