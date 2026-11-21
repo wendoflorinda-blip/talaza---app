@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     const supabase = getSupabaseAdminServer();
     if (req.method === 'GET') {
       const { data: store, error: storeError } = await supabase.from('admin_stores')
-        .select('id,country,province,nome_da_loja,descricao,telefone,foto_url,business_id,category_id,subcategory_id')
+        .select('id,country,province,nome_da_loja,descricao,telefone,foto_url,business_id,country_id,category_id,subcategory_id')
         .limit(1).maybeSingle();
       if (storeError) throw storeError;
       if (!store) return res.status(404).json({ error: 'A Loja do Administrador ainda não foi publicada.' });
