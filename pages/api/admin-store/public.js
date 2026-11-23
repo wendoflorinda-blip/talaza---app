@@ -48,7 +48,8 @@ export default async function handler(req, res) {
           const expires = isLifetime ? Infinity : (row.expires_at ? new Date(row.expires_at).getTime() : 0);
           return String(row.status || '').trim().toLowerCase() === 'active' && starts <= now && (isLifetime || expires > now);
         }) || null;
-        const hostingActive = Boolean((storeLifetime && String(store.hosting_status || '').trim().toLowerCase() === 'active') || activeSubscription) && business.data?.is_active === true && String(business.data?.approval_status || '').toLowerCase() === 'approved';
+        const adminNormalHostingActive = !storeLifetime && String(store.hosting_type || '').trim().toLowerCase() === 'normal' && String(store.hosting_status || '').trim().toLowerCase() === 'active';
+        const hostingActive = Boolean(adminNormalHostingActive || (storeLifetime && String(store.hosting_status || '').trim().toLowerCase() === 'active') || activeSubscription) && business.data?.is_active === true && String(business.data?.approval_status || '').toLowerCase() === 'approved';
         return {
           store: { ...store, provinces: locations.data || [] }, publicSlug: slugifyStoreName(store.nome_da_loja), provinces: locations.data || [],
           products: products.data || [], mainImages: mainImages.data || [], business: business.data || null,
