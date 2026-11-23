@@ -309,9 +309,17 @@ export default function Subcategory() {
           ]);
           if(promoBusinesses.error) console.warn('Não foi possível carregar negócios dos destaques:',promoBusinesses.error);
           const businessMap=Object.fromEntries((promoBusinesses.data||[]).map(item=>[item.id,item]));
+          const {data:destinationRows,error:destinationError}=promoBusinessIds.length
+            ? await supabase.from('premium_promotion_provinces').select('promotion_id,province_id,country_id').in('promotion_id',(promoRows||[]).map(item=>item.id))
+            : {data:[],error:null};
+          if(destinationError) console.warn('Não foi possível carregar províncias dos destaques:',destinationError);
+          const destinationMap={};
+          (destinationRows||[]).forEach(row=>{(destinationMap[row.promotion_id] ||= []).push(String(row.province_id));});
           const visible=(promoRows||[]).filter(item=>{
             const b=businessMap[item.business_id];
-            return b && String(b.subcategory_id)===String(id) && (!country || String(b.country_id)===String(country)) && (!province || String(b.province_id)===String(province));
+            const targets=destinationMap[item.id]||[];
+            const provinceAllowed=!province || (targets.length ? targets.includes(String(province)) : String(b?.province_id)===String(province));
+            return b && String(b.subcategory_id)===String(id) && (!country || String(b.country_id)===String(country)) && provinceAllowed;
           }).map(item=>({...item,business:businessMap[item.business_id],duration_days:Number((premiumPlanRows||[]).find(plan=>String(plan.id)===String(item.plan_id))?.duration_days||0)}));
           if(!cancelled) {
             setPremiumPromotions(visible);
