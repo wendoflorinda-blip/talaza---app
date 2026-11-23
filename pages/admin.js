@@ -92,6 +92,7 @@ export default function Admin() {
   const [notificationBody, setNotificationBody] = useState('');
   const [reviewingPaymentId, setReviewingPaymentId] = useState('');
   const [paymentActionErrors, setPaymentActionErrors] = useState({});
+  const [premiumProvinceLabels, setPremiumProvinceLabels] = useState({});
   const [rejectionModalPayment, setRejectionModalPayment] = useState(null);
   const [paymentRejectionReasons, setPaymentRejectionReasons] = useState([]);
   const [paymentRejectionOther, setPaymentRejectionOther] = useState('');
@@ -100,6 +101,21 @@ export default function Admin() {
   const [reviewingPostId, setReviewingPostId] = useState('');
   const [sendingNotification, setSendingNotification] = useState(false);
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    const promotionIds = [...new Set(subscriptionRequests.filter(item => item.premium_promotion_id).map(item => item.premium_promotion_id))];
+    async function loadPremiumProvinceLabels() {
+      if (!promotionIds.length) { setPremiumProvinceLabels({}); return; }
+      const { data: targets, error } = await supabase.from('premium_promotion_provinces').select('promotion_id,province_id,provinces(name)').in('promotion_id', promotionIds);
+      if (error) { console.warn('Não foi possível carregar as províncias dos Destaques Premium:', error); return; }
+      const labels = {};
+      (targets || []).forEach(row => { (labels[row.promotion_id] ||= []).push(String(row.provinces?.name || '').trim()); });
+      if (!cancelled) setPremiumProvinceLabels(labels);
+    }
+    loadPremiumProvinceLabels();
+    return () => { cancelled = true; };
+  }, [subscriptionRequests]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2126,6 +2142,7 @@ export default function Admin() {
                     <p><strong>Valor:</strong> {Number.isFinite(Number(request.amount)) ? new Intl.NumberFormat('pt-AO').format(Number(request.amount)) + ' Kz' : 'Não definido'}</p>
                     <p><strong>Número Express que fez a transferência:</strong> {request.express_sender_phone || 'Não informado (registo antigo)'}</p>
                     <p><strong>Data:</strong> {request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : '—'}</p>
+                    <p><strong>Províncias de destino:</strong> {(premiumProvinceLabels[request.premium_promotion_id] || []).length ? (premiumProvinceLabels[request.premium_promotion_id] || []).join(', ') : 'Nenhuma província definida (publicação antiga)'}</p>
                     {(() => {
                       const paths = getPaymentProofPaths(request);
                       const imageUrl = paymentProofUrls[request.id + ':image'];
