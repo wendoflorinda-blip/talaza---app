@@ -92,7 +92,7 @@ export default async function handler(req, res) {
       country_id: ownerProfile.country_id, province_id: ownerProfile.province_id,
       category_id: categoryId, subcategory_id: subcategoryId,
       municipality: null, neighborhood: '', phone: telefone, whatsapp: telefone,
-      is_active: true, approval_status: 'approved',
+      is_active: false, approval_status: 'approved',
     }).select('id').single();
     if (businessError) throw businessError;
     businessId = business.id;
@@ -113,8 +113,8 @@ export default async function handler(req, res) {
     const { data: store, error: storeError } = await auth.supabase.from('admin_stores').insert({
       owner_id: auth.user.id, country: country.name, province: firstProvince.name,
       municipio: firstArea, bairro: '', nome_da_loja: nome, username: 'talaza-oficial-' + businessId.slice(0, 8),
-      descricao: descricao || null, telefone, foto_url: photoUrl, is_lifetime: true,
-      account_type: 'admin_store', hosting_status: 'active', hosting_type: 'lifetime', premium_payment_required: false, hosting_expires_at: null,
+      descricao: descricao || null, telefone, foto_url: photoUrl, is_lifetime: false,
+      account_type: 'admin_store', hosting_status: 'inactive', hosting_type: 'none', premium_payment_required: false, hosting_expires_at: null,
       business_id: businessId, country_id: country.id, category_id: categoryId, subcategory_id: subcategoryId,
     }).select('*').single();
     if (storeError) throw storeError;
@@ -126,7 +126,7 @@ export default async function handler(req, res) {
     }));
     const { data: insertedProvinces, error: locationsError } = await auth.supabase.from('admin_store_provinces').insert(provinceInsertRows).select('*');
     if (locationsError) throw locationsError;
-    return res.status(201).json({ ok: true, message: 'Loja administrativa criada e ativada.', storeId, businessId, store, provinces: insertedProvinces || [] });
+    return res.status(201).json({ ok: true, message: 'Loja administrativa criada. Está inativa até ativar um plano de Hospedagem.', storeId, businessId, store, provinces: insertedProvinces || [] });
   } catch (error) {
     console.error('Admin store creation failed:', JSON.stringify({ code: error?.code || null, message: error?.message || null, details: error?.details || null, hint: error?.hint || null }));
     if (storeId) await auth.supabase.from('admin_stores').delete().eq('id', storeId);
