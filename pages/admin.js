@@ -469,7 +469,18 @@ export default function Admin() {
     let isPaid = false;
     let grantedPlanDays = 0;
     if (status === 'approved' && isAdminStore) {
-      isPaid = true; // Admin storefront profile: approval alone activates the profile, no seller payment workflow.
+      const { data: paidPayment, error: paidPaymentError } = await supabase.from('payment_submissions')
+        .select('id').eq('business_id', id).eq('status', 'approved')
+        .order('reviewed_at', { ascending: false }).limit(1).maybeSingle();
+      if (paidPaymentError || !paidPayment) { alert(paidPaymentError ? 'Não foi possível verificar pagamento: '+paidPaymentError.message : 'A Loja do Administrador precisa de pagamento aprovado.'); return; }
+      const { data: adminSubscription, error: adminSubscriptionError } = await supabase.from('business_subscriptions')
+        .select('id,starts_at,expires_at,status').eq('business_id', id).eq('status', 'active')
+        .order('expires_at', { ascending: false }).limit(1).maybeSingle();
+      if (adminSubscriptionError) { alert('Falha ao consultar hospedagem: '+adminSubscriptionError.message); return; }
+      const adminExpiry=adminSubscription?.expires_at?new Date(adminSubscription.expires_at):null;
+      isPaid=Boolean(adminExpiry&&!Number.isNaN(adminExpiry.getTime())&&adminExpiry.getTime()>Date.now());
+      endDate=isPaid?adminExpiry.toISOString():null;
+      if(!isPaid){alert('Pagamento aprovado, mas hospedagem não está ativa.');return;}
     } else if (status === 'approved') {
       const { data: approvedPayment, error: approvedPaymentError } = await supabase
         .from('payment_submissions')
@@ -1295,15 +1306,20 @@ export default function Admin() {
     }
 
     if (!approved && request.business_id) {
-      const { error: sellerStatusError } = await supabase.from('seller_status').upsert({
-        seller_id: request.user_id, status: 'rejected',
-        reject_reason: rejectionReason.trim(), updated_at: reviewedAt
-      }, { onConflict: 'seller_id' });
-      if (sellerStatusError) console.error('Não foi possível atualizar seller_status após recusa:', sellerStatusError.message);
-      const { error: businessReviewError } = await supabase.from('businesses')
-        .update({ approval_status: 'rejected', is_active: false })
-        .eq('id', request.business_id).eq('owner_id', request.user_id);
-      if (businessReviewError) console.error('Não foi possível atualizar o estado do perfil após recusa:', businessReviewError.message);
+      const { data: adminStoreRow, error: adminStoreCheckError } = await supabase.from('admin_stores')
+        .select('id').eq('business_id', request.business_id).maybeSingle();
+      if (adminStoreCheckError) console.error('Não foi possível verificar loja administrativa:', adminStoreCheckError.message);
+      if (!adminStoreRow) {
+        const { error: sellerStatusError } = await supabase.from('seller_status').upsert({
+          seller_id: request.user_id, status: 'rejected',
+          reject_reason: rejectionReason.trim(), updated_at: reviewedAt
+        }, { onConflict: 'seller_id' });
+        if (sellerStatusError) console.error('Não foi possível atualizar seller_status após recusa:', sellerStatusError.message);
+        const { error: businessReviewError } = await supabase.from('businesses')
+          .update({ approval_status: 'rejected', is_active: false })
+          .eq('id', request.business_id).eq('owner_id', request.user_id);
+        if (businessReviewError) console.error('Não foi possível atualizar o estado do perfil após recusa:', businessReviewError.message);
+      }
     }
 
     let activationMessage = '';

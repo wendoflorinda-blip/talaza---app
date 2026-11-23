@@ -75,6 +75,14 @@ export default function AdminStoreDashboard() {
   const [accountResult, setAccountResult] = useState('');
 
   const [storeForm, setStoreForm] = useState({ nome: '', descricao: '', telefone: '', countryId: '', categoryId: '', subcategoryId: '', secretCode: '' });
+  const [adminStorePaymentFlow, setAdminStorePaymentFlow] = useState(null);
+  const [adminStorePlanOptions, setAdminStorePlanOptions] = useState([]);
+  const [adminStorePlanLoading, setAdminStorePlanLoading] = useState(false);
+  const [adminStoreSelectedPlanId, setAdminStoreSelectedPlanId] = useState('');
+  const [adminStoreProofFile, setAdminStoreProofFile] = useState(null);
+  const [adminStoreExpressPhone, setAdminStoreExpressPhone] = useState('');
+  const [adminStorePaymentBusy, setAdminStorePaymentBusy] = useState(false);
+  const [adminStorePaymentSubmitted, setAdminStorePaymentSubmitted] = useState(false);
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
   const [selectedProvinceIds, setSelectedProvinceIds] = useState([]);
@@ -363,6 +371,62 @@ export default function AdminStoreDashboard() {
     finally { setAssetBusy(''); }
   }
 
+  async function openAdminStorePlanFlow(storeInfo) {
+    setAdminStorePaymentFlow(storeInfo);
+    setAdminStorePlanOptions([]);
+    setAdminStoreSelectedPlanId('');
+    setAdminStoreProofFile(null);
+    setAdminStoreExpressPhone('');
+    setAdminStorePaymentSubmitted(false);
+    setAdminStorePlanLoading(true);
+    setError('');
+    try {
+      const { data: rows, error: plansError } = await supabase.from('plans')
+        .select('id,name,price,duration_days,description,plan_type,area,category_id,subcategory_id')
+        .eq('is_active', true).eq('category_id', storeInfo.categoryId)
+        .ilike('plan_type', 'Hospedagem%')
+        .gt('price', 0).gt('duration_days', 0).order('price', { ascending: true });
+      if (plansError) throw plansError;
+      const activeRows = (rows || []).filter(row => Number(row.price)>0 && Number(row.duration_days)>0);
+      const subPlans = activeRows.filter(row => row.subcategory_id && String(row.subcategory_id)===String(storeInfo.subcategoryId||''));
+      const categoryPlans = activeRows.filter(row => !row.subcategory_id);
+      const options = subPlans.length ? subPlans : categoryPlans;
+      setAdminStorePlanOptions(options);
+      if (options.length) setAdminStoreSelectedPlanId(options[0].id);
+      else setError('Não há planos de hospedagem ativos no Supabase para esta categoria/subcategoria. Não foi inventado nenhum plano.');
+    } catch(err) {
+      setError('Não foi possível carregar planos reais do Supabase: '+(err.message||'erro desconhecido'));
+    } finally { setAdminStorePlanLoading(false); }
+  }
+
+  async function submitAdminStorePayment(event) {
+    event.preventDefault(); setError(''); setNotice('');
+    const selectedPlan=adminStorePlanOptions.find(row=>row.id===adminStoreSelectedPlanId);
+    if(!adminStorePaymentFlow?.businessId||!selectedPlan){setError('Escolha um plano real de hospedagem.');return;}
+    const senderPhone=String(adminStoreExpressPhone||'').replace(/[^0-9]/g,'');
+    if(senderPhone.length<7||senderPhone.length>15){setError('Informe o número do remetente Express usado no pagamento.');return;}
+    if(!adminStoreProofFile){setError('Envie o comprovativo de pagamento (imagem ou PDF).');return;}
+    const isPdf=adminStoreProofFile.type==='application/pdf';
+    if(!isPdf&&!adminStoreProofFile.type.startsWith('image/')){setError('O comprovativo deve ser imagem ou PDF.');return;}
+    if(adminStoreProofFile.size>8*1024*1024){setError('O comprovativo deve ter até 8 MB.');return;}
+    setAdminStorePaymentBusy(true);let proofPath=null;
+    try {
+      const {data:sessionData,error:sessionError}=await supabase.auth.getSession();if(sessionError)throw sessionError;
+      const user=sessionData?.session?.user;if(!user?.id)throw new Error('Sessão expirada. Entre novamente.');
+      const ext=isPdf?'pdf':(adminStoreProofFile.type.split('/')[1]||'jpg').replace(/[^a-z0-9]/gi,'').toLowerCase();
+      const path=user.id+'/admin-store/'+Date.now()+'-hosting-proof.'+ext;
+      const {error:uploadError}=await supabase.storage.from('payment-proofs').upload(path,adminStoreProofFile,{contentType:adminStoreProofFile.type,cacheControl:'3600',upsert:false});
+      if(uploadError)throw uploadError;proofPath=path;
+      const submission={business_id:adminStorePaymentFlow.businessId,plan_id:selectedPlan.id,user_id:user.id,amount:Number(selectedPlan.price),currency:'Kz',payment_method:'Express',express_sender_phone:senderPhone,proof_url:proofPath,proof_type:isPdf?'pdf':(adminStoreProofFile.type.split('/')[1]||'image'),proof_image_url:isPdf?null:proofPath,proof_file_url:isPdf?proofPath:null,status:'pending',notes:'Pagamento de hospedagem da Loja do Administrador: '+adminStorePaymentFlow.storeName};
+      const {data:inserted,error:insertError}=await supabase.from('payment_submissions').insert(submission).select('id').single();
+      if(insertError)throw insertError;if(!inserted?.id)throw new Error('Não foi possível confirmar o pedido de pagamento.');
+      setAdminStorePaymentSubmitted(true);setNotice('Comprovativo enviado para Administração Normal. A loja só será ativada depois da aprovação do pagamento.');
+    } catch(err) {
+      if(proofPath)await supabase.storage.from('payment-proofs').remove([proofPath]);
+      setError(err.message||'Não foi possível enviar comprovativo.');
+    } finally {setAdminStorePaymentBusy(false);}
+  }
+
   async function createStore(event) {
     event.preventDefault(); setError(''); setNotice('');
     if (!selectedProvinceIds.length) { setError('Escolha pelo menos uma província.'); return; }
@@ -378,11 +442,12 @@ export default function AdminStoreDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...storeForm, provinces: provincePayload, photoDataUrl }),
       });
-      setNotice(result.message || 'Loja criada e ativada.');
+      setNotice('Cadastro concluído. Escolha agora um plano de hospedagem real e envie o comprovativo; a loja ficará ativa apenas após aprovação na Administração Normal.');
       setCreatingStore(false);
       setSelectedStoreId(result.store?.id || result.storeId || '');
       setError('');
       setStoreForm(current => ({ ...current, secretCode: '' }));
+      await openAdminStorePlanFlow({storeId:result.store?.id||result.storeId||'',businessId:result.businessId||result.store?.business_id||'',storeName:result.store?.nome_da_loja||storeForm.nome,categoryId:storeForm.categoryId,subcategoryId:storeForm.subcategoryId});
       if (result.store) {
         setData(current => ({ ...(current || {}), isAdmin: true, stores: [...(current?.stores || []).filter(item=>item.id!==result.store.id), result.store], store: result.store, provinces: result.provinces || [], products: [], mainImages: [], business: null }));
         setLocationProvinceIds((result.provinces || []).map(row => row.province_id).filter(Boolean));
@@ -553,7 +618,21 @@ export default function AdminStoreDashboard() {
         {error && <div role="alert" style={{ background: '#FFF0EE', color: '#9C3027', border: '1px solid #F0C8C2', padding: 13, borderRadius: 11, marginBottom: 15 }}>{error}<button onClick={() => setError('')} style={{ float: 'right', border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer' }}>×</button></div>}
         {notice && <div role="status" style={{ background: '#EAF6EE', color: '#17633A', border: '1px solid #C8E5D1', padding: 13, borderRadius: 11, marginBottom: 15 }}>{notice}</div>}
 
-        {!data ? <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 'clamp(18px,4vw,30px)' }}><h2 style={{ marginTop: 0 }}>Não foi possível confirmar a Loja do Administrador</h2><p style={{ color: colors.muted, lineHeight: 1.6 }}>Por segurança, o formulário de criação não é mostrado enquanto a leitura da loja não for confirmada.</p><button type="button" onClick={async () => { setError(''); setNotice(''); setLoading(true); try { await loadDashboard(token); setDashboardReadFailed(false); } catch (refreshError) { setError(refreshError.message || 'Não foi possível carregar os dados da loja.'); setDashboardReadFailed(true); } finally { setLoading(false); } }} style={primary}>Atualizar dados</button></section> : (creatingStore || !data.store) ? <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 'clamp(18px,4vw,30px)' }}>
+        {adminStorePaymentFlow ? <section style={{background:'#fff',border:'1px solid '+colors.border,borderRadius:18,padding:'clamp(18px,4vw,30px)'}}>
+          <h2 style={{marginTop:0}}>Plano de hospedagem · {adminStorePaymentFlow.storeName}</h2>
+          <p style={{lineHeight:1.6,color:colors.muted}}>Planos carregados da tabela <strong>plans</strong> do Supabase, filtrados pela categoria/subcategoria desta loja. A loja fica inativa até aprovação do comprovativo.</p>
+          {adminStorePlanLoading?<p>A carregar planos da base de dados…</p>:adminStorePlanOptions.length?<form onSubmit={submitAdminStorePayment}>
+            <div style={{display:'grid',gap:12}}>{adminStorePlanOptions.map(plan=><label key={plan.id} style={{display:'block',border:'1px solid '+(adminStoreSelectedPlanId===plan.id?colors.gold:colors.border),borderRadius:13,padding:15,background:adminStoreSelectedPlanId===plan.id?'#FFF9E8':'#fff',cursor:'pointer'}}>
+              <div style={{display:'flex',gap:10,alignItems:'flex-start'}}><input type="radio" name="admin-store-plan" value={plan.id} checked={adminStoreSelectedPlanId===plan.id} onChange={()=>setAdminStoreSelectedPlanId(plan.id)} style={{marginTop:4}}/><div style={{flex:1}}><strong>{plan.name?.trim()||'Plano de Hospedagem'}</strong><div style={{fontSize:19,fontWeight:900,color:colors.green,marginTop:6}}>{Number(plan.price).toLocaleString('pt-AO')} Kz · {plan.duration_days} dias</div>{plan.description&&<p style={{fontSize:13,color:colors.muted,lineHeight:1.55,whiteSpace:'pre-line',margin:'9px 0 0'}}>{plan.description}</p>}</div></div>
+            </label>)}</div>
+            <label style={label}>Número remetente Express *</label><input required type="tel" value={adminStoreExpressPhone} onChange={e=>setAdminStoreExpressPhone(e.target.value)} placeholder="Número usado para enviar o pagamento" style={input}/>
+            <label style={label}>Comprovativo (imagem ou PDF, até 8 MB) *</label><input required type="file" accept="image/*,application/pdf" onChange={e=>setAdminStoreProofFile(e.target.files?.[0]||null)} style={{...input,padding:10}}/>
+            {adminStoreProofFile&&<p style={{fontSize:13,color:colors.muted}}>Ficheiro: {adminStoreProofFile.name}</p>}
+            <button disabled={adminStorePaymentBusy||adminStorePaymentSubmitted} type="submit" style={{...primary,width:'100%',marginTop:16,opacity:(adminStorePaymentBusy||adminStorePaymentSubmitted)?0.65:1}}>{adminStorePaymentBusy?'A enviar…':adminStorePaymentSubmitted?'Comprovativo enviado':'Enviar comprovativo'}</button>
+          </form>:<p style={{padding:14,background:'#FFF4D6',color:'#674A00',borderRadius:10}}>Não existem planos ativos de pagamento nesta subcategoria. Nenhum plano fictício será mostrado.</p>}
+          {adminStorePaymentSubmitted&&<div style={{marginTop:16,padding:14,background:'#EAF6EE',color:'#17633A',borderRadius:10}}><strong>Pedido enviado para análise.</strong><p style={{margin:'8px 0 0'}}>A loja será activada após aprovação na Administração Normal.</p><button type="button" onClick={()=>{setAdminStorePaymentFlow(null);setAdminStorePaymentSubmitted(false);setAdminStoreProofFile(null);setAdminStorePlanOptions([]);setNotice('Comprovativo enviado e aguarda aprovação.');}} style={{...secondary,marginTop:12}}>Voltar ao painel</button></div>}
+          {!adminStorePaymentSubmitted&&<button type="button" onClick={()=>{setAdminStorePaymentFlow(null);setAdminStorePlanOptions([]);setAdminStoreProofFile(null);}} style={{...secondary,marginTop:16}}>Voltar ao painel</button>}
+        </section> : !data style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 'clamp(18px,4vw,30px)' }}><h2 style={{ marginTop: 0 }}>Não foi possível confirmar a Loja do Administrador</h2><p style={{ color: colors.muted, lineHeight: 1.6 }}>Por segurança, o formulário de criação não é mostrado enquanto a leitura da loja não for confirmada.</p><button type="button" onClick={async () => { setError(''); setNotice(''); setLoading(true); try { await loadDashboard(token); setDashboardReadFailed(false); } catch (refreshError) { setError(refreshError.message || 'Não foi possível carregar os dados da loja.'); setDashboardReadFailed(true); } finally { setLoading(false); } }} style={primary}>Atualizar dados</button></section> : (creatingStore || !data.store) ? <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 'clamp(18px,4vw,30px)' }}>
           <h2 style={{ marginTop: 0 }}>Criar nova loja do Administrador</h2>
           <p style={{ color: colors.muted, lineHeight: 1.6 }}>O formulário está disponível apenas para o administrador principal autenticado. A loja é criada INATIVA e só fica visível na Vitrine após ativar um plano de Hospedagem.</p>
           <form onSubmit={createStore}>
@@ -642,6 +721,7 @@ export default function AdminStoreDashboard() {
             <p><strong>WhatsApp / Telefone:</strong> {data.store.telefone}</p>
             <p><strong>Categoria:</strong> {catalog.categories.find(item => item.id === data.store.category_id)?.name || '—'}</p>
             <p><strong>Subcategoria:</strong> {catalog.subcategories.find(item => item.id === data.store.subcategory_id)?.name || '—'}</p>
+            {(!data.hostingActive&&data.store?.business_id)&&<button type="button" onClick={()=>openAdminStorePlanFlow({storeId:data.store.id,businessId:data.store.business_id,storeName:data.store.nome_da_loja,categoryId:data.store.category_id||data.business?.category_id,subcategoryId:data.store.subcategory_id||data.business?.subcategory_id})} style={{...primary,marginBottom:12}}>Escolher plano e enviar comprovativo</button>}
             <p style={{ color: colors.muted, fontSize: 13 }}>Esta loja permanece INATIVA até ter um plano de Hospedagem ativo. A presença em províncias e áreas é gerida no separador próprio.</p>
           </section>}
 
