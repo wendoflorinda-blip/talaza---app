@@ -364,7 +364,7 @@ export default function AdminStoreDashboard() {
     setAssetBusy(key); setError(''); setNotice('');
     try {
       const imageDataUrl = await optimizedImageDataUrl(file, action === 'main', action === 'main' ? 600 : action === 'logo' ? 800 : 1600);
-      const result = await api('/api/admin-store/assets', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action,slot,imageDataUrl}) });
+      const result = await api('/api/admin-store/assets', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action,slot,imageDataUrl,businessId:data?.store?.business_id}) });
       setNotice(result.message || 'Imagem atualizada.');
       await loadDashboard(token);
     } catch(err) { setError(err.message || 'Não foi possível atualizar a imagem.'); }

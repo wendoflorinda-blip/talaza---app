@@ -19,8 +19,10 @@ export default async function handler(req, res) {
   let image;
   try { image = parseImage(req.body?.imageDataUrl); } catch (error) { return res.status(400).json({ error: error.message }); }
   try {
+    const requestedBusinessId = cleanText(req.body?.businessId, 80);
+    if (!requestedBusinessId) return res.status(400).json({ error: 'Identifique a loja que vai receber a imagem.' });
     const { data: store, error: storeError } = await auth.supabase.from('admin_stores')
-      .select('id,business_id,foto_url').eq('owner_id', auth.user.id).maybeSingle();
+      .select('id,business_id,foto_url').eq('business_id', requestedBusinessId).maybeSingle();
     if (storeError) throw storeError;
     if (!store?.business_id) return res.status(404).json({ error: 'A Loja do Administrador não está configurada.' });
     if (!['logo','cover','main'].includes(action)) return res.status(400).json({ error: 'Tipo de imagem inválido.' });
