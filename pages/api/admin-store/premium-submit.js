@@ -41,7 +41,7 @@ export default async function handler(req,res){
   if(promoErr)throw promoErr;promotionId=promo.id;
   const {error:provinceInsertErr}=await auth.supabase.from('premium_promotion_provinces').insert((prov||[]).map(row=>({promotion_id:promotionId,province_id:row.id,country_id:row.country_id})));if(provinceInsertErr)throw provinceInsertErr;
   const proofExt=proof.contentType==='application/pdf'?'pdf':ext(proof);
-  const {data:payment,error:paymentErr}=await auth.supabase.from('payment_submissions').insert({user_id:userId,plan_id:plan.id,premium_promotion_id:promotionId,amount:Number(plan.price),currency:'Kz',currency_code:'Kz',payment_method:'Express',express_sender_phone:phone,proof_url:proofPath,proof_type:proofExt,proof_image_url:proofExt==='pdf'?null:proofPath,proof_file_url:proofExt==='pdf'?proofPath:null,status:'pending',notes:'Destaque Premium da Loja do Administrador'}).select('id').single();
+  const {data:payment,error:paymentErr}=await auth.supabase.from('payment_submissions').insert({user_id:userId,business_id:businessId,plan_id:plan.id,premium_promotion_id:promotionId,amount:Number(plan.price),currency:'Kz',currency_code:'Kz',payment_method:'Express',express_sender_phone:phone,proof_url:proofPath,proof_type:proofExt,proof_image_url:proofExt==='pdf'?null:proofPath,proof_file_url:proofExt==='pdf'?proofPath:null,status:'pending',notes:'Destaque Premium da Loja do Administrador'}).select('id').single();
   if(paymentErr)throw paymentErr;paymentId=payment.id;
   const {error:linkErr}=await auth.supabase.from('premium_promotions').update({payment_submission_id:paymentId}).eq('id',promotionId);if(linkErr)throw linkErr;
   return res.status(201).json({ok:true,promotionId,paymentId,message:'Destaque Premium enviado para aprovação.'});
