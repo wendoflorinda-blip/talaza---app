@@ -342,7 +342,8 @@ export default function Seller() {
     const latestSubscription = (subscriptionRows || []).find(row=>String(row.status||'').trim().toLowerCase()==='active')
       || (subscriptionRows || [])[0]
       || null;
-    const expiryDate = latestSubscription?.expires_at ? new Date(latestSubscription.expires_at) : null;
+    const isLifetimeSubscription = String(latestSubscription?.expires_at || '').trim().toLowerCase() === 'lifetime';
+    const expiryDate = latestSubscription?.expires_at && !isLifetimeSubscription ? new Date(latestSubscription.expires_at) : null;
     const angolaDateKey = (date) => {
       if (!date || Number.isNaN(date.getTime())) return null;
       const parts = new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Luanda',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
@@ -354,8 +355,8 @@ export default function Seller() {
     const remainingDays = todayAngolaKey && expiryAngolaKey
       ? Math.max(0,Math.round((Date.parse(expiryAngolaKey+'T00:00:00Z')-Date.parse(todayAngolaKey+'T00:00:00Z'))/86400000))
       : 0;
-    const validHosting = Boolean(latestSubscription && String(latestSubscription.status || '').trim().toLowerCase()==='active' && remainingDays>0);
-    if (latestSubscription?.id && remainingDays<=0 && String(latestSubscription.status||'').trim().toLowerCase()==='active') {
+    const validHosting = Boolean(latestSubscription && String(latestSubscription.status || '').trim().toLowerCase()==='active' && (isLifetimeSubscription || remainingDays>0));
+    if (latestSubscription?.id && !isLifetimeSubscription && remainingDays<=0 && String(latestSubscription.status||'').trim().toLowerCase()==='active') {
       const {error:expireSubscriptionError}=await supabase.from('business_subscriptions').update({status:'expired'}).eq('id',latestSubscription.id).eq('status','active');
       if(expireSubscriptionError) console.warn('Não foi possível marcar a hospedagem como expirada:',expireSubscriptionError);
       const {error:deactivateBusinessError}=await supabase.from('businesses').update({is_active:false}).eq('id',data.id);
