@@ -17,19 +17,17 @@ export default function AdminPublicStore({ slug }) {
   const [inactiveMessage, setInactiveMessage] = useState('');
 
   useEffect(() => {
-    if (slug === undefined) {
-      fetch('/api/admin-store/public').then(async response => {
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Loja indisponível.');
-        setData(result); setProvinceId(result.provinces?.[0]?.id || ''); setInactiveMessage(result.hostingActive ? '' : 'Esta loja está INATIVA / SEM PLANO DE HOSPEDAGEM ativo. Os produtos e informações estão disponíveis nesta página, mas a loja não aparece na Vitrine até ativar um plano.'); setInactiveMessage(result.hostingActive ? '' : 'Esta loja está INATIVA / SEM PLANO DE HOSPEDAGEM ativo. Os produtos e informações estão disponíveis nesta página, mas a loja não aparece na Vitrine até ativar um plano.');
-      }).catch(err => setError(err.message)).finally(() => setLoading(false));
-      return;
-    }
+    if (slug === undefined) return;
     if (!slug) return;
-    fetch('/api/admin-store/public?slug='+encodeURIComponent(slug)).then(async response => {
+    const params = new URLSearchParams();
+    params.set('slug', slug);
+    fetch('/api/admin-store/public?'+params.toString()).then(async response => {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Loja indisponível.');
-      setData(result); setProvinceId(result.provinces?.[0]?.id || '');
+      const selectedProvinceRow = new URLSearchParams(window.location.search).get('provinceRowId');
+      setData(result);
+      setProvinceId(selectedProvinceRow && result.provinces?.some(row=>row.id===selectedProvinceRow) ? selectedProvinceRow : result.provinces?.[0]?.id || '');
+      setInactiveMessage(result.hostingActive ? '' : 'Esta loja está INATIVA / SEM PLANO DE HOSPEDAGEM ativo. Os produtos e informações estão disponíveis nesta página, mas a loja não aparece na Vitrine até ativar um plano.');
     }).catch(err => setError(err.message)).finally(() => setLoading(false));
   }, [slug]);
 
