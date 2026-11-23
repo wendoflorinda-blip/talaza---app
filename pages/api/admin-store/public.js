@@ -48,7 +48,7 @@ export default async function handler(req, res) {
         }) || null;
         const hostingActive = Boolean(activeSubscription && business.data?.is_active === true && String(business.data?.approval_status || '').toLowerCase() === 'approved');
         return {
-          store, publicSlug: slugifyStoreName(store.nome_da_loja), provinces: locations.data || [],
+          store: { ...store, provinces: locations.data || [] }, publicSlug: slugifyStoreName(store.nome_da_loja), provinces: locations.data || [],
           products: products.data || [], mainImages: mainImages.data || [], business: business.data || null,
           hostingActive, hostingStatus: hostingActive ? 'active' : 'inactive',
           hostingExpiry: hostingActive ? activeSubscription.expires_at : null,
