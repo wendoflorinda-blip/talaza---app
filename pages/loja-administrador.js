@@ -21,7 +21,7 @@ export default function AdminPublicStore({ slug }) {
       fetch('/api/admin-store/public').then(async response => {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Loja indisponível.');
-        setData(result); setProvinceId(result.provinces?.[0]?.id || ''); setInactiveMessage(result.hostingActive ? '' : 'Esta loja está INATIVA / SEM PLANO DE HOSPEDAGEM ativo. Os produtos e informações estão disponíveis nesta página, mas a loja não aparece na Vitrine até ativar um plano.'); setInactiveMessage(result.hostingActive ? '' : 'Esta loja está INATIVA / SEM PLANO DE HOSPEDAGEM ativo. Os produtos e informações estão disponíveis nesta página, mas a loja não aparece na Vitrine até ativar um plano.'); setInactiveMessage(result.hostingActive ? '' : 'Esta loja está INATIVA / SEM PLANO DE HOSPEDAGEM ativo. Os produtos e informações estão disponíveis nesta página, mas a loja não aparece na Vitrine até ativar um plano.');
+        setData(result); setProvinceId(result.provinces?.[0]?.id || ''); setInactiveMessage(result.hostingActive ? '' : 'Esta loja está INATIVA / SEM PLANO DE HOSPEDAGEM ativo. Os produtos e informações estão disponíveis nesta página, mas a loja não aparece na Vitrine até ativar um plano.');
       }).catch(err => setError(err.message)).finally(() => setLoading(false));
       return;
     }
