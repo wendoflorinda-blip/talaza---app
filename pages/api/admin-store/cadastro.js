@@ -16,14 +16,7 @@ export default async function handler(req, res) {
   const auth = await requireMainAdmin(req);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
-  const expectedCode = process.env.ADMIN_STORE_SECRET_CODE;
-  if (!expectedCode) return res.status(503).json({ error: 'O código secreto ADMIN_STORE_SECRET_CODE não está configurado no Preview da Vercel.' });
   const body = req.body || {};
-  const submittedCode = String(body.secretCode || '').trim();
-  const normalizedExpectedCode = String(expectedCode).trim();
-  if (!submittedCode || submittedCode !== normalizedExpectedCode) {
-    return res.status(403).json({ error: 'Código Secreto da Loja do Administrador incorreto. Espaços no início/fim são ignorados; letras maiúsculas/minúsculas precisam corresponder.' });
-  }
 
   const nome = cleanText(body.nome, 120);
   const descricao = cleanText(body.descricao, 1200);
@@ -37,7 +30,10 @@ export default async function handler(req, res) {
   }
   if (!requested.length) return res.status(400).json({ error: 'Escolha pelo menos uma província.' });
   const uniqueIds = [...new Set(requested.map(item => cleanText(item?.provinceId, 80)).filter(Boolean))];
-  if (uniqueIds.length !== requested.length) return res.status(400).json({ error: 'A lista de províncias contém valores inválidos ou repetidos.' });
+  if (uniqueIds.length !== requested.length) return res.status(400).json({ error: 'A província selecionada é inválida ou repetida.' });
+  // Admin-created storefronts have exactly one primary province.
+  const primaryProvinceId = uniqueIds[0];
+  uniqueIds.splice(1);
   let photo;
   try { photo = parsePhoto(body.photoDataUrl); }
   catch (error) { return res.status(400).json({ error: error.message }); }
@@ -92,7 +88,7 @@ export default async function handler(req, res) {
       country_id: ownerProfile.country_id, province_id: ownerProfile.province_id,
       category_id: categoryId, subcategory_id: subcategoryId,
       municipality: null, neighborhood: '', phone: telefone, whatsapp: telefone,
-      is_active: false, approval_status: 'approved',
+      is_active: false, approval_status: 'pending',
     }).select('id').single();
     if (businessError) throw businessError;
     businessId = business.id;
@@ -114,19 +110,20 @@ export default async function handler(req, res) {
       owner_id: auth.user.id, country: country.name, province: firstProvince.name,
       municipio: firstArea, bairro: '', nome_da_loja: nome, username: 'talaza-oficial-' + businessId.slice(0, 8),
       descricao: descricao || null, telefone, foto_url: photoUrl, is_lifetime: false,
-      account_type: 'admin_store', hosting_status: 'inactive', hosting_type: 'none', premium_payment_required: false, hosting_expires_at: null,
+      account_type: 'admin_store', hosting_status: 'pending', hosting_type: 'normal', premium_payment_required: false, hosting_expires_at: null,
       business_id: businessId, country_id: country.id, category_id: categoryId, subcategory_id: subcategoryId,
     }).select('*').single();
     if (storeError) throw storeError;
     storeId = store.id;
 
-    const provinceInsertRows = provincePayload.map(row => ({
-      store_id: storeId, country: country.name, province: row.name,
-      country_id: country.id, province_id: row.id, areas: row.areas,
-    }));
+    const primaryProvince = provincePayload.find(row => row.id === primaryProvinceId) || provincePayload[0];
+    const provinceInsertRows = [{
+      store_id: storeId, country: country.name, province: primaryProvince.name,
+      country_id: country.id, province_id: primaryProvince.id, areas: primaryProvince.areas,
+    }];
     const { data: insertedProvinces, error: locationsError } = await auth.supabase.from('admin_store_provinces').insert(provinceInsertRows).select('*');
     if (locationsError) throw locationsError;
-    return res.status(201).json({ ok: true, message: 'Loja administrativa criada. Está inativa até ativar um plano de Hospedagem.', storeId, businessId, store, provinces: insertedProvinces || [] });
+    return res.status(201).json({ ok: true, message: 'Perfil administrativo criado e enviado para aprovação. Só ficará ativo depois de aprovado na Administração Normal.', storeId, businessId, store, provinces: insertedProvinces || [] });
   } catch (error) {
     console.error('Admin store creation failed:', JSON.stringify({ code: error?.code || null, message: error?.message || null, details: error?.details || null, hint: error?.hint || null }));
     if (storeId) await auth.supabase.from('admin_stores').delete().eq('id', storeId);
