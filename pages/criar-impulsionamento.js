@@ -79,6 +79,7 @@ export default function CriarImpulsionamento() {
     if(!user?.id || !business?.id || !plan?.id) { setError('Os dados expiraram. Atualize a página.'); return; }
     setSending(true);
     let storagePath='';
+    let promotionId=editPromotionId || null;
     try {
       const {data:{session},error:sessionError}=await supabase.auth.getSession();
       if(sessionError) throw sessionError;
@@ -94,7 +95,6 @@ export default function CriarImpulsionamento() {
         nextMediaType=file.type.startsWith('video/')?'video':'image';
       }
       if(!mediaUrl) throw new Error('Adicione uma imagem ou vídeo para a publicação.');
-      let promotionId = editPromotionId;
       if (editPromotionId) {
         const updateData = { description: description.trim() };
         if (file) Object.assign(updateData,{media_url:mediaUrl,storage_path:storagePath,media_type:nextMediaType});
@@ -122,6 +122,7 @@ export default function CriarImpulsionamento() {
       return;
     } catch(err) {
       console.error('Erro ao criar publicação premium:',err);
+      if(promotionId && !editPromotionId) { const {error:promotionCleanupError}=await supabase.from('premium_promotions').delete().eq('id',promotionId).eq('user_id',user.id); if(promotionCleanupError) console.warn(promotionCleanupError); }
       if(storagePath) { const {error:cleanupError}=await supabase.storage.from('business-media').remove([storagePath]); if(cleanupError) console.warn(cleanupError); }
       setError(err.message || 'Não foi possível preparar a publicação.');
       setSending(false);
