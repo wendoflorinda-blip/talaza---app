@@ -95,6 +95,130 @@ export default function AdminStoreDashboard() {
   const [selectedBusinessFilter, setSelectedBusinessFilter] = useState('');
   const [selectedThreadId, setSelectedThreadId] = useState('');
   const [assetBusy, setAssetBusy] = useState('');
+  const [premiumPlans, setPremiumPlans] = useState([]);
+  const [premiumPromotions, setPremiumPromotions] = useState([]);
+  const [premiumLoading, setPremiumLoading] = useState(false);
+  const [premiumDuration, setPremiumDuration] = useState(15);
+  const [premiumFile, setPremiumFile] = useState(null);
+  const [premiumDescription, setPremiumDescription] = useState('');
+  const [premiumBusy, setPremiumBusy] = useState(false);
+  const [premiumEditing, setPremiumEditing] = useState(null);
+  const [premiumEditDescription, setPremiumEditDescription] = useState('');
+  const [premiumEditFile, setPremiumEditFile] = useState(null);
+
+  const loadPremium = useCallback(async () => {
+    if (!data?.store?.business_id) return;
+    setPremiumLoading(true);
+    try {
+      const [{ data: plans, error: plansError }, { data: rows, error: rowsError }] = await Promise.all([
+        supabase.from('plans').select('id,duration_days,name').eq('plan_type','Destaque Premium').eq('is_active',true).in('duration_days',[15,30]),
+        supabase.from('premium_promotions').select('id,business_id,user_id,plan_id,media_url,storage_path,media_type,description,status,starts_at,expires_at,created_at').eq('business_id',data.store.business_id).order('created_at',{ascending:false})
+      ]);
+      if (plansError) throw plansError;
+      if (rowsError) throw rowsError;
+      setPremiumPlans(plans || []);
+      setPremiumPromotions(rows || []);
+    } catch (err) { setError(err.message || 'Não foi possível carregar Destaques Premium.'); }
+    finally { setPremiumLoading(false); }
+  }, [data?.store?.business_id]);
+
+  useEffect(() => {
+    if (tab === 'premium' && data?.store?.business_id) loadPremium();
+  }, [tab, data?.store?.business_id, loadPremium]);
+
+  function premiumFileValid(file) {
+    if (!file) return true;
+    if (!(file.type.startsWith('image/') || file.type.startsWith('video/'))) { setError('Escolha uma fotografia ou vídeo válido.'); return false; }
+    if (file.size > 50 * 1024 * 1024) { setError('O ficheiro não pode ultrapassar 50 MB.'); return false; }
+    return true;
+  }
+
+  async function uploadPremiumFile(file) {
+    const businessId = data?.store?.business_id;
+    if (!businessId || !file) throw new Error('Loja ou ficheiro não encontrado.');
+    const safeName = String(file.name || 'media').replace(/[^a-zA-Z0-9._-]/g,'-').slice(-100);
+    const path = businessId + '/' + Date.now() + '-' + Math.random().toString(36).slice(2,9) + '-' + safeName;
+    const { error: uploadError } = await supabase.storage.from('premium-media').upload(path, file, { contentType:file.type, upsert:false });
+    if (uploadError) throw uploadError;
+    const { data: urlData } = supabase.storage.from('premium-media').getPublicUrl(path);
+    return { path, url:urlData?.publicUrl || '', media_type:file.type.startsWith('video/')?'video':'image' };
+  }
+
+  async function publishPremium(event) {
+    event.preventDefault(); setError(''); setNotice('');
+    if (!premiumFile) { setError('Escolha uma fotografia ou vídeo para publicar.'); return; }
+    if (!premiumFileValid(premiumFile)) return;
+    const plan = premiumPlans.find(item => Number(item.duration_days) === Number(premiumDuration));
+    if (!plan) { setError('O plano gratuito selecionado não está disponível.'); return; }
+    setPremiumBusy(true);
+    let uploaded = null;
+    try {
+      uploaded = await uploadPremiumFile(premiumFile);
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData?.user?.id) throw authError || new Error('Sessão expirada. Inicia sessão novamente.');
+      const { data: created, error: insertError } = await supabase.from('premium_promotions').insert({
+        business_id:data.store.business_id, user_id:authData.user.id, plan_id:plan.id,
+        media_url:uploaded.url, storage_path:uploaded.path, media_type:uploaded.media_type,
+        description:premiumDescription.trim(), status:'pending_payment'
+      }).select('id,status,starts_at,expires_at,payment_submission_id').single();
+      if (insertError) throw insertError;
+      if (!created || created.status !== 'active' || !created.expires_at || created.payment_submission_id) {
+        await supabase.from('premium_promotions').delete().eq('id',created?.id);
+        throw new Error('A ativação gratuita não foi confirmada pelo Supabase. A publicação não foi mantida.');
+      }
+      setPremiumFile(null); setPremiumDescription('');
+      setNotice('Destaque Premium publicado gratuitamente por ' + premiumDuration + ' dias.');
+      await loadPremium();
+    } catch(err) {
+      if (uploaded?.path) await supabase.storage.from('premium-media').remove([uploaded.path]).catch(()=>{});
+      setError(err.message || 'Não foi possível publicar o Destaque Premium.');
+    } finally { setPremiumBusy(false); }
+  }
+
+  function startEditPremium(item) {
+    setPremiumEditing(item.id);
+    setPremiumEditDescription(item.description || '');
+    setPremiumEditFile(null);
+    setError(''); setNotice('');
+  }
+
+  async function savePremiumEdit(event) {
+    event.preventDefault();
+    if (!premiumEditing) return;
+    if (premiumEditFile && !premiumFileValid(premiumEditFile)) return;
+    setPremiumBusy(true); setError(''); setNotice('');
+    let replacement = null;
+    try {
+      const current = premiumPromotions.find(item => item.id === premiumEditing);
+      if (!current) throw new Error('Publicação não encontrada.');
+      if (premiumEditFile) replacement = await uploadPremiumFile(premiumEditFile);
+      const updates = { description:premiumEditDescription.trim() };
+      if (replacement) Object.assign(updates,{media_url:replacement.url,storage_path:replacement.path,media_type:replacement.media_type});
+      const { error: updateError } = await supabase.from('premium_promotions').update(updates).eq('id',premiumEditing).eq('business_id',data.store.business_id);
+      if (updateError) throw updateError;
+      if (replacement && current.storage_path) await supabase.storage.from('premium-media').remove([current.storage_path]);
+      setPremiumEditing(null); setPremiumEditFile(null);
+      setNotice('Publicação atualizada.');
+      await loadPremium();
+    } catch(err) {
+      if (replacement?.path) await supabase.storage.from('premium-media').remove([replacement.path]);
+      setError(err.message || 'Não foi possível editar a publicação.');
+    } finally { setPremiumBusy(false); }
+  }
+
+  async function deletePremium(item) {
+    if (!window.confirm('Apagar este Destaque Premium?')) return;
+    setPremiumBusy(true); setError(''); setNotice('');
+    try {
+      const { error: deleteError } = await supabase.from('premium_promotions').delete().eq('id',item.id).eq('business_id',data.store.business_id);
+      if (deleteError) throw deleteError;
+      if (item.storage_path) await supabase.storage.from('premium-media').remove([item.storage_path]);
+      setPremiumPromotions(current=>current.filter(row=>row.id!==item.id));
+      setNotice('Publicação apagada.');
+    } catch(err) { setError(err.message || 'Não foi possível apagar a publicação.'); }
+    finally { setPremiumBusy(false); }
+  }
+
 
   useEffect(() => {
     const urls=productPhotos.map(file=>URL.createObjectURL(file));
@@ -543,7 +667,50 @@ export default function AdminStoreDashboard() {
             </section>
           </section>}
 
-          {tab === 'mensagens' && <section style={{ display:'grid',gap:18 }}>
+          
+          {tab === 'premium' && <section style={{display:'grid',gap:18}}>
+            <section style={{background:'#fff',border:'1px solid '+colors.border,borderRadius:18,padding:24}}>
+              <h2 style={{marginTop:0}}>Destaque Premium — publicação gratuita</h2>
+              <p style={{color:colors.muted,lineHeight:1.6}}>Escolha a duração, carregue uma fotografia ou vídeo e publique. A publicação fica ativa imediatamente e será visível publicamente na Vitrine e na subcategoria.</p>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10,margin:'16px 0'}}>
+                {[15,30].map(days=><button key={days} type="button" onClick={()=>setPremiumDuration(days)} style={{border:'1px solid '+(premiumDuration===days?colors.gold:colors.border),borderRadius:13,padding:16,background:premiumDuration===days?'#FFF8E5':'#fff',color:colors.ink,cursor:'pointer',textAlign:'left'}}>
+                  <strong style={{display:'block',fontSize:18}}>{days} dias grátis</strong><small style={{color:colors.muted}}>Publicação imediata · sem comprovativo</small>
+                </button>)}
+              </div>
+              <form onSubmit={publishPremium}>
+                <label style={label}>Fotografia ou vídeo *</label>
+                <input required type="file" accept="image/*,video/*" onChange={e=>{const file=e.target.files?.[0]||null;e.target.value='';if(file&&premiumFileValid(file))setPremiumFile(file);else setPremiumFile(null);}} style={{...input,padding:9}}/>
+                {premiumFile&&<p style={{fontSize:12,color:colors.muted}}>{premiumFile.name} · {(premiumFile.size/1024/1024).toFixed(1)} MB</p>}
+                <label style={label}>Descrição (opcional)</label>
+                <textarea rows={3} maxLength={500} value={premiumDescription} onChange={e=>setPremiumDescription(e.target.value)} placeholder="Escreve uma descrição para esta publicação" style={{...input,resize:'vertical'}}/>
+                <button disabled={premiumBusy||!premiumFile} type="submit" style={{...primary,marginTop:16}}>{premiumBusy?'A publicar…':'Publicar '+premiumDuration+' dias grátis'}</button>
+              </form>
+            </section>
+            <section style={{background:'#fff',border:'1px solid '+colors.border,borderRadius:18,padding:24}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+                <h2 style={{margin:0}}>Publicações da Loja Administrador ({premiumPromotions.length})</h2>
+                <button type="button" onClick={loadPremium} disabled={premiumLoading||premiumBusy} style={secondary}>Atualizar</button>
+              </div>
+              {premiumLoading?<p>A carregar publicações…</p>:!premiumPromotions.length?<p style={{color:colors.muted}}>Ainda não existem Destaques Premium.</p>:<div style={{display:'grid',gap:14,marginTop:16}}>
+                {premiumPromotions.map(item=><article key={item.id} style={{border:'1px solid '+colors.border,borderRadius:14,overflow:'hidden',background:'#fff'}}>
+                  {item.media_type==='video'?<video src={item.media_url} controls playsInline style={{display:'block',width:'100%',maxHeight:360,background:'#111'}}/>:<img src={item.media_url} alt="Destaque Premium" style={{display:'block',width:'100%',maxHeight:360,objectFit:'contain',background:'#111'}}/>}
+                  <div style={{padding:15}}>
+                    <strong>Destaque Premium · {item.status==='active'?'Ativo':'Encerrado'}</strong>
+                    <p style={{fontSize:12,color:colors.muted}}>Início: {item.starts_at?new Date(item.starts_at).toLocaleString('pt-PT'):'—'} · Termina: {item.expires_at?new Date(item.expires_at).toLocaleString('pt-PT'):'—'}</p>
+                    <p style={{whiteSpace:'pre-wrap'}}>{item.description||'Sem descrição.'}</p>
+                    {premiumEditing===item.id?<form onSubmit={savePremiumEdit}>
+                      <label style={label}>Descrição</label><textarea rows={3} maxLength={500} value={premiumEditDescription} onChange={e=>setPremiumEditDescription(e.target.value)} style={{...input,resize:'vertical'}}/>
+                      <label style={label}>Substituir foto/vídeo (opcional)</label><input type="file" accept="image/*,video/*" onChange={e=>{const file=e.target.files?.[0]||null;e.target.value='';if(file&&premiumFileValid(file))setPremiumEditFile(file);else setPremiumEditFile(null);}} style={{...input,padding:9}}/>
+                      {premiumEditFile&&<small>{premiumEditFile.name}</small>}
+                      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:12}}><button type="submit" disabled={premiumBusy} style={primary}>Guardar edição</button><button type="button" onClick={()=>setPremiumEditing(null)} disabled={premiumBusy} style={secondary}>Cancelar</button></div>
+                    </form>:<div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button type="button" disabled={premiumBusy} onClick={()=>startEditPremium(item)} style={secondary}>Editar</button><button type="button" disabled={premiumBusy} onClick={()=>deletePremium(item)} style={{...secondary,color:'#A02B24',borderColor:'#E8C5C0'}}>Apagar</button></div>}
+                  </div>
+                </article>)}
+              </div>}
+            </section>
+          </section>}
+
+{tab === 'mensagens' && <section style={{ display:'grid',gap:18 }}>
             <section style={{background:'#fff',border:'1px solid '+colors.border,borderRadius:18,padding:24}}>
               <div style={{display:'flex',justifyContent:'space-between',gap:12,flexWrap:'wrap',alignItems:'center'}}><h2 style={{margin:0}}>Mensagens de todas as lojas</h2><button type="button" onClick={loadAllStoreConversations} style={secondary}>Atualizar</button></div>
               <p style={{color:colors.muted,fontSize:13,lineHeight:1.55}}>Lista das lojas e conversas de clientes ligadas aos negócios. Selecione uma loja e depois uma conversa.</p>
