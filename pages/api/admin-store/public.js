@@ -67,14 +67,18 @@ export default async function handler(req, res) {
       }
 
       if (provinceId) {
-        let locationsQuery = supabase.from('admin_store_provinces').select('store_id').eq('province_id', provinceId);
-        if (countryId) locationsQuery = locationsQuery.eq('country_id', countryId);
+        const normalizedProvinceId = String(provinceId).trim();
+        const normalizedCountryId = String(countryId || '').trim();
+        const normalizedSubcategoryId = String(subcategoryId || '').trim();
+        let locationsQuery = supabase.from('admin_store_provinces').select('store_id,province_id,country_id').eq('province_id', normalizedProvinceId);
+        if (normalizedCountryId) locationsQuery = locationsQuery.eq('country_id', normalizedCountryId);
         const { data: matchingLocations, error: locationsError } = await locationsQuery;
         if (locationsError) throw locationsError;
-        const storeIds = [...new Set((matchingLocations || []).map(row => row.store_id).filter(Boolean))];
-        const candidates = storeRows.filter(item => storeIds.includes(item.id) && (!countryId || String(item.country_id) === String(countryId)) && (!subcategoryId || String(item.subcategory_id) === String(subcategoryId)));
+        const storeIds = [...new Set((matchingLocations || []).map(row => String(row.store_id || '').trim()).filter(Boolean))];
+        const candidates = storeRows.filter(item => storeIds.includes(String(item.id || '').trim()) && (!normalizedCountryId || String(item.country_id || '').trim() === normalizedCountryId) && (!normalizedSubcategoryId || String(item.subcategory_id || '').trim() === normalizedSubcategoryId));
         const bundles = await Promise.all(candidates.map(loadStoreBundle));
-        return res.status(200).json({ stores: bundles.filter(item => item.hostingActive) });
+        const activeBundles = bundles.filter(item => item.hostingActive);
+        return res.status(200).json({ stores: activeBundles });
       }
 
       const store = storeRows[0] || null;
