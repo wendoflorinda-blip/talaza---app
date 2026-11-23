@@ -14,13 +14,14 @@ export default function AdminPublicStore({ slug }) {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState('');
+  const [inactiveMessage, setInactiveMessage] = useState('');
 
   useEffect(() => {
     if (slug === undefined) {
       fetch('/api/admin-store/public').then(async response => {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Loja indisponível.');
-        setData(result); setProvinceId(result.provinces?.[0]?.id || '');
+        setData(result); setProvinceId(result.provinces?.[0]?.id || ''); setInactiveMessage(result.hostingActive ? '' : 'Esta loja está INATIVA / SEM PLANO DE HOSPEDAGEM ativo. Os produtos e informações estão disponíveis nesta página, mas a loja não aparece na Vitrine até ativar um plano.');
       }).catch(err => setError(err.message)).finally(() => setLoading(false));
       return;
     }
@@ -54,6 +55,7 @@ export default function AdminPublicStore({ slug }) {
       <div style={panel}>
         {loading && <p>A carregar a loja…</p>}
         {error && <p role="alert" style={{ background: '#FFF0EE', color: '#9C3027', padding: 12, borderRadius: 10 }}>{error}</p>}
+        {data && inactiveMessage && <p role="status" style={{background:'#FFF4D6',color:'#674A00',border:'1px solid #E7C65D',padding:13,borderRadius:10,fontWeight:700}}>{inactiveMessage}</p>}
         {data && <>
           <section style={{position:'relative',minHeight:260,borderRadius:18,overflow:'hidden',background:'#075B4E',padding:22,boxSizing:'border-box',display:'flex',alignItems:'flex-end'}}>
             {data.business?.cover_url&&<img src={data.business.cover_url} alt="Capa da loja oficial" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}}/>}
