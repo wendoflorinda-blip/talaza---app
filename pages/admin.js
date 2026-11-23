@@ -1768,6 +1768,7 @@ export default function Admin() {
                     <h2 style={styles.businessName}>
                       {business.name}
                     </h2>
+                    {business.is_admin_store && <span style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:6,padding:'5px 10px',borderRadius:999,background:'linear-gradient(135deg,#FFF4CC,#D8B45B)',border:'1px solid #B98B25',color:'#65480C',fontSize:11,fontWeight:800,letterSpacing:.35}}>✦ PERFIL DA ADMINISTRAÇÃO</span>}
 
                     <div style={styles.meta}>
                       {business.categories?.name || 'Sem categoria'}

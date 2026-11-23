@@ -782,8 +782,8 @@ export default function AdminStoreDashboard() {
               </div>
               <form onSubmit={publishPremium}>
                 <label style={label}>Fotografia ou vídeo *</label>
-                <input required type="file" accept="image/*,video/*" onChange={e=>{const file=e.target.files?.[0]||null;e.target.value='';if(file&&premiumFileValid(file))setPremiumFile(file);else setPremiumFile(null);}} style={{...input,padding:9}}/>
-                {premiumFile&&<p style={{fontSize:12,color:colors.muted}}>{premiumFile.name} · {(premiumFile.size/1024/1024).toFixed(1)} MB</p>}
+                <input required type="file" accept="image/*,video/*" onChange={e=>{const selected=e.currentTarget.files?.[0]||null;if(selected&&premiumFileValid(selected)){setPremiumFile(selected);setError('');}else setPremiumFile(null);}} style={{...input,padding:9}}/>
+                <div style={{marginTop:8,padding:10,borderRadius:10,background:premiumFile?'#E9F6EF':'#F6F7F7',color:premiumFile?'#17643B':colors.muted,fontSize:13,fontWeight:600}}>{premiumFile?'✓ Ficheiro selecionado: '+premiumFile.name+' · '+(premiumFile.size/1024/1024).toFixed(1)+' MB':'Nenhuma imagem ou vídeo selecionado'}</div>
                 <label style={label}>Descrição (opcional)</label>
                 <textarea rows={3} maxLength={500} value={premiumDescription} onChange={e=>setPremiumDescription(e.target.value)} placeholder="Escreve uma descrição para esta publicação" style={{...input,resize:'vertical'}}/>
                 <label style={label}>Número remetente Express *</label><input required type="tel" value={premiumExpressPhone} onChange={e=>setPremiumExpressPhone(e.target.value)} placeholder="Número que enviou o pagamento" style={input}/>
