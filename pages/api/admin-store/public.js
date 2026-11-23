@@ -35,7 +35,7 @@ export default async function handler(req, res) {
           supabase.from('admin_store_provinces').select('id,country,province,province_id,country_id,areas').eq('store_id', store.id).order('province'),
           store.business_id ? supabase.from('business_images').select('id,image_url,name,description,price,created_at').eq('business_id', store.business_id).eq('kind', 'panel').order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
           store.business_id ? supabase.from('business_images').select('id,slot,image_url,created_at').eq('business_id',store.business_id).eq('kind','main').order('slot') : Promise.resolve({ data: [], error: null }),
-          store.business_id ? supabase.from('businesses').select('address,municipality,neighborhood,opening_hours,whatsapp,cover_url,logo_url,is_active,approval_status').eq('id',store.business_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+          store.business_id ? supabase.from('businesses').select('id,owner_id,name,description,address,municipality,neighborhood,opening_hours,phone,whatsapp,email,cover_url,logo_url,is_active,approval_status,country_id,province_id,category_id,subcategory_id').eq('id',store.business_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
           store.business_id ? supabase.from('business_subscriptions').select('id,plan_id,starts_at,expires_at,status').eq('business_id',store.business_id).order('starts_at',{ascending:false}) : Promise.resolve({ data: [], error: null }),
         ]);
         const issue = locations.error || products.error || mainImages.error || business.error || subscriptions.error;
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
           store: { ...store, provinces: locations.data || [] }, publicSlug: slugifyStoreName(store.nome_da_loja), provinces: locations.data || [],
           products: products.data || [], mainImages: mainImages.data || [], business: business.data || null,
           hostingActive, hostingStatus: hostingActive ? 'active' : 'inactive',
-          hostingExpiry: hostingActive ? activeSubscription.expires_at : null,
+          hostingExpiry: hostingActive ? (activeSubscription?.expires_at || null) : null,
         };
       };
 
