@@ -12,6 +12,8 @@ export default function CriarImpulsionamento() {
   const [user,setUser] = useState(null);
   const [business,setBusiness] = useState(null);
   const [plan,setPlan] = useState(null);
+  const [provinces,setProvinces] = useState([]);
+  const [selectedProvinceIds,setSelectedProvinceIds] = useState([]);
   const [file,setFile] = useState(null);
   const [preview,setPreview] = useState('');
   const [mediaType,setMediaType] = useState('');
@@ -33,6 +35,8 @@ export default function CriarImpulsionamento() {
       supabase.from('businesses').select('id,name,owner_id,country_id,province_id,category_id,subcategory_id,is_active,approval_status').eq('owner_id',session.user.id).order('created_at',{ascending:false}).limit(1).maybeSingle()
     ]);
     const existingResult = editPromotionId ? await supabase.from('premium_promotions').select('id,business_id,user_id,plan_id,media_url,storage_path,media_type,description,status').eq('id',editPromotionId).eq('user_id',session.user.id).maybeSingle() : { data: null, error: null };
+    const provincesResult = b.data?.country_id ? await supabase.from('provinces').select('id,name,country_id').eq('country_id',b.data.country_id).order('name') : {data:[],error:null};
+    const destinationsResult = editPromotionId ? await supabase.from('premium_promotion_provinces').select('province_id').eq('promotion_id',editPromotionId) : {data:[],error:null};
     if(p.error || !p.data || String(p.data.plan_type||'').trim().toLowerCase()!=='destaque premium') {
       setError('Não foi possível confirmar o plano Destaque Premium escolhido.');
     } else if(b.error || !b.data) {
@@ -43,6 +47,8 @@ export default function CriarImpulsionamento() {
       setError('Não foi possível recuperar o anúncio para edição.');
     } else {
       setPlan(p.data); setBusiness(b.data);
+      setProvinces(provincesResult.data || []);
+      setSelectedProvinceIds(destinationsResult.data?.length ? destinationsResult.data.map(row=>row.province_id) : [b.data.province_id].filter(Boolean));
       if (existingResult.data) {
         setDescription(existingResult.data.description || '');
         setPreview(existingResult.data.media_url || '');
@@ -69,6 +75,7 @@ export default function CriarImpulsionamento() {
     setError('');
     if(!file && !editPromotionId) { setError('Adicione uma imagem ou vídeo para a publicação.'); return; }
     if(description.trim().length<2) { setError('Escreva uma descrição para a publicação.'); return; }
+    if(selectedProvinceIds.length<1) { setError('Escolha pelo menos uma província onde quer aparecer.'); return; }
     if(!user?.id || !business?.id || !plan?.id) { setError('Os dados expiraram. Atualize a página.'); return; }
     setSending(true);
     let storagePath='';
@@ -93,6 +100,11 @@ export default function CriarImpulsionamento() {
         if (file) Object.assign(updateData,{media_url:mediaUrl,storage_path:storagePath,media_type:nextMediaType});
         const {error:updateError}=await supabase.from('premium_promotions').update(updateData).eq('id',editPromotionId).eq('user_id',user.id);
         if(updateError) throw updateError;
+        const {error:destDeleteError}=await supabase.from('premium_promotion_provinces').delete().eq('promotion_id',editPromotionId);
+        if(destDeleteError) throw destDeleteError;
+        const destinationRows=selectedProvinceIds.map(province_id=>({promotion_id:editPromotionId,province_id,country_id:business.country_id}));
+        const {error:destInsertError}=await supabase.from('premium_promotion_provinces').insert(destinationRows);
+        if(destInsertError) throw destInsertError;
       } else {
         const {data:promotion,error:insertError}=await supabase.from('premium_promotions').insert({
           business_id:business.id,user_id:user.id,plan_id:plan.id,media_url:mediaUrl,storage_path:storagePath,
@@ -100,6 +112,9 @@ export default function CriarImpulsionamento() {
         }).select('id').single();
         if(insertError) throw insertError;
         promotionId=promotion.id;
+        const destinationRows=selectedProvinceIds.map(province_id=>({promotion_id:promotionId,province_id,country_id:business.country_id}));
+        const {error:destInsertError}=await supabase.from('premium_promotion_provinces').insert(destinationRows);
+        if(destInsertError) throw destInsertError;
       }
       const paymentUrl='/Pagamento?'+new URLSearchParams({plan:String(plan.id),business:String(business.id),premium_promotion_id:String(promotionId)}).toString();
       // Navegação completa evita ficar preso no estado "A preparar…" após o upload e a gravação.
@@ -131,11 +146,19 @@ export default function CriarImpulsionamento() {
           </div>
           {file && <p style={S.fileName}>Novo ficheiro seleccionado: {file.name}</p>}
           {(file || (editPromotionId && preview)) && <button type="button" onClick={() => setMusicEditorOpen(true)} style={{...S.changeMedia,marginTop:10,border:0,cursor:'pointer'}}>♫ Adicionar música à publicação</button>}
-          <h2 style={S.sectionTitle}>2. Descrição da publicação</h2>
+          <h2 style={S.sectionTitle}>2. Escolha as províncias onde quer aparecer</h2>
+          <p style={S.muted}>O Destaque Premium só será publicado nas províncias escolhidas, após análise e aprovação da Administração Talaza.</p>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:8,marginTop:10}}>
+            {provinces.map(item=><label key={item.id} style={{display:'flex',alignItems:'center',gap:9,padding:'11px 12px',borderRadius:11,border:selectedProvinceIds.includes(item.id)?'1px solid #08745F':'1px solid #E3E8E4',background:selectedProvinceIds.includes(item.id)?'#F0FAF6':'#FFFFFF',fontWeight:700,fontSize:13,cursor:'pointer'}}>
+              <input type="checkbox" checked={selectedProvinceIds.includes(item.id)} onChange={e=>setSelectedProvinceIds(prev=>e.target.checked?[...prev,item.id]:prev.filter(id=>id!==item.id))}/>
+              {String(item.name||'').trim()}
+            </label>)}
+          </div>
+          <h2 style={S.sectionTitle}>3. Descrição da publicação</h2>
           <textarea value={description} onChange={e=>setDescription(e.target.value)} maxLength={2000} rows={5} placeholder="Escreva uma descrição clara para apresentar o seu produto, serviço ou novidade…" style={S.textarea}/>
           <div style={S.count}>{description.length}/2000</div>
-          <h2 style={S.sectionTitle}>3. Rever e continuar</h2>
-          <p style={S.notice}>Depois de continuar, irá para o pagamento por Multicaixa Express e poderá enviar o comprovativo. A publicação só aparecerá nas vitrines após a administração confirmar o pagamento. A duração começa nessa aprovação.</p>
+          <h2 style={S.sectionTitle}>4. Rever e continuar</h2>
+          <p style={S.notice}>Depois de continuar, irá para o pagamento por Multicaixa Express e poderá enviar o comprovativo. A publicação fica pendente na Administração Normal. Só depois de aprovação e confirmação do pagamento será ativada e exibida nas províncias escolhidas.</p>
           <button type="button" onClick={submit} disabled={sending} style={{...S.cta,opacity:sending ? 0.65 : 1}}>{sending?'A preparar…':'Continuar para pagamento →'}</button>
         </section>
       </>}
