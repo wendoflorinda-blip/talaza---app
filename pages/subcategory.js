@@ -251,9 +251,9 @@ export default function Subcategory() {
 
         setBusinesses(businessData || []);
         try {
-          const adminStoreResponse = await fetch('/api/admin-store/public');
+          const adminStoreResponse = await fetch('/api/admin-store/public?provinceId='+encodeURIComponent(province||'')+'&countryId='+encodeURIComponent(country||'')+'&subcategoryId='+encodeURIComponent(id||''));
           const adminStoreResult = await adminStoreResponse.json();
-          if (!cancelled && adminStoreResponse.ok) setAdminStoreData(adminStoreResult);
+          if (!cancelled && adminStoreResponse.ok) setAdminStoreData(adminStoreResult.stores || []);
         } catch (adminStoreError) {
           if (!cancelled) setAdminStoreData(null);
         }
@@ -397,20 +397,25 @@ export default function Subcategory() {
     });
   }, [businesses, search, municipality]);
 
-  const visibleAdminStore = useMemo(() => {
-    const store = adminStoreData?.store;
-    if (!store || String(store.subcategory_id) !== String(id) || (country && String(store.country_id) !== String(country))) return null;
-    const provinceRows = (adminStoreData.provinces || []).filter(row => !province || String(row.province_id) === String(province));
-    if (!provinceRows.length) return null;
+  const visibleAdminStores = useMemo(() => {
+    const stores = Array.isArray(adminStoreData) ? adminStoreData : [];
+    const selectedProvince = String(province || '');
+    const selectedCountry = String(country || '');
     const selectedMunicipality = cleanText(municipality).toLocaleLowerCase('pt-AO');
     const selectedNeighborhood = cleanText(neighborhood).toLocaleLowerCase('pt-AO');
     const searchTerm = cleanText(search).toLocaleLowerCase('pt-AO');
-    const areas = provinceRows.flatMap(row => row.areas || []).map(value => cleanText(value).toLocaleLowerCase('pt-AO'));
-    const hasAnyAreaRestriction = areas.length > 0;
-    if (selectedMunicipality && hasAnyAreaRestriction && !areas.some(area => area.includes(selectedMunicipality))) return null;
-    if (selectedNeighborhood && hasAnyAreaRestriction && !areas.some(area => area.includes(selectedNeighborhood))) return null;
-    if (searchTerm && !cleanText(store.nome_da_loja).toLocaleLowerCase('pt-AO').includes(searchTerm) && !areas.some(area => area.includes(searchTerm))) return null;
-    return store;
+    return stores.filter(store => {
+      if (String(store.subcategory_id) !== String(id)) return false;
+      if (selectedCountry && String(store.country_id) !== selectedCountry) return false;
+      const provinceRows = (store.provinces || []).filter(row => !selectedProvince || String(row.province_id) === selectedProvince);
+      if (!provinceRows.length) return false;
+      const areas = provinceRows.flatMap(row => row.areas || []).map(value => cleanText(value).toLocaleLowerCase('pt-AO'));
+      const restricted = areas.length > 0;
+      if (selectedMunicipality && restricted && !areas.some(area => area.includes(selectedMunicipality))) return false;
+      if (selectedNeighborhood && restricted && !areas.some(area => area.includes(selectedNeighborhood))) return false;
+      if (searchTerm && !cleanText(store.nome_da_loja).toLocaleLowerCase('pt-AO').includes(searchTerm) && !areas.some(area => area.includes(searchTerm))) return false;
+      return true;
+    });
   }, [adminStoreData, id, country, province, municipality, neighborhood, search]);
 
   function getBackHref() {
@@ -599,7 +604,7 @@ export default function Subcategory() {
 
                 {!loading &&
                   !error &&
-                  filteredBusinesses.length === 0 && !visibleAdminStore && (
+                  filteredBusinesses.length === 0 && !visibleAdminStores.length && (
                     <div className="emptyState">
                       <span className="emptyIcon">⌕</span>
                       <h3>Nenhum negócio encontrado</h3>
@@ -619,22 +624,22 @@ export default function Subcategory() {
                     </div>
                   )}
 
-                {!loading && !error && (filteredBusinesses.length > 0 || visibleAdminStore) && (
+                {!loading && !error && (filteredBusinesses.length > 0 || visibleAdminStores.length > 0) && (
                   <div className="businessGrid">
-                    {visibleAdminStore && <article className="businessCard adminStoreCard" key="talaza-admin-store">
+                    {visibleAdminStores.map((adminStore) => <article className="businessCard adminStoreCard" key={adminStore.id}>
                       <div className="cardCover">
-                        {visibleAdminStore.foto_url ? <img src={visibleAdminStore.foto_url} alt="Loja oficial Talaza" loading="lazy" /> : <div className="coverFallback"><span>{visibleAdminStore.nome_da_loja}</span></div>}
-                        <div className="cardLogo">{visibleAdminStore.foto_url ? <img src={visibleAdminStore.foto_url} alt="Logótipo da Loja Administrador" loading="lazy" /> : <span>TA</span>}</div>
+                        {adminStore.foto_url ? <img src={adminStore.foto_url} alt={adminStore.nome_da_loja} loading="lazy" /> : <div className="coverFallback"><span>{adminStore.nome_da_loja}</span></div>}
+                        <div className="cardLogo">{adminStore.foto_url ? <img src={adminStore.foto_url} alt={'Logótipo de '+adminStore.nome_da_loja} loading="lazy" /> : <span>TA</span>}</div>
                       </div>
                       <div className="businessInfo">
-                        <div className="businessTitleRow"><h3>{visibleAdminStore.nome_da_loja}</h3></div>
+                        <div className="businessTitleRow"><h3>{adminStore.nome_da_loja}</h3></div>
                         <div className="mainImagesPreview">{[0,1,2].map(slot=><div className="mainPreview" key={slot}><span className="mainPlaceholder">{slot===0?'Loja Oficial':'Produtos'}</span></div>)}</div>
-                        <p className="businessDescription">{cleanText(visibleAdminStore.descricao) || 'Conhece a Loja Oficial Talaza.'}</p>
+                        <p className="businessDescription">{cleanText(adminStore.descricao) || 'Conhece a Loja Oficial Talaza.'}</p>
                         <div className="businessActions">
-                          <Link className="profileButton" href="/loja-administrador"><span className="actionIcon">🏪</span><span>Ver loja</span></Link>
+                          <Link className="profileButton" href={'/loja/'+adminStore.id}><span className="actionIcon">🏪</span><span>Ver loja</span></Link>
                         </div>
                       </div>
-                    </article>}
+                    </article>)}
                     {filteredBusinesses.map((business) => {
                       const mainImages = (businessImagesById[business.id] || [])
                         .filter((image) => image.kind === 'main')
