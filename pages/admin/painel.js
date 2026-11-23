@@ -258,6 +258,9 @@ export default function AdminStoreDashboard() {
       setLocationProvinceIds((result.provinces || []).map(row => row.province_id).filter(Boolean));
       setLocationAreas(Object.fromEntries((result.provinces || []).map(row => [row.province_id, (row.areas || []).join(', ')])));
     }
+    if (result.hostingActive && result.store?.is_lifetime) {
+      result.hostingStatus = 'active';
+    }
     return result;
   }, [selectedStoreId]);
 
