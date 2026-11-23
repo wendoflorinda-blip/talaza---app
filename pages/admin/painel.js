@@ -386,7 +386,7 @@ export default function AdminStoreDashboard() {
         setLocationAreas(Object.fromEntries((result.provinces || []).map(row => [row.province_id, (row.areas || []).join(', ')])));
       }
       try {
-        await loadDashboard(token);
+        await loadDashboard(token, result.store?.id || result.storeId || selectedStoreId);
       } catch (refreshError) {
         setError('');
         setNotice('Loja criada e ativada. A leitura atualizada falhou temporariamente; a loja já aparece no painel. Usa Atualizar para tentar novamente.');
