@@ -52,12 +52,14 @@ export default async function handler(req, res) {
     if (mainImagesResult.error) console.error('Admin store main images read failed:', mainImagesResult.error.code, mainImagesResult.error.message);
     if (businessResult.error) console.error('Admin store business read failed:', businessResult.error.code, businessResult.error.message);
     const now = Date.now();
+    const storeLifetime = store.is_lifetime === true || String(store.hosting_type || '').trim().toLowerCase() === 'lifetime';
     const activeSubscription = (subscriptionsResult.data || []).find(row => {
       const start = row.starts_at ? new Date(row.starts_at).getTime() : 0;
-      const expiry = row.expires_at ? new Date(row.expires_at).getTime() : 0;
-      return String(row.status || '').toLowerCase() === 'active' && start <= now && expiry > now;
+      const isLifetime = String(row.expires_at || '').trim().toLowerCase() === 'lifetime';
+      const expiry = isLifetime ? Infinity : (row.expires_at ? new Date(row.expires_at).getTime() : 0);
+      return String(row.status || '').trim().toLowerCase() === 'active' && start <= now && (isLifetime || expiry > now);
     }) || null;
-    const hostingActive = Boolean(activeSubscription && businessResult.data?.is_active === true && String(businessResult.data?.approval_status || '').toLowerCase() === 'approved');
+    const hostingActive = Boolean((storeLifetime && String(store.hosting_status || '').trim().toLowerCase() === 'active') || activeSubscription) && businessResult.data?.is_active === true && String(businessResult.data?.approval_status || '').toLowerCase() === 'approved';
     return res.status(200).json({
       isAdmin: true,
       stores: storesWithProvinces,
