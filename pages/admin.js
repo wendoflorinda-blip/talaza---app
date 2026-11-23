@@ -291,7 +291,19 @@ export default function Admin() {
       return;
     }
 
-    // Só entra na fila de aprovação quando o perfil está completo e existe comprovativo de plano.
+    // Identifica perfis criados pela Administração para os colocar na fila normal sem comprovativo.
+    const { data: adminStoreRows, error: adminStoreError } = await supabase
+      .from('admin_stores')
+      .select('business_id')
+      .not('business_id', 'is', null);
+    if (adminStoreError) {
+      console.error('Erro ao identificar perfis administrativos:', adminStoreError);
+      setMessage('Não foi possível identificar perfis administrativos: ' + adminStoreError.message);
+      setBusinesses([]);
+      return;
+    }
+    const adminBusinessIds = new Set((adminStoreRows || []).map(row => row.business_id).filter(Boolean));
+    // Só vendedores normais dependem de comprovativo; perfis da Administração entram pela fila simples.
     const { data: proofRows, error: proofError } = await supabase
       .from('payment_submissions')
       .select('business_id, plan_id, proof_url, proof_image_url, proof_file_url, status');
@@ -307,6 +319,8 @@ export default function Admin() {
     setBusinesses((data || []).filter((business) => {
       const approvalStatus = String(business.approval_status || 'pending').toLowerCase();
       if (approvalStatus !== 'pending') return true;
+      const isAdminStore = adminBusinessIds.has(business.id);
+      if (isAdminStore) return Boolean(business.name?.trim() && business.country_id && business.province_id && business.category_id && business.subcategory_id);
       return Boolean(
         business.name?.trim() &&
         business.description?.trim() &&
@@ -316,7 +330,7 @@ export default function Admin() {
         business.subcategory_id &&
         readyBusinessIds.has(business.id)
       );
-    }));
+    }).map(business => ({ ...business, is_admin_store: adminBusinessIds.has(business.id) })));
   }
 
   async function loadSubscriptionRequests() {
@@ -430,10 +444,13 @@ export default function Admin() {
 
     if (status === 'rejected' && (!rejectionReason || !rejectionReason.trim())) return;
 
+    const isAdminStore = Boolean(businessForReview?.is_admin_store);
     let endDate = null;
     let isPaid = false;
     let grantedPlanDays = 0;
-    if (status === 'approved') {
+    if (status === 'approved' && isAdminStore) {
+      isPaid = true; // Admin storefront profile: approval alone activates the profile, no seller payment workflow.
+    } else if (status === 'approved') {
       const { data: approvedPayment, error: approvedPaymentError } = await supabase
         .from('payment_submissions')
         .select('id,created_at')
@@ -490,6 +507,15 @@ export default function Admin() {
     if (!updatedBusiness) {
       alert('Não foi possível confirmar a alteração do negócio. Tenta de novo.');
       return;
+    }
+
+    if (isAdminStore) {
+      const { error: storeStatusError } = await supabase.from('admin_stores')
+        .update({ hosting_status: status === 'approved' ? 'active' : 'rejected', hosting_type: 'normal', is_lifetime: false, hosting_expires_at: null })
+        .eq('business_id', id);
+      if (storeStatusError) {
+        alert('Perfil atualizado, mas não foi possível sincronizar o estado da loja administrativa: ' + storeStatusError.message);
+      }
     }
 
     if (businessForReview?.owner_id) {
@@ -1775,7 +1801,8 @@ export default function Admin() {
                 </div>
 
                 {String(business.approval_status || 'pending').toLowerCase() === 'pending' && <div style={styles.actions}>
-                  <span style={{fontSize:12,color:'#64756F',fontWeight:700}}>A aprovação e ativação da hospedagem são feitas exclusivamente em “Pagamentos e hospedagem”.</span>
+                  {business.is_admin_store && <button style={styles.approve || styles.reject} onClick={() => updateBusiness(business.id, 'approved')}>Aprovar perfil</button>}
+                  {!business.is_admin_store && <span style={{fontSize:12,color:'#64756F',fontWeight:700}}>A aprovação e ativação da hospedagem são feitas exclusivamente em “Pagamentos e hospedagem”.</span>}
                   <button style={styles.reject} onClick={() => updateBusiness(business.id, 'rejected')}>Recusar cadastro</button>
                 </div>}
 
