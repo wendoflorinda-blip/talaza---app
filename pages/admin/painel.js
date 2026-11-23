@@ -541,7 +541,7 @@ export default function AdminStoreDashboard() {
             <div style={{flex:1,minWidth:240}}>
               <label style={label}>As minhas lojas ({data.stores.length})</label>
               <select value={selectedStoreId || data.store?.id || ''} onChange={async e=>{const id=e.target.value;setSelectedStoreId(id);setCreatingStore(false);setError('');setNotice('');setLoading(true);try{await loadDashboard(token,id);setNotice('Loja selecionada.')}catch(err){setError(err.message||'Não foi possível carregar esta loja.')}finally{setLoading(false);}}} style={input}>
-                {(data.stores||[]).map(item=><option key={item.id} value={item.id}>{item.nome_da_loja} · {(data.provinces||[]).filter(p=>p.store_id===item.id).map(p=>p.province).join(', ') || item.province}, {item.country}</option>)}
+                {(data.stores||[]).map(item=><option key={item.id} value={item.id}>{item.nome_da_loja} · {(item.provinces||[]).map(p=>p.province).join(', ') || item.province}, {item.country}</option>)}
               </select>
             </div>
             <button type="button" onClick={()=>{setCreatingStore(true);setEditingStore(false);setError('');setNotice('');setTab('loja');setStoreForm({nome:'',descricao:'',telefone:'',countryId:'',categoryId:'',subcategoryId:'',secretCode:''});setPhoto(null);setPhotoPreview('');setSelectedProvinceIds([]);setAreasByProvince({});}} style={primary}>＋ Criar nova loja</button>
@@ -605,7 +605,7 @@ export default function AdminStoreDashboard() {
                     <input type="file" accept="image/*" hidden disabled={!!assetBusy} onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)uploadAdminStoreAsset('logo',file);}}/>
                   </label>
                 </div>
-                <div><div style={{fontSize:11,fontWeight:900,letterSpacing:1.5,color:'#F5D98B'}}>LOJA OFICIAL · ATIVA SEM HOSPEDAGEM</div><h2 style={{margin:'4px 0',fontSize:24}}>{data.store.nome_da_loja}</h2><p style={{margin:0,fontSize:13}}>{data.store.country} · {data.provinces.length} província(s)</p></div>
+                <div><div style={{fontSize:11,fontWeight:900,letterSpacing:1.5,color:'#F5D98B'}}>LOJA OFICIAL · INATIVA / SEM PLANO</div><h2 style={{margin:'4px 0',fontSize:24}}>{data.store.nome_da_loja}</h2><p style={{margin:0,fontSize:13}}>{data.store.country} · {data.provinces.length} província(s)</p></div>
               </div>
               {assetBusy && <span style={{position:'absolute',left:14,top:14,background:'#fff',color:colors.green,padding:'6px 9px',borderRadius:8,fontSize:11,fontWeight:800}}>A carregar imagem…</span>}
             </div>
