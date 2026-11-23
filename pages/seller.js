@@ -46,6 +46,7 @@ export default function Seller() {
   const [pendingPlan, setPendingPlan] = useState(null);
   const [hostingExpiry, setHostingExpiry] = useState(null);
   const [hostingExpired, setHostingExpired] = useState(false);
+  const [hostingNoPlan, setHostingNoPlan] = useState(false);
   const [hostingPlanName, setHostingPlanName] = useState('Sem plano registado');
   const [hostingRemainingDays, setHostingRemainingDays] = useState(0);
   const [hostingLastAddedDays, setHostingLastAddedDays] = useState(0);
@@ -377,6 +378,7 @@ export default function Seller() {
     } else setHostingLastAddedDays(0);
     setHostingExpiry(expiryDate && !Number.isNaN(expiryDate.getTime()) ? expiryDate : null);
     setHostingExpired(Boolean(latestSubscription && !validHosting));
+    setHostingNoPlan(!latestSubscription);
     if (latestSubscription && !validHosting) {
       setRenewalLoading(true);
       const { data: plansData, error: plansError } = await supabase.from('plans')
@@ -1328,6 +1330,10 @@ export default function Seller() {
               <span style={{fontSize:12}}>Data de fim da Hospedagem: {hostingExpiry?.toLocaleDateString('pt-AO',{timeZone:'Africa/Luanda'})}</span>
               {hostingLastAddedDays>0&&<span style={{fontSize:12}}>Última renovação: + {hostingLastAddedDays} dias acrescentados</span>}
             </section>
+          ) : hostingNoPlan ? (
+            <div role="status" style={{display:'inline-flex',alignItems:'center',marginTop:18,padding:'10px 14px',borderRadius:999,background:'#FFF4D6',color:'#674A00',fontSize:13,fontWeight:900,border:'1px solid #E7C65D'}}>
+              Perfil INATIVO · SEM PLANO
+            </div>
           ) : hostingPaymentApproved ? (
             <div role="status" style={{display:'inline-flex',alignItems:'center',marginTop:18,padding:'10px 14px',borderRadius:999,background:'#E8F1FF',color:'#174A82',fontSize:13,fontWeight:900,border:'1px solid #B7D0F0'}}>
               Aguarda ativação
@@ -1338,7 +1344,7 @@ export default function Seller() {
             </div>
           ) : showHostingPaymentState ? (
             <Link href={{pathname:'/impulsionar',query:{business:business.id,tab:'hospedagem'}}} style={{display:'inline-flex',alignItems:'center',marginTop:18,padding:'11px 15px',borderRadius:999,background:'#FDEFC5',color:'#6A4A00',border:'1px solid #E7C65D',fontSize:13,fontWeight:900,textDecoration:'none'}}>
-              Perfil Inativo - Aguarda o pagamento da Hospedagem <span aria-hidden="true" style={{marginLeft:7}}>→</span>
+              Perfil INATIVO · SEM PLANO — ativar Hospedagem <span aria-hidden="true" style={{marginLeft:7}}>→</span>
             </Link>
           ) : null}
           {hostingProofSubmitted && !profileHostingActive && pendingPlan && (
