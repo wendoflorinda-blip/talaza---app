@@ -14,12 +14,19 @@ export default async function handler(req, res) {
       .order('created_at', { ascending: true });
     if (storesError) throw storesError;
     const storeList = stores || [];
+    const storeIds = storeList.map(item => item.id).filter(Boolean);
+    const { data: allProvinceRows, error: allProvinceError } = storeIds.length
+      ? await auth.supabase.from('admin_store_provinces').select('id,store_id,province,country,province_id,country_id,areas').in('store_id', storeIds).order('province')
+      : { data: [], error: null };
+    if (allProvinceError) throw allProvinceError;
+    const provincesByStore = Object.fromEntries(storeList.map(item => [item.id, (allProvinceRows || []).filter(row => row.store_id === item.id)]));
+    const storesWithProvinces = storeList.map(item => ({ ...item, provinces: provincesByStore[item.id] || [] }));
     const requestedStoreId = String(req.query?.storeId || '').trim();
     const store = requestedStoreId
-      ? storeList.find(item => item.id === requestedStoreId) || null
-      : storeList[0] || null;
+      ? storesWithProvinces.find(item => item.id === requestedStoreId) || null
+      : storesWithProvinces[0] || null;
     if (requestedStoreId && !store) return res.status(404).json({ error: 'A loja selecionada não pertence à administradora.' });
-    if (!store) return res.status(200).json({ isAdmin: true, stores: storeList, store: null, provinces: [], products: [], mainImages: [], business: null });
+    if (!store) return res.status(200).json({ isAdmin: true, stores: storesWithProvinces, store: null, provinces: [], products: [], mainImages: [], business: null });
 
     const [provinceResult, productResult, mainImagesResult, businessResult] = await Promise.all([
       auth.supabase.from('admin_store_provinces')
@@ -43,7 +50,7 @@ export default async function handler(req, res) {
     if (businessResult.error) console.error('Admin store business read failed:', businessResult.error.code, businessResult.error.message);
     return res.status(200).json({
       isAdmin: true,
-      stores: storeList,
+      stores: storesWithProvinces,
       store,
       provinces: provinceResult.data || [],
       products: productResult.data || [],
