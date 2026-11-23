@@ -507,34 +507,37 @@ export default function Admin() {
         return;
       }
     }
-    const updates = {
-      approval_status: status,
-      is_active: status === 'approved' ? isPaid : false,
-    };
-
-    const { data: updatedBusiness, error } = await supabase
-      .from('businesses')
-      .update(updates)
-      .eq('id', id)
-      .select('id')
-      .maybeSingle();
-
-    if (error) {
-      alert('Não foi possível aprovar/recusar o negócio. Tenta novamente.');
-      return;
-    }
-
-    if (!updatedBusiness) {
-      alert('Não foi possível confirmar a alteração do negócio. Tenta de novo.');
-      return;
-    }
-
     if (isAdminStore) {
-      const { error: storeStatusError } = await supabase.from('admin_stores')
-        .update({ hosting_status: status === 'approved' ? 'active' : 'rejected', hosting_type: 'normal', is_lifetime: false, hosting_expires_at: null })
-        .eq('business_id', id);
-      if (storeStatusError) {
-        alert('Perfil atualizado, mas não foi possível sincronizar o estado da loja administrativa: ' + storeStatusError.message);
+      // Sincronização atómica: perfil e admin_stores são atualizados no mesmo RPC/transação.
+      const { data: reviewResult, error: reviewError } = await supabase.rpc('admin_review_store', {
+        p_business_id: id,
+        p_status: status,
+      });
+      if (reviewError || reviewResult !== true) {
+        alert('Não foi possível aprovar/recusar e sincronizar a loja administrativa: ' + (reviewError?.message || 'resultado não confirmado'));
+        return;
+      }
+    } else {
+      const updates = {
+        approval_status: status,
+        is_active: status === 'approved' ? isPaid : false,
+      };
+
+      const { data: updatedBusiness, error } = await supabase
+        .from('businesses')
+        .update(updates)
+        .eq('id', id)
+        .select('id')
+        .maybeSingle();
+
+      if (error) {
+        alert('Não foi possível aprovar/recusar o negócio. Tenta novamente.');
+        return;
+      }
+
+      if (!updatedBusiness) {
+        alert('Não foi possível confirmar a alteração do negócio. Tenta de novo.');
+        return;
       }
     }
 
