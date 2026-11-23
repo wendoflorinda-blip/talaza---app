@@ -68,6 +68,8 @@ export default function AdminStoreDashboard() {
   const [tab, setTab] = useState('loja');
   const [editingStore, setEditingStore] = useState(false);
   const [accountCreationOpen, setAccountCreationOpen] = useState(false);
+  const [creatingStore, setCreatingStore] = useState(false);
+  const [selectedStoreId, setSelectedStoreId] = useState('');
   const [accountForm, setAccountForm] = useState({ type: 'client', name: '', email: '', password: '', phone: '' });
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountResult, setAccountResult] = useState('');
@@ -245,8 +247,9 @@ export default function AdminStoreDashboard() {
     return result;
   }, [token]);
 
-  const loadDashboard = useCallback(async (accessToken) => {
-    const response = await fetch('/api/admin-store/me', { headers: { Authorization: 'Bearer ' + accessToken } });
+  const loadDashboard = useCallback(async (accessToken, storeId = selectedStoreId) => {
+    const query = storeId ? '?storeId=' + encodeURIComponent(storeId) : '';
+    const response = await fetch('/api/admin-store/me' + query, { headers: { Authorization: 'Bearer ' + accessToken } });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Não foi possível carregar o painel.');
     setData(result);
@@ -256,7 +259,7 @@ export default function AdminStoreDashboard() {
       setLocationAreas(Object.fromEntries((result.provinces || []).map(row => [row.province_id, (row.areas || []).join(', ')])));
     }
     return result;
-  }, []);
+  }, [selectedStoreId]);
 
   const loadMessages = useCallback(async () => {
     if (!token || !data?.store) return;
@@ -304,6 +307,9 @@ export default function AdminStoreDashboard() {
         if (!active) return;
         setCatalog(locations);
         setData(dashboard);
+        const initialStoreId = dashboard.store?.id || dashboard.stores?.[0]?.id || '';
+        setSelectedStoreId(initialStoreId);
+        setCreatingStore(!(dashboard.stores || []).length);
         if (dashboard.store) {
           setLocationProvinceIds((dashboard.provinces || []).map(row => row.province_id).filter(Boolean));
           setLocationAreas(Object.fromEntries((dashboard.provinces || []).map(row => [row.province_id, (row.areas || []).join(', ')])));
@@ -370,10 +376,12 @@ export default function AdminStoreDashboard() {
         body: JSON.stringify({ ...storeForm, provinces: provincePayload, photoDataUrl }),
       });
       setNotice(result.message || 'Loja criada e ativada.');
+      setCreatingStore(false);
+      setSelectedStoreId(result.store?.id || result.storeId || '');
       setError('');
       setStoreForm(current => ({ ...current, secretCode: '' }));
       if (result.store) {
-        setData({ isAdmin: true, store: result.store, provinces: result.provinces || [], products: [] });
+        setData(current => ({ ...(current || {}), isAdmin: true, stores: [...(current?.stores || []).filter(item=>item.id!==result.store.id), result.store], store: result.store, provinces: result.provinces || [], products: [], mainImages: [], business: null }));
         setLocationProvinceIds((result.provinces || []).map(row => row.province_id).filter(Boolean));
         setLocationAreas(Object.fromEntries((result.provinces || []).map(row => [row.province_id, (row.areas || []).join(', ')])));
       }
@@ -524,15 +532,26 @@ export default function AdminStoreDashboard() {
         </section>
       </div>}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
-          <div><h1 style={{ margin: 0, fontSize: 27 }}>Loja do Administrador</h1><p style={{ color: colors.muted, margin: '7px 0 0' }}>Uma única loja oficial, com presença em várias províncias.</p></div>
+          <div><h1 style={{ margin: 0, fontSize: 27 }}>Lojas do Administrador</h1><p style={{ color: colors.muted, margin: '7px 0 0' }}>Gerencie cada loja separadamente.</p></div>
           {data?.store && <span style={{ background: '#E5F4EB', color: '#17633A', borderRadius: 999, padding: '8px 13px', fontWeight: 800, fontSize: 12 }}>● ATIVA</span>}
         </div>
 
+        {data?.stores?.length > 0 && <section style={{background:'#fff',border:'1px solid '+colors.border,borderRadius:14,padding:16,marginBottom:18}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+            <div style={{flex:1,minWidth:240}}>
+              <label style={label}>As minhas lojas ({data.stores.length})</label>
+              <select value={selectedStoreId || data.store?.id || ''} onChange={async e=>{const id=e.target.value;setSelectedStoreId(id);setCreatingStore(false);setError('');setNotice('');setLoading(true);try{await loadDashboard(token,id);setNotice('Loja selecionada.')}catch(err){setError(err.message||'Não foi possível carregar esta loja.')}finally{setLoading(false);}}} style={input}>
+                {(data.stores||[]).map(item=><option key={item.id} value={item.id}>{item.nome_da_loja} · {item.province}, {item.country}</option>)}
+              </select>
+            </div>
+            <button type="button" onClick={()=>{setCreatingStore(true);setEditingStore(false);setError('');setNotice('');setTab('loja');setStoreForm({nome:'',descricao:'',telefone:'',countryId:'',categoryId:'',subcategoryId:'',secretCode:''});setPhoto(null);setPhotoPreview('');setSelectedProvinceIds([]);setAreasByProvince({});}} style={primary}>＋ Criar nova loja</button>
+          </div>
+        </section>}
         {error && <div role="alert" style={{ background: '#FFF0EE', color: '#9C3027', border: '1px solid #F0C8C2', padding: 13, borderRadius: 11, marginBottom: 15 }}>{error}<button onClick={() => setError('')} style={{ float: 'right', border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer' }}>×</button></div>}
         {notice && <div role="status" style={{ background: '#EAF6EE', color: '#17633A', border: '1px solid #C8E5D1', padding: 13, borderRadius: 11, marginBottom: 15 }}>{notice}</div>}
 
-        {!data ? <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 'clamp(18px,4vw,30px)' }}><h2 style={{ marginTop: 0 }}>Não foi possível confirmar a Loja do Administrador</h2><p style={{ color: colors.muted, lineHeight: 1.6 }}>Por segurança, o formulário de criação não é mostrado enquanto a leitura da loja não for confirmada.</p><button type="button" onClick={async () => { setError(''); setNotice(''); setLoading(true); try { await loadDashboard(token); setDashboardReadFailed(false); } catch (refreshError) { setError(refreshError.message || 'Não foi possível carregar os dados da loja.'); setDashboardReadFailed(true); } finally { setLoading(false); } }} style={primary}>Atualizar dados</button></section> : !data.store ? <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 'clamp(18px,4vw,30px)' }}>
-          <h2 style={{ marginTop: 0 }}>Criar a única Loja do Administrador</h2>
+        {!data ? <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 'clamp(18px,4vw,30px)' }}><h2 style={{ marginTop: 0 }}>Não foi possível confirmar a Loja do Administrador</h2><p style={{ color: colors.muted, lineHeight: 1.6 }}>Por segurança, o formulário de criação não é mostrado enquanto a leitura da loja não for confirmada.</p><button type="button" onClick={async () => { setError(''); setNotice(''); setLoading(true); try { await loadDashboard(token); setDashboardReadFailed(false); } catch (refreshError) { setError(refreshError.message || 'Não foi possível carregar os dados da loja.'); setDashboardReadFailed(true); } finally { setLoading(false); } }} style={primary}>Atualizar dados</button></section> : (creatingStore || !data.store) ? <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 'clamp(18px,4vw,30px)' }}>
+          <h2 style={{ marginTop: 0 }}>Criar nova loja do Administrador</h2>
           <p style={{ color: colors.muted, lineHeight: 1.6 }}>O formulário está disponível apenas para o administrador principal autenticado. A loja fica ativa imediatamente depois da validação do código secreto.</p>
           <form onSubmit={createStore}>
             <h3 style={{ margin: '22px 0 8px' }}>Dados da loja</h3>
@@ -547,7 +566,7 @@ export default function AdminStoreDashboard() {
 
             <h3 style={{ margin: '26px 0 8px' }}>País e províncias de hospedagem</h3>
             <Field id="admin-store-country" label="País" required><CountrySelect id="admin-store-country" countries={catalog.countries} value={storeForm.countryId} onChange={value => { updateStoreField('countryId', value); setSelectedProvinceIds([]); setAreasByProvince({}); }} /></Field>
-            {storeForm.countryId && <><p style={{ color: colors.muted, fontSize: 13, margin: '12px 0' }}>Escolha uma ou várias províncias. É sempre a mesma loja, não serão criadas lojas separadas.</p>
+            {storeForm.countryId && <><p style={{ color: colors.muted, fontSize: 13, margin: '12px 0' }}>Escolha uma ou várias províncias. Pode selecionar várias províncias para esta loja.</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
                 {currentCountryProvinces.map(item => <label key={item.id} style={{ display: 'flex', gap: 9, alignItems: 'center', border: '1px solid ' + colors.border, borderRadius: 10, padding: 11, cursor: 'pointer' }}><input type="checkbox" checked={selectedProvinceIds.includes(item.id)} onChange={() => toggleProvince(item.id)} />{item.name}</label>)}
               </div>
@@ -620,7 +639,7 @@ export default function AdminStoreDashboard() {
             <p><strong>WhatsApp / Telefone:</strong> {data.store.telefone}</p>
             <p><strong>Categoria:</strong> {catalog.categories.find(item => item.id === data.store.category_id)?.name || '—'}</p>
             <p><strong>Subcategoria:</strong> {catalog.subcategories.find(item => item.id === data.store.subcategory_id)?.name || '—'}</p>
-            <p style={{ color: colors.muted, fontSize: 13 }}>A loja é única e permanece ativa. A presença em províncias e áreas é gerida no separador próprio.</p>
+            <p style={{ color: colors.muted, fontSize: 13 }}>Esta loja permanece ativa. A presença em províncias e áreas é gerida no separador próprio.</p>
           </section>}
 
           {tab === 'localizacoes' && <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 24 }}>
