@@ -85,7 +85,7 @@ export default async function handler(req, res) {
 
     const { data: business, error: businessError } = await auth.supabase.from('businesses').insert({
       owner_id: auth.user.id, name: nome, description: descricao || null,
-      country_id: ownerProfile.country_id, province_id: ownerProfile.province_id,
+      country_id: country.id, province_id: primaryProvinceId,
       category_id: categoryId, subcategory_id: subcategoryId,
       municipality: null, neighborhood: '', phone: telefone, whatsapp: telefone,
       is_active: false, approval_status: 'pending',
@@ -116,7 +116,7 @@ export default async function handler(req, res) {
     if (storeError) throw storeError;
     storeId = store.id;
 
-    const primaryProvince = provincePayload.find(row => row.id === primaryProvinceId) || provincePayload[0];
+    const primaryProvince = provincePayload[0];
     const provinceInsertRows = [{
       store_id: storeId, country: country.name, province: primaryProvince.name,
       country_id: country.id, province_id: primaryProvince.id, areas: primaryProvince.areas,
