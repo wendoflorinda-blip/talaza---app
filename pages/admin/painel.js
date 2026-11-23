@@ -533,7 +533,7 @@ export default function AdminStoreDashboard() {
       </div>}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
           <div><h1 style={{ margin: 0, fontSize: 27 }}>Lojas do Administrador</h1><p style={{ color: colors.muted, margin: '7px 0 0' }}>Gerencie cada loja separadamente.</p></div>
-          {data?.store && <span style={{ background: '#FFF4D6', color: '#674A00', borderRadius: 999, padding: '8px 13px', fontWeight: 800, fontSize: 12 }}>● INATIVA · SEM PLANO</span>}
+          {data?.store && <span style={{ background: data.hostingActive ? '#E5F4EB' : '#FFF4D6', color: data.hostingActive ? '#17633A' : '#674A00', borderRadius: 999, padding: '8px 13px', fontWeight: 800, fontSize: 12 }}>{data.hostingActive ? '● ATIVA' : '● INATIVA · SEM PLANO'}</span>}
         </div>
 
         {data?.stores?.length > 0 && <section style={{background:'#fff',border:'1px solid '+colors.border,borderRadius:14,padding:16,marginBottom:18}}>
@@ -584,7 +584,7 @@ export default function AdminStoreDashboard() {
             <h3 style={{ margin: '26px 0 8px' }}>Criar loja · sem plano ativo</h3><p style={{padding:12,borderRadius:10,background:'#FFF4D6',color:'#674A00',fontSize:13,lineHeight:1.6}}>A criação não ativa a Hospedagem. A loja ficará INATIVA / SEM PLANO até contratar e ativar um plano.</p>
             <label style={label}>Código Secreto da Loja do Administrador *</label><input required type="password" autoComplete="off" value={storeForm.secretCode} onChange={e => updateStoreField('secretCode', e.target.value)} placeholder="Introduza o código secreto" style={input} />
             <p style={{ color: colors.muted, fontSize: 12 }}>O código é validado no servidor através de ADMIN_STORE_SECRET_CODE. Não é enviado por e-mail.</p>
-            <button disabled={saving} type="submit" style={{ ...primary, width: '100%', marginTop: 18, opacity: saving ? .65 : 1 }}>{saving ? 'A criar e ativar a loja…' : 'Criar Loja do Administrador'}</button>
+            <button disabled={saving} type="submit" style={{ ...primary, width: '100%', marginTop: 18, opacity: saving ? .65 : 1 }}>{saving ? 'A criar loja…' : 'Criar Loja do Administrador'}</button>
           </form>
         </section> : <>
           <nav style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
