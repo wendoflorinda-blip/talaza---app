@@ -626,17 +626,19 @@ export default function Subcategory() {
 
                 {!loading && !error && (filteredBusinesses.length > 0 || visibleAdminStores.length > 0) && (
                   <div className="businessGrid">
-                    {visibleAdminStores.map((adminStore) => <article className="businessCard adminStoreCard" key={adminStore.id}>
+                    {visibleAdminStores.map((adminStore) => <article className="businessCard adminStoreCard" key={adminStore.business_id || adminStore.id}>
                       <div className="cardCover">
                         {adminStore.foto_url ? <img src={adminStore.foto_url} alt={adminStore.nome_da_loja} loading="lazy" /> : <div className="coverFallback"><span>{adminStore.nome_da_loja}</span></div>}
                         <div className="cardLogo">{adminStore.foto_url ? <img src={adminStore.foto_url} alt={'Logótipo de '+adminStore.nome_da_loja} loading="lazy" /> : <span>TA</span>}</div>
                       </div>
                       <div className="businessInfo">
                         <div className="businessTitleRow"><h3>{adminStore.nome_da_loja}</h3></div>
-                        <div className="mainImagesPreview">{[0,1,2].map(slot=><div className="mainPreview" key={slot}><span className="mainPlaceholder">{slot===0?'Loja Oficial':'Produtos'}</span></div>)}</div>
+                        <div className="mainImagesPreview">{(adminStore.mainImages || []).slice(0,3).map((image,slot)=><div className="mainPreview" key={image.id || slot}>{image.image_url?<img src={image.image_url} alt={image.name || 'Imagem da loja'} loading="lazy"/>:<span className="mainPlaceholder">Loja Oficial</span>}</div>)}</div>
                         <p className="businessDescription">{cleanText(adminStore.descricao) || 'Conhece a Loja Oficial Talaza.'}</p>
                         <div className="businessActions">
-                          <Link className="profileButton" href={'/loja/'+adminStore.id}><span className="actionIcon">🏪</span><span>Ver loja</span></Link>
+                          <button type="button" className="messageButton" onClick={() => { setSaveNotice(''); router.push('/loja/'+adminStore.id+'?provinceRowId='+encodeURIComponent(adminStore.provinces?.find(row=>String(row.province_id)===String(province))?.id || '')); }}><span className="actionIcon">💬</span><span>Enviar mensagem</span></button>
+                          <button type="button" className={'saveButton'+(savedBusinessIds.includes(adminStore.business_id)?' saved':'')} disabled={savingBusinessId===adminStore.business_id} onClick={() => toggleSavedBusiness({id:adminStore.business_id,name:adminStore.nome_da_loja})}><span className="actionIcon">🔖</span><span>{savingBusinessId===adminStore.business_id?'A guardar…':savedBusinessIds.includes(adminStore.business_id)?'Guardado':'Guardar'}</span></button>
+                          <Link className="profileButton" href={'/loja/'+adminStore.id+'?provinceRowId='+encodeURIComponent(adminStore.provinces?.find(row=>String(row.province_id)===String(province))?.id || '')}><span className="actionIcon">🏪</span><span>Ver loja</span></Link>
                         </div>
                       </div>
                     </article>)}
