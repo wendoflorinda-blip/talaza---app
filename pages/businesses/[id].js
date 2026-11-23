@@ -47,8 +47,10 @@ export default function BusinessPublicProfile() {
           .order('starts_at',{ascending:false}).order('created_at',{ascending:false}).limit(1);
         if (!hostingError) {
           const currentSub=hostingRows?.[0];
-          const expiry=currentSub?.expires_at ? new Date(currentSub.expires_at) : null;
-          businessData.is_active=Boolean(businessData.is_active && currentSub && String(currentSub.status || '').trim().toLowerCase()==='active' && expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime()>Date.now());
+          const startsAt=currentSub?.starts_at ? new Date(currentSub.starts_at).getTime() : 0;
+          const lifetime=String(currentSub?.expires_at || '').trim().toLowerCase()==='lifetime';
+          const expiry=currentSub?.expires_at && !lifetime ? new Date(currentSub.expires_at) : null;
+          businessData.is_active=Boolean(businessData.is_active && currentSub && String(currentSub.status || '').trim().toLowerCase()==='active' && startsAt<=Date.now() && (lifetime || (expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime()>Date.now())));
         } else {
           businessData.is_active=false;
         }
