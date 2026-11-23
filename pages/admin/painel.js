@@ -502,7 +502,7 @@ export default function AdminStoreDashboard() {
       <header style={{ background: colors.green, color: '#fff', padding: '16px clamp(16px,4vw,40px)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <div><div style={{ color: colors.gold, fontWeight: 900, letterSpacing: 2 }}>TALAZA</div><div style={{ fontSize: 13, opacity: .88 }}>Painel da Loja do Administrador</div></div>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-          {data?.store && <a href={'/loja/'+(data.publicSlug || slugifyAdminStore(data.store.nome_da_loja))} target="_blank" rel="noreferrer" style={{ ...secondary, textDecoration: 'none' }}>Ver loja pública ↗</a>}
+          {data?.store && <a href={'/loja/'+data.store.id} target="_blank" rel="noreferrer" style={{ ...secondary, textDecoration: 'none' }}>Ver loja pública ↗</a>}
           <button type="button" onClick={()=>setAccountCreationOpen(true)} style={{...secondary}}>Criar Conta</button>
           <button type="button" onClick={logout} style={{ border: '1px solid #ffffff70', borderRadius: 10, padding: '10px 14px', color: '#fff', background: 'transparent', fontWeight: 700, cursor: 'pointer' }}>Terminar sessão</button>
         </div>
@@ -533,7 +533,7 @@ export default function AdminStoreDashboard() {
       </div>}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
           <div><h1 style={{ margin: 0, fontSize: 27 }}>Lojas do Administrador</h1><p style={{ color: colors.muted, margin: '7px 0 0' }}>Gerencie cada loja separadamente.</p></div>
-          {data?.store && <span style={{ background: '#E5F4EB', color: '#17633A', borderRadius: 999, padding: '8px 13px', fontWeight: 800, fontSize: 12 }}>● ATIVA</span>}
+          {data?.store && <span style={{ background: '#FFF4D6', color: '#674A00', borderRadius: 999, padding: '8px 13px', fontWeight: 800, fontSize: 12 }}>● INATIVA · SEM PLANO</span>}
         </div>
 
         {data?.stores?.length > 0 && <section style={{background:'#fff',border:'1px solid '+colors.border,borderRadius:14,padding:16,marginBottom:18}}>
@@ -541,7 +541,7 @@ export default function AdminStoreDashboard() {
             <div style={{flex:1,minWidth:240}}>
               <label style={label}>As minhas lojas ({data.stores.length})</label>
               <select value={selectedStoreId || data.store?.id || ''} onChange={async e=>{const id=e.target.value;setSelectedStoreId(id);setCreatingStore(false);setError('');setNotice('');setLoading(true);try{await loadDashboard(token,id);setNotice('Loja selecionada.')}catch(err){setError(err.message||'Não foi possível carregar esta loja.')}finally{setLoading(false);}}} style={input}>
-                {(data.stores||[]).map(item=><option key={item.id} value={item.id}>{item.nome_da_loja} · {item.province}, {item.country}</option>)}
+                {(data.stores||[]).map(item=><option key={item.id} value={item.id}>{item.nome_da_loja} · {(data.provinces||[]).filter(p=>p.store_id===item.id).map(p=>p.province).join(', ') || item.province}, {item.country}</option>)}
               </select>
             </div>
             <button type="button" onClick={()=>{setCreatingStore(true);setEditingStore(false);setError('');setNotice('');setTab('loja');setStoreForm({nome:'',descricao:'',telefone:'',countryId:'',categoryId:'',subcategoryId:'',secretCode:''});setPhoto(null);setPhotoPreview('');setSelectedProvinceIds([]);setAreasByProvince({});}} style={primary}>＋ Criar nova loja</button>
@@ -552,7 +552,7 @@ export default function AdminStoreDashboard() {
 
         {!data ? <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 'clamp(18px,4vw,30px)' }}><h2 style={{ marginTop: 0 }}>Não foi possível confirmar a Loja do Administrador</h2><p style={{ color: colors.muted, lineHeight: 1.6 }}>Por segurança, o formulário de criação não é mostrado enquanto a leitura da loja não for confirmada.</p><button type="button" onClick={async () => { setError(''); setNotice(''); setLoading(true); try { await loadDashboard(token); setDashboardReadFailed(false); } catch (refreshError) { setError(refreshError.message || 'Não foi possível carregar os dados da loja.'); setDashboardReadFailed(true); } finally { setLoading(false); } }} style={primary}>Atualizar dados</button></section> : (creatingStore || !data.store) ? <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 'clamp(18px,4vw,30px)' }}>
           <h2 style={{ marginTop: 0 }}>Criar nova loja do Administrador</h2>
-          <p style={{ color: colors.muted, lineHeight: 1.6 }}>O formulário está disponível apenas para o administrador principal autenticado. A loja fica ativa imediatamente depois da validação do código secreto.</p>
+          <p style={{ color: colors.muted, lineHeight: 1.6 }}>O formulário está disponível apenas para o administrador principal autenticado. A loja é criada INATIVA e só fica visível na Vitrine após ativar um plano de Hospedagem.</p>
           <form onSubmit={createStore}>
             <h3 style={{ margin: '22px 0 8px' }}>Dados da loja</h3>
             <Field id="admin-store-name" label="Nome da loja" required><input id="admin-store-name" required maxLength={120} value={storeForm.nome} onChange={e => updateStoreField('nome', e.target.value)} placeholder="Nome oficial da loja" style={inputStyle} /></Field>
@@ -581,10 +581,10 @@ export default function AdminStoreDashboard() {
               </div>;
             })}
 
-            <h3 style={{ margin: '26px 0 8px' }}>Ativação imediata</h3>
+            <h3 style={{ margin: '26px 0 8px' }}>Criar loja · sem plano ativo</h3><p style={{padding:12,borderRadius:10,background:'#FFF4D6',color:'#674A00',fontSize:13,lineHeight:1.6}}>A criação não ativa a Hospedagem. A loja ficará INATIVA / SEM PLANO até contratar e ativar um plano.</p>
             <label style={label}>Código Secreto da Loja do Administrador *</label><input required type="password" autoComplete="off" value={storeForm.secretCode} onChange={e => updateStoreField('secretCode', e.target.value)} placeholder="Introduza o código secreto" style={input} />
             <p style={{ color: colors.muted, fontSize: 12 }}>O código é validado no servidor através de ADMIN_STORE_SECRET_CODE. Não é enviado por e-mail.</p>
-            <button disabled={saving} type="submit" style={{ ...primary, width: '100%', marginTop: 18, opacity: saving ? .65 : 1 }}>{saving ? 'A criar e ativar a loja…' : 'Criar e ativar Loja do Administrador'}</button>
+            <button disabled={saving} type="submit" style={{ ...primary, width: '100%', marginTop: 18, opacity: saving ? .65 : 1 }}>{saving ? 'A criar e ativar a loja…' : 'Criar Loja do Administrador'}</button>
           </form>
         </section> : <>
           <nav style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
@@ -639,7 +639,7 @@ export default function AdminStoreDashboard() {
             <p><strong>WhatsApp / Telefone:</strong> {data.store.telefone}</p>
             <p><strong>Categoria:</strong> {catalog.categories.find(item => item.id === data.store.category_id)?.name || '—'}</p>
             <p><strong>Subcategoria:</strong> {catalog.subcategories.find(item => item.id === data.store.subcategory_id)?.name || '—'}</p>
-            <p style={{ color: colors.muted, fontSize: 13 }}>Esta loja permanece ativa. A presença em províncias e áreas é gerida no separador próprio.</p>
+            <p style={{ color: colors.muted, fontSize: 13 }}>Esta loja permanece INATIVA até ter um plano de Hospedagem ativo. A presença em províncias e áreas é gerida no separador próprio.</p>
           </section>}
 
           {tab === 'localizacoes' && <section style={{ background: '#fff', border: '1px solid ' + colors.border, borderRadius: 18, padding: 24 }}>
