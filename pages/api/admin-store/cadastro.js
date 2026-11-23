@@ -66,11 +66,6 @@ export default async function handler(req, res) {
     if (subcategoryError) throw subcategoryError;
     if (!subcategory) return res.status(400).json({ error: 'A subcategoria não pertence à categoria escolhida.' });
 
-    const { data: existing, error: existingError } = await auth.supabase.from('admin_stores')
-      .select('id').limit(1).maybeSingle();
-    if (existingError) throw existingError;
-    if (existing) return res.status(409).json({ error: 'A única Loja do Administrador já foi criada. Edite as localizações no painel.' });
-
     const orderedProvinces = provinceRows.sort((a, b) => uniqueIds.indexOf(a.id) - uniqueIds.indexOf(b.id));
     const provincePayload = orderedProvinces.map(row => {
       const requestedRow = requested.find(item => item.provinceId === row.id) || {};
@@ -117,7 +112,7 @@ export default async function handler(req, res) {
 
     const { data: store, error: storeError } = await auth.supabase.from('admin_stores').insert({
       owner_id: auth.user.id, country: country.name, province: firstProvince.name,
-      municipio: firstArea, bairro: '', nome_da_loja: nome, username: 'talaza-oficial',
+      municipio: firstArea, bairro: '', nome_da_loja: nome, username: 'talaza-oficial-' + businessId.slice(0, 8),
       descricao: descricao || null, telefone, foto_url: photoUrl, is_lifetime: true,
       account_type: 'admin_store', hosting_status: 'active', hosting_type: 'lifetime', premium_payment_required: false, hosting_expires_at: null,
       business_id: businessId, country_id: country.id, category_id: categoryId, subcategory_id: subcategoryId,
