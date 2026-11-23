@@ -6,13 +6,20 @@ export default async function handler(req, res) {
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   try {
-    const { data: store, error } = await auth.supabase
+    const storeFields = 'id,owner_id,country,province,municipio,bairro,nome_da_loja,username,descricao,telefone,foto_url,is_lifetime,account_type,hosting_status,hosting_type,premium_payment_required,hosting_expires_at,created_at,business_id,country_id,category_id,subcategory_id';
+    const { data: stores, error: storesError } = await auth.supabase
       .from('admin_stores')
-      .select('id,owner_id,country,province,municipio,bairro,nome_da_loja,username,descricao,telefone,foto_url,is_lifetime,account_type,hosting_status,hosting_type,premium_payment_required,hosting_expires_at,created_at,business_id,country_id,category_id,subcategory_id')
+      .select(storeFields)
       .eq('owner_id', auth.user.id)
-      .maybeSingle();
-    if (error) throw error;
-    if (!store) return res.status(200).json({ isAdmin: true, store: null, provinces: [], products: [] });
+      .order('created_at', { ascending: true });
+    if (storesError) throw storesError;
+    const storeList = stores || [];
+    const requestedStoreId = String(req.query?.storeId || '').trim();
+    const store = requestedStoreId
+      ? storeList.find(item => item.id === requestedStoreId) || null
+      : storeList[0] || null;
+    if (requestedStoreId && !store) return res.status(404).json({ error: 'A loja selecionada não pertence à administradora.' });
+    if (!store) return res.status(200).json({ isAdmin: true, stores: storeList, store: null, provinces: [], products: [], mainImages: [], business: null });
 
     const [provinceResult, productResult, mainImagesResult, businessResult] = await Promise.all([
       auth.supabase.from('admin_store_provinces')
@@ -26,7 +33,9 @@ export default async function handler(req, res) {
       store.business_id
         ? auth.supabase.from('business_images').select('id,slot,image_url,storage_path,created_at').eq('business_id', store.business_id).eq('kind', 'main').order('slot')
         : Promise.resolve({ data: [], error: null }),
-      auth.supabase.from('businesses').select('id,name,description,phone,whatsapp,address,municipality,neighborhood,opening_hours,logo_url,cover_url,country_id,province_id,category_id,subcategory_id,is_active,approval_status').eq('id',store.business_id).maybeSingle(),
+      store.business_id
+        ? auth.supabase.from('businesses').select('id,name,description,phone,whatsapp,address,municipality,neighborhood,opening_hours,logo_url,cover_url,country_id,province_id,category_id,subcategory_id,is_active,approval_status').eq('id', store.business_id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
     if (provinceResult.error) console.error('Admin store provinces read failed:', provinceResult.error.code, provinceResult.error.message);
     if (productResult.error) console.error('Admin store products read failed:', productResult.error.code, productResult.error.message);
@@ -34,6 +43,7 @@ export default async function handler(req, res) {
     if (businessResult.error) console.error('Admin store business read failed:', businessResult.error.code, businessResult.error.message);
     return res.status(200).json({
       isAdmin: true,
+      stores: storeList,
       store,
       provinces: provinceResult.data || [],
       products: productResult.data || [],
@@ -44,6 +54,6 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Admin store dashboard load failed:', JSON.stringify({ code: error?.code || null, message: error?.message || null, details: error?.details || null, hint: error?.hint || null }));
-    return res.status(503).json({ error: 'Falha ao ler a loja administrativa no Supabase: ' + (error?.message || 'erro desconhecido') + (error?.code ? ' (' + error.code + ')' : '') });
+    return res.status(503).json({ error: 'Falha ao ler as lojas administrativas no Supabase: ' + (error?.message || 'erro desconhecido') + (error?.code ? ' (' + error.code + ')' : '') });
   }
 }
