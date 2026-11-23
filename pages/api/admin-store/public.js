@@ -41,12 +41,14 @@ export default async function handler(req, res) {
         const issue = locations.error || products.error || mainImages.error || business.error || subscriptions.error;
         if (issue) throw issue;
         const now = Date.now();
+        const storeLifetime = store.is_lifetime === true || String(store.hosting_type || '').trim().toLowerCase() === 'lifetime';
         const activeSubscription = (subscriptions.data || []).find(row => {
           const starts = row.starts_at ? new Date(row.starts_at).getTime() : 0;
-          const expires = row.expires_at ? new Date(row.expires_at).getTime() : 0;
-          return String(row.status || '').toLowerCase() === 'active' && starts <= now && expires > now;
+          const isLifetime = String(row.expires_at || '').trim().toLowerCase() === 'lifetime';
+          const expires = isLifetime ? Infinity : (row.expires_at ? new Date(row.expires_at).getTime() : 0);
+          return String(row.status || '').trim().toLowerCase() === 'active' && starts <= now && (isLifetime || expires > now);
         }) || null;
-        const hostingActive = Boolean(activeSubscription && business.data?.is_active === true && String(business.data?.approval_status || '').toLowerCase() === 'approved');
+        const hostingActive = Boolean((storeLifetime && String(store.hosting_status || '').trim().toLowerCase() === 'active') || activeSubscription) && business.data?.is_active === true && String(business.data?.approval_status || '').toLowerCase() === 'approved';
         return {
           store: { ...store, provinces: locations.data || [] }, publicSlug: slugifyStoreName(store.nome_da_loja), provinces: locations.data || [],
           products: products.data || [], mainImages: mainImages.data || [], business: business.data || null,
