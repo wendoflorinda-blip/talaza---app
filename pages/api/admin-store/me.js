@@ -59,7 +59,8 @@ export default async function handler(req, res) {
       const expiry = isLifetime ? Infinity : (row.expires_at ? new Date(row.expires_at).getTime() : 0);
       return String(row.status || '').trim().toLowerCase() === 'active' && start <= now && (isLifetime || expiry > now);
     }) || null;
-    const hostingActive = Boolean((storeLifetime && String(store.hosting_status || '').trim().toLowerCase() === 'active') || activeSubscription) && businessResult.data?.is_active === true && String(businessResult.data?.approval_status || '').toLowerCase() === 'approved';
+    const adminNormalHostingActive = !storeLifetime && String(store.hosting_type || '').trim().toLowerCase() === 'normal' && String(store.hosting_status || '').trim().toLowerCase() === 'active';
+    const hostingActive = Boolean(adminNormalHostingActive || (storeLifetime && String(store.hosting_status || '').trim().toLowerCase() === 'active') || activeSubscription) && businessResult.data?.is_active === true && String(businessResult.data?.approval_status || '').toLowerCase() === 'approved';
     return res.status(200).json({
       isAdmin: true,
       stores: storesWithProvinces,
@@ -70,7 +71,7 @@ export default async function handler(req, res) {
       business: businessResult.data || null,
       hostingActive,
       hostingStatus: hostingActive ? 'active' : 'inactive',
-      hostingExpiry: hostingActive ? activeSubscription.expires_at : null,
+      hostingExpiry: hostingActive ? (activeSubscription?.expires_at || null) : null,
       provincesReadError: provinceResult.error ? 'Não foi possível carregar as províncias.' : null,
       productsReadError: productResult.error ? 'Não foi possível carregar os produtos.' : null,
     });
