@@ -108,8 +108,11 @@ export default function AdminStoreDashboard() {
   const [premiumPlans, setPremiumPlans] = useState([]);
   const [premiumPromotions, setPremiumPromotions] = useState([]);
   const [premiumLoading, setPremiumLoading] = useState(false);
-  const [premiumDuration, setPremiumDuration] = useState(15);
+  const [premiumSelectedPlanId, setPremiumSelectedPlanId] = useState('');
   const [premiumFile, setPremiumFile] = useState(null);
+  const [premiumProofFile, setPremiumProofFile] = useState(null);
+  const [premiumExpressPhone, setPremiumExpressPhone] = useState('');
+  const [premiumProvinceIds, setPremiumProvinceIds] = useState([]);
   const [premiumDescription, setPremiumDescription] = useState('');
   const [premiumBusy, setPremiumBusy] = useState(false);
   const [premiumEditing, setPremiumEditing] = useState(null);
@@ -121,16 +124,19 @@ export default function AdminStoreDashboard() {
     setPremiumLoading(true);
     try {
       const [{ data: plans, error: plansError }, { data: rows, error: rowsError }] = await Promise.all([
-        supabase.from('plans').select('id,duration_days,name').eq('plan_type','Destaque Premium').eq('is_active',true).in('duration_days',[15,30]),
+        supabase.from('plans').select('id,duration_days,name,price,description,area').eq('plan_type','Destaque Premium').eq('is_active',true).in('duration_days',[15,30]).gt('price',0).order('duration_days',{ascending:true}),
         supabase.from('premium_promotions').select('id,business_id,user_id,plan_id,media_url,storage_path,media_type,description,status,starts_at,expires_at,created_at').eq('business_id',data.store.business_id).order('created_at',{ascending:false})
       ]);
       if (plansError) throw plansError;
       if (rowsError) throw rowsError;
-      setPremiumPlans(plans || []);
+      const pricedPlans=(plans||[]).filter(plan=>Number(plan.price)>0&&Number(plan.duration_days)>0);
+      setPremiumPlans(pricedPlans);
+      setPremiumSelectedPlanId(current=>pricedPlans.some(plan=>plan.id===current)?current:(pricedPlans[0]?.id||''));
+      setPremiumProvinceIds(current=>current.filter(id=>catalog.provinces.some(p=>p.id===id&&p.country_id===data.store.country_id)));
       setPremiumPromotions(rows || []);
     } catch (err) { setError(err.message || 'Não foi possível carregar Destaques Premium.'); }
     finally { setPremiumLoading(false); }
-  }, [data?.store?.business_id]);
+  }, [data?.store?.business_id, data?.store?.country_id, catalog.provinces]);
 
   useEffect(() => {
     if (tab === 'premium' && data?.store?.business_id) loadPremium();
@@ -143,48 +149,33 @@ export default function AdminStoreDashboard() {
     return true;
   }
 
-  async function uploadPremiumFile(file) {
-    const businessId = data?.store?.business_id;
-    if (!businessId || !file) throw new Error('Loja ou ficheiro não encontrado.');
-    const safeName = String(file.name || 'media').replace(/[^a-zA-Z0-9._-]/g,'-').slice(-100);
-    const path = businessId + '/' + Date.now() + '-' + Math.random().toString(36).slice(2,9) + '-' + safeName;
-    const { error: uploadError } = await supabase.storage.from('premium-media').upload(path, file, { contentType:file.type, upsert:false });
-    if (uploadError) throw uploadError;
-    const { data: urlData } = supabase.storage.from('premium-media').getPublicUrl(path);
-    return { path, url:urlData?.publicUrl || '', media_type:file.type.startsWith('video/')?'video':'image' };
-  }
 
   async function publishPremium(event) {
     event.preventDefault(); setError(''); setNotice('');
-    if (!premiumFile) { setError('Escolha uma fotografia ou vídeo para publicar.'); return; }
-    if (!premiumFileValid(premiumFile)) return;
-    const plan = premiumPlans.find(item => Number(item.duration_days) === Number(premiumDuration));
-    if (!plan) { setError('O plano gratuito selecionado não está disponível.'); return; }
+    const plan=premiumPlans.find(item=>item.id===premiumSelectedPlanId);
+    if(!premiumFile){setError('Escolha uma fotografia ou vídeo para publicar.');return;}
+    if(!premiumFileValid(premiumFile))return;
+    if(!plan||Number(plan.price)<=0){setError('Escolha um plano Premium pago ativo.');return;}
+    if(!premiumProvinceIds.length){setError('Escolha pelo menos uma província de destino.');return;}
+    const senderPhone=String(premiumExpressPhone||'').replace(/[^0-9]/g,'');
+    if(senderPhone.length<7||senderPhone.length>15){setError('Informe o número remetente Express.');return;}
+    if(!premiumProofFile){setError('Anexe o comprovativo do pagamento.');return;}
+    if(premiumProofFile.size>8*1024*1024){setError('O comprovativo deve ter até 8 MB.');return;}
+    if(premiumProofFile.type!=='application/pdf'&&!premiumProofFile.type.startsWith('image/')){setError('Comprovativo deve ser imagem ou PDF.');return;}
     setPremiumBusy(true);
-    let uploaded = null;
-    try {
-      uploaded = await uploadPremiumFile(premiumFile);
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError || !authData?.user?.id) throw authError || new Error('Sessão expirada. Inicia sessão novamente.');
-      const { data: created, error: insertError } = await supabase.from('premium_promotions').insert({
-        business_id:data.store.business_id, user_id:authData.user.id, plan_id:plan.id,
-        media_url:uploaded.url, storage_path:uploaded.path, media_type:uploaded.media_type,
-        description:premiumDescription.trim(), status:'pending_payment'
-      }).select('id,status,starts_at,expires_at,payment_submission_id').single();
-      if (insertError) throw insertError;
-      if (!created || created.status !== 'active' || !created.expires_at || created.payment_submission_id) {
-        await supabase.from('premium_promotions').delete().eq('id',created?.id);
-        throw new Error('A ativação gratuita não foi confirmada pelo Supabase. A publicação não foi mantida.');
-      }
-      setPremiumFile(null); setPremiumDescription('');
-      setNotice('Destaque Premium publicado gratuitamente por ' + premiumDuration + ' dias.');
+    try{
+      const mediaDataUrl=premiumFile.type.startsWith('image/')?await optimizedImageDataUrl(premiumFile,false,1600):await fileToDataUrl(premiumFile);
+      const proofDataUrl=premiumProofFile.type==='application/pdf'?await fileToDataUrl(premiumProofFile):await optimizedImageDataUrl(premiumProofFile,false,1200);
+      await api('/api/admin-store/premium-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        businessId:data.store.business_id,planId:plan.id,provinceIds:premiumProvinceIds,description:premiumDescription.trim(),
+        mediaDataUrl,proofDataUrl,expressSenderPhone:senderPhone
+      })});
+      setPremiumFile(null);setPremiumProofFile(null);setPremiumExpressPhone('');setPremiumDescription('');
+      setNotice('Destaque Premium enviado para Administração Normal. Só será ativado após aprovação do comprovativo.');
       await loadPremium();
-    } catch(err) {
-      if (uploaded?.path) await supabase.storage.from('premium-media').remove([uploaded.path]).catch(()=>{});
-      setError(err.message || 'Não foi possível publicar o Destaque Premium.');
-    } finally { setPremiumBusy(false); }
+    }catch(err){setError(err.message||'Não foi possível enviar o Destaque Premium.');}
+    finally{setPremiumBusy(false);}
   }
-
   function startEditPremium(item) {
     setPremiumEditing(item.id);
     setPremiumEditDescription(item.description || '');
@@ -487,7 +478,7 @@ export default function AdminStoreDashboard() {
       const photosDataUrls = await Promise.all(productPhotos.slice(0,10).map(file => optimizedImageDataUrl(file, false, 1200)));
       const result = await api('/api/admin-store/produtos', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...productForm, photosDataUrls }),
+        body: JSON.stringify({ ...productForm, photosDataUrls, businessId: data?.store?.business_id }),
       });
       setData(current => ({ ...current, products: [...(result.products || []), ...(current.products || [])] }));
       setProductForm({ name: '', description: '', price: '' });
@@ -527,7 +518,7 @@ export default function AdminStoreDashboard() {
     if(!editingProductId) return;
     setProductEditBusy(true); setError(''); setNotice('');
     try {
-      const result=await api('/api/admin-store/produtos',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editingProductId,...editProductForm})});
+      const result=await api('/api/admin-store/produtos',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editingProductId,businessId:data?.store?.business_id,...editProductForm})});
       setData(current=>({...current,products:(current.products||[]).map(item=>item.id===editingProductId?result.product:item)}));
       setEditingProductId(''); setNotice('Produto atualizado.');
     } catch(err) { setError(err.message||'Não foi possível editar o produto.'); }
@@ -538,7 +529,7 @@ export default function AdminStoreDashboard() {
     if (!window.confirm('Queres remover este produto da loja?')) return;
     setError(''); setNotice('');
     try {
-      await api('/api/admin-store/produtos', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+      await api('/api/admin-store/produtos', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, businessId: data?.store?.business_id }) });
       setData(current => ({ ...current, products: (current.products || []).filter(item => item.id !== id) }));
       setNotice('Produto removido.');
     } catch (err) { setError(err.message); }
@@ -772,12 +763,22 @@ export default function AdminStoreDashboard() {
           
           {tab === 'premium' && <section style={{display:'grid',gap:18}}>
             <section style={{background:'#fff',border:'1px solid '+colors.border,borderRadius:18,padding:24}}>
-              <h2 style={{marginTop:0}}>Destaque Premium — publicação gratuita</h2>
-              <p style={{color:colors.muted,lineHeight:1.6}}>Escolha a duração, carregue uma fotografia ou vídeo e publique. A publicação fica ativa imediatamente e será visível publicamente na Vitrine e na subcategoria.</p>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10,margin:'16px 0'}}>
-                {[15,30].map(days=><button key={days} type="button" onClick={()=>setPremiumDuration(days)} style={{border:'1px solid '+(premiumDuration===days?colors.gold:colors.border),borderRadius:13,padding:16,background:premiumDuration===days?'#FFF8E5':'#fff',color:colors.ink,cursor:'pointer',textAlign:'left'}}>
-                  <strong style={{display:'block',fontSize:18}}>{days} dias grátis</strong><small style={{color:colors.muted}}>Publicação imediata · sem comprovativo</small>
+              <h2 style={{marginTop:0}}>Destaque Premium · pagamento e aprovação</h2>
+              <p style={{color:colors.muted,lineHeight:1.6}}>Escolhe um plano pago real, as províncias onde o anúncio será exibido, adiciona a mídia e envia o comprovativo. A Administração Normal aprova o pagamento antes da ativação.</p>
+              <div style={{display:'grid',gap:10,margin:'16px 0'}}>
+                {premiumPlans.map(plan=><button key={plan.id} type="button" onClick={()=>setPremiumSelectedPlanId(plan.id)} style={{border:'1px solid '+(premiumSelectedPlanId===plan.id?colors.gold:colors.border),borderRadius:13,padding:16,background:premiumSelectedPlanId===plan.id?'#FFF8E5':'#fff',color:colors.ink,cursor:'pointer',textAlign:'left'}}>
+                  <strong style={{display:'block',fontSize:17}}>{plan.name||'Destaque Premium'} · {Number(plan.duration_days)} dias</strong>
+                  <span style={{display:'block',fontSize:19,fontWeight:900,color:colors.green,marginTop:6}}>{Number(plan.price).toLocaleString('pt-AO')} Kz</span>
+                  {plan.area&&<small style={{display:'block',color:colors.muted,marginTop:5}}>{plan.area}</small>}
+                  {plan.description&&<small style={{display:'block',color:colors.muted,marginTop:5}}>{plan.description}</small>}
                 </button>)}
+              </div>
+              <label style={label}>Províncias de destino *</label>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:9}}>
+                {catalog.provinces.filter(p=>p.country_id===data.store.country_id).map(province=><label key={province.id} style={{display:'flex',alignItems:'center',gap:8,border:'1px solid '+colors.border,borderRadius:10,padding:10,cursor:'pointer'}}>
+                  <input type="checkbox" checked={premiumProvinceIds.includes(province.id)} onChange={()=>setPremiumProvinceIds(current=>current.includes(province.id)?current.filter(id=>id!==province.id):[...current,province.id])}/>
+                  {province.name}
+                </label>)}
               </div>
               <form onSubmit={publishPremium}>
                 <label style={label}>Fotografia ou vídeo *</label>
@@ -785,7 +786,10 @@ export default function AdminStoreDashboard() {
                 {premiumFile&&<p style={{fontSize:12,color:colors.muted}}>{premiumFile.name} · {(premiumFile.size/1024/1024).toFixed(1)} MB</p>}
                 <label style={label}>Descrição (opcional)</label>
                 <textarea rows={3} maxLength={500} value={premiumDescription} onChange={e=>setPremiumDescription(e.target.value)} placeholder="Escreve uma descrição para esta publicação" style={{...input,resize:'vertical'}}/>
-                <button disabled={premiumBusy||!premiumFile} type="submit" style={{...primary,marginTop:16}}>{premiumBusy?'A publicar…':'Publicar '+premiumDuration+' dias grátis'}</button>
+                <label style={label}>Número remetente Express *</label><input required type="tel" value={premiumExpressPhone} onChange={e=>setPremiumExpressPhone(e.target.value)} placeholder="Número que enviou o pagamento" style={input}/>
+                <label style={label}>Comprovativo de pagamento (imagem ou PDF, até 8 MB) *</label><input required type="file" accept="image/*,application/pdf" onChange={e=>setPremiumProofFile(e.target.files?.[0]||null)} style={{...input,padding:9}}/>
+                {premiumProofFile&&<p style={{fontSize:12,color:colors.muted}}>{premiumProofFile.name}</p>}
+                <button disabled={premiumBusy||!premiumFile||!premiumProofFile||!premiumSelectedPlanId||!premiumProvinceIds.length} type="submit" style={{...primary,marginTop:16}}>{premiumBusy?'A enviar…':'Enviar para aprovação · '+(premiumPlans.find(p=>p.id===premiumSelectedPlanId)?.duration_days||'')+' dias'}</button>
               </form>
             </section>
             <section style={{background:'#fff',border:'1px solid '+colors.border,borderRadius:18,padding:24}}>

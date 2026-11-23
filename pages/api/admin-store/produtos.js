@@ -14,8 +14,10 @@ export default async function handler(req, res) {
   const auth = await requireMainAdmin(req);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   try {
+    const requestedBusinessId=cleanText(req.body?.businessId || req.query?.businessId,80);
+    if(!requestedBusinessId)return res.status(400).json({error:'Identifique a Loja do Administrador.'});
     const { data: store, error: storeError } = await auth.supabase.from('admin_stores')
-      .select('id,business_id').eq('owner_id', auth.user.id).maybeSingle();
+      .select('id,business_id').eq('owner_id', auth.user.id).eq('business_id',requestedBusinessId).maybeSingle();
     if (storeError) throw storeError;
     if (!store?.business_id) return res.status(404).json({ error: 'Crie primeiro a Loja do Administrador.' });
 
