@@ -448,7 +448,8 @@ export default function Eventos() {
   }
 
   async function toggleLike(eventId) {
-    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
+    if (!user) { setFeedError('Inicia sessão na Talaza para gostar de um evento.'); return; }
+    if (!(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     const selected = events.find(item => item.id === eventId);
     if (selected) trackEventAction(selected);
     if (!user) {
@@ -475,7 +476,8 @@ export default function Eventos() {
   }
 
   async function submitComment(eventId) {
-    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
+    if (!user) { setFeedError('Inicia sessão na Talaza para comentar.'); return; }
+    if (!(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     const selected = events.find(item => item.id === eventId);
     if (selected) trackEventAction(selected);
     if (!user) {
@@ -502,7 +504,8 @@ export default function Eventos() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
+    if (!user) { setError('Inicia sessão na Talaza para publicar um evento.'); return; }
+    if (!(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     setError('');
     setSuccess('');
 
