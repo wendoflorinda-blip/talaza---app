@@ -20,6 +20,10 @@ export default function GestaoPerfisAdmin() {
   const [images, setImages] = useState([]);
   const [products, setProducts] = useState([]);
   const [savedCounts, setSavedCounts] = useState({});
+  const [viewedIds, setViewedIds] = useState(new Set());
+  const [boostTotals, setBoostTotals] = useState({});
+  const [boostInput, setBoostInput] = useState('');
+  const [boostBusy, setBoostBusy] = useState(false);
   const [hosting, setHosting] = useState({});
   const [categoryChoice, setCategoryChoice] = useState('');
   const [subcategoryChoice, setSubcategoryChoice] = useState('');
@@ -34,17 +38,22 @@ export default function GestaoPerfisAdmin() {
         if (authError || !authData?.user) { router.replace('/admin/login'); return; }
         const { data: adminRow, error: adminError } = await supabase.from('admin_users').select('id').eq('id', authData.user.id).maybeSingle();
         if (adminError || !adminRow) { router.replace('/'); return; }
-        const [businessRes, adminStoreRes, categoryRes, subcategoryRes, savesRes, subscriptionsRes] = await Promise.all([
+        const [businessRes, adminStoreRes, categoryRes, subcategoryRes, savesRes, subscriptionsRes, viewsRes, boostsRes] = await Promise.all([
           supabase.from('businesses').select('id,owner_id,name,description,logo_url,cover_url,country_id,province_id,category_id,subcategory_id,approval_status,is_active,countries(name),provinces(name),categories(name),subcategories(name)').order('created_at',{ascending:false}),
           supabase.from('admin_stores').select('business_id').not('business_id','is',null),
-          supabase.from('categories').select('id,name,active').order('name'),
-          supabase.from('subcategories').select('id,name,category_id,is_active').order('name'),
+          supabase.from('categories').select('id,name,active,signup_visible').eq('active',true).eq('signup_visible',true).order('name'),
+          supabase.from('subcategories').select('id,name,category_id,is_active').eq('is_active',true).order('name'),
           supabase.from('saved_businesses').select('business_id'),
-          supabase.from('business_subscriptions').select('business_id,starts_at,expires_at,status,created_at').order('starts_at',{ascending:false}).order('created_at',{ascending:false})
+          supabase.from('business_subscriptions').select('business_id,starts_at,expires_at,status,created_at').order('starts_at',{ascending:false}).order('created_at',{ascending:false}),
+          supabase.from('admin_business_profile_views').select('business_id,admin_user_id,viewed_at'),
+          supabase.from('admin_saved_business_boosts').select('business_id,amount')
         ]);
-        for (const res of [businessRes,adminStoreRes,categoryRes,subcategoryRes,savesRes,subscriptionsRes]) if (res.error) throw res.error;
+        for (const res of [businessRes,adminStoreRes,categoryRes,subcategoryRes,savesRes,subscriptionsRes,viewsRes,boostsRes]) if (res.error) throw res.error;
         const adminIds = new Set((adminStoreRes.data || []).map(r => r.business_id).filter(Boolean));
         const normals = (businessRes.data || []).filter(b => !adminIds.has(b.id));
+        const viewed = new Set((viewsRes.data || []).map(r=>r.business_id));
+        const boosts = {};
+        (boostsRes.data || []).forEach(r=>{ boosts[r.business_id]=(boosts[r.business_id]||0)+Number(r.amount||0); });
         const counts = {};
         (savesRes.data || []).forEach(r => { counts[r.business_id] = (counts[r.business_id] || 0) + 1; });
         const latest = {};
@@ -54,24 +63,40 @@ export default function GestaoPerfisAdmin() {
           const s = latest[b.id] || null, days = daysLeft(s?.expires_at);
           hostMap[b.id] = { subscription:s, days, active:Boolean(s && String(s.status).toLowerCase()==='active' && days>0), label: s && String(s.status).toLowerCase()==='active' && days>0 ? 'Ativa' : days>0 ? (s?.status || 'Outro estado') : 'Expirada/sem hospedagem' };
         });
-        if (!cancelled) { setBusinesses(normals); setCategories(categoryRes.data || []); setSubcategories(subcategoryRes.data || []); setSavedCounts(counts); setHosting(hostMap); }
+        if (!cancelled) { setBusinesses(normals); setViewedIds(viewed); setBoostTotals(boosts); setCategories(categoryRes.data || []); setSubcategories(subcategoryRes.data || []); setSavedCounts(counts); setHosting(hostMap); }
       } catch (e) { if (!cancelled) setError(e?.message || 'Não foi possível carregar Gestão de Perfis.'); }
       finally { if (!cancelled) setLoading(false); }
     })();
     return () => { cancelled = true; };
   }, [router]);
 
-  const filtered = useMemo(() => businesses.filter(b => String(b.name || '').toLowerCase().includes(search.toLowerCase())), [businesses,search]);
+  const filtered = useMemo(() => businesses.filter(b => !viewedIds.has(b.id) && String(b.name || '').toLowerCase().includes(search.toLowerCase())), [businesses,search,viewedIds]);
   const compatible = useMemo(() => subcategories.filter(s => String(s.category_id) === String(categoryChoice) && s.is_active !== false), [subcategories,categoryChoice]);
 
   async function openBusiness(b) {
-    setSelected(b); setCategoryChoice(b.category_id || ''); setSubcategoryChoice(b.subcategory_id || ''); setImages([]); setProducts([]); setError('');
+    setSelected(b);
+    try { const {data:{user}}=await supabase.auth.getUser(); if(user){ const {error:viewErr}=await supabase.from('admin_business_profile_views').upsert({business_id:b.id,admin_user_id:user.id,viewed_at:new Date().toISOString()},{onConflict:'business_id,admin_user_id'}); if(!viewErr) setViewedIds(prev=>new Set([...prev,b.id])); } } catch(e) { console.warn('Não foi possível registar visualização administrativa',e); } setCategoryChoice(b.category_id || ''); setSubcategoryChoice(b.subcategory_id || ''); setImages([]); setProducts([]); setError('');
     const [mediaRes, productRes] = await Promise.all([
       supabase.from('business_images').select('id,kind,slot,image_url,storage_path,name,description,price,video_url,media_type,created_at').eq('business_id',b.id).order('kind').order('slot'),
       supabase.from('products').select('id,name,description,price,image_url,is_active,sort_order').eq('business_id',b.id).order('sort_order')
     ]);
     if (mediaRes.error) setError('Não foi possível carregar imagens: '+mediaRes.error.message); else setImages(mediaRes.data || []);
     if (productRes.error) setError(prev => (prev ? prev+'\n' : '')+'Não foi possível carregar produtos: '+productRes.error.message); else setProducts(productRes.data || []);
+  }
+
+  async function applyBoost() {
+    const amount=Number(boostInput);
+    if(!selected||boostBusy||!Number.isInteger(amount)||amount<=0){alert('Introduza uma quantidade inteira maior que zero.');return;}
+    setBoostBusy(true);
+    try {
+      const {data:{user},error:authErr}=await supabase.auth.getUser(); if(authErr||!user) throw new Error('Sessão administrativa não encontrada.');
+      const {error:insertErr}=await supabase.from('admin_saved_business_boosts').insert({business_id:selected.id,amount,admin_user_id:user.id});
+      if(insertErr) throw insertErr;
+      setBoostTotals(prev=>({...prev,[selected.id]:(prev[selected.id]||0)+amount}));
+      setBoostInput('');
+      alert('Guardados adicionais registados: +'+amount+'. Total mostrado: '+((savedCounts[selected.id]||0)+(boostTotals[selected.id]||0)+amount)+'.');
+    } catch(e){ alert(e.message||'Não foi possível adicionar Guardados.'); }
+    finally{setBoostBusy(false);}
   }
 
   async function saveClassification() {
@@ -115,13 +140,13 @@ export default function GestaoPerfisAdmin() {
       <div style={s.cover}>{b.cover_url?<img src={b.cover_url} alt="" style={s.coverImg}/>:<span style={s.emptyCover}>Sem capa</span>}</div>
       <div style={s.cardHead}><div style={s.logo}>{b.logo_url?<img src={b.logo_url} alt="" style={s.logoImg}/>:String(b.name||'N').slice(0,1)}</div><div style={{minWidth:0}}><h3>{b.name||'Negócio'}</h3><small>{relationName(b.provinces)} · {relationName(b.countries)}</small></div></div>
       <div style={s.meta}>{relationName(b.categories)||'Categoria —'} · {relationName(b.subcategories)||'Subcategoria —'}</div>
-      <div style={s.metrics}><span>♡ {savedCounts[b.id]||0} Guardados reais</span><span style={{color:h.active?'#16744C':'#AF4C38'}}>{h.label} · {h.days} dias restantes</span></div>
+      <div style={s.metrics}><span>♡ {(savedCounts[b.id]||0)+(boostTotals[b.id]||0)} Guardados (reais + adicionais)</span><span style={{color:h.active?'#16744C':'#AF4C38'}}>{h.label} · {h.days} dias restantes</span></div>
     </button>})}</div>
     {selected && <div style={s.overlay} onClick={e=>{if(e.target===e.currentTarget)setSelected(null);}}><section style={s.modal} role="dialog" aria-modal="true" aria-label="Perfil do negócio">
       <button type="button" style={s.close} onClick={()=>setSelected(null)}>Fechar ✕</button><h2>{selected.name}</h2>
       <div style={s.hero}>{selected.cover_url?<img src={selected.cover_url} alt="Capa" style={s.heroImage}/>:<span>Sem capa</span>}<div style={s.heroLogo}>{selected.logo_url?<img src={selected.logo_url} alt="Logo" style={s.logoImg}/>:<span>Logo</span>}</div></div>
       <p style={s.location}>{relationName(selected.provinces)} · {relationName(selected.countries)}</p><p>{selected.description||'Sem descrição.'}</p>
-      <h3>Imagens principais</h3><div style={s.mediaGrid}>{[0,1,2].map(slot=>{const item=images.find(i=>i.kind==='main'&&Number(i.slot)===slot);return <div key={slot} style={s.mediaCell}>{item?.image_url?<img src={item.image_url} alt={'Imagem principal '+(slot+1)} style={s.mediaImage}/>:<span>Imagem {slot+1} não definida</span>}</div>})}</div>
+      <div style={{margin:'14px 0',padding:14,background:'#F0F7F4',border:'1px solid #D7E7DF',borderRadius:12}}><strong>Guardados / estado de hospedagem</strong><p style={{margin:'6px 0'}}>Guardados reais: {savedCounts[selected.id]||0} · Adicionados pela Administração: {boostTotals[selected.id]||0} · Total apresentado: {(savedCounts[selected.id]||0)+(boostTotals[selected.id]||0}</p><label style={s.label}>Quantidade para adicionar</label><input type="number" min="1" step="1" value={boostInput} onChange={e=>setBoostInput(e.target.value)} style={s.search} placeholder="Ex.: 50"/><button type="button" disabled={boostBusy} onClick={applyBoost} style={s.save}>{boostBusy?'A aplicar…':'+ Aumentar Guardados / Aplicar'}</button><p style={s.hint}>Cada adição fica registada no histórico administrativo.</p><button type="button" onClick={()=>router.push('/admin/vistos')} style={s.back}>Abrir Vistos da Administração</button></div><h3>Imagens principais</h3><div style={s.mediaGrid}>{[0,1,2].map(slot=>{const item=images.find(i=>i.kind==='main'&&Number(i.slot)===slot);return <div key={slot} style={s.mediaCell}>{item?.image_url?<img src={item.image_url} alt={'Imagem principal '+(slot+1)} style={s.mediaImage}/>:<span>Imagem {slot+1} não definida</span>}</div>})}</div>
       <h3>Galeria / área de media</h3><div style={s.mediaGrid}>{images.filter(i=>i.kind!=='main').map(i=><div key={i.id} style={s.mediaCell}>{i.video_url?<video src={i.video_url} controls playsInline style={s.mediaImage}/>:i.image_url?<img src={i.image_url} alt={i.name||'Media do negócio'} style={s.mediaImage}/>:<span>Media</span>}<small>{i.name||i.kind||'Galeria'}</small></div>)}</div>
       <h3>Produtos ({products.length})</h3><div style={s.mediaGrid}>{products.map(p=><div key={p.id} style={s.mediaCell}>{p.image_url?<img src={p.image_url} alt={p.name||'Produto'} style={s.mediaImage}/>:<span>Sem imagem</span>}<small>{p.name||'Produto'}{p.price!=null?' · '+p.price+' Kz':''}</small></div>)}</div>
       <div style={s.classification}><h3>Classificação atual e alteração</h3><label style={s.label}>Categoria atual: {relationName(selected.categories)||'—'}</label><select style={s.select} value={categoryChoice} onChange={e=>{setCategoryChoice(e.target.value);setSubcategoryChoice('');}}><option value="">Selecione categoria</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
