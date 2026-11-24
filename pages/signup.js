@@ -106,9 +106,12 @@ export default function Signup() {
 
   async function initialize() {
     setAuthChecking(true);
-    await loadCountries();
-    await checkSession();
-    setAuthChecking(false);
+    try {
+      const redirected = await checkSession();
+      if (!redirected) await loadCountries();
+    } finally {
+      setAuthChecking(false);
+    }
   }
 
   async function loadCountries() {
@@ -159,7 +162,7 @@ export default function Signup() {
       } = await supabase.auth.getSession();
 
       if (sessionError) throw sessionError;
-      if (!session?.user) return;
+      if (!session?.user) return false;
 
       const user = session.user;
       const metadata = user.user_metadata || {};
@@ -180,17 +183,17 @@ export default function Signup() {
 
       if (!isMainAdmin && isCreator) {
         await router.replace('/media');
-        return;
+        return true;
       }
 
       if (!isMainAdmin && metadata.talaza_admin_created_seller === true) {
         await router.replace('/post-business');
-        return;
+        return true;
       }
 
       if (!isMainAdmin && metadata.talaza_pending_signup_type === 'seller') {
         await router.replace('/post-business?resume=1');
-        return;
+        return true;
       }
 
       const { data: profile, error: profileError } = await supabase
@@ -207,7 +210,7 @@ export default function Signup() {
 
       if (!isMainAdmin && ['vendedor', 'seller', 'business'].includes(accountType)) {
         await router.replace('/seller');
-        return;
+        return true;
       }
 
       const { data: existingBusiness, error: businessError } = await supabase
@@ -264,11 +267,13 @@ export default function Signup() {
         setExistingPrivateDob(privateDetails.date_of_birth);
         setDateOfBirth(privateDetails.date_of_birth);
       }
+      return false;
     } catch (err) {
       console.error('Erro ao verificar sessão/perfil:', err);
       setError(
         'A tua sessão foi reconhecida, mas não foi possível carregar todos os dados do perfil. Podes rever os campos e tentar novamente.'
       );
+      return false;
     }
   }
 
