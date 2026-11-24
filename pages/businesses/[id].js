@@ -70,6 +70,7 @@ export default function BusinessPublicProfile() {
         // Para utilizadores autenticados, a Comercial usa o país principal do perfil.
         // A URL não pode ser usada para mudar o país de visualização.
         const { data: viewerAuth } = await supabase.auth.getUser();
+        if (!viewerAuth?.user) throw new Error('Inicia sessão para consultar perfis na Talaza Comercial do teu país.');
         let commercialCountryId = country || '';
         let commercialProvinceId = province || '';
         if (viewerAuth?.user) {
