@@ -212,7 +212,9 @@ export default function Explore() {
       if (cancelled || !provinceRow?.id) return;
       const fixed={country:countryRow?.name||'',countryId:profile.country_id,province:provinceRow.name||'',provinceId:provinceRow.id};
       setLockedCommercialLocation(fixed); setActiveLocation(fixed); setTalazaLocation(fixed);
-      router.replace({pathname:'/explore',query:{country:fixed.countryId,province:fixed.provinceId,homeCountry:fixed.countryId,homeProvince:fixed.provinceId}},undefined,{shallow:true});
+      const query={country:fixed.countryId,province:fixed.provinceId,homeCountry:fixed.countryId,homeProvince:fixed.provinceId};
+      const currentQuery={country:safeValue(router.query.country),province:safeValue(router.query.province),homeCountry:safeValue(router.query.homeCountry),homeProvince:safeValue(router.query.homeProvince)};
+      if(Object.keys(query).some(key=>query[key]!==currentQuery[key])) router.replace({pathname:'/explore',query},undefined,{shallow:true});
     }
     if(router.isReady) lockCommercialLocation();
     return ()=>{cancelled=true;};
