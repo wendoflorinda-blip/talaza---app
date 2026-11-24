@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import CommentThread from '../components/CommentThread';
 import ExpandableImage from '../components/ExpandableImage';
 import { getTalazaSessionLocation } from '../lib/talazaLocation';
+import { hasCommercialName, CommercialNameDialog } from '../lib/commercialNameGuard';
 
 const BUCKET = 'event-images';
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -137,6 +138,7 @@ export default function Eventos() {
   const [likedByMe, setLikedByMe] = useState({});
   const [commentsByEvent, setCommentsByEvent] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
+  const [nameGateOpen,setNameGateOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState({});
   const [feedLoading, setFeedLoading] = useState(false);
   const [interactionBusy, setInteractionBusy] = useState('');
@@ -440,6 +442,7 @@ export default function Eventos() {
   }
 
   async function toggleLike(eventId) {
+    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     const selected = events.find(item => item.id === eventId);
     if (selected) trackEventAction(selected);
     if (!user) {
@@ -466,6 +469,7 @@ export default function Eventos() {
   }
 
   async function submitComment(eventId) {
+    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     const selected = events.find(item => item.id === eventId);
     if (selected) trackEventAction(selected);
     if (!user) {
@@ -492,6 +496,7 @@ export default function Eventos() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     setError('');
     setSuccess('');
 
@@ -618,6 +623,8 @@ export default function Eventos() {
   }
 
   return (
+    <>
+    <CommercialNameDialog open={nameGateOpen} onClose={()=>setNameGateOpen(false)} onConfigure={()=>router.push('/perfil?tab=dados')} />
     <main style={styles.page}>
       <div style={styles.container}>
         <header style={styles.header}>
@@ -821,6 +828,7 @@ export default function Eventos() {
         </section>}
       </div>
     </main>
+    </>
   );
 }
 
