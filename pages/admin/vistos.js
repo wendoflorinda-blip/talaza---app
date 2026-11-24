@@ -12,15 +12,17 @@ export default function AdminVistos(){
    const {data:admin,error:adminError}=await supabase.from('admin_users').select('id').eq('id',user.id).maybeSingle(); if(adminError||!admin){router.replace('/');return;}
    const {data,error:loadError}=await supabase.from('admin_business_profile_views').select('business_id,admin_user_id,viewed_at,businesses(id,name,logo_url,cover_url,province_id,provinces(name),countries(name),categories(name),subcategories(name))').order('viewed_at',{ascending:false});
    if(loadError)throw loadError;
+   const {data:subs,error:subsError}=await supabase.from('business_subscriptions').select('business_id,starts_at,created_at').order('starts_at',{ascending:false}).order('created_at',{ascending:false}); if(subsError)throw subsError;
+   const subscriptionMap={}; (subs||[]).forEach(s=>{if(!subscriptionMap[s.business_id])subscriptionMap[s.business_id]=s;});
    const {data:storeIds,error:storesError}=await supabase.from('admin_stores').select('business_id').not('business_id','is',null); if(storesError)throw storesError;
    const excluded=new Set((storeIds||[]).map(x=>x.business_id));
    const dedup=new Map();
    (data||[]).filter(v=>v.businesses&&!excluded.has(v.business_id)).forEach(v=>{if(!dedup.has(v.business_id))dedup.set(v.business_id,v);});
-   setItems([...dedup.values()]);
+   setItems([...dedup.values()].map(v=>({...v,payment_started_at:subscriptionMap[v.business_id]?.starts_at||subscriptionMap[v.business_id]?.created_at||null})));
   }catch(e){setError(e.message||'Falha ao carregar vistos.');}
   finally{setLoading(false);}
  })();},[router]);
- const groups=[{title:'Vistos recentes',sub:'Até 3 meses',filter:x=>ageMonths(x.viewed_at)<3},{title:'Vistos há mais de 3 meses',sub:'De 3 meses até 1 ano',filter:x=>ageMonths(x.viewed_at)>=3&&ageMonths(x.viewed_at)<12},{title:'Vistos há mais de 1 ano',sub:'12 meses ou mais',filter:x=>ageMonths(x.viewed_at)>=12}];
+ const groups=[{title:'Vistos recentes',sub:'Pagamento com menos de 3 meses',filter:x=>!x.payment_started_at||ageMonths(x.payment_started_at)<3},{title:'Vistos há mais de 3 meses',sub:'Pagamento entre 3 meses e 1 ano',filter:x=>x.payment_started_at&&ageMonths(x.payment_started_at)>=3&&ageMonths(x.payment_started_at)<12},{title:'Vistos há mais de 1 ano',sub:'Pagamento há 12 meses ou mais',filter:x=>x.payment_started_at&&ageMonths(x.payment_started_at)>=12}];
  return <main style={{minHeight:'100vh',padding:'22px clamp(12px,3vw,34px)',background:'#F3F7F5',color:'#173B35',fontFamily:'system-ui,sans-serif'}}>
  <button onClick={()=>router.push('/admin')} style={button}>← Administração Normal</button><header style={{margin:'18px 0'}}><h1>Vistos</h1><p>Perfis normais já consultados pela Administração, organizados pela data da última visualização.</p></header>
  {error&&<div style={{background:'#FFF0EE',color:'#9C3027',padding:12,borderRadius:10}}>{error}</div>}
