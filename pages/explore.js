@@ -218,8 +218,7 @@ export default function Explore() {
     }
     if(router.isReady) lockCommercialLocation();
     return ()=>{cancelled=true;};
-  },[router.isReady]);
-  const [countryName, setCountryName] = useState('');
+  },[router.isReady]);  const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
   const [categories, setCategories] = useState([]);
   const [businesses, setBusinesses] = useState([]);
