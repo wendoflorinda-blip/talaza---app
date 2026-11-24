@@ -504,11 +504,15 @@ export default function Explore() {
         if (!targetProvince) {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
-            const { data: profile } = await supabase
+            let { data: profile } = await supabase
               .from('profiles')
               .select('country_id, province_id')
               .eq('id', user.id)
               .maybeSingle();
+            if (!profile?.country_id || !profile?.province_id) {
+              const { data: synced, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
+              if (!syncError && synced?.ok) profile = { country_id: synced.country_id, province_id: synced.province_id };
+            }
             targetCountry = profile?.country_id || country;
             targetProvince = profile?.province_id || province;
           }
