@@ -199,8 +199,12 @@ export default function Explore() {
     async function lockCommercialLocation() {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData?.user || cancelled) return;
-      const { data: profile } = await supabase.from('profiles')
+      let { data: profile } = await supabase.from('profiles')
         .select('country_id,province_id').eq('id', authData.user.id).maybeSingle();
+      if (!profile?.country_id || !profile?.province_id) {
+        const { data: synced, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
+        if (!syncError && synced?.ok) profile = { country_id: synced.country_id, province_id: synced.province_id };
+      }
       if (cancelled || !profile?.country_id || !profile?.province_id) return;
       const [{ data: countryRow }, { data: provinceRow }] = await Promise.all([
         supabase.from('countries').select('id,name').eq('id',profile.country_id).maybeSingle(),
