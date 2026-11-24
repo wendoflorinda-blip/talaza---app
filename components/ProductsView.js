@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { formatKz } from '../lib/imageTools';
 import { supabase } from '../lib/supabaseClient';
 import MediaOptions from './MediaOptions';
+import { hasCommercialName, CommercialNameDialog } from '../lib/commercialNameGuard';
 
 export const VIEW_MODES = ['vertical', 'deslize', 'normal'];
 
@@ -14,6 +15,7 @@ const MODES = [
 
 export default function ProductsView({ items = [], mode = 'normal', onModeChange, editable = false, onEdit, onDelete, businessName = '', businessId = '', sellerId = '', showNextCard = true }) {
   const [open, setOpen] = useState(null);
+  const [nameGateOpen,setNameGateOpen] = useState(false);
   const viewerVideoRef = useRef(null);
   const viewerHistoryRef = useRef(false);
   function openViewer(item) {
@@ -39,6 +41,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
   const router = useRouter();
+  async function openSellerMessage() { const {data:{user}}=await supabase.auth.getUser(); if (!(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; } router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } }); }
   const current = VIEW_MODES.includes(mode) ? mode : 'normal';
   const visibleItems = useMemo(() => items.filter((item) => mediaFilter === 'all' || (mediaFilter === 'video' ? (item?.media_type === 'video' || Boolean(item?.video_url)) : !(item?.media_type === 'video' || Boolean(item?.video_url)))), [items, mediaFilter]);
   const openItem = open ? visibleItems.find((item) => item.id === open) : null;
@@ -121,6 +124,8 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
   }
 
   return (
+    <>
+    <CommercialNameDialog open={nameGateOpen} onClose={()=>setNameGateOpen(false)} onConfigure={()=>router.push('/perfil?tab=dados')} />
     <div className="pv">
       <div className="mediaFilters" role="group" aria-label="Filtrar conteúdo por tipo">{[{id:'all',label:'Todos'},{id:'image',label:'Imagens'},{id:'video',label:'Vídeos'}].map((item) => <button type="button" key={item.id} className={'filter' + (mediaFilter === item.id ? ' selected' : '')} aria-pressed={mediaFilter === item.id} onClick={() => { setMediaFilter(item.id); setOpen(null); }}>{item.label}</button>)}</div>
       {onModeChange && <div className="modes" role="group" aria-label="Como quer ver os produtos do painel">
@@ -161,7 +166,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
             {openItem.price !== null && openItem.price !== undefined && openItem.price !== '' && <div className="bigprice">{formatKz(openItem.price)}</div>}
             {openItem.name && <h3>{openItem.name}</h3>}
             {openItem.description && <p>{openItem.description}</p>}
-            <div className="acts"><button type="button" className="download" onClick={downloadOpenMedia} disabled={downloading}>{downloading ? 'A preparar ficheiro…' : 'Transferir imagem'}</button><button type="button" className="close" onClick={closeViewer}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={() => router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } })}><span className="messageIcon" aria-hidden="true">▣</span><span>Enviar mensagem</span><span className="messageArrow" aria-hidden="true">›</span></button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
+            <div className="acts"><button type="button" className="download" onClick={downloadOpenMedia} disabled={downloading}>{downloading ? 'A preparar ficheiro…' : 'Transferir imagem'}</button><button type="button" className="close" onClick={closeViewer}>Fechar</button>{sellerId ? <button type="button" className="internalMessage" onClick={openSellerMessage}><span className="messageIcon" aria-hidden="true">▣</span><span>Enviar mensagem</span><span className="messageArrow" aria-hidden="true">›</span></button> : <span className="unavailableMessage">Mensagem interna indisponível</span>}</div>
             {downloadError && <p role="alert" className="downloadError">{downloadError}</p>}
           </>}
         </div>
@@ -185,5 +190,6 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
         .veu{position:fixed!important;inset:0!important;z-index:2147483000!important;width:100vw!important;height:100dvh!important;min-height:100vh!important;margin:0!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:center!important;overflow:hidden!important;background:rgba(0,0,0,.98)!important}.videoViewer{background:#000!important;align-items:center!important;justify-content:center!important}.videoSheet{position:relative;width:100vw;height:100dvh;max-width:none;background:#000;overflow:hidden}.viewerVideo{width:100%;height:100%;object-fit:contain;background:#000;display:block} .viewerClose,.viewerMore{position:absolute;z-index:2147483001;top:calc(12px + env(safe-area-inset-top));width:42px;height:42px;border-radius:50%!important;background:#111b!important;color:#fff!important;font-size:28px!important;display:grid;place-items:center}.viewerClose{left:14px}.viewerMore{right:14px}.viewerCaption{position:absolute;left:0;right:0;bottom:0;padding:70px 18px calc(22px + env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.88));color:#fff;display:flex;flex-direction:column;gap:7px;pointer-events:none}.viewerCaption b{font-size:19px}.viewerCaption p{margin:0;color:#eee;font-size:14px;line-height:1.4;white-space:pre-wrap}.viewerCaption strong{font-size:13px;color:#f0d36c}.viewerCaption span{font-size:15px;font-weight:800}.viewerError{position:absolute;bottom:12px;z-index:4}.sheet{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}.sheet .big{width:100%;max-height:52vh;object-fit:contain;background:#E8F2EE;border-radius:14px;display:block;margin:0 0 10px;height:auto}.sheet video.big{width:100%;}.bigprice{font-weight:800;color:#075B4E;font-size:18px}.sheet h3{margin:2px 0;font-size:17px;color:#14201C}.sheet p{margin:2px 0 12px;font-size:13px;color:#5A6A64;line-height:1.5;white-space:pre-wrap}.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.acts .close,.acts .wa,.acts .download{padding:13px;border-radius:11px;font-weight:700;text-align:center;text-decoration:none}.acts .download{background:#DCEFE8;color:#075B4E;text-decoration:none;text-align:center;font-weight:800;border-radius:11px}.acts .close{background:#E9EEEC;color:#14201C}.acts .internalMessage{grid-column:1/-1;background:linear-gradient(180deg,#292929 0%,#000 100%)!important;color:#fff!important;border:1.5px solid #FFD700!important;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:50px;padding:0 17px!important;border-radius:9999px!important;font-size:14px;font-weight:800;box-shadow:0 2px 10px rgba(0,0,0,.3);box-sizing:border-box}.messageIcon{font-size:17px;line-height:1}.messageArrow{font-size:20px;line-height:1}.acts .download:disabled{opacity:.65;cursor:wait}.downloadError{grid-column:1/-1;color:#A12626!important;font-size:12px!important;margin:0!important}.acts .unavailableMessage{background:#EDF1EF;color:#7A8983;display:grid;place-items:center;padding:13px;border-radius:11px;font-size:12px;text-align:center}
       `}</style>
     </div>
+    </>
   );
 }
