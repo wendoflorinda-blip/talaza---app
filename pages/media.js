@@ -63,9 +63,37 @@ export default function MediaHome() {
     await router.replace('/login');
   }
 
-  function openCommercial() {
+  async function openCommercial() {
     setMenuOpen(false);
-    router.push('/explore');
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth?.user;
+      if (!user) {
+        router.push('/login?next=/explore');
+        return;
+      }
+      const { data: profile, error } = await supabase.from('profiles')
+        .select('country_id,province_id').eq('id', user.id).maybeSingle();
+      if (error) throw error;
+      let countryId = profile?.country_id || '';
+      let provinceId = profile?.province_id || '';
+      if (!countryId || !provinceId) {
+        const { data: sync, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
+        if (syncError) throw syncError;
+        countryId = sync?.country_id || countryId;
+        provinceId = sync?.province_id || provinceId;
+      }
+      if (!countryId || !provinceId) throw new Error('LOCALIZACAO_COMERCIAL_INCOMPLETA');
+      const [{ data: countryRow }, { data: provinceRow }] = await Promise.all([
+        supabase.from('countries').select('id,name').eq('id', countryId).maybeSingle(),
+        supabase.from('provinces').select('id,name,country_id').eq('id', provinceId).eq('country_id', countryId).maybeSingle(),
+      ]);
+      if (!provinceRow?.id) throw new Error('PROVINCIA_COMERCIAL_INVALIDA');
+      router.push({ pathname: '/explore', query: { country: countryRow?.id || countryId, province: provinceRow.id, homeCountry: countryRow?.id || countryId, homeProvince: provinceRow.id } });
+    } catch (err) {
+      console.error('Não foi possível abrir Talaza Comercial com a localização da Mídia:', err);
+      setNotice('Não foi possível sincronizar o país e a província do teu perfil. Tenta novamente.');
+    }
   }
 
   function selectNav(item) {
