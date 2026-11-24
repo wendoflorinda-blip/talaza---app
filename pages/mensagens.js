@@ -189,6 +189,7 @@ export default function Mensagens() {
     setReadMap(previous => {
       const next = { ...previous, [conversation.id]:readAt };
       try { window.localStorage.setItem('talaza_read', JSON.stringify(next)); } catch (storageError) { console.warn('Não foi possível guardar o estado lido:', storageError); }
+      try { window.dispatchEvent(new Event('talaza:messages-read')); } catch (_) {}
       return next;
     });
     setConversations(previous => previous.map(item => item.id === conversation.id ? { ...item, isUnread:false } : item));
