@@ -116,8 +116,18 @@ export default function Perfil() {
       setHasBusiness(Boolean(ownedBusiness?.id));
       setPhoto(current.user_metadata?.avatar_url || current.user_metadata?.picture || '');
 
+      // Ensure the first-time creator Commercial profile is created on first visit.
       let { data, error: profileError } = await supabase.from('profiles').select('*').eq('id', current.id).maybeSingle();
       if (profileError) throw profileError;
+      if (!data && (current.user_metadata?.media_account_type === 'creator' || current.user_metadata?.media_creator_onboarding === true)) {
+        const { data: synced, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
+        if (syncError) throw syncError;
+        if (synced?.ok) {
+          const refreshed = await supabase.from('profiles').select('*').eq('id', current.id).maybeSingle();
+          if (refreshed.error) throw refreshed.error;
+          data = refreshed.data;
+        }
+      }
       if (!data && (current.user_metadata?.media_account_type === 'creator' || current.user_metadata?.media_creator_onboarding === true)) {
         const { data: synced, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
         if (syncError) console.warn('Sincronização inicial Comercial não concluída:', syncError);
