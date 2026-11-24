@@ -106,11 +106,12 @@ export default function Signup() {
 
   async function initialize() {
     setAuthChecking(true);
+    let redirected = false;
     try {
-      const redirected = await checkSession();
+      redirected = Boolean(await checkSession());
       if (!redirected) await loadCountries();
     } finally {
-      setAuthChecking(false);
+      if (!redirected) setAuthChecking(false);
     }
   }
 
@@ -225,7 +226,7 @@ export default function Signup() {
 
       if (!isMainAdmin && existingBusiness?.id) {
         await router.replace('/seller');
-        return;
+        return true;
       }
 
       if (profile?.name) setFullName(profile.name);
