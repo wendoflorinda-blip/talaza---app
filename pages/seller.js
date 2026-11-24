@@ -76,6 +76,9 @@ export default function Seller() {
   const [sheetName, setSheetName] = useState('');
   const [sheetDesc, setSheetDesc] = useState('');
   const [businessUpdates, setBusinessUpdates] = useState([]);
+  const [updateTitle, setUpdateTitle] = useState('');
+  const [updateContent, setUpdateContent] = useState('');
+  const [updatePhoto, setUpdatePhoto] = useState(null);
   const [updateBusy, setUpdateBusy] = useState(false);
   const [updateError, setUpdateError] = useState('');
   const [musicEditorOpen, setMusicEditorOpen] = useState(false);
@@ -501,8 +504,8 @@ export default function Seller() {
 
   async function loadBusinessUpdates(businessId) {
     const { data, error: updatesError } = await supabase.from('business_updates')
-      .select('id,media_path,media_type,created_at,expires_at')
-      .eq('business_id', businessId).gt('expires_at', new Date().toISOString())
+      .select('id,title,content,media_path,media_type,approval_status,created_at,expires_at')
+      .eq('business_id', businessId)
       .order('created_at', { ascending:false });
     if (updatesError) { console.error(updatesError); setUpdateError('Não foi possível carregar as Novidades.'); return; }
     const rows = await Promise.all((data || []).map(async item => {
@@ -512,34 +515,32 @@ export default function Seller() {
     setBusinessUpdates(rows.filter(Boolean));
   }
 
-  async function publishBusinessUpdate(file) {
+  async function publishBusinessUpdate() {
+    const file = updatePhoto;
     if (!file || !business || updateBusy || subscriptionPending) return;
-    const isVideo = file.type.startsWith('video/');
-    if (isVideo && !['video/mp4','video/webm','video/quicktime'].includes(file.type)) { setUpdateError('Use vídeo MP4, WEBM ou MOV.'); return; }
-    if (!isVideo && !['image/jpeg','image/png','image/webp'].includes(file.type)) { setUpdateError('Use imagem JPG, PNG ou WebP.'); return; }
-    if (file.size > 100 * 1024 * 1024) { setUpdateError('O ficheiro deve ter no máximo 100 MB.'); return; }
-    const last = businessUpdates[0];
-    if (last && Date.now() - new Date(last.created_at).getTime() < 7 * 86400000) {
-      setUpdateError('Só poderá publicar outra Novidade quando completar 7 dias desde a última publicação.');
+    if (!updateTitle.trim()) { setUpdateError('Escreva o título da Novidade.'); return; }
+    if (!updateContent.trim()) { setUpdateError('Escreva o texto da Novidade.'); return; }
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { setUpdateError('Use uma foto JPG, PNG ou WebP.'); return; }
+    if (file.size > 15 * 1024 * 1024) { setUpdateError('A foto deve ter no máximo 15 MB.'); return; }
+    const lastApproved = businessUpdates.filter(item=>item.approval_status==='approved').sort((x,y)=>new Date(y.created_at)-new Date(x.created_at))[0];
+    if (lastApproved && Date.now()-new Date(lastApproved.created_at).getTime()<7*86400000) {
+      setUpdateError('Só poderá enviar outra Novidade quando completar 7 dias desde a última publicação.');
       return;
     }
+    if (businessUpdates.some(item=>item.approval_status==='pending')) { setUpdateError('Já tem uma Novidade aguardando aprovação da Administração.'); return; }
     setUpdateBusy(true); setUpdateError('');
     try {
-      const ext = (file.name.split('.').pop() || (isVideo ? 'mp4' : 'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'');
-      const path = business.id + '/update-' + Date.now() + '.' + ext;
-      const { error: uploadError } = await supabase.storage.from('business-updates').upload(path,file,{upsert:false,contentType:file.type,cacheControl:'3600'});
-      if (uploadError) throw uploadError;
-      const { error: insertError } = await supabase.from('business_updates').insert({business_id:business.id,media_path:path,media_type:isVideo?'video':'image'});
-      if (insertError) {
-        await supabase.storage.from('business-updates').remove([path]);
-        throw insertError;
-      }
+      const compressed = await prepareImage(file,{max:1200,quality:0.82});
+      const path=business.id+'/update-'+Date.now()+'.jpg';
+      const {error:uploadError}=await supabase.storage.from('business-updates').upload(path,compressed,{upsert:false,contentType:'image/jpeg',cacheControl:'3600'});
+      if(uploadError)throw uploadError;
+      const {error:insertError}=await supabase.from('business_updates').insert({business_id:business.id,title:updateTitle.trim(),content:updateContent.trim(),media_path:path,media_type:'image',approval_status:'pending'});
+      if(insertError){await supabase.storage.from('business-updates').remove([path]);throw insertError;}
       await loadBusinessUpdates(business.id);
-      setNotice('Novidade publicada. Os clientes que guardaram o seu perfil poderão vê-la durante 7 dias.');
-    } catch (err) {
-      console.error('Erro ao publicar Novidade:',err);
-      setUpdateError(err.message || 'Não foi possível publicar a Novidade.');
-    } finally { setUpdateBusy(false); }
+      setUpdateTitle('');setUpdateContent('');setUpdatePhoto(null);
+      setNotice('PENDENTE - Aguardando aprovação da Administração.');
+    }catch(err){console.error('Erro ao enviar Novidade para aprovação:',err);setUpdateError(err.message||'Não foi possível enviar a Novidade para aprovação.');}
+    finally{setUpdateBusy(false);}
   }
 
   async function saveEmailVisibility(nextValue) {
@@ -1536,27 +1537,31 @@ export default function Seller() {
 
         <details style={{marginTop:12,border:'1px solid #E1EBE5',borderRadius:13,background:'#FFFFFF',overflow:'hidden'}}>
           <summary style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,padding:'13px 15px',cursor:'pointer',listStyle:'none',color:'#075B4E',fontWeight:850}}>
-            <span>Novidades <small style={{fontWeight:500,color:'#718078'}}>· {businessUpdates.length} publicadas</small></span><span aria-hidden="true">⌄</span>
+            <span>Novidades <small style={{fontWeight:500,color:'#718078'}}>· {businessUpdates.filter(item=>item.approval_status==='approved').length} aprovadas · {businessUpdates.filter(item=>item.approval_status==='pending').length} pendentes</small></span><span aria-hidden="true">⌄</span>
           </summary>
           <div style={{padding:'0 14px 14px',borderTop:'1px solid #EDF2EF'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-            <div><p style={{margin:0,fontSize:12,color:'#65756E'}}>Publique uma imagem ou vídeo vertical (9:16). Cada publicação fica disponível durante 7 dias.</p></div>
-            <label style={{padding:'11px 15px',borderRadius:10,background:subscriptionPending?'#AAB4AF':'#075B4E',color:'#fff',fontWeight:800,fontSize:12,cursor:subscriptionPending?'not-allowed':'pointer'}}>
-              {updateBusy?'A publicar…':'＋ Publicar novidade'}
-              <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" disabled={subscriptionPending || updateBusy} hidden onChange={e=>{const f=e.target.files?.[0];e.target.value='';if(f)publishBusinessUpdate(f);}} />
-            </label>
-          </div>
-          <p style={{fontSize:11,lineHeight:1.5,color:'#75847D',margin:'8px 0'}}>Visível para clientes que guardaram a sua loja.</p>
-          {updateError && <p role="alert" style={{color:'#A52F3B',fontSize:12}}>{updateError}</p>}
-          {businessUpdates.length>0 && <div style={{display:'flex',gap:12,overflowX:'auto',padding:'5px 0'}}>
-            {businessUpdates.map(item=><div key={item.id} style={{flex:'0 0 120px',width:120}}>
-              {item.media_type==='video'?<video src={item.signedUrl} controls playsInline style={{width:120,aspectRatio:'9/16',objectFit:'cover',borderRadius:12,background:'#111'}}/>:<img src={item.signedUrl} alt="Novidade publicada" style={{width:120,aspectRatio:'9/16',objectFit:'cover',borderRadius:12}}/>}
-              <small style={{display:'block',marginTop:5,color:'#65756E'}}>Expira {new Date(item.expires_at).toLocaleDateString('pt-PT')}</small>
-            </div>)}
-          </div>}
-          {!businessUpdates.length && !updateError && <p style={{fontSize:12,color:'#8A9992',marginBottom:0}}>Ainda não publicou novidades.</p>}
-          </div>
-        </details>
+            <p style={{fontSize:12,color:'#65756E'}}>Cada Novidade fica pendente até a Administração aprovar. Só depois é mostrada aos exploradores que guardaram o perfil e recebem a notificação.</p>
+            <div style={{display:'grid',gap:9,margin:'12px 0'}}>
+              <input value={updateTitle} onChange={e=>setUpdateTitle(e.target.value)} maxLength={90} placeholder="Título da Novidade" disabled={subscriptionPending||updateBusy} style={{padding:11,border:'1px solid #D5E4DF',borderRadius:9}}/>
+              <textarea value={updateContent} onChange={e=>setUpdateContent(e.target.value)} maxLength={1000} rows={4} placeholder="Escreva a Novidade…" disabled={subscriptionPending||updateBusy} style={{padding:11,border:'1px solid #D5E4DF',borderRadius:9,resize:'vertical'}}/>
+              <label style={{padding:11,border:'1px dashed #BFD4CC',borderRadius:10,color:'#075B4E',fontWeight:800,fontSize:12,cursor:'pointer'}}>
+                {updatePhoto?'Foto escolhida: '+updatePhoto.name:'＋ Escolher foto (JPG, PNG ou WebP)'}
+                <input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={subscriptionPending||updateBusy} onChange={e=>{const f=e.target.files?.[0];e.target.value='';if(f)setUpdatePhoto(f);}}/>
+              </label>
+              {updatePhoto && <p style={{fontSize:12,color:'#64756F'}}>Foto pronta para envio · será comprimida antes de guardar</p>}
+              <button type="button" onClick={publishBusinessUpdate} disabled={subscriptionPending||updateBusy||!updatePhoto} style={{padding:'11px 15px',border:0,borderRadius:10,background:subscriptionPending||updateBusy?'#AAB4AF':'#075B4E',color:'#fff',fontWeight:800,cursor:subscriptionPending||updateBusy?'not-allowed':'pointer'}}>{updateBusy?'A enviar para aprovação…':'Enviar para Aprovação'}</button>
+            </div>
+            {updateError && <p role="alert" style={{color:'#A52F3B',fontSize:12}}>{updateError}</p>}
+            {businessUpdates.length>0 && <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:12,marginTop:12}}>
+              {businessUpdates.map(item=><article key={item.id} style={{padding:10,border:'1px solid #E4ECE8',borderRadius:12}}>
+                {item.signedUrl && <img src={item.signedUrl} alt={item.title||'Novidade enviada'} style={{width:'100%',aspectRatio:'1',objectFit:'cover',borderRadius:9}}/>}
+                <strong style={{display:'block',marginTop:7,color:'#173B35'}}>{item.title||'Novidade'}</strong>
+                <p style={{fontSize:12,color:'#65756E',margin:'5px 0',whiteSpace:'pre-wrap'}}>{item.content||''}</p>
+                <small style={{display:'block',marginTop:5,color:item.approval_status==='approved'?'#17643B':item.approval_status==='rejected'?'#B42318':'#9A6700',fontWeight:800}}>{item.approval_status==='approved'?'PUBLICADA':item.approval_status==='rejected'?'REJEITADA':'PENDENTE - Aguardando aprovação da Administração'}</small>
+              </article>)}
+            </div>}
+            {!businessUpdates.length && !updateError && <p style={{fontSize:12,color:'#8A9992',marginBottom:0}}>Ainda não enviou Novidades.</p>}
+          </div></details>
 
         {/* IMAGENS PRINCIPAIS · 3 lugares · 600x600 */}
         <details id="galeria-principais" className="gal-sec">
