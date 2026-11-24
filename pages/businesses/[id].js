@@ -67,12 +67,21 @@ export default function BusinessPublicProfile() {
           setIsSavedGraceProfile(!isOwner);
         }
 
-        // A província e o país da URL devem corresponder ao negócio.
-        // Isso impede abrir um perfil de outra província alterando o link.
-        if (country && businessData.country_id !== country) {
-          throw new Error('Este negócio pertence a outro país.');
+        // Para utilizadores autenticados, a Comercial usa o país principal do perfil.
+        // A URL não pode ser usada para mudar o país de visualização.
+        const { data: viewerAuth } = await supabase.auth.getUser();
+        let commercialCountryId = country || '';
+        let commercialProvinceId = province || '';
+        if (viewerAuth?.user) {
+          const { data: viewerProfile } = await supabase.from('profiles')
+            .select('country_id,province_id').eq('id', viewerAuth.user.id).maybeSingle();
+          commercialCountryId = viewerProfile?.country_id || commercialCountryId;
+          commercialProvinceId = viewerProfile?.province_id || commercialProvinceId;
         }
-        if (province && businessData.province_id !== province) {
+        if (commercialCountryId && businessData.country_id !== commercialCountryId) {
+          throw new Error('Este negócio pertence a outro país e não está disponível na Talaza Comercial do teu país.');
+        }
+        if (commercialProvinceId && businessData.province_id !== commercialProvinceId) {
           throw new Error('Este negócio pertence a outra província.');
         }
 
