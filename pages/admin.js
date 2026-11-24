@@ -232,6 +232,7 @@ export default function Admin() {
       if(insertError) throw insertError;
       const nextTotal=(row.savedRealCount||0)+(row.savedBoostCount||0)+amount;
       setAdminSavedBoostTotals(prev=>({...prev,[row.id]:(prev[row.id]||0)+amount}));
+      await loadVendorPlanRows();
       setSavedBoostInputs(prev=>({...prev,[row.id]:''}));
       setMessage('Guardados adicionais aplicados. Total apresentado: '+nextTotal+'.');
     }catch(e){setMessage('Falha ao aplicar Guardados: '+(e.message||'erro desconhecido'));}
