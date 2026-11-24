@@ -171,11 +171,7 @@ export default function AuthCallback() {
           return;
         }
 
-                  // Sincroniza automaticamente o perfil Comercial com os dados do registo da Mídia.
-          const { error: commercialSyncError } = await supabase.rpc('sync_media_creator_commercial_profile');
-          if (commercialSyncError) throw commercialSyncError;
-
-if (signupType === 'creator' || metadata.media_creator_onboarding === true) {
+        if (signupType === 'creator' || metadata.media_creator_onboarding === true) {
           const pending = metadata.talaza_pending_creator || {};
           const source = payload || pending;
           if (!source.country_id || !source.province_id || !source.name) throw new Error('CREATOR_DATA_MISSING');
