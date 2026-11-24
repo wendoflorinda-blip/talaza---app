@@ -39,6 +39,12 @@ export default function Admin() {
   const [authorized, setAuthorized] = useState(false);
   const [businesses, setBusinesses] = useState([]);
   const [vendorPlanRows, setVendorPlanRows] = useState([]);
+  const [adminViewedBusinessIds, setAdminViewedBusinessIds] = useState([]);
+  const [adminSavedBoostTotals, setAdminSavedBoostTotals] = useState({});
+  const [adminRealSavedCounts, setAdminRealSavedCounts] = useState({});
+  const [savedBoostInputs, setSavedBoostInputs] = useState({});
+  const [savedBoostBusyId, setSavedBoostBusyId] = useState('');
+
   const [vendorPlanFilter, setVendorPlanFilter] = useState('all');
   const [expandedVendorId, setExpandedVendorId] = useState('');
   const [businessFilter, setBusinessFilter] = useState('pending');
@@ -203,19 +209,53 @@ export default function Admin() {
     setLoading(false);
   }
 
+  async function applyAdminSavedBoost(row) {
+    const amount=Number(savedBoostInputs[row.id]);
+    if(!Number.isInteger(amount)||amount<=0){setMessage('Para aumentar Guardados, introduza um número inteiro maior que zero.');return;}
+    setSavedBoostBusyId(row.id); setMessage('');
+    try{
+      const {data:{session},error:authError}=await supabase.auth.getSession(); if(authError||!session?.user) throw new Error('Sessão administrativa inválida.');
+      const {error:insertError}=await supabase.from('admin_saved_business_boosts').insert({business_id:row.id,amount,admin_user_id:session.user.id});
+      if(insertError) throw insertError;
+      const nextTotal=(adminRealSavedCounts[row.id]||0)+(adminSavedBoostTotals[row.id]||0)+amount;
+      setAdminSavedBoostTotals(prev=>({...prev,[row.id]:(prev[row.id]||0)+amount}));
+      setSavedBoostInputs(prev=>({...prev,[row.id]:''}));
+      setMessage('Guardados adicionais aplicados. Total apresentado: '+nextTotal+'.');
+    }catch(e){setMessage('Falha ao aplicar Guardados: '+(e.message||'erro desconhecido'));}
+    finally{setSavedBoostBusyId('');}
+  }
+
+  async function markVendorAsViewed(row){
+    try{
+      const {data:{session},error:authError}=await supabase.auth.getSession(); if(authError||!session?.user) throw new Error('Sessão administrativa inválida.');
+      const {error}=await supabase.from('admin_business_profile_views').upsert({business_id:row.id,admin_user_id:session.user.id,viewed_at:new Date().toISOString()},{onConflict:'business_id,admin_user_id'});
+      if(error) throw error;
+      setAdminViewedBusinessIds(prev=>prev.includes(row.id)?prev:[...prev,row.id]);
+      await loadVendorPlanRows();
+      window.open('/businesses/'+row.id,'_blank','noopener,noreferrer');
+    }catch(e){setMessage('Não foi possível marcar o perfil como visto: '+(e.message||''));}
+  }
+
   async function loadVendorPlanRows() {
-    const [{data: businessRows,error: businessError},{data: subscriptionRows,error: subscriptionError},{data: paymentRows,error: paymentError},{data: planRows,error: planError}] = await Promise.all([
-      supabase.from('businesses').select('id,owner_id,name,phone,province_id,provinces(name)').order('created_at',{ascending:false}),
+    const [{data: businessRows,error: businessError},{data: subscriptionRows,error: subscriptionError},{data: paymentRows,error: paymentError},{data: planRows,error: planError},{data: savedRows,error:savedError},{data: viewRows,error:viewError},{data:boostRows,error:boostError}] = await Promise.all([
+      supabase.from('businesses').select('id,owner_id,name,phone,province_id,category_id,subcategory_id,categories(name),subcategories(name),provinces(name)').order('created_at',{ascending:false}),
       supabase.from('business_subscriptions').select('id,business_id,plan_id,starts_at,expires_at,status,created_at').order('created_at',{ascending:false}),
       supabase.from('payment_submissions').select('id,business_id,plan_id,amount,status,created_at,reviewed_at').not('business_id','is',null).order('created_at',{ascending:true}),
-      supabase.from('plans').select('id,name,duration_days')
+      supabase.from('plans').select('id,name,duration_days'),
+      supabase.from('saved_businesses').select('business_id'),
+      supabase.from('admin_business_profile_views').select('business_id,viewed_at'),
+      supabase.from('admin_saved_business_boosts').select('business_id,amount')
     ]);
-    const loadError = businessError || subscriptionError || paymentError || planError;
+    const loadError = businessError || subscriptionError || paymentError || planError || savedError || viewError || boostError;
     if (loadError) {
       console.error('Não foi possível carregar a gestão de planos dos vendedores:',loadError);
       setVendorPlanRows([]);
       return;
     }
+    const realCounts={}; (savedRows||[]).forEach(row=>{realCounts[row.business_id]=(realCounts[row.business_id]||0)+1;});
+    const boostTotals={}; (boostRows||[]).forEach(row=>{boostTotals[row.business_id]=(boostTotals[row.business_id]||0)+Number(row.amount||0);});
+    const viewedIds=[...new Set((viewRows||[]).map(row=>row.business_id))];
+    setAdminRealSavedCounts(realCounts); setAdminSavedBoostTotals(boostTotals); setAdminViewedBusinessIds(viewedIds);
     const planMap = Object.fromEntries((planRows||[]).map(plan=>[plan.id,plan]));
     const latestByBusiness = {};
     (subscriptionRows||[]).forEach(row=>{ if(!latestByBusiness[row.business_id]) latestByBusiness[row.business_id]=row; });
@@ -234,7 +274,7 @@ export default function Admin() {
       const status=!active?'expired':remaining<=7?'expiring':'active';
       const history=historyByBusiness[business.id]||[];
       const plan=subscription?planMap[subscription.plan_id]:null;
-      return {...business,subscription,planName:plan?.name||'Sem plano ativo',remainingDays:remaining,status,history,historyTotalDays:history.reduce((sum,item)=>sum+item.durationDays,0)};
+      return {...business,subscription,planName:plan?.name||'Sem plano ativo',remainingDays:remaining,status,history,historyTotalDays:history.reduce((sum,item)=>sum+item.durationDays,0),savedRealCount:realCounts[business.id]||0,savedBoostCount:boostTotals[business.id]||0,adminViewed:viewRows?.some(v=>v.business_id===business.id)||false,adminViewedAt:(viewRows||[]).filter(v=>v.business_id===business.id).sort((x,y)=>new Date(y.viewed_at)-new Date(x.viewed_at))[0]?.viewed_at||null};
     });
     setVendorPlanRows(rows);
   }
@@ -1684,13 +1724,14 @@ export default function Admin() {
               ['all','Todos',vendorPlanRows.length],
               ['active','Ativos',vendorPlanRows.filter(row=>row.status==='active').length],
               ['expired','Expirados',vendorPlanRows.filter(row=>row.status==='expired').length],
-              ['expiring','A expirar em 7 dias',vendorPlanRows.filter(row=>row.status==='expiring').length]
+              ['expiring','A expirar em 7 dias',vendorPlanRows.filter(row=>row.status==='expiring').length],
+              ['viewed','Vistos',vendorPlanRows.filter(row=>row.adminViewed).length]
             ].map(([value,label,count])=><button key={value} type="button" onClick={()=>setVendorPlanFilter(value)} style={{padding:'8px 12px',borderRadius:999,border:vendorPlanFilter===value?'2px solid #D8A319':'1px solid #D5E4DF',background:vendorPlanFilter===value?'#075B4E':'#FFFFFF',color:vendorPlanFilter===value?'#FFFFFF':'#075B4E',fontWeight:800}}>{label} ({count})</button>)}
           </div>
-          {vendorPlanRows.filter(row=>vendorPlanFilter==='all'||row.status===vendorPlanFilter).length===0
+          {vendorPlanRows.filter(row=>vendorPlanFilter==='viewed'?row.adminViewed:(!row.adminViewed&&(vendorPlanFilter==='all'||row.status===vendorPlanFilter))).length===0
             ? <p style={{padding:14,background:'#FFFFFF',borderRadius:12,color:'#64756F'}}>Não existem vendedores nesta categoria.</p>
             : <div style={{display:'grid',gap:10}}>
-              {vendorPlanRows.filter(row=>vendorPlanFilter==='all'||row.status===vendorPlanFilter).map(row=>{
+              {vendorPlanRows.filter(row=>vendorPlanFilter==='viewed'?row.adminViewed:(!row.adminViewed&&(vendorPlanFilter==='all'||row.status===vendorPlanFilter))).map(row=>{
                 const expanded=expandedVendorId===row.id;
                 const badgeColor=row.status==='expired'?'#B42318':row.status==='expiring'?'#9A6700':'#17643B';
                 const badgeBg=row.status==='expired'?'#FDECEC':row.status==='expiring'?'#FFF5D6':'#E6F5EC';
@@ -1704,11 +1745,12 @@ export default function Admin() {
                     <span style={{textAlign:'right'}}>
                       <strong style={{display:'block',fontSize:22,color:badgeColor}}>{row.remainingDays}</strong>
                       <span style={{fontSize:11,color:badgeColor,fontWeight:900}}>{row.status==='expired'?'EXPIRADO - INATIVO':row.status==='expiring'?'A EXPIRAR':'ATIVO'}</span>
-                      <span style={{display:'block',fontSize:11,color:'#64756F',marginTop:5}}>{expanded?'Fechar histórico ▲':'Ver histórico ▼'}</span>
+                      <span style={{display:'block',fontSize:11,color:'#64756F',marginTop:5}}>{expanded?'Fechar histórico ▲':'Ver histórico ▼'}</span><span style={{display:'block',fontSize:12,color:'#50655C',marginTop:6}}>Categoria: {row.categories?.name||'Categoria não definida'} · Guardados: <strong>{row.savedRealCount+row.savedBoostCount}</strong> ({row.savedRealCount} reais + {row.savedBoostCount} adicionais)</span>
+                      <span style={{display:'flex',gap:6,marginTop:7,alignItems:'center',flexWrap:'wrap'}}><input type="number" min="1" step="1" value={savedBoostInputs[row.id]||''} onChange={e=>setSavedBoostInputs(prev=>({...prev,[row.id]:e.target.value}))} placeholder="Quantidade" style={{width:100,border:'1px solid #CBD9D2',borderRadius:8,padding:'7px 8px'}}/><button type="button" disabled={savedBoostBusyId===row.id} onClick={e=>{e.stopPropagation();applyAdminSavedBoost(row);}} style={{border:0,borderRadius:8,padding:'8px 11px',background:'#075B4E',color:'#fff,fontWeight:800,cursor:'pointer'}}>{savedBoostBusyId===row.id?'Aplicando…':'Aplicar + Guardados'}</button></span>
                     </span>
                   </button>
                   {expanded&&<div style={{marginTop:13,paddingTop:12,borderTop:'1px solid #E7EEEA'}}>
-                    <strong style={{fontSize:13,color:'#173B35'}}>Histórico de pagamentos aprovados</strong>
+                    <button type="button" onClick={()=>markVendorAsViewed(row)} style={{border:0,borderRadius:9,padding:'9px 12px',background:'#E6F5EC',color:'#17643B',fontWeight:800,cursor:'pointer'}}>Abrir perfil e mover para Vistos</button><strong style={{display:'block',marginTop:12,fontSize:13,color:'#173B35'}}>Histórico de pagamentos aprovados</strong>
                     {row.history.length===0?<p style={{fontSize:12,color:'#64756F'}}>Ainda não há pagamentos aprovados registados.</p>:<div style={{display:'grid',gap:7,marginTop:8}}>
                       {row.history.map(payment=><div key={payment.id} style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:12,color:'#42534C'}}><span>{payment.planName} · {payment.created_at?new Date(payment.created_at).toLocaleDateString('pt-AO'):'—'}</span><strong>+{payment.durationDays} dias</strong></div>)}
                     </div>}
