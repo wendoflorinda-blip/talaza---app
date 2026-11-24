@@ -496,7 +496,7 @@ export default function Perfil() {
 
   if (loading) return <main style={S.center}>A carregar o perfil…</main>;
 
-  const provinceName = provinces.find((item) => String(item.id) === String(profile?.province_id))?.name || 'Não definida';
+  const provinceName = provinces.find((item) => String(item.id) === String(profile?.province_id))?.name || '';
 
   return (
     <main style={S.page}>
