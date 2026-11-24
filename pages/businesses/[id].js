@@ -71,21 +71,16 @@ export default function BusinessPublicProfile() {
         // A URL não pode ser usada para mudar o país de visualização.
         const { data: viewerAuth } = await supabase.auth.getUser();
         if (!viewerAuth?.user) throw new Error('Inicia sessão para consultar perfis na Talaza Comercial do teu país.');
-        let commercialCountryId = country || '';
-        let commercialProvinceId = province || '';
-        if (viewerAuth?.user) {
-          const { data: viewerProfile } = await supabase.from('profiles')
-            .select('country_id,province_id').eq('id', viewerAuth.user.id).maybeSingle();
-          commercialCountryId = viewerProfile?.country_id || commercialCountryId;
-          commercialProvinceId = viewerProfile?.province_id || commercialProvinceId;
-          if (!commercialCountryId || !commercialProvinceId) {
-            const { data: creatorSync, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
-            if (!syncError && creatorSync?.ok) {
-              commercialCountryId = creatorSync.country_id || commercialCountryId;
-              commercialProvinceId = creatorSync.province_id || commercialProvinceId;
-            }
+        const { data: creatorMetadataProfile } = await supabase.from('profiles')
+          .select('country_id,province_id').eq('id', viewerAuth.user.id).maybeSingle();
+        if (!creatorMetadataProfile?.country_id || !creatorMetadataProfile?.province_id) {
+          const { data: syncData, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
+          if (!syncError && syncData?.ok) {
+            creatorMetadataProfile = syncData;
           }
         }
+        let commercialCountryId = creatorMetadataProfile?.country_id || country || '';
+        let commercialProvinceId = creatorMetadataProfile?.province_id || province || '';
         if (commercialCountryId && businessData.country_id !== commercialCountryId) {
           throw new Error('Este negócio pertence a outro país e não está disponível na Talaza Comercial do teu país.');
         }
