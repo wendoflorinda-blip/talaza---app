@@ -241,11 +241,12 @@ export default function Subcategory() {
           .select('country_id,province_id').eq('id',viewerAuth.user.id).maybeSingle();
         commercialCountry = viewerProfile?.country_id || commercialCountry;
         commercialProvince = province || viewerProfile?.province_id || commercialProvince;
-        if (!commercialCountry || !commercialProvince) {
+        if (!commercialCountry || !viewerProfile?.province_id) {
           const { data: creatorSync, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
           if (!syncError && creatorSync?.ok) {
             commercialCountry = creatorSync.country_id || commercialCountry;
-            commercialProvince = creatorSync.province_id || commercialProvince;
+            // Só usar província sincronizada como fallback; nunca sobrepor seleção explícita da rota.
+            commercialProvince = province || creatorSync.province_id || commercialProvince;
           }
         }
         if (!commercialCountry || !commercialProvince) throw new Error('O país e a província do teu perfil ainda não estão definidos.');
