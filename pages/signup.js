@@ -597,6 +597,21 @@ export default function Signup() {
     }
   }
 
+  if (authChecking) {
+    return (
+      <AuthShell backHref="/start">
+        <Head><title>A verificar sessão | Talaza</title></Head>
+        <div role="status" aria-label="A verificar sessão" style={{minHeight:220,display:'grid',placeItems:'center',color:C.green}}>
+          <div style={{display:'grid',justifyItems:'center',gap:12}}>
+            <div style={{width:34,height:34,border:'3px solid #DDE8E3',borderTopColor:C.green,borderRadius:'50%',animation:'talaza-auth-spin 0.8s linear infinite'}}/>
+            <span style={{fontSize:14,fontWeight:700}}>A verificar a tua sessão…</span>
+          </div>
+          <style jsx>{`@keyframes talaza-auth-spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </AuthShell>
+    );
+  }
+
   if (blockedCountry) {
     return (
       <AuthShell backHref={sessionUser ? '/login' : '/start'}>
