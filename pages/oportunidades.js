@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
+import { hasCommercialName, CommercialNameDialog } from '../lib/commercialNameGuard';
 import { getTalazaSessionLocation } from '../lib/talazaLocation';
 import ExpandableImage from '../components/ExpandableImage';
 
@@ -94,6 +95,7 @@ export default function Oportunidades() {
   const router = useRouter();
 
   const [activeLocation, setActiveLocation] = useState({ country: '', countryId: '', province: '', provinceId: '' });
+  const [nameGateOpen,setNameGateOpen] = useState(false);
   const [locationResolved, setLocationResolved] = useState(false);
   const country = String(activeLocation.countryId || '').trim();
   const province = String(activeLocation.provinceId || '').trim();
@@ -430,7 +432,9 @@ export default function Oportunidades() {
   }
 
 
-  function goToPlan() {
+  async function goToPlan() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     if (!country || !province) {
       setError('Volta ao Menu, escolhe a província e tenta novamente.');
       return;
@@ -467,6 +471,8 @@ export default function Oportunidades() {
   }
 
   return (
+    <>
+    <CommercialNameDialog open={nameGateOpen} onClose={()=>setNameGateOpen(false)} onConfigure={()=>router.push('/perfil?tab=dados')} />
     <main style={styles.page}>
       <div style={styles.container}>
         <header style={styles.header}>
@@ -818,6 +824,7 @@ export default function Oportunidades() {
         )}
       </div>
     </main>
+    </>
   );
 }
 
