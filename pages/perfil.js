@@ -114,11 +114,22 @@ export default function Perfil() {
       const { data: ownedBusiness, error: ownedBusinessError } = await supabase.from('businesses').select('id').eq('owner_id', current.id).limit(1).maybeSingle();
       if (ownedBusinessError) console.warn('Não foi possível verificar o negócio associado:', ownedBusinessError);
       setHasBusiness(Boolean(ownedBusiness?.id));
-      setFullName(data?.commercial_display_name || data?.name || data?.full_name || current.user_metadata?.full_name || current.user_metadata?.name || '');
       setPhoto(current.user_metadata?.avatar_url || current.user_metadata?.picture || '');
 
-      const { data, error: profileError } = await supabase.from('profiles').select('*').eq('id', current.id).maybeSingle();
+      let { data, error: profileError } = await supabase.from('profiles').select('*').eq('id', current.id).maybeSingle();
       if (profileError) throw profileError;
+      if (!data && (current.user_metadata?.media_account_type === 'creator' || current.user_metadata?.media_creator_onboarding === true)) {
+        const { data: synced, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
+        if (syncError) console.warn('Sincronização inicial Comercial não concluída:', syncError);
+        else if (synced?.ok) {
+          const refreshed = await supabase.from('profiles').select('*').eq('id', current.id).maybeSingle();
+          if (refreshed.error) throw refreshed.error;
+          data = refreshed.data;
+        }
+      }
+      const mediaMeta = current.user_metadata || {};
+      const resolvedName = data?.commercial_display_name || data?.name || data?.full_name || mediaMeta.media_display_name || mediaMeta.full_name || mediaMeta.name || '';
+      setFullName(resolvedName);
       setProfile(data || null);
       setShowEmail(data?.show_email === true);
       try {
@@ -222,9 +233,9 @@ export default function Perfil() {
         setLoadingSections(false);
       }
       if (data) {
-        setFullName(data.commercial_display_name || data.name || data.full_name || current.user_metadata?.full_name || current.user_metadata?.name || '');
-        setProvinceId(data.province_id || '');
-        setPhone(String(data.phone || data.contact || data.whatsapp || ''));
+        setFullName(data.commercial_display_name || data.name || data.full_name || mediaMeta.media_display_name || mediaMeta.full_name || mediaMeta.name || '');
+        setProvinceId(data.province_id || mediaMeta.media_province_id || '');
+        setPhone(String(data.phone || data.contact || data.whatsapp || mediaMeta.media_phone || mediaMeta.phone || ''));
         setPhoto(data.avatar_url || data.photo_url || data.photo || current.user_metadata?.avatar_url || current.user_metadata?.picture || '');
         if (data.country_id) {
           const { data: provinceRows, error: provinceError } = await supabase.from('provinces').select('id,name,country_id').eq('country_id', data.country_id).order('name');
