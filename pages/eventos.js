@@ -169,9 +169,15 @@ export default function Eventos() {
         const currentUser = sessionData?.session?.user || null;
         if (cancelled) return;
         setUser(currentUser);
+        if (currentUser && (currentUser.user_metadata?.media_account_type === 'creator' || currentUser.user_metadata?.media_creator_onboarding === true)) {
+          const { data: sync } = await supabase.rpc('sync_media_creator_commercial_profile');
+          if (sync?.ok) {
+            const { data: syncedProfile } = await supabase.from('profiles').select('name,province_id,country_id').eq('id',currentUser.id).maybeSingle();
+          }
+        }
         if (currentUser) {
           const { data: personProfile } = await supabase.from('profiles').select('name').eq('id', currentUser.id).maybeSingle();
-          setPublisherPersonName(personProfile?.name || 'Explorador');
+          setPublisherPersonName(personProfile?.name || currentUser.user_metadata?.media_display_name || currentUser.user_metadata?.talaza_pending_creator?.name || 'Explorador');
           const { data: ownedBusinesses, error: ownedBusinessesError } = await supabase.from('businesses')
             .select('id,name,logo_url').eq('owner_id', currentUser.id).order('created_at', { ascending: true });
           if (ownedBusinessesError) throw ownedBusinessesError;
