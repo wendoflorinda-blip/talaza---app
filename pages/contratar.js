@@ -2,6 +2,7 @@ import { Component, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
+import { hasCommercialName, CommercialNameDialog } from '../lib/commercialNameGuard';
 
 const COLORS = {
   canvas: '#F8F6F3',
@@ -133,6 +134,7 @@ function ContratarContent() {
   const [selectedImage, setSelectedImage] = useState(null);
 
   const [loading, setLoading] = useState(false);
+  const [nameGateOpen,setNameGateOpen] = useState(false);
   const [loadingUser, setLoadingUser] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -296,6 +298,7 @@ function ContratarContent() {
   async function publishOpportunity(event) {
     event.preventDefault();
 
+    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     setError('');
     setMessage('');
 
@@ -445,6 +448,8 @@ function ContratarContent() {
   }
 
   return (
+    <>
+    <CommercialNameDialog open={nameGateOpen} onClose={()=>setNameGateOpen(false)} onConfigure={()=>router.push('/perfil?tab=dados')} />
     <main style={styles.page}>
       <div style={styles.container}>
         <header style={styles.header}>
@@ -795,6 +800,7 @@ function ContratarContent() {
         )}
       </div>
     </main>
+    </>
   );
 }
 
