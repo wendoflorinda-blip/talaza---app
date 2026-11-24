@@ -1395,7 +1395,7 @@ export default function Seller() {
           )}
           {loading ? (
             <div role="status" style={{marginTop:18,display:'inline-flex',alignItems:'center',gap:9,color:'#526A62',fontSize:13}}><span style={{width:16,height:16,border:'2px solid #D7E4DE',borderTopColor:'#0B6956',borderRadius:'50%',animation:'talaza-hosting-spin 0.8s linear infinite'}}/><span>A verificar a Hospedagem…</span><style jsx>{`@keyframes talaza-hosting-spin { to { transform: rotate(360deg); } }`}</style></div>
-          ) : ({profileHostingActive ? (
+          ) : (profileHostingActive ? (
             <section style={{display:'grid',gap:5,marginTop:18,padding:'13px 16px',borderRadius:14,background:'#E6F5EC',border:'1px solid #B7DCC4',color:'#17643B'}}>
               <strong style={{fontSize:14}}>Perfil Ativo - {hostingRemainingDays} dias restantes</strong>
               <span style={{fontSize:12}}>Data de fim da Hospedagem: {hostingExpiry?.toLocaleDateString('pt-AO',{timeZone:'Africa/Luanda'})}</span>
