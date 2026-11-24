@@ -18,6 +18,7 @@ export default function BusinessPublicProfile() {
   const { id, country, province } = router.query;
   const [business, setBusiness] = useState(null);
   const [mainImages, setMainImages] = useState([]);
+  const [businessUpdates, setBusinessUpdates] = useState([]);
   const [isSavedGraceProfile, setIsSavedGraceProfile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -98,6 +99,16 @@ export default function BusinessPublicProfile() {
         const allImages = imageData || [];
         setBusiness(businessData);
         setMainImages(allImages.filter((image) => image.kind === 'main').sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0)).slice(0, 3));
+        const { data: approvedUpdates, error: approvedUpdatesError } = await supabase.from('business_updates')
+          .select('id,title,content,media_path,media_type,created_at,expires_at')
+          .eq('business_id',businessData.id).eq('approval_status','approved').gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false});
+        if (!approvedUpdatesError && !cancelled) {
+          const signedRows = await Promise.all((approvedUpdates || []).map(async update => {
+            const { data: signed, error: signedError } = await supabase.storage.from('business-updates').createSignedUrl(update.media_path,3600);
+            return signedError ? null : {...update,signedUrl:signed?.signedUrl};
+          }));
+          if (!cancelled) setBusinessUpdates(signedRows.filter(Boolean));
+        }
       } catch (err) {
         console.error('Erro ao carregar perfil público do negócio:', err);
         if (!cancelled) setError(err?.message || 'Não foi possível carregar este perfil.');
@@ -258,7 +269,16 @@ export default function BusinessPublicProfile() {
               </div>
               {!business.whatsapp && !business.phone && !business.email && !addressLine && !business.opening_hours && <p className="muted">O vendedor ainda não adicionou os contactos e a localização.</p>}
             </section>
-            {copyToast && <div className="copyToast" role="status" aria-live="polite">{copyToast}</div>}
+            {businessUpdates.length>0 && <section className="detailsCard businessNews">
+              <h2>Novidades</h2>
+              <div className="newsGrid">{businessUpdates.map(update=><article key={update.id} className="newsCard">
+                {update.signedUrl && <img src={update.signedUrl} alt={update.title||'Foto da Novidade'} />}
+                {update.title && <h3>{update.title}</h3>}
+                {update.content && <p>{update.content}</p>}
+                <small>Publicado em {new Date(update.created_at).toLocaleDateString('pt-PT')}</small>
+              </article>)}</div>
+            </section>}
+            {copyToast && <div className="copyToast" role="status" aria-live="polite">{copyToast}</div>
 
             <p className="publicNotice">Este é o perfil público do negócio. As alterações só podem ser feitas pelo vendedor no seu painel.</p>
           </div>
@@ -294,6 +314,7 @@ export default function BusinessPublicProfile() {
         .copyToast{position:fixed;z-index:1000;left:50%;bottom:26px;transform:translateX(-50%);padding:12px 18px;border-radius:999px;background:#0A0A0A;color:#fff;border:1px solid #D5A900;box-shadow:0 8px 24px rgba(0,0,0,.22);font-size:13px;font-weight:800;white-space:nowrap}
         .detailsCard{padding:20px;background:#FFFFFF}
         h2{font-size:20px;margin:0 0 15px}
+        .businessNews{padding:18px}.newsGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.newsCard{overflow:hidden;border:1px solid #E3EAE6;border-radius:13px;padding:12px}.newsCard img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:9px}.newsCard h3{font-size:17px;line-height:1.3;margin:10px 0 6px}.newsCard p{font-size:13px;line-height:1.5;color:#53635D;white-space:pre-wrap}.newsCard small{font-size:11px;color:#718078}
         .detailsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
         .detail{display:flex;align-items:center;gap:12px;min-width:0;padding:13px 14px;border:1px solid #E5E7EB;border-radius:16px;background:#FFFFFF}
         .detail>div{display:grid;gap:4px;min-width:0;flex:1}
