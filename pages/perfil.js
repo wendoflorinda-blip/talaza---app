@@ -128,7 +128,7 @@ export default function Perfil() {
           data = refreshed.data;
         }
       }
-      if (!data && (current.user_metadata?.media_account_type === 'creator' || current.user_metadata?.media_creator_onboarding === true)) {
+      if (current.user_metadata?.media_account_type === 'creator' || current.user_metadata?.media_creator_onboarding === true) {
         const { data: synced, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
         if (syncError) console.warn('Sincronização inicial Comercial não concluída:', syncError);
         else if (synced?.ok) {
