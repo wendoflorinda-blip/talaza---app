@@ -40,7 +40,7 @@ export default function Start() {
           </Link>
           <Link href="/signup" style={card}>
             <div style={{ width: 48, height: 48, borderRadius: 14, background: '#075B4E', color: '#FFFFFF', display: 'grid', placeItems: 'center', fontSize: 22, marginBottom: 16 }}>🔎</div>
-            <h2 style={{ margin: '0 0 8px, color: '#075B4E', fontSize: 20 }}>Explorador Talaza</h2>
+            <h2 style={{ margin: '0 0 8px', color: '#075B4E', fontSize: 20 }}>Explorador Talaza</h2>
             <p style={{ margin: 0, color: '#66736F', lineHeight: 1.55, fontSize: 13 }}>Só para ver e comprar.</p>
             <div style={{ marginTop: 18, color: '#B88300', fontWeight: 800, fontSize: 13 }}>Criar conta de explorador →</div>
           </Link>
