@@ -114,7 +114,7 @@ export default function Perfil() {
       const { data: ownedBusiness, error: ownedBusinessError } = await supabase.from('businesses').select('id').eq('owner_id', current.id).limit(1).maybeSingle();
       if (ownedBusinessError) console.warn('Não foi possível verificar o negócio associado:', ownedBusinessError);
       setHasBusiness(Boolean(ownedBusiness?.id));
-      setFullName(current.user_metadata?.full_name || current.user_metadata?.name || '');
+      setFullName(data?.commercial_display_name || data?.name || data?.full_name || current.user_metadata?.full_name || current.user_metadata?.name || '');
       setPhoto(current.user_metadata?.avatar_url || current.user_metadata?.picture || '');
 
       const { data, error: profileError } = await supabase.from('profiles').select('*').eq('id', current.id).maybeSingle();
@@ -222,7 +222,7 @@ export default function Perfil() {
         setLoadingSections(false);
       }
       if (data) {
-        setFullName(data.name || data.full_name || current.user_metadata?.full_name || current.user_metadata?.name || '');
+        setFullName(data.commercial_display_name || data.name || data.full_name || current.user_metadata?.full_name || current.user_metadata?.name || '');
         setProvinceId(data.province_id || '');
         setPhone(String(data.phone || data.contact || data.whatsapp || ''));
         setPhoto(data.avatar_url || data.photo_url || data.photo || current.user_metadata?.avatar_url || current.user_metadata?.picture || '');
@@ -401,6 +401,7 @@ export default function Perfil() {
       const updates = {};
       if (profile && Object.prototype.hasOwnProperty.call(profile, 'name')) updates.name = fullName.trim();
       else if (profile && Object.prototype.hasOwnProperty.call(profile, 'full_name')) updates.full_name = fullName.trim();
+      if (profile) updates.commercial_display_name = fullName.trim();
       if (profile && Object.prototype.hasOwnProperty.call(profile, 'phone')) updates.phone = phone.trim();
       else if (profile && Object.prototype.hasOwnProperty.call(profile, 'contact')) updates.contact = phone.trim();
       else if (profile && Object.prototype.hasOwnProperty.call(profile, 'whatsapp')) updates.whatsapp = phone.trim();
