@@ -390,8 +390,9 @@ export default function Perfil() {
       let photoUrl = photo;
 
       if (file) {
+        const compressedPhoto = await prepareImage(file, { max:900, quality:0.82 });
         const path = user.id + '.jpg';
-        const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type });
+        const { error: uploadError } = await supabase.storage.from('avatars').upload(path, compressedPhoto, { upsert: true, contentType: 'image/jpeg' });
         if (uploadError) throw new Error('Não foi possível enviar a fotografia. Tenta de novo.');
         const { data } = supabase.storage.from('avatars').getPublicUrl(path);
         photoUrl = data?.publicUrl || '';
