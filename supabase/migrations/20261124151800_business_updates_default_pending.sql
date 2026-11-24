@@ -1,0 +1,1 @@
+ALTER TABLE public.business_updates ALTER COLUMN approval_status SET DEFAULT 'pending';
