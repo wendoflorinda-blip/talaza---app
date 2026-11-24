@@ -213,10 +213,17 @@ export default function Mensagens() {
       if (authError || !currentUser) { router.replace('/login?redirect=' + encodeURIComponent(router.asPath || '/mensagens')); return; }
       if (cancelled) return;
       setUser(currentUser);
-      const { data:currentProfile, error:profileError } = await supabase.from('profiles')
+      let { data:currentProfile, error:profileError } = await supabase.from('profiles')
         .select('*')
         .eq('id',currentUser.id).maybeSingle();
       if (profileError) { console.error('Falha ao consultar o perfil nas mensagens:', profileError); setProfile(null); setNotice('Não foi possível confirmar os dados do teu perfil. Tenta de novo.'); }
+      if (currentUser.user_metadata?.media_account_type === 'creator' || currentUser.user_metadata?.media_creator_onboarding === true) {
+        const { data: sync, error:syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
+        if (!syncError && sync?.ok) {
+          const refreshed = await supabase.from('profiles').select('*').eq('id',currentUser.id).maybeSingle();
+          if (!refreshed.error) currentProfile = refreshed.data;
+        }
+      }
       setProfile(currentProfile || null);
       let rows = [];
       try { rows = await loadConversations(currentUser); }
