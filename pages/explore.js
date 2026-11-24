@@ -393,8 +393,7 @@ export default function Explore() {
   useEffect(() => {
     if (!router.isReady) return;
 
-    // Sem IDs de localização, a Vitrine continua acessível.
-    // A listagem de negócios só é consultada quando há país e província.
+    // Comercial: não carrega negócios sem país e província fixos da conta.
     if (!country || !province) {
       setBusinesses([]);
       setBusinessError('');
