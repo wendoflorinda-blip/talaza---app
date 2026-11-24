@@ -190,8 +190,35 @@ export default function Explore() {
   const router = useRouter();
 
   const [activeLocation, setActiveLocation] = useState({ country: '', countryId: '', province: '', provinceId: '' });
-  const country = activeLocation.countryId || safeValue(router.query.country) || '';
-  const province = activeLocation.provinceId || safeValue(router.query.province) || '';
+  const [lockedCommercialLocation, setLockedCommercialLocation] = useState(null);
+  const country = lockedCommercialLocation?.countryId || activeLocation.countryId || safeValue(router.query.country) || '';
+  const province = lockedCommercialLocation?.provinceId || activeLocation.provinceId || safeValue(router.query.province) || '';
+
+  useEffect(() => {
+    let cancelled = false;
+    async function lockCommercialLocation() {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData?.user || cancelled) return;
+      const { data: profile } = await supabase.from('profiles')
+        .select('country_id,province_id').eq('id', authData.user.id).maybeSingle();
+      if (cancelled || !profile?.country_id || !profile?.province_id) return;
+      const [{ data: countryRow }, { data: provinceRow }] = await Promise.all([
+        supabase.from('countries').select('id,name').eq('id',profile.country_id).maybeSingle(),
+        supabase.from('provinces').select('id,name,country_id').eq('id',profile.province_id).eq('country_id',profile.country_id).maybeSingle(),
+      ]);
+      if (cancelled || !provinceRow?.id) return;
+      const fixed = {country:countryRow?.name||'',countryId:profile.country_id,province:provinceRow.name||'',provinceId:provinceRow.id};
+      setLockedCommercialLocation(fixed);
+      setActiveLocation(fixed);
+      setTalazaLocation(fixed);
+      const queryCountry=safeValue(router.query.country), queryProvince=safeValue(router.query.province);
+      if (queryCountry!==fixed.countryId || queryProvince!==fixed.provinceId || safeValue(router.query.homeCountry)!==fixed.countryId || safeValue(router.query.homeProvince)!==fixed.provinceId) {
+        await router.replace({pathname:'/explore',query:{country:fixed.countryId,province:fixed.provinceId,homeCountry:fixed.countryId,homeProvince:fixed.provinceId}},undefined,{shallow:true});
+      }
+    }
+    if (router.isReady) lockCommercialLocation();
+    return ()=>{cancelled=true;};
+  },[router.isReady]);
 
   useEffect(() => {
     if (!router.isReady) return;
