@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 import CommentThread from '../components/CommentThread';
+import { hasCommercialName, CommercialNameDialog } from '../lib/commercialNameGuard';
 
 const C = {
   green: '#0F6E5C',
@@ -128,6 +129,7 @@ export default function Comunidade() {
   const [imageFile, setImageFile] = useState(null);
   const [extras, setExtras] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
+  const [nameGateOpen,setNameGateOpen] = useState(false);
   const [openComments, setOpenComments] = useState({});
   const [officialContent, setOfficialContent] = useState([]);
   const [officialLoading, setOfficialLoading] = useState(false);
@@ -447,6 +449,7 @@ export default function Comunidade() {
   async function publishPost(event) {
     event.preventDefault();
     setMessage('');
+    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
 
     if (!user) {
       const next = `/comunidade?country=${encodeURIComponent(
@@ -563,6 +566,7 @@ export default function Comunidade() {
   }
 
   async function toggleLike(post) {
+    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     if (!user) {
       router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
       return;
@@ -611,6 +615,7 @@ export default function Comunidade() {
   }
 
   async function toggleFavorite(post) {
+    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     if (!user) {
       router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
       return;
@@ -655,6 +660,7 @@ export default function Comunidade() {
   }
 
   async function submitComment(post) {
+    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     if (!user) {
       router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
       return;
@@ -724,6 +730,7 @@ export default function Comunidade() {
   }
 
   async function toggleOfficialLike(item, kind) {
+    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     if (!user) { router.push('/login?redirect=' + encodeURIComponent(router.asPath)); return; }
     const state = officialInteractions[item.id] || {};
     if (state.liked) {
@@ -738,6 +745,7 @@ export default function Comunidade() {
   }
 
   async function submitOfficialComment(item, kind) {
+    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     if (!user) { router.push('/login?redirect=' + encodeURIComponent(router.asPath)); return; }
     const draft = (officialCommentDrafts[item.id] || '').trim();
     if (draft.length < 2) { setMessage('Escreva um comentário com pelo menos 2 caracteres.'); return; }
@@ -783,6 +791,8 @@ export default function Comunidade() {
   };
 
   return (
+    <>
+    <CommercialNameDialog open={nameGateOpen} onClose={()=>setNameGateOpen(false)} onConfigure={()=>router.push('/perfil?tab=dados')} />
     <main
       style={{
         minHeight: '100vh',
@@ -1771,5 +1781,6 @@ export default function Comunidade() {
         </footer>
       </div>
     </main>
+    </>
   );
 }
