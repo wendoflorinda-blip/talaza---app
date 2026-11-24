@@ -1215,10 +1215,10 @@ export default function Seller() {
     return (
       <div role="status" aria-label="A carregar painel do negócio" style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#F5F7F6',color:'#075B4E',fontFamily:'inherit'}}>
         <div style={{display:'grid',justifyItems:'center',gap:12}}>
-          <div style={{width:34,height:34,border:'3px solid #DDE8E3',borderTopColor:'#075B4E',borderRadius:'50%',animation:'talaza-seller-spin 0.8s linear infinite'}} />
+          <div style={{width:34,height:34,border:'3px solid #DDE8E3',borderTopColor:'#075B4E',borderRadius:'50%',animation:'none'}} />
           <span style={{fontSize:14,fontWeight:700}}>A carregar painel do negócio…</span>
         </div>
-        <style jsx>{`@keyframes talaza-seller-spin { to { transform: rotate(360deg); } }`}</style>
+        
       </div>
     );
   }
@@ -1394,7 +1394,7 @@ export default function Seller() {
             <Link href={{ pathname: '/seller-reenvio', query: { business: business.id } }} style={{ display:'inline-flex', alignItems:'center', marginTop:18, padding:'10px 14px', borderRadius:999, background:'#FCEBED', color:'#A52F3B', border:'1px solid #E9B8BE', fontSize:12, fontWeight:900, cursor:'pointer', textDecoration:'none' }}>Perfil criado · validação recusada →</Link>
           )}
           {loading ? (
-            <div role="status" style={{marginTop:18,display:'inline-flex',alignItems:'center',gap:9,color:'#526A62',fontSize:13}}><span style={{width:16,height:16,border:'2px solid #D7E4DE',borderTopColor:'#0B6956',borderRadius:'50%',animation:'talaza-hosting-spin 0.8s linear infinite'}}/><span>A verificar a Hospedagem…</span><style jsx>{`@keyframes talaza-hosting-spin { to { transform: rotate(360deg); } }`}</style></div>
+            <div role="status" style={{marginTop:18,display:'inline-flex',alignItems:'center',gap:9,color:'#526A62',fontSize:13}}><span style={{width:16,height:16,border:'2px solid #D7E4DE',borderTopColor:'#0B6956',borderRadius:'50%',animation:'none'}}/><span>A verificar a Hospedagem…</span></div>
           ) : (profileHostingActive ? (
             <section style={{display:'grid',gap:5,marginTop:18,padding:'13px 16px',borderRadius:14,background:'#E6F5EC',border:'1px solid #B7DCC4',color:'#17643B'}}>
               <strong style={{fontSize:14}}>Perfil Ativo - {hostingRemainingDays} dias restantes</strong>
