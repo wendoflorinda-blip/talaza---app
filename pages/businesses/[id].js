@@ -71,7 +71,7 @@ export default function BusinessPublicProfile() {
         // A URL não pode ser usada para mudar o país de visualização.
         const { data: viewerAuth } = await supabase.auth.getUser();
         if (!viewerAuth?.user) throw new Error('Inicia sessão para consultar perfis na Talaza Comercial do teu país.');
-        const { data: creatorMetadataProfile } = await supabase.from('profiles')
+        let { data: creatorMetadataProfile } = await supabase.from('profiles')
           .select('country_id,province_id').eq('id', viewerAuth.user.id).maybeSingle();
         if (!creatorMetadataProfile?.country_id || !creatorMetadataProfile?.province_id) {
           const { data: syncData, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
@@ -82,7 +82,7 @@ export default function BusinessPublicProfile() {
         let commercialCountryId = creatorMetadataProfile?.country_id || country || '';
         let commercialProvinceId = creatorMetadataProfile?.province_id || province || '';
         if (commercialCountryId && businessData.country_id !== commercialCountryId) {
-          throw new Error('Este negócio pertence a outro país e não está disponível na Talaza Comercial do teu país.');
+          throw new Error('Não disponível no teu país');
         }
         if (commercialProvinceId && businessData.province_id !== commercialProvinceId) {
           throw new Error('Este negócio pertence a outra província.');
