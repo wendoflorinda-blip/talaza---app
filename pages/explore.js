@@ -224,52 +224,6 @@ export default function Explore() {
     return ()=>{cancelled=true;};
   },[router.isReady]);
 
-  useEffect(() => {
-    if (!router.isReady) return;
-    let cancelled = false;
-    const restoreLocation = async () => {
-      const saved = getTalazaSessionLocation();
-      if (saved.countryId && saved.provinceId) {
-        setActiveLocation(saved);
-        return;
-      }
-      // Ao recarregar a Vitrine, a query representa a seleção de exploração
-      // desta navegação; nunca recuperar a antiga cache do localStorage.
-      const routeCountry = safeValue(router.query.country);
-      const routeProvince = safeValue(router.query.province);
-      if (routeCountry && routeProvince) {
-        const [{ data: countryRow }, { data: provinceRow }] = await Promise.all([
-          supabase.from('countries').select('id,name').eq('id', routeCountry).maybeSingle(),
-          supabase.from('provinces').select('id,name,country_id').eq('id', routeProvince).eq('country_id', routeCountry).maybeSingle(),
-        ]);
-        if (countryRow?.id && provinceRow?.id) {
-          const value = { country: countryRow.name || '', countryId: countryRow.id, province: provinceRow.name || '', provinceId: provinceRow.id };
-          setTalazaLocation(value);
-          setActiveLocation(value);
-          return;
-        }
-      }
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || cancelled) return;
-      const { data: profile } = await supabase.from('profiles')
-        .select('country_id,province_id').eq('id', user.id).maybeSingle();
-      if (cancelled) return;
-      if (profile?.country_id && profile?.province_id) {
-        const [{ data: countryRow }, { data: provinceRow }] = await Promise.all([
-          supabase.from('countries').select('id,name').eq('id', profile.country_id).maybeSingle(),
-          supabase.from('provinces').select('id,name,country_id').eq('id', profile.province_id).eq('country_id', profile.country_id).maybeSingle(),
-        ]);
-        const value = { country: countryRow?.name || '', countryId: profile.country_id, province: provinceRow?.name || '', provinceId: provinceRow?.id || profile.province_id };
-        setTalazaLocation(value);
-        setActiveLocation(value);
-      } else {
-        setActiveLocation({ country: '', countryId: '', province: '', provinceId: '' });
-      }
-    };
-    restoreLocation();
-    window.addEventListener('talaza:location-change', restoreLocation);
-    return () => { cancelled = true; window.removeEventListener('talaza:location-change', restoreLocation); };
-  }, [router.isReady, router.query.country, router.query.province]);
 
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
