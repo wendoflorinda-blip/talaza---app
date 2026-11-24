@@ -8,6 +8,7 @@ const panel = { width: '100%', maxWidth: 900, margin: '0 auto', padding: '28px 1
 const field = { width: '100%', boxSizing: 'border-box', border: '1px solid #D8E2DC', borderRadius: 10, padding: 12, font: 'inherit' };
 
 export default function AdminPublicStore({ slug }) {
+  const router = useRouter();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
