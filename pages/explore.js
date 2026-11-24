@@ -199,32 +199,25 @@ export default function Explore() {
     async function lockCommercialLocation() {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData?.user || cancelled) return;
-      let { data: profile } = await supabase.from('profiles')
-        .select('country_id,province_id').eq('id', authData.user.id).maybeSingle();
+      let { data: profile } = await supabase.from('profiles').select('country_id,province_id').eq('id',authData.user.id).maybeSingle();
       if (!profile?.country_id || !profile?.province_id) {
         const { data: synced, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
-        if (!syncError && synced?.ok) profile = { country_id: synced.country_id, province_id: synced.province_id };
+        if (!syncError && synced?.ok) profile = { country_id:synced.country_id, province_id:synced.province_id };
       }
       if (cancelled || !profile?.country_id || !profile?.province_id) return;
-      const [{ data: countryRow }, { data: provinceRow }] = await Promise.all([
+      const [{data: countryRow},{data: provinceRow}] = await Promise.all([
         supabase.from('countries').select('id,name').eq('id',profile.country_id).maybeSingle(),
-        supabase.from('provinces').select('id,name,country_id').eq('id',profile.province_id).eq('country_id',profile.country_id).maybeSingle(),
+        supabase.from('provinces').select('id,name,country_id').eq('id',profile.province_id).eq('country_id',profile.country_id).maybeSingle()
       ]);
       if (cancelled || !provinceRow?.id) return;
-      const fixed = {country:countryRow?.name||'',countryId:profile.country_id,province:provinceRow.name||'',provinceId:provinceRow.id};
-      setLockedCommercialLocation(fixed);
-      setActiveLocation(fixed);
-      setTalazaLocation(fixed);
-      const queryCountry=safeValue(router.query.country), queryProvince=safeValue(router.query.province);
-      if (queryCountry!==fixed.countryId || queryProvince!==fixed.provinceId || safeValue(router.query.homeCountry)!==fixed.countryId || safeValue(router.query.homeProvince)!==fixed.provinceId) {
-        router.replace({pathname:'/explore',query:{country:fixed.countryId,province:fixed.provinceId,homeCountry:fixed.countryId,homeProvince:fixed.provinceId}},undefined,{shallow:true});
-      }
+      const fixed={country:countryRow?.name||'',countryId:profile.country_id,province:provinceRow.name||'',provinceId:provinceRow.id};
+      setLockedCommercialLocation(fixed); setActiveLocation(fixed); setTalazaLocation(fixed);
+      const qc=safeValue(router.query.country), qp=safeValue(router.query.province), qhc=safeValue(router.query.homeCountry), qhp=safeValue(router.query.homeProvince);
+      if(qc!==fixed.countryId||qp!==fixed.provinceId||qhc!==fixed.countryId||qhp!==fixed.provinceId) router.replace({pathname:'/explore',query:{country:fixed.countryId,province:fixed.provinceId,homeCountry:fixed.countryId,homeProvince:fixed.provinceId}},undefined,{shallow:true});
     }
-    if (router.isReady) lockCommercialLocation();
+    if(router.isReady) lockCommercialLocation();
     return ()=>{cancelled=true;};
   },[router.isReady]);
-
-
   const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
   const [categories, setCategories] = useState([]);
