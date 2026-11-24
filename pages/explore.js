@@ -414,9 +414,17 @@ export default function Explore() {
         if (businessResult.error) throw businessResult.error;
         const businessById = Object.fromEntries((businessResult.data||[]).map(item=>[item.id,item]));
         const planById = Object.fromEntries((planResult.data||[]).map(item=>[item.id,item]));
+        const {data:destinationRows,error:destinationError}=businessIds.length
+          ? await supabase.from('premium_promotion_provinces').select('promotion_id,province_id,country_id').in('promotion_id',promotionRows.map(item=>item.id))
+          : {data:[],error:null};
+        if(destinationError) console.warn('Não foi possível carregar destinos Premium da Vitrine:',destinationError);
+        const destinationsByPromotion={};
+        (destinationRows||[]).forEach(row=>{(destinationsByPromotion[row.promotion_id] ||= []).push(String(row.province_id));});
         const visible = promotionRows.filter(item => {
           const b=businessById[item.business_id];
-          return b && String(b.country_id)===String(country) && String(b.province_id)===String(province);
+          const destinations=destinationsByPromotion[item.id]||[];
+          const provinceAllowed=destinations.length ? destinations.includes(String(province)) : String(b?.province_id)===String(province);
+          return b && String(b.country_id)===String(country) && provinceAllowed;
         }).map(item=>({...item,business:businessById[item.business_id],duration_days:planById[item.plan_id]?.duration_days||0}));
         if (cancelled) return;
         setPremiumPromotions(visible);
