@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import ProductsView from '../components/ProductsView';
+import { supabase } from '../lib/supabaseClient';
+import { hasCommercialName, CommercialNameDialog } from '../lib/commercialNameGuard';
 
 const panel = { width: '100%', maxWidth: 900, margin: '0 auto', padding: '28px 16px 60px', boxSizing: 'border-box' };
 const field = { width: '100%', boxSizing: 'border-box', border: '1px solid #D8E2DC', borderRadius: 10, padding: 12, font: 'inherit' };
@@ -15,6 +17,7 @@ export default function AdminPublicStore({ slug }) {
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState('');
   const [inactiveMessage, setInactiveMessage] = useState('');
+  const [nameGateOpen,setNameGateOpen] = useState(false);
 
   useEffect(() => {
     if (slug === undefined) return;
@@ -33,6 +36,9 @@ export default function AdminPublicStore({ slug }) {
 
   async function sendMessage(event) {
     event.preventDefault(); setSending(true); setError(''); setNotice('');
+    const {data:{user}}=await supabase.auth.getUser();
+    if (!user) { setSending(false); setError('Inicia sessão na Talaza para enviar mensagem.'); return; }
+    if (!(await hasCommercialName(supabase,user))) { setSending(false); setNameGateOpen(true); return; }
     try {
       const response = await fetch('/api/admin-store/public', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -47,6 +53,7 @@ export default function AdminPublicStore({ slug }) {
   }
 
   return <>
+    <CommercialNameDialog open={nameGateOpen} onClose={()=>setNameGateOpen(false)} onConfigure={()=>router.push('/perfil?tab=dados')} />
     <Head><title>{data?.store?.nome_da_loja || 'Loja do Administrador'} | Talaza</title><meta name="description" content={data?.store?.descricao || 'Loja oficial do Talaza'} /></Head>
     <main style={{ minHeight: '100vh', background: '#F4F8F5', color: '#173B35', fontFamily: 'Arial,sans-serif' }}>
       <header style={{ background: '#075B4E', color: '#fff', padding: '17px 20px' }}><div style={{ ...panel, padding: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><strong style={{ color: '#D4AF37', letterSpacing: 2 }}>TALAZA</strong><a href="/" style={{ color: '#fff' }}>Início</a></div></header>
