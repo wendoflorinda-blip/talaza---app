@@ -278,7 +278,7 @@ export default function BusinessPublicProfile() {
                 <small>Publicado em {new Date(update.created_at).toLocaleDateString('pt-PT')}</small>
               </article>)}</div>
             </section>}
-            {copyToast && <div className="copyToast" role="status" aria-live="polite">{copyToast}</div>
+            {copyToast && <div className="copyToast" role="status" aria-live="polite">{copyToast}</div>}
 
             <p className="publicNotice">Este é o perfil público do negócio. As alterações só podem ser feitas pelo vendedor no seu painel.</p>
           </div>
