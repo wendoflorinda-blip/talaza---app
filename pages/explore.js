@@ -202,7 +202,7 @@ export default function Explore() {
       let { data: profile } = await supabase.from('profiles').select('country_id,province_id').eq('id',authData.user.id).maybeSingle();
       if (!profile?.country_id || !profile?.province_id) {
         const { data: synced, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
-        if (!syncError && synced?.ok) profile = { country_id:synced.country_id, province_id:synced.province_id };
+        if (!syncError && synced?.ok) profile = {country_id:synced.country_id,province_id:synced.province_id};
       }
       if (cancelled || !profile?.country_id || !profile?.province_id) return;
       const [{data: countryRow},{data: provinceRow}] = await Promise.all([
@@ -212,8 +212,7 @@ export default function Explore() {
       if (cancelled || !provinceRow?.id) return;
       const fixed={country:countryRow?.name||'',countryId:profile.country_id,province:provinceRow.name||'',provinceId:provinceRow.id};
       setLockedCommercialLocation(fixed); setActiveLocation(fixed); setTalazaLocation(fixed);
-      const qc=safeValue(router.query.country), qp=safeValue(router.query.province), qhc=safeValue(router.query.homeCountry), qhp=safeValue(router.query.homeProvince);
-      if(qc!==fixed.countryId||qp!==fixed.provinceId||qhc!==fixed.countryId||qhp!==fixed.provinceId) router.replace({pathname:'/explore',query:{country:fixed.countryId,province:fixed.provinceId,homeCountry:fixed.countryId,homeProvince:fixed.provinceId}},undefined,{shallow:true});
+      router.replace({pathname:'/explore',query:{country:fixed.countryId,province:fixed.provinceId,homeCountry:fixed.countryId,homeProvince:fixed.provinceId}},undefined,{shallow:true});
     }
     if(router.isReady) lockCommercialLocation();
     return ()=>{cancelled=true;};
