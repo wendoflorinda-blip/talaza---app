@@ -73,6 +73,9 @@ export default function Admin() {
   const [emailChangeLoadError, setEmailChangeLoadError] = useState('');
   const [emailChangeBusyId, setEmailChangeBusyId] = useState('');
   const [events, setEvents] = useState([]);
+  const [pendingBusinessUpdates, setPendingBusinessUpdates] = useState([]);
+  const [reviewingBusinessUpdateId, setReviewingBusinessUpdateId] = useState('');
+  const [businessUpdateReviewError, setBusinessUpdateReviewError] = useState('');
   const [jobPosts, setJobPosts] = useState([]);
   const [jobReviewChecks, setJobReviewChecks] = useState({});
   const [officialKind, setOfficialKind] = useState('motivation');
@@ -723,6 +726,61 @@ export default function Admin() {
     const { data, error } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(200);
     if (error) { console.error('Erro ao carregar notificações administrativas:', error); setAdminNotifications([]); setMessage('Não foi possível carregar o histórico de notificações: ' + error.message); return; }
     setAdminNotifications(data || []);
+  }
+
+  async function loadPendingBusinessUpdates() {
+    const { data, error } = await supabase.from('business_updates')
+      .select('id,business_id,title,content,media_path,media_type,created_at,expires_at,approval_status,businesses(name)')
+      .eq('approval_status','pending').order('created_at',{ascending:true});
+    if (error) { console.error('Erro ao carregar Novidades pendentes:',error); setBusinessUpdateReviewError('Não foi possível carregar Novidades pendentes.'); return; }
+    const rows = await Promise.all((data || []).map(async item=>{
+      const { data: signed, error: signedError } = await supabase.storage.from('business-updates').createSignedUrl(item.media_path,3600);
+      return {...item,signedUrl:signedError?null:signed?.signedUrl};
+    }));
+    setPendingBusinessUpdates(rows);
+    setBusinessUpdateReviewError('');
+  }
+
+  async function reviewBusinessUpdate(item, approved) {
+    if (!item?.id || reviewingBusinessUpdateId) return;
+    setReviewingBusinessUpdateId(item.id); setBusinessUpdateReviewError('');
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      const adminId = authData?.user?.id;
+      if (authError || !adminId) throw new Error('Sessão da Administração expirou.');
+      const { data: current, error: currentError } = await supabase.from('business_updates')
+        .select('id,business_id,title,content,approval_status')
+        .eq('id',item.id).maybeSingle();
+      if (currentError || !current) throw new Error('Não foi possível confirmar a Novidade.');
+      if (current.approval_status !== 'pending') throw new Error('Esta Novidade já foi analisada.');
+      const status = approved ? 'approved' : 'rejected';
+      const { error: updateError } = await supabase.from('business_updates')
+        .update({approval_status:status,reviewed_at:new Date().toISOString(),reviewed_by:adminId})
+        .eq('id',item.id).eq('approval_status','pending');
+      if (updateError) throw updateError;
+      if (approved) {
+        const { data: savedRows, error: savedError } = await supabase.from('saved_businesses')
+          .select('user_id').eq('business_id',item.business_id);
+        if (savedError) throw savedError;
+        const recipientIds=[...new Set((savedRows||[]).map(row=>row.user_id).filter(id=>id && id!==adminId))];
+        const { data: sentMarker } = await supabase.from('business_update_notifications_sent')
+          .select('business_update_id').eq('business_update_id',item.id).maybeSingle();
+        if (!sentMarker && recipientIds.length) {
+          const businessName=item.businesses?.name || 'Um negócio que guardou';
+          const rows=recipientIds.map(userId=>({user_id:userId,type:'business_update',title:businessName+' publicou uma Novidade',content:businessName+' publicou uma Novidade. Veja no seu painel de Guardados.',audience:'explorer',link:'/perfil?tab=novidades',reference_id:item.id}));
+          const { error: notificationError } = await supabase.from('notifications').insert(rows);
+          if (notificationError) throw notificationError;
+        }
+        if (!sentMarker) {
+          const { error: markerError } = await supabase.from('business_update_notifications_sent').insert({business_update_id:item.id});
+          if (markerError) throw markerError;
+        }
+      }
+      await loadPendingBusinessUpdates();
+    } catch (err) {
+      console.error('Falha ao analisar Novidade:',err);
+      setBusinessUpdateReviewError(err.message || 'Não foi possível concluir a análise.');
+    } finally { setReviewingBusinessUpdateId(''); }
   }
 
   async function loadEvents() {
@@ -1543,6 +1601,7 @@ export default function Admin() {
       loadGirassolReactivations(),
       loadCommunityReports(),
       loadPendingCommunityPosts(),
+      loadPendingBusinessUpdates(),
       loadSupportMessages(),
       loadAdminNotifications(),
       loadProfiles(),
@@ -1654,6 +1713,7 @@ export default function Admin() {
           <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'wrap', overflow: 'visible', gap: 10, margin: '0 -4px 10px', padding: '8px 4px 14px' }}>
             {[
               ['vendedores', 'Vendedores', pendingBusinessCount],
+              ['novidades-pendentes', 'Novidades Pendentes', pendingBusinessUpdates.length],
               ['gestao-perfis', 'Gestão de Perfis', 0], ['vistos-admin', 'Vistos', 0],
               ['trocas-email', 'Trocas de e-mail pendentes', emailChangeRequests.filter(item => item.status === 'Pendente - Por confirmar').length],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
@@ -1676,6 +1736,7 @@ export default function Admin() {
                   if (key === 'gestao-perfis') { router.push('/admin/gestao-perfis'); return; }
                    if (key === 'vistos-admin') { router.push('/admin/vistos'); return; }
                   setActiveAdminSection(key);
+                  if (key === 'novidades-pendentes') loadPendingBusinessUpdates();
                   if (key === 'reenvios') loadPaymentResubmissions();
                 }}
                 aria-pressed={activeAdminSection === key}
@@ -2189,6 +2250,18 @@ export default function Admin() {
               </div> : <div style={{marginTop:14,padding:12,borderRadius:10,background:'#F4F6F5',color:'#52635E',fontSize:12}}>Registo histórico do reenvio. A decisão é consultada em “Pagamentos e hospedagem”.</div>}
             </article>)}</div>
           }
+        </section>
+
+        <section id="novidades-pendentes" style={{marginTop:0,display:activeAdminSection==='novidades-pendentes'?'block':'none'}}>
+          <div style={styles.titleRow}><div><h2 style={styles.title}>Novidades Pendentes</h2><p style={styles.description}>Analise as fotos, títulos e textos enviados pelos vendedores. Só são publicados após aprovação.</p></div><button type="button" onClick={loadPendingBusinessUpdates} style={styles.logout}>Atualizar</button></div>
+          {businessUpdateReviewError && <p role="alert" style={{color:'#B42318'}}>{businessUpdateReviewError}</p>}
+          {!pendingBusinessUpdates.length && !businessUpdateReviewError ? <p style={{padding:14,background:'#F4F6F5',borderRadius:12,color:'#64756F'}}>Não há Novidades pendentes de aprovação.</p> : <div style={{display:'grid',gap:12}}>
+            {pendingBusinessUpdates.map(item=><article key={item.id} style={{display:'grid',gridTemplateColumns:'minmax(0,1fr)',gap:10,padding:14,border:'1px solid #D5E4DF',borderRadius:14,background:'#fff'}}>
+              {item.signedUrl && <img src={item.signedUrl} alt="Foto da Novidade" style={{width:'min(100%,320px)',aspectRatio:'1',objectFit:'cover',borderRadius:12}}/>}
+              <div><strong style={{fontSize:17,color:'#173B35'}}>{item.title||'Novidade sem título'}</strong><p style={{whiteSpace:'pre-wrap',lineHeight:1.5,color:'#52635E',fontSize:14}}>{item.content||''}</p><small style={{color:'#68756F'}}>Negócio: {item.businesses?.name||'—'} · Enviado: {new Date(item.created_at).toLocaleString('pt-AO')}</small></div>
+              <div style={{display:'flex',gap:9,flexWrap:'wrap'}}><button type="button" disabled={reviewingBusinessUpdateId===item.id} onClick={()=>reviewBusinessUpdate(item,true)} style={{padding:'10px 15px',border:0,borderRadius:9,background:'#08745F',color:'#fff',fontWeight:800}}>{reviewingBusinessUpdateId===item.id?'A analisar…':'APROVAR'}</button><button type="button" disabled={reviewingBusinessUpdateId===item.id} onClick={()=>reviewBusinessUpdate(item,false)} style={{padding:'10px 15px',border:'1px solid #B42318',borderRadius:9,background:'#fff',color:'#B42318',fontWeight:800}}>REJEITAR</button></div>
+            </article>)}
+          </div>}
         </section>
 
         <section id="pagamentos" style={{ marginTop: 0, display: activeAdminSection === 'pagamentos' ? 'block' : 'none' }}>
