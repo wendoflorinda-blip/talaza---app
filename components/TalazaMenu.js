@@ -330,7 +330,7 @@ export default function TalazaMenu({
   useEffect(() => {
     if (router.isReady && router.query.menuOpen === '1') setOpen(true);
     const stored = getTalazaSessionLocation();
-    setCurrentProvinceId(stored.provinceId || province || '');
+    setCurrentProvinceId(safeValue(router.query.province) || province || stored.provinceId || '');
   }, [router.isReady, router.query.menuOpen, province]);
 
   useEffect(() => {
@@ -383,7 +383,7 @@ export default function TalazaMenu({
     // O vendedor fica vinculado à província do negócio; o explorador pode navegar.
     const savedLocation = getTalazaSessionLocation();
     const selectedCountry = country || savedLocation.countryId || '';
-    setCurrentProvinceId(savedLocation.provinceId || province || '');
+    setCurrentProvinceId(safeValue(router.query.province) || province || savedLocation.provinceId || '');
     if (!selectedCountry) {
       setProvinces([]);
       return;
