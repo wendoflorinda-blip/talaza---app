@@ -233,17 +233,15 @@ export default function Subcategory() {
         if (!viewerAuth?.user) throw new Error('Inicia sessão para explorar a Talaza Comercial do teu país.');
         let commercialCountry = country || '';
         let commercialProvince = province || '';
-        if (viewerAuth?.user) {
-          const { data: viewerProfile } = await supabase.from('profiles')
-            .select('country_id,province_id').eq('id',viewerAuth.user.id).maybeSingle();
-          commercialCountry = viewerProfile?.country_id || commercialCountry;
-          commercialProvince = viewerProfile?.province_id || commercialProvince;
-          if (!commercialCountry || !commercialProvince) {
-            const { data: creatorSync, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
-            if (!syncError && creatorSync?.ok) {
-              commercialCountry = creatorSync.country_id || commercialCountry;
-              commercialProvince = creatorSync.province_id || commercialProvince;
-            }
+        const { data: viewerProfile } = await supabase.from('profiles')
+          .select('country_id,province_id').eq('id',viewerAuth.user.id).maybeSingle();
+        commercialCountry = viewerProfile?.country_id || commercialCountry;
+        commercialProvince = viewerProfile?.province_id || commercialProvince;
+        if (!commercialCountry || !commercialProvince) {
+          const { data: creatorSync, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
+          if (!syncError && creatorSync?.ok) {
+            commercialCountry = creatorSync.country_id || commercialCountry;
+            commercialProvince = creatorSync.province_id || commercialProvince;
           }
         }
         if (!commercialCountry || !commercialProvince) throw new Error('O país e a província do teu perfil ainda não estão definidos.');
