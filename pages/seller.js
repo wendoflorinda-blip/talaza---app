@@ -246,7 +246,6 @@ export default function Seller() {
         setEditHours(cachedSeller.business.opening_hours || '');
         setEditMunicipality(cachedSeller.business.municipality || '');
         setEditNeighborhood(cachedSeller.business.neighborhood || '');
-        setLoading(false);
       }
     } catch (cacheError) {
       console.warn('Cache rápido do painel vendedor ignorado:', cacheError);
