@@ -32,8 +32,17 @@ export default function BusinessProductsPage() {
           .eq('id', id).eq('approval_status', 'approved').maybeSingle();
         if (be) throw be;
         if (!b) throw new Error('Este negócio não está disponível publicamente.');
-        if (country && b.country_id !== country) throw new Error('Este negócio pertence a outro país.');
-        if (province && b.province_id !== province) throw new Error('Este negócio pertence a outra província.');
+        const { data: viewerAuth } = await supabase.auth.getUser();
+        let commercialCountryId = country || '';
+        let commercialProvinceId = province || '';
+        if (viewerAuth?.user) {
+          const { data: viewerProfile } = await supabase.from('profiles')
+            .select('country_id,province_id').eq('id', viewerAuth.user.id).maybeSingle();
+          commercialCountryId = viewerProfile?.country_id || commercialCountryId;
+          commercialProvinceId = viewerProfile?.province_id || commercialProvinceId;
+        }
+        if (commercialCountryId && b.country_id !== commercialCountryId) throw new Error('Este negócio pertence a outro país e não está disponível na Talaza Comercial do teu país.');
+        if (commercialProvinceId && b.province_id !== commercialProvinceId) throw new Error('Este negócio pertence a outra província.');
 
         const { data: subs, error: se } = await supabase.from('business_subscriptions')
           .select('id,status,expires_at,starts_at,created_at').eq('business_id', b.id)
