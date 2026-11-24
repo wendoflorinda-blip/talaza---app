@@ -768,6 +768,7 @@ export default function Comunidade() {
     setOfficialCommentDrafts((previous) => ({ ...previous, [item.id]: '' })); setMessage('');
   }
   async function reportPost(post) {
+    if (user && !(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     if (!user) {
       router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
       return;
