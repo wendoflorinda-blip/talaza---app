@@ -230,6 +230,28 @@ export default function Seller() {
       return;
     }
 
+    // Recuperação rápida após voltar de Impulsionar: hidrata um snapshot do painel,
+    // sem esperar as consultas remotas terminarem. O snapshot é só cache visual.
+    let cachedSeller = null;
+    try {
+      const raw = window.sessionStorage.getItem('talaza_seller_cache_' + session.user.id);
+      cachedSeller = raw ? JSON.parse(raw) : null;
+      if (cachedSeller?.business?.id) {
+        setBusiness(cachedSeller.business);
+        setSavedTotalCount(Number(cachedSeller.savedTotalCount || 0));
+        setShowEmail(cachedSeller.business.show_email === true);
+        setEditName(cachedSeller.business.name || '');
+        setEditDescription(cachedSeller.business.description || '');
+        setEditPhone(cachedSeller.business.phone || '');
+        setEditHours(cachedSeller.business.opening_hours || '');
+        setEditMunicipality(cachedSeller.business.municipality || '');
+        setEditNeighborhood(cachedSeller.business.neighborhood || '');
+        setLoading(false);
+      }
+    } catch (cacheError) {
+      console.warn('Cache rápido do painel vendedor ignorado:', cacheError);
+    }
+
     const { data: mainAdmin, error: mainAdminError } = await supabase
       .from('admin_users').select('id').eq('id', session.user.id).maybeSingle();
     if (mainAdminError) {
@@ -325,6 +347,9 @@ export default function Seller() {
 
     setBusiness(data);
     setShowEmail(data.show_email === true);
+    try {
+      window.sessionStorage.setItem('talaza_seller_cache_' + session.user.id, JSON.stringify({ business:data, savedTotalCount:Number(savedTotalCount || 0) }));
+    } catch (cacheError) { console.warn('Não foi possível guardar cache do painel vendedor:', cacheError); }
     // Total apresentado: Guardados reais + adicionais da Administração.
     // Consultas com null/erro ficam em zero e não bloqueiam o painel.
     const [{ data: realSavedRows, error: realSavedError }, { data: additionalSavedRows, error: additionalSavedError }] = await Promise.all([
@@ -339,6 +364,11 @@ export default function Seller() {
       return sum + (Number.isFinite(amount) && amount > 0 ? amount : 0);
     }, 0) : 0;
     setSavedTotalCount(realCount + additionalCount);
+    try {
+      const cachedRaw=window.sessionStorage.getItem('talaza_seller_cache_' + session.user.id);
+      const cached= cachedRaw ? JSON.parse(cachedRaw) : {};
+      window.sessionStorage.setItem('talaza_seller_cache_' + session.user.id, JSON.stringify({ ...cached, business:data, savedTotalCount:realCount+additionalCount }));
+    } catch (cacheError) { console.warn('Não foi possível atualizar cache dos Guardados:', cacheError); }
     const { data: reviewStatus, error: reviewStatusError } = await supabase.from('seller_status').select('seller_id,status,reject_reason,created_at').eq('seller_id', session.user.id).maybeSingle();
     if (reviewStatusError) console.warn('Não foi possível carregar o estado da análise:', reviewStatusError);
     setSellerReview(String(data.approval_status || '').toLowerCase() === 'pending' && String(reviewStatus?.status || '').toLowerCase() === 'rejected' ? { ...reviewStatus, status: 'pending' } : (reviewStatus || null));
