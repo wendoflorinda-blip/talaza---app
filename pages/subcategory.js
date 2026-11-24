@@ -438,7 +438,7 @@ export default function Subcategory() {
       if (searchTerm && !cleanText(store.nome_da_loja).toLocaleLowerCase('pt-AO').includes(searchTerm) && !areas.some(area => area.includes(searchTerm))) return false;
       return true;
     });
-  }, [adminStoreData, id, commercialCountry, commercialProvince, municipality, neighborhood, search]);
+  }, [adminStoreData, id, country, province, municipality, neighborhood, search]);
 
   function getBackHref() {
     const categoryId = subcategory?.category_id;
