@@ -227,8 +227,18 @@ export default function Subcategory() {
         setCountryName(foundCountryName);
         setProvinceName(foundProvinceName);
 
-        // Os exploradores podem mudar de província, mas cada negócio
-        // só aparece na província em que o vendedor o registou.
+        // Comercial: a navegação usa o país e a província principais da conta autenticada.
+        // Os parâmetros da URL não podem alterar o país da Comercial.
+        const { data: viewerAuth } = await supabase.auth.getUser();
+        let commercialCountry = country || '';
+        let commercialProvince = province || '';
+        if (viewerAuth?.user) {
+          const { data: viewerProfile } = await supabase.from('profiles')
+            .select('country_id,province_id').eq('id',viewerAuth.user.id).maybeSingle();
+          commercialCountry = viewerProfile?.country_id || commercialCountry;
+          commercialProvince = viewerProfile?.province_id || commercialProvince;
+        }
+        if (!commercialCountry || !commercialProvince) throw new Error('O país e a província do teu perfil ainda não estão definidos.');
         let businessQuery = supabase
           .from('businesses')
           .select(
@@ -238,8 +248,7 @@ export default function Subcategory() {
           .eq('is_active', true)
           .eq('approval_status', 'approved');
 
-        if (country) businessQuery = businessQuery.eq('country_id', country);
-        if (province) businessQuery = businessQuery.eq('province_id', province);
+        businessQuery = businessQuery.eq('country_id', commercialCountry).eq('province_id', commercialProvince);
 
         const { data: businessData, error: businessError } =
           await businessQuery.order('created_at', { ascending: false });
@@ -250,7 +259,7 @@ export default function Subcategory() {
 
         setBusinesses(businessData || []);
         try {
-          const adminStoreResponse = await fetch('/api/admin-store/public?provinceId='+encodeURIComponent(province||'')+'&countryId='+encodeURIComponent(country||'')+'&subcategoryId='+encodeURIComponent(id||''));
+          const adminStoreResponse = await fetch('/api/admin-store/public?provinceId='+encodeURIComponent(commercialProvince)+'&countryId='+encodeURIComponent(commercialCountry)+'&subcategoryId='+encodeURIComponent(id||''));
           const adminStoreResult = await adminStoreResponse.json();
           if (!cancelled && adminStoreResponse.ok) setAdminStoreData(adminStoreResult.stores || []);
         } catch (adminStoreError) {
@@ -318,7 +327,7 @@ export default function Subcategory() {
             const b=businessMap[item.business_id];
             const targets=destinationMap[item.id]||[];
             const provinceAllowed=!province || (targets.length ? targets.includes(String(province)) : String(b?.province_id)===String(province));
-            return b && String(b.subcategory_id)===String(id) && (!country || String(b.country_id)===String(country)) && provinceAllowed;
+            return b && String(b.subcategory_id)===String(id) && (!country || String(b.country_id)===String(commercialCountry)) && provinceAllowed;
           }).map(item=>({...item,business:businessMap[item.business_id],duration_days:Number((premiumPlanRows||[]).find(plan=>String(plan.id)===String(item.plan_id))?.duration_days||0)}));
           if(!cancelled) {
             setPremiumPromotions(visible);
@@ -423,7 +432,7 @@ export default function Subcategory() {
       if (searchTerm && !cleanText(store.nome_da_loja).toLocaleLowerCase('pt-AO').includes(searchTerm) && !areas.some(area => area.includes(searchTerm))) return false;
       return true;
     });
-  }, [adminStoreData, id, country, province, municipality, neighborhood, search]);
+  }, [adminStoreData, id, commercialCountry, commercialProvince, municipality, neighborhood, search]);
 
   function getBackHref() {
     const categoryId = subcategory?.category_id;
