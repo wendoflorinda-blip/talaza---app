@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/router';
+import { hasCommercialName, CommercialNameDialog } from '../lib/commercialNameGuard';
 import { supabase } from '../lib/supabaseClient';
 
 const EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '😡'];
@@ -9,6 +11,9 @@ export default function CommentThread({ type, targetId, comments = [], userId, o
   const [replyDraft, setReplyDraft] = useState('');
   const [pickerFor, setPickerFor] = useState('');
   const [busy, setBusy] = useState('');
+  const [nameGateOpen, setNameGateOpen] = useState(false);
+  const router = useRouter();
+  async function checkNameGate() { const { data: { user } } = await supabase.auth.getUser(); if (!await hasCommercialName(supabase,user)) { setNameGateOpen(true); return false; } return true; }
 
   const commentIds = useMemo(() => comments.map((item) => item.id), [comments]);
 
@@ -31,7 +36,7 @@ export default function CommentThread({ type, targetId, comments = [], userId, o
   }, {}), [comments]);
 
   async function react(comment, emoji) {
-    if (!userId) return;
+    if (!userId || !(await checkNameGate())) return;
     setBusy('reaction:' + comment.id);
     const mine = reactions.find((item) => item.comment_id === comment.id && item.user_id === userId);
     let result;
@@ -48,7 +53,7 @@ export default function CommentThread({ type, targetId, comments = [], userId, o
   }
 
   async function sendReply(parent) {
-    if (!userId || replyDraft.trim().length < 1) return;
+    if (!userId || replyDraft.trim().length < 1 || !(await checkNameGate())) return;
     setBusy('reply:' + parent.id);
     const table = type === 'event' ? 'event_comments' : 'community_comments';
     const payload = type === 'event'
@@ -89,7 +94,7 @@ export default function CommentThread({ type, targetId, comments = [], userId, o
   }
 
   const roots = childrenByParent.root || [];
-  return <div style={{ marginTop: compact ? 4 : 10 }}>
+  return <><CommercialNameDialog open={nameGateOpen} onClose={()=>setNameGateOpen(false)} onConfigure={()=>router.push('/perfil?tab=dados')} /><div style={{ marginTop: compact ? 4 : 10 }}>
     {roots.length ? roots.map((comment) => renderComment(comment)) : <p style={{ color: '#77847E', fontSize: 12 }}>Ainda não há comentários. Sê a primeira pessoa a comentar.</p>}
-  </div>;
+  </div></>;
 }
