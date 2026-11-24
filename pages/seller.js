@@ -1417,9 +1417,7 @@ export default function Seller() {
             <Link href={{pathname:'/impulsionar',query:{business:business.id,tab:'hospedagem'}}} style={{display:'inline-flex',alignItems:'center',marginTop:18,padding:'11px 15px',borderRadius:999,background:'#FDEFC5',color:'#6A4A00',border:'1px solid #E7C65D',fontSize:13,fontWeight:900,textDecoration:'none'}}>
               Perfil INATIVO · SEM PLANO — ativar Hospedagem <span aria-hidden="true" style={{marginLeft:7}}>→</span>
             </Link>
-          ) : null}
-          
-          )}{hostingProofSubmitted && !profileHostingActive && pendingPlan && (
+          ) : null)}{hostingProofSubmitted && !profileHostingActive && pendingPlan && (
             <div style={{marginTop:10,padding:'12px 14px',background:'#FFF9E8',border:'1px solid #EBD58C',borderRadius:12,color:'#5B4300',fontSize:12}}>
               <strong>Plano enviado:</strong> {pendingPlan.name || pendingPlan.title || pendingPlan.plan_name || pendingPlan.nome || (pendingPlan.duration_days ? pendingPlan.duration_days + ' dias' : 'Plano selecionado')}
             </div>
