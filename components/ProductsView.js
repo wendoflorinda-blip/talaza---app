@@ -41,7 +41,7 @@ export default function ProductsView({ items = [], mode = 'normal', onModeChange
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
   const router = useRouter();
-  async function openSellerMessage() { const {data:{user}}=await supabase.auth.getUser(); if (!(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; } router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } }); }
+  async function openSellerMessage() { const {data:{user}}=await supabase.auth.getUser(); if (!user) { router.push('/login'); return; } if (!(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; } router.push({ pathname: '/mensagens', query: { to: sellerId, source: 'Vitrine', sourceId: businessId } }); }
   const current = VIEW_MODES.includes(mode) ? mode : 'normal';
   const visibleItems = useMemo(() => items.filter((item) => mediaFilter === 'all' || (mediaFilter === 'video' ? (item?.media_type === 'video' || Boolean(item?.video_url)) : !(item?.media_type === 'video' || Boolean(item?.video_url)))), [items, mediaFilter]);
   const openItem = open ? visibleItems.find((item) => item.id === open) : null;
