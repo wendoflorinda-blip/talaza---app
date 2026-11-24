@@ -213,6 +213,9 @@ export default function AuthCallback() {
             if (applicationInsertError) throw applicationInsertError;
           }
 
+          // Criar/sincronizar Comercial somente depois de atualizar metadata e confirmar candidatura.
+          const { error: commercialSyncError } = await supabase.rpc('sync_media_creator_commercial_profile');
+          if (commercialSyncError) console.warn('Perfil Comercial será sincronizado ao primeiro acesso:', commercialSyncError);
           await finishEnvelopeCleanup(session.access_token);
           setMessage('Email confirmado. A abrir a MÍDIA TALAZA…');
           await router.replace('/media');
