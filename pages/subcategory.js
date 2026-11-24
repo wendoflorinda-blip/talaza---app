@@ -371,6 +371,7 @@ export default function Subcategory() {
   }, [router.isReady, id, country, province]);
 
   async function toggleSavedPromotion(promotion) {
+    if (currentUserId) { const {data:{user}}=await supabase.auth.getUser(); if (!(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; } }
     if(!currentUserId) { setSaveNotice('Inicia sessão na Talaza para guardar esta publicação.'); return; }
     if(savedPromotionIds.includes(promotion.id)) {
       setSaveNotice('Já guardado.');
