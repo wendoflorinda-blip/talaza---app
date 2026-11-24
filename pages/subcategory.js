@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Head from 'next/head';
 import { supabase } from '../lib/supabaseClient';
+import { hasCommercialName, CommercialNameDialog } from '../lib/commercialNameGuard';
 import MediaOptions from '../components/MediaOptions';
 
 const COLORS = {
@@ -82,6 +83,7 @@ export default function Subcategory() {
   const [savingBusinessId, setSavingBusinessId] = useState('');
   const [saveNotice, setSaveNotice] = useState('');
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [nameGateOpen,setNameGateOpen] = useState(false);
 
   const historyStorageKey = 'talaza_history_subcategory_' + String(id || '') + '_' + String(province || 'all');
 
@@ -126,6 +128,7 @@ export default function Subcategory() {
   }, []);
 
   async function toggleSavedBusiness(business) {
+    if (currentUserId) { const {data:{user}}=await supabase.auth.getUser(); if (!(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; } }
     if (!currentUserId) { setSaveNotice('Inicia sessão na Talaza para guardar este perfil.'); return; }
     setSavingBusinessId(business.id); setSaveNotice('');
     try {
@@ -461,6 +464,7 @@ export default function Subcategory() {
 
   return (
     <>
+      <CommercialNameDialog open={nameGateOpen} onClose={()=>setNameGateOpen(false)} onConfigure={()=>router.push('/perfil?tab=dados')} />
       <Head>
         <title>
           {subcategory?.name
@@ -718,7 +722,7 @@ export default function Subcategory() {
                                 <button
                                   type="button"
                                   className="messageButton"
-                                  onClick={() => { trackBusinessAction(business); router.push({
+                                  onClick={async () => { const {data:{user}}=await supabase.auth.getUser(); if (!(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; } trackBusinessAction(business); router.push({
                                     pathname: '/mensagens',
                                     query: {
                                       to: business.owner_id,
@@ -1516,6 +1520,7 @@ export default function Subcategory() {
           }
         }
       `}</style>
+      <CommercialNameDialog open={nameGateOpen} onClose={()=>setNameGateOpen(false)} onConfigure={()=>router.push('/perfil?tab=dados')} />
     </>
   );
 }
