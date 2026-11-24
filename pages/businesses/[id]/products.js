@@ -40,6 +40,13 @@ export default function BusinessProductsPage() {
             .select('country_id,province_id').eq('id', viewerAuth.user.id).maybeSingle();
           commercialCountryId = viewerProfile?.country_id || commercialCountryId;
           commercialProvinceId = viewerProfile?.province_id || commercialProvinceId;
+          if (!commercialCountryId || !commercialProvinceId) {
+            const { data: creatorSync, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
+            if (!syncError && creatorSync?.ok) {
+              commercialCountryId = creatorSync.country_id || commercialCountryId;
+              commercialProvinceId = creatorSync.province_id || commercialProvinceId;
+            }
+          }
         }
         if (commercialCountryId && b.country_id !== commercialCountryId) throw new Error('Este negócio pertence a outro país e não está disponível na Talaza Comercial do teu país.');
         if (commercialProvinceId && b.province_id !== commercialProvinceId) throw new Error('Este negócio pertence a outra província.');
