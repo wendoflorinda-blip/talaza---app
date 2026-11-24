@@ -217,7 +217,7 @@ export default function Explore() {
       setTalazaLocation(fixed);
       const queryCountry=safeValue(router.query.country), queryProvince=safeValue(router.query.province);
       if (queryCountry!==fixed.countryId || queryProvince!==fixed.provinceId || safeValue(router.query.homeCountry)!==fixed.countryId || safeValue(router.query.homeProvince)!==fixed.provinceId) {
-        await router.replace({pathname:'/explore',query:{country:fixed.countryId,province:fixed.provinceId,homeCountry:fixed.countryId,homeProvince:fixed.provinceId}},undefined,{shallow:true});
+        await router.replace({pathname:'/explore',query:{country:fixed.countryId,province:fixed.provinceId,homeCountry:fixed.countryId,homeProvince:fixed.proprovinceId}},undefined,{shallow:true});
       }
     }
     if (router.isReady) lockCommercialLocation();
