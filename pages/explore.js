@@ -211,6 +211,9 @@ export default function Explore() {
       ]);
       if (cancelled || !provinceRow?.id) return;
       const fixed={country:countryRow?.name||'',countryId:profile.country_id,province:provinceRow.name||'',provinceId:provinceRow.id};
+      const requestedCountry=safeValue(router.query.country);
+      if(requestedCountry && requestedCountry !== fixed.countryId) setCountryAccessNotice(`Esta Comercial é de outro país. Só podes entrar na Comercial do teu país: ${fixed.country}`);
+      else setCountryAccessNotice('');
       setLockedCommercialLocation(fixed); setActiveLocation(fixed); setTalazaLocation(fixed);
       const query={country:fixed.countryId,province:fixed.provinceId,homeCountry:fixed.countryId,homeProvince:fixed.provinceId};
       const currentQuery={country:safeValue(router.query.country),province:safeValue(router.query.province),homeCountry:safeValue(router.query.homeCountry),homeProvince:safeValue(router.query.homeProvince)};
@@ -230,6 +233,7 @@ export default function Explore() {
   const [loadingBusinesses, setLoadingBusinesses] = useState(false);
   const [categoryError, setCategoryError] = useState('');
   const [businessError, setBusinessError] = useState('');
+  const [countryAccessNotice, setCountryAccessNotice] = useState('');
   const [selectedArea, setSelectedArea] = useState('');
   const [mainHistoryCount, setMainHistoryCount] = useState(0);
   const [fullscreenMedia, setFullscreenMedia] = useState(null);
@@ -541,6 +545,7 @@ export default function Explore() {
           />
         </nav>
 
+        {countryAccessNotice && <div role="alert" className="error-card" style={{marginBottom:16}}>{countryAccessNotice}</div>}
         <header className="intro">
           {locationLabel && (
             <div className="location-chip">
