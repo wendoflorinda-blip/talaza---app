@@ -51,6 +51,7 @@ export default function Impulsionar() {
   const router = useRouter();
   const [business, setBusiness] = useState(null);
   const [girassolAccount, setGirassolAccount] = useState(null);
+  const [girassolAdditionalCount, setGirassolAdditionalCount] = useState(0);
   const [activeTab, setActiveTab] = useState('girassol');
   const [premiumPlanChoice, setPremiumPlanChoice] = useState('');
   const [plans, setPlans] = useState([]);
@@ -85,6 +86,9 @@ export default function Impulsionar() {
     const { data: girassolData, error: girassolError } = await supabase.from('girassol_accounts').select('business_id,unique_saved_count,unlocked_tier,access_status,reactivation_started_at,reactivation_amount').eq('business_id',businessData.id).maybeSingle();
     if (girassolError) console.error('Erro ao carregar progressos Girassol:',girassolError);
     setGirassolAccount(girassolData || null);
+    const { data: savedBoostRows, error: savedBoostError } = await supabase.from('admin_saved_business_boosts').select('amount').eq('business_id',businessData.id);
+    if (savedBoostError) console.error('Erro ao carregar Guardados adicionais:', savedBoostError);
+    setGirassolAdditionalCount((savedBoostRows || []).reduce((sum,item)=>sum+Number(item.amount||0),0));
     const { data: promotionRows, error: promotionError } = await supabase.from('premium_promotions')
       .select('id, plan_id, status, description, created_at, starts_at, expires_at, media_type, media_url')
       .eq('business_id', businessData.id).order('created_at', { ascending: false });
@@ -216,8 +220,8 @@ export default function Impulsionar() {
                 <li>Ter o perfil apresentado em «Vendedores disponíveis para parceria», para outros vendedores descobrirem o negócio, consultarem o perfil e enviarem mensagens internas.</li>
                 <li>Publicar ofertas de Entrega Interprovincial para até 3 províncias escolhidas.</li>
               </ul>
-              <div style={{height:9,borderRadius:99,background:'rgba(100,71,47,.16)',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(girassolAccount?.unique_saved_count||0)/5000)*100)+'%',background:'linear-gradient(90deg,#FFFFFF 0%,#9A7655 100%)'}}/></div>
-              <p style={{fontSize:12,color:'#5E4937'}}>{Number(girassolAccount?.unique_saved_count||0).toLocaleString('pt-AO')} / 5.000 Guardados únicos</p>
+              <div style={{height:9,borderRadius:99,background:'rgba(100,71,47,.16)',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,((Number(girassolAccount?.unique_saved_count||0)+Number(girassolAdditionalCount||0))/5000)*100)+'%',background:'linear-gradient(90deg,#FFFFFF 0%,#9A7655 100%)'}}/></div>
+              <p style={{fontSize:12,color:'#5E4937'}}>{(Number(girassolAccount?.unique_saved_count||0)+Number(girassolAdditionalCount||0)).toLocaleString('pt-AO')} / 5.000 Guardados únicos</p>
               {girassolAccount?.unlocked_tier && <strong style={{display:'block',fontSize:12,color:'#65472F'}}>🌻 Conquista permanente desbloqueada</strong>}
             </article>
             <article style={{...S.card,borderColor:'#83B8D9',background:'linear-gradient(135deg,#FFFFFF 0%,#D8ECFA 48%,#5798C8 100%)',color:'#315A78'}}>
@@ -233,8 +237,8 @@ export default function Impulsionar() {
                 <li>Publicações de Entrega Interprovincial dirigidas a até 10 províncias escolhidas por si.</li>
                 <li>Mais oportunidades para receber contactos, encontrar parceiros e conquistar clientes noutras regiões.</li>
               </ul>
-              <div style={{height:9,borderRadius:99,background:'rgba(23,76,115,.15)',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(girassolAccount?.unique_saved_count||0)/1000000)*100)+'%',background:'linear-gradient(90deg,#FFFFFF 0%,#5798C8 100%)'}}/></div>
-              <p style={{fontSize:12,color:'#315A78'}}>{Number(girassolAccount?.unique_saved_count||0).toLocaleString('pt-AO')} / 1.000.000 Guardados únicos</p>
+              <div style={{height:9,borderRadius:99,background:'rgba(23,76,115,.15)',overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,((Number(girassolAccount?.unique_saved_count||0)+Number(girassolAdditionalCount||0))/1000000)*100)+'%',background:'linear-gradient(90deg,#FFFFFF 0%,#5798C8 100%)'}}/></div>
+              <p style={{fontSize:12,color:'#315A78'}}>{(Number(girassolAccount?.unique_saved_count||0)+Number(girassolAdditionalCount||0)).toLocaleString('pt-AO')} / 1.000.000 Guardados únicos</p>
               {girassolAccount?.unlocked_tier==='girassol_pro' && <strong style={{display:'block',fontSize:12,color:'#174C73'}}>🌻 Conquista permanente desbloqueada</strong>}
             </article>
           </div>
