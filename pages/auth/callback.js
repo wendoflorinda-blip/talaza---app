@@ -214,8 +214,11 @@ export default function AuthCallback() {
           }
 
           // Criar/sincronizar Comercial somente depois de atualizar metadata e confirmar candidatura.
-          const { error: commercialSyncError } = await supabase.rpc('sync_media_creator_commercial_profile');
+          const { data: commercialSync, error: commercialSyncError } = await supabase.rpc('sync_media_creator_commercial_profile');
           if (commercialSyncError) console.warn('Perfil Comercial será sincronizado ao primeiro acesso:', commercialSyncError);
+          else if (commercialSync?.ok) {
+            await supabase.from('profiles').update({ name: source.name, commercial_display_name: source.name, media_synced_display_name: source.name }).eq('id', user.id);
+          }
           await finishEnvelopeCleanup(session.access_token);
           setMessage('Email confirmado. A abrir a MÍDIA TALAZA…');
           await router.replace('/media');
