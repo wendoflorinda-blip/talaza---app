@@ -191,6 +191,19 @@ export default function Comunidade() {
       if (cancelled) return;
 
       setUser(authData?.user || null);
+      if (authData?.user && (authData.user.user_metadata?.media_account_type === 'creator' || authData.user.user_metadata?.media_creator_onboarding === true)) {
+        const { data: sync, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
+        if (!syncError && sync?.ok) {
+          const { data: freshProfile } = await supabase.from('profiles').select('country_id,province_id').eq('id',authData.user.id).maybeSingle();
+          if (!cancelled && freshProfile?.country_id && freshProfile?.province_id) {
+            const [{data:country},{data:province}] = await Promise.all([
+              supabase.from('countries').select('id,name').eq('id',freshProfile.country_id).maybeSingle(),
+              supabase.from('provinces').select('id,name,country_id').eq('id',freshProfile.province_id).maybeSingle()
+            ]);
+            if (!cancelled) { setCountryId(freshProfile.country_id); setProvinceId(freshProfile.province_id); setCountryName(country?.name||''); setProvinceName(province?.name||''); }
+          }
+        }
+      }
 
       if (countryParam) {
         const { data } = await supabase
