@@ -19,7 +19,7 @@ export default async function handler(req,res){
  const businessId=cleanText(req.body?.businessId,80),planId=cleanText(req.body?.planId,80);
  const provinceIds=[...new Set((Array.isArray(req.body?.provinceIds)?req.body.provinceIds:[]).map(id=>cleanText(id,80)).filter(Boolean))];
  const phone=String(req.body?.expressSenderPhone||'').replace(/[^0-9]/g,'');
- const description=cleanText(req.body?.description,500);
+ const description=cleanText(req.body?.description,500)||'Destaque Premium da Loja do Administrador';
  if(!businessId||!planId)return res.status(400).json({error:'Loja e plano obrigatórios.'});
  if(!provinceIds.length)return res.status(400).json({error:'Escolha pelo menos uma província.'});
  if(phone.length<7||phone.length>15)return res.status(400).json({error:'Número Express inválido.'});
