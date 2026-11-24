@@ -217,7 +217,8 @@ export default function Seller() {
   }
 
   async function loadBusiness() {
-    setLoading(true);
+    // Mantém o painel montado ao regressar de outras páginas; actualiza em segundo plano.
+    setLoading(previous => business ? false : true);
     setError('');
 
     const {
