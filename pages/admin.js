@@ -230,7 +230,7 @@ export default function Admin() {
       const {data:{session},error:authError}=await supabase.auth.getSession(); if(authError||!session?.user) throw new Error('Sessão administrativa inválida.');
       const {error:insertError}=await supabase.from('admin_saved_business_boosts').insert({business_id:row.id,amount,admin_user_id:session.user.id});
       if(insertError) throw insertError;
-      const nextTotal=(adminRealSavedCounts[row.id]||0)+(adminSavedBoostTotals[row.id]||0)+amount;
+      const nextTotal=(row.savedRealCount||0)+(row.savedBoostCount||0)+amount;
       setAdminSavedBoostTotals(prev=>({...prev,[row.id]:(prev[row.id]||0)+amount}));
       setSavedBoostInputs(prev=>({...prev,[row.id]:''}));
       setMessage('Guardados adicionais aplicados. Total apresentado: '+nextTotal+'.');
@@ -1749,19 +1749,27 @@ export default function Admin() {
                 const badgeColor=row.status==='expired'?'#B42318':row.status==='expiring'?'#9A6700':'#17643B';
                 const badgeBg=row.status==='expired'?'#FDECEC':row.status==='expiring'?'#FFF5D6':'#E6F5EC';
                 return <article key={row.id} style={{padding:14,border:'1px solid #E1E9E5',borderRadius:14,background:'#FFFFFF'}}>
-                  <button type="button" onClick={()=>setExpandedVendorId(expanded?'':row.id)} aria-expanded={expanded} style={{width:'100%',display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:12,alignItems:'center',textAlign:'left',border:0,background:'transparent',padding:0,cursor:'pointer',color:'#173B35'}}>
-                    <span style={{minWidth:0}}>
-                      <strong style={{display:'block',fontSize:15}}>{row.name||'Negócio sem nome'}</strong>
-                      <span style={{display:'block',fontSize:12,color:'#64756F',marginTop:4}}>{row.phone||'Sem telefone'} · {row.provinces?.name||'Província não indicada'}</span>
-                      <span style={{display:'block',fontSize:12,marginTop:5}}>{row.planName} · Início: {row.subscription?.starts_at?new Date(row.subscription.starts_at).toLocaleDateString('pt-AO'):'—'} · Fim: {row.subscription?.expires_at?new Date(row.subscription.expires_at).toLocaleDateString('pt-AO'):'—'}</span>
+                  <button type="button" onClick={()=>setExpandedVendorId(expanded?'':row.id)} aria-expanded={expanded} style={{width:'100%',display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:12,alignItems:'start',textAlign:'left',border:0,background:'transparent',padding:0,cursor:'pointer',color:'#173B35'}}>
+                    <span style={{minWidth:0,display:'grid',gap:7}}>
+                      <strong style={{display:'block',fontSize:15,overflowWrap:'anywhere'}}>{row.name||'Negócio sem nome'}</strong>
+                      <span style={{display:'block',fontSize:12,color:'#64756F'}}>{row.phone||'Sem telefone'} · {row.provinces?.name||'Província não indicada'}</span>
+                      <span style={{fontSize:12,color:'#50655C'}}>Categoria: {row.categories?.name||'Categoria não definida'}</span>
+                      <span style={{fontSize:12,color:'#50655C'}}>Plano: {row.planName}</span>
+                      <span style={{fontSize:12,color:'#50655C'}}>Início: {row.subscription?.starts_at?new Date(row.subscription.starts_at).toLocaleDateString('pt-AO'):'—'} · Fim: {row.subscription?.expires_at?new Date(row.subscription.expires_at).toLocaleDateString('pt-AO'):'—'}</span>
+                      <span style={{fontSize:12,color:'#50655C'}}>Estado: <strong style={{color:badgeColor}}>{row.status==='expired'?'EXPIRADO - INATIVO':row.status==='expiring'?'A EXPIRAR':'ATIVO'}</strong> · Dias restantes: <strong style={{color:badgeColor}}>{row.remainingDays}</strong></span>
+                      <span style={{display:'block',fontSize:11,color:'#64756F'}}>{expanded?'Fechar histórico ▲':'Ver histórico ▼'}</span>
+                      {row.adminViewedAt&&<span style={{display:'block',fontSize:11,color:'#6B756F'}}>Visto pela Administração: {new Date(row.adminViewedAt).toLocaleString('pt-AO')}</span>}
                     </span>
-                    <span style={{textAlign:'right'}}>
+                    <span style={{textAlign:'right',whiteSpace:'nowrap'}}>
                       <strong style={{display:'block',fontSize:22,color:badgeColor}}>{row.remainingDays}</strong>
-                      <span style={{fontSize:11,color:badgeColor,fontWeight:900}}>{row.status==='expired'?'EXPIRADO - INATIVO':row.status==='expiring'?'A EXPIRAR':'ATIVO'}</span>
-                      <span style={{display:'block',fontSize:11,color:'#64756F',marginTop:5}}>{expanded?'Fechar histórico ▲':'Ver histórico ▼'}</span><span style={{display:'block',fontSize:12,color:'#50655C',marginTop:6}}>Categoria: {row.categories?.name||'Categoria não definida'} · Guardados: <strong>{row.savedRealCount+row.savedBoostCount}</strong> ({row.savedRealCount} reais + {row.savedBoostCount} adicionais)</span>{row.adminViewedAt&&<span style={{display:'block',fontSize:12,color:'#6B756F',marginTop:5}}>Visto pela Administração: {new Date(row.adminViewedAt).toLocaleString('pt-AO')}</span>}
-                      
+                      <span style={{fontSize:11,color:badgeColor,fontWeight:900}}>DIAS</span>
                     </span>
                   </button>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:8,marginTop:12}}>
+                    <div style={{padding:10,borderRadius:10,background:'#F0F7F4',fontSize:12,color:'#244A42'}}><span style={{display:'block'}}>Guardados reais</span><strong style={{fontSize:18}}>{row.savedRealCount}</strong></div>
+                    <div style={{padding:10,borderRadius:10,background:'#FFF7E3',fontSize:12,color:'#785600'}}><span style={{display:'block'}}>Guardados adicionais</span><strong style={{fontSize:18}}>{row.savedBoostCount}</strong></div>
+                    <div style={{padding:10,borderRadius:10,background:'#EAF2FC',fontSize:12,color:'#244A78'}}><span style={{display:'block'}}>Total apresentado</span><strong style={{fontSize:18}}>{row.savedRealCount+row.savedBoostCount}</strong></div>
+                  </div>
                   <div style={{display:'flex',gap:6,marginTop:7,alignItems:'center',flexWrap:'wrap'}}><input type="number" min="1" step="1" value={savedBoostInputs[row.id]||''} onChange={e=>setSavedBoostInputs(prev=>({...prev,[row.id]:e.target.value}))} placeholder="Quantidade" style={{width:100,border:'1px solid #CBD9D2',borderRadius:8,padding:'7px 8px'}}/><button type="button" disabled={savedBoostBusyId===row.id} onClick={()=>applyAdminSavedBoost(row)} style={{border:0,borderRadius:8,padding:'8px 11px',background:'#075B4E',color:'#fff',fontWeight:800,cursor:'pointer'}}>{savedBoostBusyId===row.id?'Aplicando…':'Aplicar + Guardados'}</button></div>
                   {expanded&&<div style={{marginTop:13,paddingTop:12,borderTop:'1px solid #E7EEEA'}}>
                     <button type="button" onClick={()=>markVendorAsViewed(row)} style={{border:0,borderRadius:9,padding:'9px 12px',background:'#E6F5EC',color:'#17643B',fontWeight:800,cursor:'pointer'}}>Abrir perfil e mover para Vistos</button><strong style={{display:'block',marginTop:12,fontSize:13,color:'#173B35'}}>Histórico de pagamentos aprovados</strong>
