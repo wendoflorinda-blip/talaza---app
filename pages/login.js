@@ -375,7 +375,7 @@ export default function Login() {
 
           <p style={styles.bottomText}>
             Ainda não tem conta?{' '}
-            <Link href="/signup" style={styles.link}>
+            <Link href="/start" style={styles.link}>
               Criar conta
             </Link>
           </p>
