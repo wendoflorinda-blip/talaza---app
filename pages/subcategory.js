@@ -799,7 +799,32 @@ export default function Subcategory() {
                       >
                         {savingBusinessId === item.business?.id ? 'A guardar…' : savedBusinessIds.includes(item.business?.id) ? 'Guardado' : 'Guardar'}
                       </button>}
-                      <button type="button" disabled={!item.business?.owner_id} onClick={async () => { const {data:{user}}=await supabase.auth.getUser(); if (!user) { router.push('/login'); return; } if (!(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; } router.push({pathname:'/mensagens',query:{to:item.business?.owner_id,source:'Destaques Premium',sourceId:item.business_id,box:'explore'}})}><span aria-hidden="true">💬 </span>Enviar mensagem</button>
+                      <button
+                        type="button"
+                        disabled={!item.business?.owner_id}
+                        onClick={async () => {
+                          const { data: { user } } = await supabase.auth.getUser();
+                          if (!user) {
+                            router.push('/login');
+                            return;
+                          }
+                          if (!(await hasCommercialName(supabase, user))) {
+                            setNameGateOpen(true);
+                            return;
+                          }
+                          router.push({
+                            pathname: '/mensagens',
+                            query: {
+                              to: item.business?.owner_id,
+                              source: 'Destaques Premium',
+                              sourceId: item.business_id,
+                              box: 'explore',
+                            },
+                          });
+                        }}
+                      >
+                        <span aria-hidden="true">💬 </span>Enviar mensagem
+                      </button>
                       <Link href={makeBusinessHref(item.business_id,country,province,id)} onClick={() => trackBusinessAction(item.business)}>Ver perfil</Link>
                     </div>
                   </div>
