@@ -754,8 +754,10 @@ export default function Admin() {
       if (currentError || !current) throw new Error('Não foi possível confirmar a Novidade.');
       if (current.approval_status !== 'pending') throw new Error('Esta Novidade já foi analisada.');
       const status = approved ? 'approved' : 'rejected';
+      const reviewedAt = new Date().toISOString();
+      const approvedExpiry = approved ? new Date(Date.now()+7*86400000).toISOString() : undefined;
       const { error: updateError } = await supabase.from('business_updates')
-        .update({approval_status:status,reviewed_at:new Date().toISOString(),reviewed_by:adminId})
+        .update({approval_status:status,reviewed_at:reviewedAt,reviewed_by:adminId,...(approved?{expires_at:approvedExpiry}:{})})
         .eq('id',item.id).eq('approval_status','pending');
       if (updateError) throw updateError;
       if (approved) {
