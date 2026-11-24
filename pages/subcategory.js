@@ -235,11 +235,12 @@ export default function Subcategory() {
         const { data: viewerAuth } = await supabase.auth.getUser();
         if (!viewerAuth?.user) throw new Error('Inicia sessão para explorar a Talaza Comercial do teu país.');
         let commercialCountry = country || '';
+        // País pertence à conta; província é a selecionada na rota de exploração.
         let commercialProvince = province || '';
         const { data: viewerProfile } = await supabase.from('profiles')
           .select('country_id,province_id').eq('id',viewerAuth.user.id).maybeSingle();
         commercialCountry = viewerProfile?.country_id || commercialCountry;
-        commercialProvince = viewerProfile?.province_id || commercialProvince;
+        commercialProvince = province || viewerProfile?.province_id || commercialProvince;
         if (!commercialCountry || !commercialProvince) {
           const { data: creatorSync, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
           if (!syncError && creatorSync?.ok) {
