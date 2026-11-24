@@ -95,11 +95,10 @@ export default function Category() {
             .from('provinces')
             .select('id, name, country_id')
             .eq('id', province)
+            .eq('country_id', country || '')
             .maybeSingle();
 
-          if (data && (!country || data.country_id === country)) {
-            foundProvinceName = data.name || '';
-          }
+          if (data) foundProvinceName = data.name || '';
         }
 
         if (cancelled) return;
