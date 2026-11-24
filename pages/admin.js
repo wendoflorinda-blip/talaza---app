@@ -1600,6 +1600,7 @@ export default function Admin() {
           <nav aria-label="Secções do painel administrativo" style={{ display: 'flex', flexWrap: 'wrap', overflow: 'visible', gap: 10, margin: '0 -4px 10px', padding: '8px 4px 14px' }}>
             {[
               ['vendedores', 'Vendedores', pendingBusinessCount],
+              ['gestao-perfis', 'Gestão de Perfis', 0],
               ['trocas-email', 'Trocas de e-mail pendentes', emailChangeRequests.filter(item => item.status === 'Pendente - Por confirmar').length],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
               ['reenvios', 'Reenvios', resubmissions.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
@@ -1618,6 +1619,7 @@ export default function Admin() {
                 key={key}
                 type="button"
                 onClick={() => {
+                  if (key === 'gestao-perfis') { router.push('/admin/gestao-perfis'); return; }
                   setActiveAdminSection(key);
                   if (key === 'reenvios') loadPaymentResubmissions();
                 }}
