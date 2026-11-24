@@ -60,8 +60,9 @@ export default async function handler(req, res) {
 
       if (requestedSlug) {
         const byId = storeRows.find(item => String(item.id) === requestedSlug);
+        const byBusinessId = storeRows.find(item => String(item.business_id || '') === requestedSlug);
         const bySlug = storeRows.filter(item => slugifyStoreName(item.nome_da_loja) === requestedSlug);
-        const matches = byId ? [byId] : bySlug;
+        const matches = byId ? [byId] : byBusinessId ? [byBusinessId] : bySlug;
         if (!matches.length) return res.status(404).json({ error: 'Esta página pública da loja não existe.' });
         if (matches.length > 1) return res.status(409).json({ error: 'Há lojas com o mesmo nome. Abra a loja usando o seu identificador.' });
         return res.status(200).json(await loadStoreBundle(matches[0]));

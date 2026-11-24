@@ -260,11 +260,11 @@ export default function Explore() {
     try { const saved = JSON.parse(localStorage.getItem('talaza_history_main') || '[]'); setMainHistoryCount(Array.isArray(saved) ? saved.length : 0); } catch { setMainHistoryCount(0); }
   }, []);
 
-  function trackMainBusiness(business) {
+  function trackMainBusiness(business, hrefOverride = null) {
     if (!business?.id) return;
     try {
       const saved = JSON.parse(localStorage.getItem('talaza_history_main') || '[]');
-      const next = [{ id: business.id, name: business.name, logo_url: business.logo_url || null, cover_url: business.cover_url || null, href: '/businesses/' + business.id + (Object.keys(exploreQuery).length ? '?' + new URLSearchParams(exploreQuery).toString() : ''), at: new Date().toISOString() }, ...(Array.isArray(saved) ? saved.filter(item => item.id !== business.id) : [])].slice(0, 100);
+      const next = [{ id: business.id, name: business.name, logo_url: business.logo_url || null, cover_url: business.cover_url || null, href: hrefOverride || ('/businesses/' + business.id + (Object.keys(exploreQuery).length ? '?' + new URLSearchParams(exploreQuery).toString() : '')), at: new Date().toISOString() }, ...(Array.isArray(saved) ? saved.filter(item => item.id !== business.id) : [])].slice(0, 100);
       localStorage.setItem('talaza_history_main', JSON.stringify(next));
       setMainHistoryCount(next.length);
     } catch {}
@@ -707,7 +707,7 @@ export default function Explore() {
                     <article key={item.id} className="premium-post-card">
                       <div className="premium-media-frame">
                         {item.media_type === 'video'
-                          ? <MediaOptions url={item.media_url} isVideo fileName="destaque-premium" storagePath={item.storage_path}><video src={item.media_url} controls playsInline /></MediaOptions>
+                          ? <MediaOptions url={item.media_url} isVideo fileName="destaque-premium" storagePath={item.storage_path}><video src={item.media_url} controls autoPlay muted loop playsInline preload="auto" onClick={(event) => { const video = event.currentTarget; if (video.paused) video.play().catch(() => {}); }} /></MediaOptions>
                           : <MediaOptions url={item.media_url} fileName="destaque-premium"><img src={item.media_url} alt="Publicação Destaque Premium" /></MediaOptions>}
                         <button type="button" className="media-fullscreen-button" aria-label="Ver mídia em ecrã inteiro" title="Ver completo" onClick={() => setFullscreenMedia({ type: item.media_type === 'video' ? 'video' : 'image', src: item.media_url, title: item.description || item.business?.name || 'Publicação Destaque Premium' })}>⛶</button>
                       </div>
@@ -717,7 +717,7 @@ export default function Explore() {
                         <p>{item.description}</p>
                         <div className="premium-post-actions">
                           <button type="button" onClick={()=>router.push({pathname:'/mensagens',query:{to:item.business?.owner_id,source:'Vitrine',sourceId:item.business_id,box:'explore'}})} disabled={!item.business?.owner_id}>Enviar mensagem</button>
-                          <Link href={{pathname:'/businesses/'+item.business_id,query:exploreQuery}} onClick={() => trackMainBusiness(item.business)}>Ver perfil</Link>
+                          <Link href={'/loja/'+item.business_id} onClick={() => trackMainBusiness(item.business, '/loja/'+item.business_id)}>Ver perfil</Link>
                           {item.duration_days===30 && <button type="button" onClick={()=>toggleSavedPromotion(item)} disabled={savingPromotionId===item.id || savedPromotionIds.includes(item.id)}>{savingPromotionId===item.id?'A guardar…':savedPromotionIds.includes(item.id)?'✓ Já guardado':'☆ Guardar'}</button>}
                         </div>
                       </div>
