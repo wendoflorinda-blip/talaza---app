@@ -7,6 +7,7 @@ import TalazaMenu from '../components/TalazaMenu';
 import { loadProfileSectionBadgeCounts } from '../lib/profileBadges';
 import { setTalazaLocation } from '../lib/talazaLocation';
 import ExpandableImage from '../components/ExpandableImage';
+import { prepareImage } from '../lib/imageTools';
 
 const C = { green:'#08745F', dark:'#06483D', purple:'#64358B', gold:'#D8A319', ink:'#182722', muted:'#66736F', bg:'#F7F6F3', line:'#E3E8E4', white:'#FFFFFF', red:'#A52F3B' };
 
@@ -201,8 +202,8 @@ export default function Perfil() {
             const business = row.businesses;
             if (!business?.is_active || business.approval_status !== 'approved') return [];
             const { data: updates, error: updatesError } = await supabase.from('business_updates')
-              .select('id,business_id,media_path,media_type,created_at,expires_at')
-              .eq('business_id', business.id).gt('expires_at',new Date().toISOString())
+              .select('id,business_id,title,content,media_path,media_type,approval_status,created_at,expires_at')
+              .eq('business_id', business.id).eq('approval_status','approved').gt('expires_at',new Date().toISOString())
               .order('created_at',{ascending:false});
             if (updatesError) { console.warn('Novidades indisponíveis:',updatesError); return []; }
             return Promise.all((updates || []).map(async item => {
@@ -292,13 +293,14 @@ export default function Perfil() {
     const selected = event.target.files?.[0];
     event.target.value = '';
     if (!selected) return;
-    if (!selected.type.startsWith('image/')) { setError('O ficheiro escolhido não é uma imagem. Escolha uma fotografia em JPG, PNG ou WebP.'); return; }
+    if (!['image/jpeg','image/png','image/webp'].includes(selected.type)) { setError('Escolha uma fotografia em JPG, PNG ou WebP.'); return; }
     if (selected.size > 5 * 1024 * 1024) { setError('Esta fotografia tem mais de 5 MB. Escolha uma imagem menor e tente novamente.'); return; }
     if (!user) { setError('A sua sessão expirou. Entre novamente na Talaza antes de alterar a fotografia.'); return; }
     setPhotoUploading(true); setError(''); setNotice('');
     try {
+      const compressedPhoto = await prepareImage(selected, { max:900, quality:0.82 });
       const path = user.id + '.jpg';
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(path, selected, { upsert:true, contentType:selected.type, cacheControl:'3600' });
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(path, compressedPhoto, { upsert:true, contentType:'image/jpeg', cacheControl:'3600' });
       if (uploadError) {
         console.error('Falha no upload da fotografia de perfil:', uploadError);
         const detail = String(uploadError.message || '').toLowerCase();
@@ -622,7 +624,7 @@ export default function Perfil() {
             {loadingSections ? <p style={S.empty}>A carregar Novidades…</p> : savedBusinessUpdates.length ? <div style={S.savedGrid}>
               {savedBusinessUpdates.map(item=><article key={item.id} style={S.savedCard}>
                 {item.media_type==='video' ? <video src={item.signedUrl} controls playsInline style={{width:'100%',height:260,objectFit:'cover',background:'#111'}}/> : <ExpandableImage src={item.signedUrl} alt="Novidade do negócio" frameStyle={{width:'100%',height:260}} />}
-                <div style={{padding:14}}><strong>{item.businessName}</strong><p style={S.cardDescription}>Publicado em {new Date(item.created_at).toLocaleDateString('pt-PT')}</p><Link href={{pathname:'/businesses/'+item.business_id,query:{returnTo:'/perfil?tab=novidades'}}} style={S.openBusiness}>Ver perfil do negócio</Link></div>
+                <div style={{padding:14}}><strong>{item.businessName}</strong>{item.title && <h3 style={{margin:'8px 0',color:C.dark}}>{item.title}</h3>}{item.content && <p style={S.cardDescription}>{item.content}</p>}<p style={S.cardDescription}>Publicado em {new Date(item.created_at).toLocaleDateString('pt-PT')}</p><Link href={{pathname:'/businesses/'+item.business_id,query:{returnTo:'/perfil?tab=novidades'}}} style={S.openBusiness}>Ver perfil do negócio</Link></div>
               </article>)}
             </div> : <div style={S.emptyCard}><span style={S.emptyIcon}>✦</span><strong>Ainda não há Novidades para si</strong><p>Guarde os perfis dos negócios que mais lhe interessam para acompanhar novas imagens, vídeos e atualizações. Só verá publicações dos negócios que guardou.</p><Link href="/explore" style={S.openBusiness}>Explorar negócios</Link></div>}
           </>}
