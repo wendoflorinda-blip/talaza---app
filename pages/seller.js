@@ -48,7 +48,6 @@ export default function Seller() {
   const [pendingPlan, setPendingPlan] = useState(null);
   const [hostingExpiry, setHostingExpiry] = useState(null);
   const [hostingExpired, setHostingExpired] = useState(false);
-  const [hostingStatusLoading, setHostingStatusLoading] = useState(true);
   const [hostingNoPlan, setHostingNoPlan] = useState(false);
   const [hostingPlanName, setHostingPlanName] = useState('Sem plano registado');
   const [hostingRemainingDays, setHostingRemainingDays] = useState(0);
@@ -218,7 +217,6 @@ export default function Seller() {
   }
 
   async function loadBusiness() {
-    setHostingStatusLoading(true);
     // Mantém o painel montado ao regressar de outras páginas; actualiza em segundo plano.
     setLoading(previous => business ? false : true);
     setError('');
@@ -248,6 +246,7 @@ export default function Seller() {
         setEditHours(cachedSeller.business.opening_hours || '');
         setEditMunicipality(cachedSeller.business.municipality || '');
         setEditNeighborhood(cachedSeller.business.neighborhood || '');
+        setLoading(false);
       }
     } catch (cacheError) {
       console.warn('Cache rápido do painel vendedor ignorado:', cacheError);
@@ -258,13 +257,11 @@ export default function Seller() {
     if (mainAdminError) {
       setError('Não foi possível confirmar o tipo da conta. Por segurança, o painel de vendedor foi bloqueado.');
       setLoading(false);
-      setHostingStatusLoading(false);
       return;
     }
     if (mainAdmin?.id) {
       await router.replace('/explore');
       setLoading(false);
-      setHostingStatusLoading(false);
       return;
     }
 
@@ -337,7 +334,6 @@ export default function Seller() {
       console.error(businessError);
       setError('Não foi possível carregar o seu negócio.');
       setLoading(false);
-      setHostingStatusLoading(false);
       return;
     }
 
@@ -346,7 +342,6 @@ export default function Seller() {
         'Não encontramos um negócio associado à sua conta nesta localização.'
       );
       setLoading(false);
-      setHostingStatusLoading(false);
       return;
     }
 
@@ -480,8 +475,7 @@ export default function Seller() {
       setPendingPlan(null);
     }
     setLoading(false);
-    setHostingStatusLoading(false);
-  
+  }
 
   async function submitPaymentResubmission(event) {
     event.preventDefault();
@@ -1202,17 +1196,6 @@ export default function Seller() {
   );
   const showHostingPaymentState = !hostingExpired && !profileHostingActive && !hostingProofSubmitted;
 
-  if (hostingStatusLoading) {
-    return (
-      <div role="status" aria-label="A verificar hospedagem" style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#F5F7F6',color:'#075B4E',fontFamily:'inherit'}}>
-        <div style={{display:'grid',justifyItems:'center',gap:12}}>
-          <div style={{width:34,height:34,border:'3px solid #DDE8E3',borderTopColor:'#075B4E',borderRadius:'50%',animation:'none'}} />
-          <span style={{fontSize:14,fontWeight:700}}>A verificar a Hospedagem…</span>
-        </div>
-      </div>
-    );
-  }
-
   if (hostingExpired) {
     return (
       <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:'28px 18px',boxSizing:'border-box',background:'radial-gradient(circle at 15% 15%,#DDEFE7 0,transparent 34%),radial-gradient(circle at 85% 80%,#F8E8BD 0,transparent 32%),linear-gradient(145deg,#F7FAF8 0%,#EAF3EE 48%,#F7F0DE 100%)'}}>
@@ -1224,6 +1207,18 @@ export default function Seller() {
           <p style={{fontSize:14,lineHeight:1.75,margin:'0 auto 25px',maxWidth:455,color:'#586C63'}}>Se não renovar dentro de 15 dias, as pessoas que guardaram o seu perfil vão perdê-lo e terão de guardar novamente.</p>
           <Link href={{pathname:'/impulsionar',query:{business:business.id,tab:'hospedagem'}}} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',minHeight:48,padding:'0 24px',borderRadius:13,background:'linear-gradient(135deg,#F6D56C,#D9A51B)',color:'#173B35',fontWeight:900,fontSize:14,textDecoration:'none',boxShadow:'0 8px 20px rgba(190,145,20,.22)'}}>Renovar Hospedagem</Link>
         </section>
+      </div>
+    );
+  }
+
+  if (loading && !business) {
+    return (
+      <div role="status" aria-label="A carregar painel do negócio" style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#F5F7F6',color:'#075B4E',fontFamily:'inherit'}}>
+        <div style={{display:'grid',justifyItems:'center',gap:12}}>
+          <div style={{width:34,height:34,border:'3px solid #DDE8E3',borderTopColor:'#075B4E',borderRadius:'50%',animation:'none'}} />
+          <span style={{fontSize:14,fontWeight:700}}>A carregar painel do negócio…</span>
+        </div>
+        
       </div>
     );
   }
