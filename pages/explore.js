@@ -193,7 +193,7 @@ export default function Explore() {
   const [lockedCommercialLocation, setLockedCommercialLocation] = useState(null);
   // O país é fixo ao país da conta Comercial; a província é explorável e vem da rota.
   const country = lockedCommercialLocation?.countryId || activeLocation.countryId || safeValue(router.query.country) || '';
-  const province = safeValue(router.query.province) || activeLocation.provinceId || lockedCommercialLocation?.provinceId || '';
+  const province = activeLocation.provinceId || safeValue(router.query.province) || lockedCommercialLocation?.provinceId || '';
 
   useEffect(() => {
     let cancelled = false;
