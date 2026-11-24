@@ -245,6 +245,7 @@ export default function Mensagens() {
         }
       } else {
         const targetId = safe(router.query.to);
+        if (targetId && targetId !== currentUser.id && !(await hasCommercialName(supabase,currentUser))) { setNameGateOpen(true); setLoading(false); return; }
         if (targetId && targetId !== currentUser.id) {
           try {
             const requestedSource = safe(router.query.source) || 'Vitrine';
