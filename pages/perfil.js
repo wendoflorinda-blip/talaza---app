@@ -128,9 +128,25 @@ export default function Perfil() {
         }
       }
       const mediaMeta = current.user_metadata || {};
+      const mediaCountryId = mediaMeta.media_country_id || '';
+      const mediaProvinceId = mediaMeta.media_province_id || '';
       const resolvedName = data?.commercial_display_name || data?.name || data?.full_name || mediaMeta.media_display_name || mediaMeta.full_name || mediaMeta.name || '';
       setFullName(resolvedName);
       setProfile(data || null);
+      if (!data) {
+        // Render a first-time creator's Commercial details from signup metadata
+        // while the profile row is being created/synchronized.
+        setProvinceId(mediaProvinceId);
+        setPhone(String(mediaMeta.media_phone || mediaMeta.phone || ''));
+        setShowEmail(false);
+        if (mediaCountryId) {
+          const { data: provinceRows, error: provinceError } = await supabase.from('provinces')
+            .select('id,name,country_id').eq('country_id', mediaCountryId).order('name');
+          if (provinceError) console.warn('Não foi possível carregar províncias do cadastro Mídia:', provinceError);
+          else setProvinces(provinceRows || []);
+        }
+        setLoadingSections(false);
+      }
       setShowEmail(data?.show_email === true);
       try {
         const counts = await loadProfileSectionBadgeCounts(supabase, current.id, data || null);
@@ -508,7 +524,7 @@ export default function Perfil() {
 
   if (loading) return <main style={S.center}>A carregar o perfil…</main>;
 
-  const provinceName = provinces.find((item) => String(item.id) === String(profile?.province_id))?.name || '';
+  const provinceName = provinces.find((item) => String(item.id) === String(profile?.province_id || provinceId))?.name || '';
 
   return (
     <main style={S.page}>
