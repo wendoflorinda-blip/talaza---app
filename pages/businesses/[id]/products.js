@@ -33,6 +33,7 @@ export default function BusinessProductsPage() {
         if (be) throw be;
         if (!b) throw new Error('Este negócio não está disponível publicamente.');
         const { data: viewerAuth } = await supabase.auth.getUser();
+        if (!viewerAuth?.user) throw new Error('Inicia sessão para consultar produtos na Talaza Comercial do teu país.');
         let commercialCountryId = country || '';
         let commercialProvinceId = province || '';
         if (viewerAuth?.user) {
