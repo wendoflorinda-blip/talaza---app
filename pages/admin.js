@@ -46,6 +46,7 @@ export default function Admin() {
   const [savedBoostBusyId, setSavedBoostBusyId] = useState('');
 
   const [vendorPlanFilter, setVendorPlanFilter] = useState('all');
+  const [viewedAgeFilter,setViewedAgeFilter]=useState('recent');
   const [expandedVendorId, setExpandedVendorId] = useState('');
   const [businessFilter, setBusinessFilter] = useState('pending');
   const [subscriptionRequests, setSubscriptionRequests] = useState([]);
@@ -207,6 +208,18 @@ export default function Admin() {
     await loadOfficialArchive();
 
     setLoading(false);
+  }
+
+  function filteredVendorRows(){
+    const now=Date.now();
+    return vendorPlanRows.filter(row=>{
+      if(vendorPlanFilter==='viewed'){
+        if(!row.adminViewedAt) return false;
+        const months=(now-new Date(row.adminViewedAt).getTime())/(1000*60*60*24*30.4375);
+        return viewedAgeFilter==='recent'?months<3:viewedAgeFilter==='3months'?months>=3&&months<12:months>=12;
+      }
+      return !row.adminViewed&&(vendorPlanFilter==='all'||row.status===vendorPlanFilter);
+    });
   }
 
   async function applyAdminSavedBoost(row) {
@@ -1728,10 +1741,10 @@ export default function Admin() {
               ['viewed','Vistos',vendorPlanRows.filter(row=>row.adminViewed).length]
             ].map(([value,label,count])=><button key={value} type="button" onClick={()=>setVendorPlanFilter(value)} style={{padding:'8px 12px',borderRadius:999,border:vendorPlanFilter===value?'2px solid #D8A319':'1px solid #D5E4DF',background:vendorPlanFilter===value?'#075B4E':'#FFFFFF',color:vendorPlanFilter===value?'#FFFFFF':'#075B4E',fontWeight:800}}>{label} ({count})</button>)}
           </div>
-          {vendorPlanRows.filter(row=>vendorPlanFilter==='viewed'?row.adminViewed:(!row.adminViewed&&(vendorPlanFilter==='all'||row.status===vendorPlanFilter))).length===0
+          {vendorPlanFilter==='viewed'&&<div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>{[['recent','Recentes'],['3months','Vistos há mais de 3 meses'],['1year','Vistos há mais de 1 ano']].map(([v,l])=><button key={v} type="button" onClick={()=>setViewedAgeFilter(v)} style={{border:'1px solid #D5E4DF',borderRadius:999,padding:'8px 11px',background:viewedAgeFilter===v?'#075B4E':'#fff',color:viewAgeFilter===v?'#fff':'#075B4E',fontWeight:800}}>{l}</button>)}</div>}{filteredVendorRows().length===0
             ? <p style={{padding:14,background:'#FFFFFF',borderRadius:12,color:'#64756F'}}>Não existem vendedores nesta categoria.</p>
             : <div style={{display:'grid',gap:10}}>
-              {vendorPlanRows.filter(row=>vendorPlanFilter==='viewed'?row.adminViewed:(!row.adminViewed&&(vendorPlanFilter==='all'||row.status===vendorPlanFilter))).map(row=>{
+              {filteredVendorRows().map(row=>{
                 const expanded=expandedVendorId===row.id;
                 const badgeColor=row.status==='expired'?'#B42318':row.status==='expiring'?'#9A6700':'#17643B';
                 const badgeBg=row.status==='expired'?'#FDECEC':row.status==='expiring'?'#FFF5D6':'#E6F5EC';
