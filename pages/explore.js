@@ -204,6 +204,9 @@ export default function Explore() {
         const { data: synced, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
         if (!syncError && synced?.ok) profile = {country_id:synced.country_id,province_id:synced.province_id};
       }
+      const mediaCountryId = authData.user.user_metadata?.media_country_id || '';
+      const mediaProvinceId = authData.user.user_metadata?.media_province_id || '';
+      if (mediaCountryId && mediaProvinceId) profile = {country_id:mediaCountryId,province_id:mediaProvinceId};
       if (cancelled || !profile?.country_id || !profile?.province_id) return;
       const [{data: countryRow},{data: provinceRow}] = await Promise.all([
         supabase.from('countries').select('id,name').eq('id',profile.country_id).maybeSingle(),
