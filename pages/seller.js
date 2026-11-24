@@ -15,6 +15,8 @@ export default function Seller() {
 
   const [user, setUser] = useState(null);
   const [business, setBusiness] = useState(null);
+  const [savedTotalCount, setSavedTotalCount] = useState(0);
+  const [savedCountPanelOpen, setSavedCountPanelOpen] = useState(false);
   const [unreadExploreCount, setUnreadExploreCount] = useState(0);
   const [unreadStoreCount, setUnreadStoreCount] = useState(0);
   const [editing, setEditing] = useState(false);
@@ -319,6 +321,20 @@ export default function Seller() {
 
     setBusiness(data);
     setShowEmail(data.show_email === true);
+    // Total apresentado: Guardados reais + adicionais da Administração.
+    // Consultas com null/erro ficam em zero e não bloqueiam o painel.
+    const [{ data: realSavedRows, error: realSavedError }, { data: additionalSavedRows, error: additionalSavedError }] = await Promise.all([
+      supabase.from('saved_businesses').select('id').eq('business_id', data.id),
+      supabase.from('admin_saved_business_boosts').select('amount').eq('business_id', data.id)
+    ]);
+    if (realSavedError) console.warn('Guardados reais indisponíveis:', realSavedError);
+    if (additionalSavedError) console.warn('Guardados adicionais indisponíveis:', additionalSavedError);
+    const realCount = Array.isArray(realSavedRows) ? realSavedRows.length : 0;
+    const additionalCount = Array.isArray(additionalSavedRows) ? additionalSavedRows.reduce((sum, item) => {
+      const amount = Number(item?.amount ?? 0);
+      return sum + (Number.isFinite(amount) && amount > 0 ? amount : 0);
+    }, 0) : 0;
+    setSavedTotalCount(realCount + additionalCount);
     const { data: reviewStatus, error: reviewStatusError } = await supabase.from('seller_status').select('seller_id,status,reject_reason,created_at').eq('seller_id', session.user.id).maybeSingle();
     if (reviewStatusError) console.warn('Não foi possível carregar o estado da análise:', reviewStatusError);
     setSellerReview(String(data.approval_status || '').toLowerCase() === 'pending' && String(reviewStatus?.status || '').toLowerCase() === 'rejected' ? { ...reviewStatus, status: 'pending' } : (reviewStatus || null));
@@ -1218,6 +1234,12 @@ export default function Seller() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flexShrink: 0, overflow: 'visible' }}>
             <NotificationsPanel userId={user?.id} audience="seller" />
+            <div style={{position:'relative',display:'flex',alignItems:'center'}}>
+              <button type="button" onClick={()=>setSavedCountPanelOpen(value=>!value)} aria-label="Ver Guardados" aria-expanded={savedCountPanelOpen} title="Guardados" style={{width:38,height:38,display:'inline-flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,.28)',borderRadius:11,background:'rgba(255,255,255,.10)',color:'#FFFFFF',cursor:'pointer',flexShrink:0}}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 4.5h12v16l-6-3.8-6 3.8v-16Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+              {savedCountPanelOpen && <div role="dialog" aria-label="Total de Guardados" style={{position:'absolute',right:0,top:'calc(100% + 9px)',zIndex:30,minWidth:160,padding:'12px 14px',borderRadius:12,background:'#FFFFFF',color:'#173B35',boxShadow:'0 8px 24px rgba(0,0,0,.22)',border:'1px solid #E4ECE8',whiteSpace:'nowrap'}}><strong style={{fontSize:13}}>Guardados: {Number(savedTotalCount||0).toLocaleString('pt-AO')}</strong></div>}
+            </div>
             <TalazaMenu
               country={business?.country_id || country}
               province={business?.province_id || province}
