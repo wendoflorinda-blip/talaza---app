@@ -191,8 +191,9 @@ export default function Explore() {
 
   const [activeLocation, setActiveLocation] = useState({ country: '', countryId: '', province: '', provinceId: '' });
   const [lockedCommercialLocation, setLockedCommercialLocation] = useState(null);
+  // O país é fixo ao país da conta Comercial; a província é explorável e vem da rota.
   const country = lockedCommercialLocation?.countryId || activeLocation.countryId || safeValue(router.query.country) || '';
-  const province = lockedCommercialLocation?.provinceId || activeLocation.provinceId || safeValue(router.query.province) || '';
+  const province = activeLocation.provinceId || safeValue(router.query.province) || lockedCommercialLocation?.provinceId || '';
 
   useEffect(() => {
     let cancelled = false;
@@ -217,8 +218,16 @@ export default function Explore() {
       const requestedCountry=safeValue(router.query.country);
       if(requestedCountry && requestedCountry !== fixed.countryId) setCountryAccessNotice(`Esta Comercial é de outro país. Só podes entrar na Comercial do teu país: ${fixed.country}`);
       else setCountryAccessNotice('');
-      setLockedCommercialLocation(fixed); setActiveLocation(fixed); setTalazaLocation(fixed);
-      const query={country:fixed.countryId,province:fixed.provinceId,homeCountry:fixed.countryId,homeProvince:fixed.provinceId};
+      // Preserva a província escolhida para explorar, desde que pertença ao país da conta.
+      let selected=fixed;
+      const requestedProvince=safeValue(router.query.province);
+      if(requestedProvince && requestedProvince !== fixed.provinceId) {
+        const {data:selectedRow}=await supabase.from('provinces').select('id,name,country_id').eq('id',requestedProvince).eq('country_id',fixed.countryId).maybeSingle();
+        if(selectedRow?.id) selected={country:fixed.country,countryId:fixed.countryId,province:selectedRow.name||'',provinceId:selectedRow.id};
+      }
+      if(cancelled) return;
+      setLockedCommercialLocation(fixed); setActiveLocation(selected); setTalazaLocation(selected);
+      const query={country:fixed.countryId,province:selected.provinceId,homeCountry:fixed.countryId,homeProvince:fixed.provinceId};
       const currentQuery={country:safeValue(router.query.country),province:safeValue(router.query.province),homeCountry:safeValue(router.query.homeCountry),homeProvince:safeValue(router.query.homeProvince)};
       if(Object.keys(query).some(key=>query[key]!==currentQuery[key])) router.replace({pathname:'/explore',query},undefined,{shallow:true});
     }
