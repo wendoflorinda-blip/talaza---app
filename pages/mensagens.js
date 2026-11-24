@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
+import { hasCommercialName, CommercialNameDialog } from '../lib/commercialNameGuard';
 
 const C = { green:'#08745F', dark:'#06483D', purple:'#64358B', gold:'#D8A319', ink:'#182722', muted:'#66736F', bg:'#F2F4F1', line:'#DDE5E0', white:'#FFFFFF' };
 const safe = value => Array.isArray(value) ? value[0] : value;
@@ -38,6 +39,7 @@ export default function Mensagens() {
   const [sending,setSending] = useState(false);
   const [error,setError] = useState('');
   const [notice,setNotice] = useState('');
+  const [nameGateOpen,setNameGateOpen] = useState(false);
   const [messageMenuId,setMessageMenuId] = useState('');
   const [editingMessageId,setEditingMessageId] = useState('');
   const [editingBody,setEditingBody] = useState('');
@@ -432,6 +434,7 @@ export default function Mensagens() {
     event?.preventDefault?.();
     if (!activeId) { setNotice('Para enviar uma mensagem, abra uma conversa existente ou toque em “Enviar mensagem” no perfil da pessoa/negócio. Assim a mensagem chega ao destinatário certo.'); return; }
     if (!user || (!message.trim() && !selectedFile) || sending) return;
+    if (!(await hasCommercialName(supabase,user))) { setNameGateOpen(true); return; }
     if (activeBusinessInactive) { setError('A hospedagem deste negócio expirou. Pode consultar o histórico da conversa, mas não pode enviar novas mensagens até à renovação ser aprovada.'); return; }
     setSending(true); setError(''); setNotice('');
     try {
@@ -584,7 +587,9 @@ export default function Mensagens() {
 
   if (loading) return <main style={S.center}>A carregar mensagens…</main>;
 
-  return <main style={S.page}>
+  return <>
+    <CommercialNameDialog open={nameGateOpen} onClose={()=>setNameGateOpen(false)} onConfigure={()=>router.push('/perfil?tab=dados')} />
+    <main style={S.page}>
     <Head><title>Mensagens | Talaza</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
     <header style={S.header}>
       {activeId && <button type="button" onClick={backToList} style={S.back} aria-label="Voltar às conversas">‹</button>}
@@ -658,6 +663,7 @@ export default function Mensagens() {
     {activeId && !activeBusinessInactive && <div style={S.hint}>Enter para enviar · Shift + Enter para nova linha</div>}
     {activeId && activeBusinessInactive && <div style={S.hint}>Mensagens desativadas temporariamente por expiração da hospedagem.</div>}
   </main>;
+  </>;
 }
 
 const S = {
