@@ -78,11 +78,9 @@ export default function MediaHome() {
       let countryId = profile?.country_id || '';
       let provinceId = profile?.province_id || '';
       const mediaCountryId = user.user_metadata?.media_country_id || '';
-      const mediaCountryName = user.user_metadata?.media_country || '';
-      if (mediaCountryId && countryId && mediaCountryId !== countryId) {
-        setNotice(`Esta Comercial é de outro país. Só podes entrar na Comercial do teu país: ${mediaCountryName || 'o teu país'}`);
-        return;
-      }
+      const mediaProvinceId = user.user_metadata?.media_province_id || '';
+      if (mediaCountryId) countryId = mediaCountryId;
+      if (mediaProvinceId) provinceId = mediaProvinceId;
       if (!countryId || !provinceId) {
         const { data: sync, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
         if (syncError) throw syncError;
