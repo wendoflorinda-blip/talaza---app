@@ -172,10 +172,13 @@ export default function Seller() {
     }
 
     refreshUnreadCounts();
+    const onMessagesRead = () => refreshUnreadCounts();
+    window.addEventListener('talaza:messages-read', onMessagesRead);
     const intervalId = window.setInterval(refreshUnreadCounts, 15000);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
+      window.removeEventListener('talaza:messages-read', onMessagesRead);
     };
   }, [router.isReady]);
 
@@ -1238,7 +1241,7 @@ export default function Seller() {
               <button type="button" onClick={()=>setSavedCountPanelOpen(value=>!value)} aria-label="Ver Guardados" aria-expanded={savedCountPanelOpen} title="Guardados" style={{width:38,height:38,display:'inline-flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,.28)',borderRadius:11,background:'rgba(255,255,255,.10)',color:'#FFFFFF',cursor:'pointer',flexShrink:0}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 4.5h12v16l-6-3.8-6 3.8v-16Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </button>
-              {savedCountPanelOpen && <div role="dialog" aria-label="Total de Guardados" style={{position:'absolute',right:0,top:'calc(100% + 9px)',zIndex:30,minWidth:160,padding:'12px 14px',borderRadius:12,background:'#FFFFFF',color:'#173B35',boxShadow:'0 8px 24px rgba(0,0,0,.22)',border:'1px solid #E4ECE8',whiteSpace:'nowrap'}}><strong style={{fontSize:13}}>Guardados: {Number(savedTotalCount||0).toLocaleString('pt-AO')}</strong></div>}
+              {savedCountPanelOpen && <div role="dialog" aria-label="Total de Guardados" style={{position:'absolute',right:0,top:'calc(100% + 9px)',zIndex:30,minWidth:160,padding:'12px 14px',borderRadius:12,background:'#FFFFFF',color:'#173B35',boxShadow:'0 8px 24px rgba(0,0,0,.22)',border:'1px solid #E4ECE8',whiteSpace:'nowrap'}}><div style={{fontSize:13,lineHeight:1.55,whiteSpace:'normal',maxWidth:260}}><strong style={{display:'block',marginBottom:5}}> {Number(savedTotalCount||0).toLocaleString('pt-AO')} pessoas guardaram o seu perfil.</strong><span>Você pode anunciar diretamente a essas pessoas. Ao adicionar uma Novidade, elas recebem no painel delas.</span></div></div>}
             </div>
             <TalazaMenu
               country={business?.country_id || country}
