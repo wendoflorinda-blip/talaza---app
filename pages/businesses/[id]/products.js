@@ -34,19 +34,23 @@ export default function BusinessProductsPage() {
         if (!b) throw new Error('Este negócio não está disponível publicamente.');
         const { data: viewerAuth } = await supabase.auth.getUser();
         if (!viewerAuth?.user) throw new Error('Inicia sessão para consultar produtos na Talaza Comercial do teu país.');
-        let commercialCountryId = country || '';
-        let commercialProvinceId = province || '';
+        const requestedCountryId = Array.isArray(country) ? country[0] : country;
+        const requestedProvinceId = Array.isArray(province) ? province[0] : province;
+        let commercialCountryId = '';
+        let mainProvinceId = '';
         const { data: viewerProfile } = await supabase.from('profiles')
           .select('country_id,province_id').eq('id', viewerAuth.user.id).maybeSingle();
-        commercialCountryId = viewerProfile?.country_id || commercialCountryId;
-        commercialProvinceId = viewerProfile?.province_id || commercialProvinceId;
-        if (!commercialCountryId || !commercialProvinceId) {
+        commercialCountryId = viewerProfile?.country_id || requestedCountryId || '';
+        mainProvinceId = viewerProfile?.province_id || '';
+        if (!commercialCountryId || !mainProvinceId) {
           const { data: creatorSync, error: syncError } = await supabase.rpc('sync_media_creator_commercial_profile');
           if (!syncError && creatorSync?.ok) {
             commercialCountryId = creatorSync.country_id || commercialCountryId;
-            commercialProvinceId = creatorSync.province_id || commercialProvinceId;
+            mainProvinceId = creatorSync.province_id || mainProvinceId;
           }
         }
+        // A província da URL é a região explorada; só usa a principal como fallback.
+        const commercialProvinceId = requestedProvinceId || mainProvinceId || '';
         if (commercialCountryId && b.country_id !== commercialCountryId) throw new Error('Este negócio pertence a outro país e não está disponível na Talaza Comercial do teu país.');
         if (commercialProvinceId && b.province_id !== commercialProvinceId) throw new Error('Este negócio pertence a outra província.');
 
