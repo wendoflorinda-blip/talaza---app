@@ -54,6 +54,19 @@ export default function MediaHome() {
   const [exploreCaption, setExploreCaption] = useState('');
   const explorePhotoInputRef = useRef(null);
 
+  const [profileEditing, setProfileEditing] = useState(false);
+  const [profileName, setProfileName] = useState('Mara Kiala');
+  const [profileUsername, setProfileUsername] = useState('marakiala');
+  const [profileBio, setProfileBio] = useState('Bastidores, ensaios e música nova toda semana. Entre no meu fã clube.');
+  const [profileLinks, setProfileLinks] = useState(['marakiala.com/links']);
+  const [profileEmail, setProfileEmail] = useState('');
+  const [showEmail, setShowEmail] = useState(false);
+  const [profileCoverColor, setProfileCoverColor] = useState('#E84A8A');
+  const [profileAvatarPreview, setProfileAvatarPreview] = useState('');
+  const profileAvatarInputRef = useRef(null);
+  const coverColorInputRef = useRef(null);
+  const coverPalette = ['#E84A8A','#FF2E7A','#FF5FA8','#FF8A3D','#FFD966','#D6E83D','#63C653','#19A875','#36C6C9','#45A5F5','#5C6DFF','#8A3DFF','#B44AFF','#D94AFF','#FF4A58','#914D36','#222222','#F2F2F2'];
+
   const [cameraFacing, setCameraFacing] = useState('environment');
   const galleryInputRef = useRef(null);
   const captureInputRef = useRef(null);
@@ -139,6 +152,73 @@ export default function MediaHome() {
 
   if (loading) return <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#050706', color: '#fff', fontFamily: 'system-ui' }}>A preparar a MÍDIA TALAZA…</main>;
 
+  if (profileEditing) {
+    return (
+      <main style={{height:'100dvh',minHeight:540,width:'100%',background:'#fff',color:'#000',fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif",overflowY:'auto'}}>
+        <style>{' * { box-sizing:border-box; } button { font:inherit; }'}</style>
+        <div style={{maxWidth:520,margin:'0 auto',padding:'max(12px,env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))'}}>
+          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+            <button type="button" onClick={()=>setProfileEditing(false)} style={{width:48,height:48,border:0,borderRadius:50,background:'#F2F2F2',color:'#000',fontSize:22,display:'grid',placeItems:'center'}}>‹</button>
+            <div style={{fontSize:28,fontWeight:900,color:'#000'}}>Editar perfil</div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24}}>
+            <button type="button" onClick={()=>profileAvatarInputRef.current?.click()} style={{width:110,height:110,flexShrink:0,border:0,borderRadius:24,background:'linear-gradient(180deg,#FF5FA8,#8A3DFF)',color:'#fff',fontSize:44,fontWeight:900,display:'grid',placeItems:'center',overflow:'hidden'}}>
+              {profileAvatarPreview ? <img src={profileAvatarPreview} alt="Pré-visualização" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : 'MA'}
+            </button>
+            <input ref={profileAvatarInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const file=e.target.files?.[0];if(file){const reader=new FileReader();reader.onload=()=>setProfileAvatarPreview(String(reader.result||''));reader.readAsDataURL(file);}}}/>
+            <button type="button" onClick={()=>profileAvatarInputRef.current?.click()} style={{height:60,flex:1,border:0,borderRadius:20,background:'#F2F2F2',color:'#000',fontSize:19,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',gap:10}}>📷 Alterar foto</button>
+          </div>
+          <div style={{display:'grid',gap:8,marginBottom:20}}>
+            <label style={{fontSize:19,fontWeight:900,color:'#666'}}>Nome</label>
+            <input value={profileName} onChange={e=>setProfileName(e.target.value)} style={{height:64,border:0,borderRadius:20,padding:'0 16px',background:'#F2F2F2',color:'#000',fontSize:20}}/>
+          </div>
+          <div style={{display:'grid',gap:8,marginBottom:20}}>
+            <label style={{fontSize:19,fontWeight:900,color:'#666'}}>Nome de utilizador</label>
+            <div style={{height:64,borderRadius:20,background:'#F2F2F2',padding:'0 16px',display:'flex',alignItems:'center',gap:10}}>
+              <input value={'@'+profileUsername.replace(/^@+/,'')} onChange={e=>setProfileUsername(e.target.value.replace(/^@+/,''))} style={{flex:1,minWidth:0,border:0,outline:0,background:'transparent',color:'#000',fontSize:20,fontWeight:900}}/>
+              <span style={{color:'#FF2E7A',fontSize:19,fontWeight:900}}>Alterar</span>
+            </div>
+          </div>
+          <div style={{display:'grid',gap:8,marginBottom:20}}>
+            <label style={{fontSize:19,fontWeight:900,color:'#666'}}>Descrição</label>
+            <textarea value={profileBio} maxLength={150} onChange={e=>setProfileBio(e.target.value)} style={{height:150,resize:'vertical',border:0,borderRadius:20,padding:16,background:'#F2F2F2',color:'#000,fontSize:20,lineHeight:1.45}}/>
+            <div style={{fontSize:17,color:'#888'}}>{profileBio.length}/150</div>
+          </div>
+          <div style={{display:'grid',gap:8,marginBottom:20}}>
+            <label style={{fontSize:19,fontWeight:900,color:'#666'}}>Links (máximo 2)</label>
+            {profileLinks.map((link,i)=><div key={'profile-link-'+i} style={{display:'flex',gap:10,alignItems:'center'}}>
+              <input value={link} onChange={e=>setProfileLinks(prev=>prev.map((v,j)=>j===i?e.target.value:v))} placeholder="Link" style={{height:64,flex:1,minWidth:0,border:0,borderRadius:20,padding:'0 16px',background:'#F2F2F2',color:'#000',fontSize:20}}/>
+              <button type="button" aria-label="Apagar link" onClick={()=>setProfileLinks(prev=>prev.filter((_,j)=>j!==i))} style={{width:64,height:64,border:0,borderRadius:20,background:'#F2F2F2',color:'#000',fontSize:20}}>⌫</button>
+            </div>)}
+            {profileLinks.length<2&&<button type="button" onClick={()=>setProfileLinks(prev=>[...prev,''])} style={{height:64,border:0,borderRadius:20,background:'#F2F2F2',color:'#000',fontSize:20,fontWeight:900}}>＋ Adicionar link ({profileLinks.length}/2)</button>}
+          </div>
+          <div style={{display:'grid',gap:8,marginBottom:20}}>
+            <label style={{fontSize:19,fontWeight:900,color:'#666'}}>E-mail</label>
+            <input type="email" value={profileEmail} onChange={e=>setProfileEmail(e.target.value)} placeholder="seuemail@exemplo.com" style={{height:64,border:0,borderRadius:20,padding:'0 16px',background:'#F2F2F2',color:'#000,fontSize:20}}/>
+            <div style={{height:90,borderRadius:20,background:'#F2F2F2',padding:16,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+              <div><div style={{fontSize:20,fontWeight:900,color:'#000'}}>Mostrar no perfil</div><div style={{fontSize:17,color:'#888',marginTop:3}}>Quem visitar o perfil vê o e-mail.</div></div>
+              <button type="button" aria-label="Mostrar e-mail" onClick={()=>setShowEmail(v=>!v)} style={{width:60,height:36,border:0,borderRadius:20,background:showEmail?'#FF2E7A':'#CCCCCC',padding:2,display:'flex',alignItems:'center',justifyContent:showEmail?'flex-end':'flex-start',flexShrink:0}}><span style={{width:32,height:32,borderRadius:50,background:'#fff'}}/></button>
+            </div>
+          </div>
+          <div style={{display:'grid',gap:12,marginBottom:24}}>
+            <label style={{fontSize:19,fontWeight:900,color:'#666'}}>Cor da capa</label>
+            <div style={{height:110,borderRadius:20,background:profileCoverColor}}/>
+            <div style={{display:'flex',alignItems:'center',gap:12}}><input type="color" ref={coverColorInputRef} value={profileCoverColor} onChange={e=>setProfileCoverColor(e.target.value)} style={{width:80,height:48,padding:0,border:'1px solid #aaa',background:'transparent'}}/><span style={{fontSize:18,color:'#666'}}>Toque para escolher qualquer cor</span></div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(10,1fr)',gap:7}}>{coverPalette.map(color=><button key={color} type="button" aria-label={'Selecionar '+color} onClick={()=>setProfileCoverColor(color)} style={{aspectRatio:'1/1',border:profileCoverColor===color?'2px solid #222':'1px solid #ddd',borderRadius:8,background:color,padding:0}}/>)}</div>
+          </div>
+          <button type="button" onClick={async()=>{
+            const cleanUsername=profileUsername.trim().replace(/^@+/,'');
+            const cleanLinks=profileLinks.map(v=>v.trim()).filter(Boolean).slice(0,2);
+            const {data,error}=await supabase.auth.updateUser({data:{media_display_name:profileName.trim(),media_username:cleanUsername,media_bio:profileBio,media_links:cleanLinks,media_email:profileEmail.trim(),media_email_visible:showEmail,media_cover_color:profileCoverColor}});
+            if(error){setNotice('Não foi possível guardar as alterações. Tenta novamente.');return;}
+            setUser(data.user||user);setProfileEditing(false);setNotice('Perfil atualizado.');
+          }} style={{width:'100%',height:64,border:0,borderRadius:20,background:'#FF2E7A',color:'#fff',fontSize:22,fontWeight:900,marginBottom:8}}>Guardar alterações</button>
+          {profileAvatarPreview&&<div style={{fontSize:13,color:'#777',textAlign:'center'}}>A foto escolhida está apenas em pré-visualização nesta versão.</div>}
+        </div>
+      </main>
+    );
+  }
+
   return (
     <>
       <Head>
@@ -188,7 +268,7 @@ export default function MediaHome() {
                   <button type="button" onClick={() => setNotice('Planos do fã clube.')} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#ff3fa3', color: '#fff', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="sparkle" size={18}/>Ver planos</button>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
                     <button type="button" onClick={() => selectNav('Mensagens')} style={{ border: '1px solid #4a2a5c', borderRadius: 12, padding: 11, background: '#2b103b', color: '#fff', fontSize: 12, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Icon name="message" size={16}/>Mensagens</button>
-                    <button type="button" onClick={() => setNotice('Editar perfil.')} style={{ border: '1px solid #4a2a5c', borderRadius: 12, padding: 11, background: '#2b103b', color: '#fff', fontSize: 12, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Icon name="edit" size={16}/>Editar perfil</button>
+                    <button type="button" onClick={() => { setProfileEditing(true); setProfileName(user?.user_metadata?.media_display_name || 'Mara Kiala'); setProfileUsername(user?.user_metadata?.media_username || 'marakiala'); setProfileBio(user?.user_metadata?.media_bio || 'Bastidores, ensaios e música nova toda semana. Entre no meu fã clube.'); setProfileLinks(user?.user_metadata?.media_links || ['marakiala.com/links']); setProfileEmail(user?.user_metadata?.media_email || user?.email || ''); setShowEmail(!!user?.user_metadata?.media_email_visible); setProfileCoverColor(user?.user_metadata?.media_cover_color || '#E84A8A'); setProfileAvatarPreview(''); }} style={{ border: '1px solid #4a2a5c', borderRadius: 12, padding: 11, background: '#2b103b', color: '#fff', fontSize: 12, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Icon name="edit" size={16}/>Editar perfil</button>
                   </div>
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 950, marginBottom: 10 }}>Gerir o meu fã clube</div>
