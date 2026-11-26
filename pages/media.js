@@ -558,7 +558,7 @@ export default function MediaHome() {
         </div>
       )}
     </div>
-)) : activeNav === 'Mensagens' ? (
+) : activeNav === 'Mensagens' ? (
 
                   <div style={{ fontSize:28, fontWeight:950, letterSpacing:-.5 }}><span style={{color:'#000'}}>fã</span><span style={{color:'#FF2E7A'}}>.</span><span style={{color:'#000'}}>clube</span></div>
                   <div style={{ display:'flex', gap:8 }}>
