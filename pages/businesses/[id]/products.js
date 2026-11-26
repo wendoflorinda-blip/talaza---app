@@ -64,10 +64,14 @@ export default function BusinessProductsPage() {
         if (!active) {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) throw new Error('A hospedagem deste negócio expirou. Entre na sua conta e consulte os seus Guardados durante o período de tolerância.');
+          const isMediaCreator = user.user_metadata?.media_account_type === 'creator' || user.user_metadata?.media_creator_onboarding === true;
           const isOwner = String(b.owner_id) === String(user.id);
-          const { data: saved, error: savedError } = isOwner ? { data: { id: 'owner' }, error: null } :
-            await supabase.from('saved_businesses').select('id').eq('business_id', b.id).eq('user_id', user.id).maybeSingle();
-          if (savedError || !saved) throw new Error('Este negócio está temporariamente inativo e só pode ser consultado pelos exploradores que já o guardaram.');
+          // Criadores da Talaza Mídia podem consultar produtos de negócios inativos em todas as províncias.
+          if (!isMediaCreator && !isOwner) {
+            const { data: saved, error: savedError } = await supabase.from('saved_businesses').select('id')
+              .eq('business_id', b.id).eq('user_id', user.id).maybeSingle();
+            if (savedError || !saved) throw new Error('Este negócio está temporariamente inativo e só pode ser consultado pelos exploradores que já o guardaram.');
+          }
         }
 
         const { data: media, error: me } = await supabase.from('business_images')
