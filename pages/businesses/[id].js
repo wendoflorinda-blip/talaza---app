@@ -79,8 +79,12 @@ export default function BusinessPublicProfile() {
             creatorMetadataProfile = syncData;
           }
         }
-        let commercialCountryId = creatorMetadataProfile?.country_id || country || '';
-        let commercialProvinceId = creatorMetadataProfile?.province_id || province || '';
+        const requestedCountryId = Array.isArray(country) ? country[0] : country;
+        const requestedProvinceId = Array.isArray(province) ? province[0] : province;
+        const commercialCountryId = creatorMetadataProfile?.country_id || requestedCountryId || '';
+        // A província no URL representa a região que o explorador está a visitar.
+        // Se não houver seleção, usa a província principal da conta.
+        const commercialProvinceId = requestedProvinceId || creatorMetadataProfile?.province_id || '';
         if (commercialCountryId && businessData.country_id !== commercialCountryId) {
           throw new Error('Não disponível no teu país');
         }
