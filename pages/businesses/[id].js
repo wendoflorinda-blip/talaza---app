@@ -58,13 +58,15 @@ export default function BusinessPublicProfile() {
         if (!businessData.is_active) {
           const { data: { user: viewer } } = await supabase.auth.getUser();
           if (!viewer) throw new Error('A hospedagem deste negócio expirou. Entre na sua conta e consulte os seus Guardados durante o período de tolerância.');
+          const isMediaCreator = viewer.user_metadata?.media_account_type === 'creator' || viewer.user_metadata?.media_creator_onboarding === true;
           const isOwner = String(businessData.owner_id) === String(viewer.id);
-          const { data: savedRow, error: savedError } = isOwner
-            ? { data:{id:'owner'}, error:null }
-            : await supabase.from('saved_businesses').select('id')
-                .eq('business_id', businessData.id).eq('user_id', viewer.id).maybeSingle();
-          if (savedError || !savedRow) throw new Error('Este negócio está temporariamente inativo e só pode ser consultado pelos exploradores que já o guardaram.');
-          setIsSavedGraceProfile(!isOwner);
+          // Criadores da Talaza Mídia podem consultar perfis inativos em todas as províncias.
+          if (!isMediaCreator && !isOwner) {
+            const { data: savedRow, error: savedError } = await supabase.from('saved_businesses').select('id')
+              .eq('business_id', businessData.id).eq('user_id', viewer.id).maybeSingle();
+            if (savedError || !savedRow) throw new Error('Este negócio está temporariamente inativo e só pode ser consultado pelos exploradores que já o guardaram.');
+          }
+          setIsSavedGraceProfile(!isOwner && !isMediaCreator);
         }
 
         // Para utilizadores autenticados, a Comercial usa o país principal do perfil.
