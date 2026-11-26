@@ -233,7 +233,46 @@ export default function Explore() {
     }
     if(router.isReady) lockCommercialLocation();
     return ()=>{cancelled=true;};
-  },[router.isReady]);  const [countryName, setCountryName] = useState('');
+  },[router.isReady]);
+
+  // Atualiza a província explorada quando a rota muda (seleção no menu).
+  // A localização principal da conta permanece fixa e só valida o destino.
+  useEffect(() => {
+    if (!router.isReady || !lockedCommercialLocation) return;
+    let cancelled = false;
+
+    async function syncExplorationProvince() {
+      const requestedProvince = safeValue(router.query.province);
+      let selected = lockedCommercialLocation;
+
+      if (requestedProvince && String(requestedProvince) !== String(lockedCommercialLocation.provinceId)) {
+        const { data: selectedRow } = await supabase
+          .from('provinces')
+          .select('id,name,country_id')
+          .eq('id', requestedProvince)
+          .eq('country_id', lockedCommercialLocation.countryId)
+          .maybeSingle();
+
+        if (selectedRow?.id) {
+          selected = {
+            country: lockedCommercialLocation.country,
+            countryId: lockedCommercialLocation.countryId,
+            province: selectedRow.name || '',
+            provinceId: selectedRow.id,
+          };
+        }
+      }
+
+      if (cancelled) return;
+      setActiveLocation(selected);
+      setTalazaLocation(selected);
+    }
+
+    syncExplorationProvince();
+    return () => { cancelled = true; };
+  }, [router.isReady, router.query.province, lockedCommercialLocation]);
+
+  const [countryName, setCountryName] = useState('');
   const [provinceName, setProvinceName] = useState('');
   const [categories, setCategories] = useState([]);
   const [businesses, setBusinesses] = useState([]);
