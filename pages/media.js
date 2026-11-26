@@ -330,7 +330,7 @@ export default function MediaHome() {
                 <div style={{display:'grid',gap:10,marginBottom:24}}>
                   {[{name:'Dj Nelito',tag:'👑',members:'890 fã clube',badge:'♛',grad:'linear-gradient(135deg,#873bce,#4a1d8b)',notif:'3'},{name:'Ana Bela',tag:'💎',members:'1.240 fã clube',badge:'◆',grad:'linear-gradient(135deg,#28ad70,#126345)',notif:'1'}].map((club,i)=><div key={club.name} style={{display:'flex',alignItems:'center',gap:12,padding:13,borderRadius:16,background:'#2b103b',border:'1px solid #45245b',color:'#fff'}}>
                     <div style={{width:48,height:48,flex:'0 0 48px',borderRadius:50,background:club.grad,display:'grid',placeItems:'center',fontSize:23}}>{club.tag}</div>
-                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:950}}>{club.name} <span style={{color:'#46aaff',fontSize:11}}>✓</span> <span style={{color:'#f3c449}}>{club.badge}</span></div><div style={{fontSize:11,color:'#b7a6c6,marginTop:4}}>{club.members}</div></div>
+                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:950}}>{club.name} <span style={{color:'#46aaff',fontSize:11}}>✓</span> <span style={{color:'#f3c449}}>{club.badge}</span></div><div style={{fontSize:11,color:'#b7a6c6',marginTop:4}}>{club.members}</div></div>
                     <button type="button" onClick={() => setNotice('Abrir fã clube '+club.name)} style={{border:0,borderRadius:20,padding:'8px 10px',background:'#1c0a29',color:'#fff,fontSize:11,fontWeight:900}}>Abrir <span style={{marginLeft:5,color:'#ff3fa3'}}>● {club.notif}</span></button>
                   </div>)}
                 </div>
@@ -339,7 +339,7 @@ export default function MediaHome() {
                   {[{name:'Yuri Estúdio',detail:'640 fã clube',color:'linear-gradient(135deg,#ff8a25,#d94b17)',seal:'👑',members:'640 fã clube'},{name:'Lucie M.',detail:'1,5 mil fã clube · com pedido',color:'linear-gradient(135deg,#4ca5ff,#2348b5)',seal:'◆',members:'1,5 mil fã clube · com pedido'},{name:'Kota Creator',detail:'980 fã clube',color:'linear-gradient(135deg,#ff59b4,#a73bce)',seal:'♛',members:'980 fã clube'},{name:'Zuri Studio',detail:'2,2 mil fã clube',color:'linear-gradient(135deg,#44bd90,#21735b)',seal:'◆',members:'2,2 mil fã clube'}].map(club=><div key={club.name} style={{display:'flex',alignItems:'center',gap:12,padding:13,borderRadius:16,background:'#2b103b',border:'1px solid #45245b',color:'#fff'}}>
                     <div style={{width:48,height:48,flex:'0 0 48px',borderRadius:50,background:club.color,display:'grid',placeItems:'center',fontSize:22}}>{club.seal}</div>
                     <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:950}}>{club.name} <span style={{color:'#46aaff',fontSize:11}}>✓</span></div><div style={{fontSize:11,color:'#b7a6c6,marginTop:4}}>{club.members}</div></div>
-                    <button type="button" onClick={() => setNotice('Aderir ao fã clube '+club.name)} style={{border:0,borderRadius:20,padding:'8px 13px',background:'#ff3fa3,color:'#fff,fontSize:11,fontWeight:950}}>Aderir</button>
+                    <button type="button" onClick={() => setNotice('Aderir ao fã clube '+club.name)} style={{border:0,borderRadius:20,padding:'8px 13px',background:'#ff3fa3,color:'#fff',fontSize:11,fontWeight:950}}>Aderir</button>
                   </div>)}
                 </div>
                 <div style={{fontSize:11,color:'#777',textAlign:'center',padding:10}}>Os fãs não pagam. Os fã clubes permanecem abertos.</div>
