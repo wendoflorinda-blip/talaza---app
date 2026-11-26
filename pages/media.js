@@ -574,7 +574,7 @@ export default function MediaHome() {
                     </div>
                     <div style={{marginBottom:24}}>
                       <div style={{fontSize:19,fontWeight:950,color:'#000',marginBottom:8}}>Pergunta principal</div>
-                      <textarea value={fanclubPollQuestion} onChange={e=>setFanclubPollQuestion(e.target.value)} placeholder="Ex.: Qual single sai primeiro?" style={{width:'100%',height:100,resize:'vertical',border:0,borderRadius:20,padding:16,background:'#F2F2F2',color:'#000,fontSize:18,outline:'none'}}/>
+                      <textarea value={fanclubPollQuestion} onChange={e=>setFanclubPollQuestion(e.target.value)} placeholder="Ex.: Qual single sai primeiro?" style={{width:'100%',height:100,resize:'vertical',border:0,borderRadius:20,padding:16,background:'#F2F2F2',color:'#000',fontSize:18,outline:'none'}}/>
                     </div>
                     <div style={{marginBottom:24}}>
                       <div style={{fontSize:19,fontWeight:950,color:'#000',marginBottom:10}}>Imagem ou vídeo (opcional)</div>
