@@ -156,15 +156,15 @@ export default function MediaHome() {
                     <div style={{ width: '100%', height: '100%', borderRadius: 19, background: 'linear-gradient(140deg,#ff74bb,#8d42e7)', display: 'grid', placeItems: 'center', fontSize: 29, fontWeight: 950, letterSpacing: 1 }}>MK</div>
                   </div>
                 </div>
-                <div style={{ display: 'grid', gap: 6, padding: 12, borderRadius: 15, background: '#2b103b', border: '1px solid #45245b' }}>
-                  <div style={{ fontSize: 24, fontWeight: 950, letterSpacing: -.4 }}>Mara Kiala</div>
-                  <div style={{ fontSize: 12, color: '#b9a8c8' }}>@marakiala · fala Português</div>
-                  <div style={{ fontSize: 12, color: '#b9a8c8', display: 'flex', alignItems: 'center', gap: 5 }}>⌖ Luanda, Angola</div>
-                  <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5 }}>Bastidores, ensaios e música nova toda semana. Entre no meu fã clube.</div>
-                  <button type="button" onClick={() => setNotice('Editar o link do perfil.')} style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 12, border: '1px solid #45245b', background: '#2b103b', color: '#9ed9ff', fontSize: 12, fontWeight: 800, textAlign: 'left' }}><Icon name="link" size={16}/> marakiala.com/links <span style={{ marginLeft: 'auto', color: '#c4b4d2' }}><Icon name="edit" size={15}/></span></button>
+                <div style={{ display: 'grid', gap: 6, padding: 0, borderRadius: 0, background: 'transparent', border: 0 }}>
+                  <div style={{ fontSize: 24, fontWeight: 950, letterSpacing: -.4, color: '#111111' }}>Mara Kiala</div>
+                  <div style={{ fontSize: 12, color: '#555555' }}>@marakiala · fala Português</div>
+                  <div style={{ fontSize: 12, color: '#555555', display: 'flex', alignItems: 'center', gap: 5 }}>⌖ Luanda, Angola</div>
+                  <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5, color: '#111111' }}>Bastidores, ensaios e música nova toda semana. Entre no meu fã clube.</div>
+                  <button type="button" onClick={() => setNotice('Editar o link do perfil.')} style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 12, border: '1px solid rgba(0,0,0,.06)', background: 'rgba(255,255,255,.5)', color: '#1674c4', fontSize: 12, fontWeight: 800, textAlign: 'left' }}><Icon name="link" size={16}/> marakiala.com/links <span style={{ marginLeft: 'auto', color: '#555555' }}><Icon name="edit" size={15}/></span></button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginTop: 19, marginBottom: 18, textAlign: 'center' }}>
-                  {[['18,4 mil','seguidores'],['312','seguindo'],['2.310','no fã clube']].map(([count,label]) => <div key={label}><div style={{ fontSize: 17, fontWeight: 950 }}>{count}</div><div style={{ color: '#b9a8c8', fontSize: 11, marginTop: 3 }}>{label}</div></div>)}
+                  {[['18,4 mil','seguidores'],['312','seguindo'],['2.310','no fã clube']].map(([count,label]) => <div key={label}><div style={{ fontSize: 17, fontWeight: 950, color: '#111111' }}>{count}</div><div style={{ color: '#666666', fontSize: 11, marginTop: 3 }}>{label}</div></div>)}
                 </div>
                 <div style={{ display: 'grid', gap: 9, marginBottom: 19 }}>
                   <button type="button" onClick={() => setNotice('Criar uma publicação no Explore.')} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#f4df83', color: '#241b10', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="globe" size={18}/>Publicar no explore</button>
@@ -195,7 +195,7 @@ export default function MediaHome() {
             ) : activeNav === 'Explorar' ? (
 
               <div style={{ position: 'absolute', inset: 0, background: '#ffffff', overflowY: 'auto', padding: 'max(62px, env(safe-area-inset-top)) 12px calc(90px + env(safe-area-inset-bottom))', textAlign: 'left', color: '#fff' }}>
-                {exploreTab === 'Explorar' && <div style={{ position: 'sticky', top: 0, zIndex: 50, display: 'flex', gap: 8, padding: '9px 0 13px', background: '#ffffff' }}>
+                {exploreTab === 'Explorar' && <div style={{ position: 'sticky', top: 0, zIndex: 50, display: 'flex', gap: 8, padding: '9px 0 13px', background: '#ffffff', opacity: 1, boxShadow: '0 5px 12px rgba(0,0,0,.12)' }}>
                   <button type="button" onClick={() => setExploreTab('Explorar')} style={{ padding: '9px 17px', border: 0, borderRadius: 22, background: exploreTab === 'Explorar' ? '#fff' : '#2b103b', color: exploreTab === 'Explorar' ? '#19121d' : '#d3c6dc', fontSize: 13, fontWeight: 900 }}>Explorar</button>
                   <button type="button" onClick={() => setExploreTab('Descoberta')} style={{ padding: '9px 17px', border: 0, borderRadius: 22, background: exploreTab === 'Descoberta' ? '#fff' : '#2b103b', color: exploreTab === 'Descoberta' ? '#19121d' : '#d3c6dc', fontSize: 13, fontWeight: 900 }}>Descoberta</button>
                   <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
