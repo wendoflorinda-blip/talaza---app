@@ -537,7 +537,7 @@ export default function MediaHome() {
                           <div style={{ fontSize: 18, color: '#000' }}>Novo refrão: o que acham?</div>
                           <div style={{height:280,borderRadius:14,background:'linear-gradient(135deg,#ff9b38,#ff58a8)',position:'relative',display:'grid',placeItems:'center',color:'#fff',fontWeight:900}}><span style={{position:'absolute',top:12,right:12,padding:'6px 10px',borderRadius:20,background:'rgba(0,0,0,.65)',fontSize:15}}>4 fotos</span><span style={{fontSize:30}}>♪</span></div>
                           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6}}>
-                            {['♡ 210','♨ 98','☆ 57','◉ 3'].map(label=><button key={label} type="button" onClick={()=>setFanclubFeedback('Reação registada: '+label)} style={{height:40,border:'1px solid #ddd',borderRadius:24,background:'#fff,color:'#000',fontSize:13,fontWeight:800}}>{label}</button>)}
+                            {['♡ 210','♨ 98','☆ 57','◉ 3'].map(label=><button key={label} type="button" onClick={()=>setFanclubFeedback('Reação registada: '+label)} style={{height:40,border:'1px solid #ddd',borderRadius:24,background:'#fff',color:'#000',fontSize:13,fontWeight:800}}>{label}</button>)}
                           </div>
                           <div style={{fontSize:16,color:'#000'}}>Dalva N. Perfeito!</div>
                         </article>
@@ -579,7 +579,7 @@ export default function MediaHome() {
                     <div style={{marginBottom:24}}>
                       <div style={{fontSize:19,fontWeight:950,color:'#000',marginBottom:10}}>Imagem ou vídeo (opcional)</div>
                       <input type="file" accept="image/*,video/*" id="fanclubPollMediaInput" onChange={e=>{const f=e.target.files?.[0];if(f)setFanclubPollMedia({file:f,url:URL.createObjectURL(f)});e.target.value='';}} style={{display:'none'}}/>
-                      <button type="button" onClick={()=>document.getElementById('fanclubPollMediaInput')?.click()} style={{width:'100%',height:220,border:'2px dashed #7A3DFF',borderRadius:20,background:'#fff,color:'#666',display:'grid',placeContent:'center',gap:8,fontSize:18,fontWeight:900}}>
+                      <button type="button" onClick={()=>document.getElementById('fanclubPollMediaInput')?.click()} style={{width:'100%',height:220,border:'2px dashed #7A3DFF',borderRadius:20,background:'#fff',color:'#666',display:'grid',placeContent:'center',gap:8,fontSize:18,fontWeight:900}}>
                         {fanclubPollMedia?<img src={fanclubPollMedia.url} alt="Pré-visualização da mídia da enquete" style={{width:'100%',height:180,objectFit:'contain',borderRadius:14}}/>:<><span style={{fontSize:26}}>▧</span><span>Escolher imagem ou vídeo</span></>}
                       </button>
                     </div>
