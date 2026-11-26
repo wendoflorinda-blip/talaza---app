@@ -416,7 +416,7 @@ export default function MediaHome() {
                       {name:'Yuri Estúdio',last:'Obrigado por seguir!',time:'Ontem',gradient:'linear-gradient(135deg,#ff9b32,#b74723)'},
                       {name:'Ana Bela',last:'Olá! Tudo bem?',time:'Ontem',gradient:'linear-gradient(135deg,#54b4ff,#5841c2)'},
                       {name:'Toni B.',last:'Viu a minha publicação?',time:'Seg',gradient:'linear-gradient(135deg,#ed73b4,#8243ca)'}
-                    ].map((chat,i)=><button key={'chat-'+i} type="button" onClick={()=>setNotice('Conversa de exemplo: '+chat.name)} style={{ display:'flex',alignItems:'center',gap:12,,width:'100%',border:0,background:'transparent',padding:0,textAlign:'left',color:'#000' }}>
+                    ].map((chat,i)=><button key={'chat-'+i} type="button" onClick={()=>setNotice('Conversa de exemplo: '+chat.name)} style={{ display:'flex',alignItems:'center',gap:12,width:'100%',border:0,background:'transparent',padding:0,textAlign:'left',color:'#000' }}>
                       <div style={{ width:56,height:56,flex:'0 0 56px',borderRadius:50,background:chat.gradient }}/>
                       <div style={{ flex:1,minWidth:0 }}>
                         <div style={{ fontSize:17,fontWeight:900,color:'#000' }}>{chat.name}</div>
