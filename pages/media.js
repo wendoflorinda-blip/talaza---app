@@ -41,6 +41,8 @@ export default function MediaHome() {
   const [profileTab, setProfileTab] = useState('Fotos');
   const [discoveryLanguage, setDiscoveryLanguage] = useState('Français');
   const [discoveryLiked, setDiscoveryLiked] = useState(false);
+  const [messagesTab, setMessagesTab] = useState('Notificações');
+  const [communityFilter, setCommunityFilter] = useState('Sugestões');
 
   useEffect(() => {
     let mounted = true;
@@ -116,7 +118,7 @@ export default function MediaHome() {
     if (item === 'Início') return;
     if (item === 'Fã clube') setNotice('Os conteúdos dos criadores que segue aparecerão aqui.');
     if (item === 'Explorar') { setNotice(''); setExploreTab('Explorar'); return; }
-    if (item === 'Mensagens') setNotice('A área de mensagens da MÍDIA TALAZA está a ser preparada.');
+    if (item === 'Mensagens') { setNotice(''); setMessagesTab('Notificações'); setCommunityFilter('Sugestões'); }
     if (item === 'Perfil') { setNotice(''); setProfileTab('Fotos'); return; }
   }
 
@@ -363,6 +365,70 @@ export default function MediaHome() {
                   </div>
                 </div>
                 <div style={{fontSize:12,color:'#777',textAlign:'center',padding:10}}>Os fãs não pagam. Os fã clubes permanecem abertos.</div>
+              </div>
+            ) : activeNav === 'Mensagens' ? (
+              <div style={{ position:'absolute', inset:0, background:'#FFFFFF', overflowY:'auto', padding:'max(14px,env(safe-area-inset-top)) 16px calc(92px + env(safe-area-inset-bottom))', textAlign:'left', color:'#000' }}>
+                <div style={{ position:'sticky', top:0, zIndex:10, background:'#FFFFFF', paddingTop:5, boxShadow:'0 4px 10px rgba(0,0,0,.05)' }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', alignItems:'end', borderBottom:'1px solid #eeeeee' }}>
+                    {['Notificações','Mensagens','Comunidade'].map(tab => <button key={tab} type="button" onClick={() => setMessagesTab(tab)} style={{ border:0, background:'transparent', color:messagesTab===tab?'#000':'#888', fontSize:20, fontWeight:messagesTab===tab?900:500, padding:'13px 2px 12px', position:'relative', whiteSpace:'nowrap' }}>{tab}{messagesTab===tab && <span style={{ position:'absolute', left:0,right:0,bottom:0,height:4,borderRadius:4,background:'#FF2E7A' }}/>}</button>)}
+                  </div>
+                </div>
+                {messagesTab === 'Notificações' && (
+                  <div style={{ display:'grid', gap:20, paddingTop:18 }}>
+                    {[
+                      {text:'Lucie M. começou a seguir você', gradient:'linear-gradient(135deg,#8d40d8,#ff5aab)',action:'Seguir de volta'},
+                      {text:'Dj Nelito publicou no clube',gradient:'linear-gradient(135deg,#3487ff,#35d89a)',time:'1 h'},
+                      {text:'Yuri Estúdio começou a seguir você',gradient:'linear-gradient(135deg,#123cba,#29a36e)',action:'Seguir de volta'},
+                      {text:'Dj Nelito Live na sexta às 20h',gradient:'linear-gradient(135deg,#6939d9,#ad50ff)',time:'3 h'},
+                      {text:'Toni B. pediu para entrar no seu fã clube',gradient:'linear-gradient(135deg,#9a633e,#e778a8)',action:'Ver'}
+                    ].map((item,i) => <div key={'notification-'+i} style={{ display:'flex', alignItems:'center', gap:12, minHeight:56 }}>
+                      <div style={{ width:56,height:56,flex:'0 0 56px',borderRadius:50,background:item.gradient }}/>
+                      <div style={{ flex:1,minWidth:0,fontSize:17,color:'#000',lineHeight:1.35 }}>{item.text}</div>
+                      {item.action ? <button type="button" onClick={() => setFollowed(v=>({...v,['notif-'+i]:!v['notif-'+i]}))} style={{ border:0,borderRadius:22,height:38,padding:'0 12px',background:'#FF2E7A',color:'#fff,fontSize:14,fontWeight:900,whiteSpace:'nowrap' }}>{i===4?'Ver':(followed['notif-'+i]?'Seguindo':'Seguir de volta')}</button> : <div style={{ color:'#888',fontSize:14,whiteSpace:'nowrap' }}>{item.time}</div>}
+                    </div>)}
+                  </div>
+                )}
+                {messagesTab === 'Mensagens' && (
+                  <div style={{ display:'grid', gap:16, paddingTop:18 }}>
+                    {[
+                      {name:'Lucie M.',last:'Enviou uma mensagem',time:'10:42',gradient:'linear-gradient(135deg,#ff5ba9,#7938d0)'},
+                      {name:'Dj Nelito',last:'Vamos conversar mais tarde?',time:'09:18',gradient:'linear-gradient(135deg,#3689ff,#30b990)'},
+                      {name:'Yuri Estúdio',last:'Obrigado por seguir!',time:'Ontem',gradient:'linear-gradient(135deg,#ff9b32,#b74723)'},
+                      {name:'Ana Bela',last:'Olá! Tudo bem?',time:'Ontem',gradient:'linear-gradient(135deg,#54b4ff,#5841c2)'},
+                      {name:'Toni B.',last:'Viu a minha publicação?',time:'Seg',gradient:'linear-gradient(135deg,#ed73b4,#8243ca)'}
+                    ].map((chat,i)=><button key={'chat-'+i} type="button" onClick={()=>setNotice('Conversa de exemplo: '+chat.name)} style={{ display:'flex',alignItems:'center,gap:12',width:'100%',border:0,background:'transparent',padding:0,textAlign:'left',color:'#000' }}>
+                      <div style={{ width:56,height:56,flex:'0 0 56px',borderRadius:50,background:chat.gradient }}/>
+                      <div style={{ flex:1,minWidth:0 }}>
+                        <div style={{ fontSize:17,fontWeight:900,color:'#000' }}>{chat.name}</div>
+                        <div style={{ fontSize:14,color:'#888',marginTop:4,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }}>{chat.last}</div>
+                      </div>
+                      <span style={{ fontSize:13,color:'#888',whiteSpace:'nowrap' }}>{chat.time}</span>
+                    </button>)}
+                  </div>
+                )}
+                {messagesTab === 'Comunidade' && (
+                  <div style={{ paddingTop:14 }}>
+                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:8 }}>
+                      {['Sugestões','Seguir de volta','Seguidores','Seguindo'].map((filter,i)=>{const counts=[3,4,5,2];return <button key={filter} type="button" onClick={()=>setCommunityFilter(filter)} style={{ border:communityFilter===filter?'1px solid #dddddd':'0',borderRadius:12,background:communityFilter===filter?'#FFFFFF':'#F2F2F2',color:communityFilter===filter?'#000':'#666',fontSize:15,fontWeight:communityFilter===filter?800:500,padding:'12px 7px',whiteSpace:'nowrap' }}>{filter} · {counts[i]}</button>})}
+                    </div>
+                    <div style={{ display:'grid',gap:17,paddingTop:19 }}>
+                      {[
+                        {name:'Zuri',handle:'@zuri · Kimbundu',gradient:'linear-gradient(135deg,#ff9c30,#88512a)',badge:''},
+                        {name:'Fidèle',handle:'@fidele · Lingala',gradient:'linear-gradient(135deg,#358eff,#6735c9)',badge:'♛'},
+                        {name:'Toni B.',handle:'@tonib · Português',gradient:'linear-gradient(135deg,#ff65ac,#96512f)',badge:''},
+                        {name:'Lucie M.',handle:'@luciem · Français',gradient:'linear-gradient(135deg,#36b6ee,#7645ce)',badge:''},
+                        {name:'Dj Nelito',handle:'@djnelito · Português',gradient:'linear-gradient(135deg,#9a48d4,#e84c83)',badge:'♛'}
+                      ].filter((person,i)=> communityFilter==='Sugestões'?i<3:communityFilter==='Seguir de volta'?i<4:communityFilter==='Seguidores'?i<5:i<2).map((person,i)=><div key={'community-'+communityFilter+'-'+person.name} style={{ display:'flex',alignItems:'center',gap:12,minHeight:56 }}>
+                        <div style={{ width:56,height:56,flex:'0 0 56px',borderRadius:50,background:person.gradient }}/>
+                        <div style={{ flex:1,minWidth:0 }}>
+                          <div style={{ fontSize:17,fontWeight:900,color:'#000' }}>{person.name} {person.badge && <span style={{ color:'#d9a72e',fontSize:13 }}>{person.badge}</span>}</div>
+                          <div style={{ fontSize:14,color:'#888',marginTop:3 }}>{person.handle}</div>
+                        </div>
+                        <button type="button" onClick={()=>setFollowed(v=>({...v,[person.name]:!v[person.name]}))} style={{ border:0,borderRadius:22,padding:'0 16px',height:38,background:'#FF2E7A',color:'#fff',fontSize:14,fontWeight:900 }}>{followed[person.name]?'Seguindo':'Seguir'}</button>
+                      </div>)}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : notice ? (
               <div style={{ maxWidth: 300 }}>
