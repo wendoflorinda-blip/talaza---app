@@ -618,7 +618,7 @@ export default function MediaHome() {
                 </div>
                 {fanclubFeedback&&<div role="status" style={{marginTop:16,padding:12,borderRadius:14,background:'#fce8f2',color:'#8a164e',fontSize:14,fontWeight:800}}>{fanclubFeedback}</div>}
                 </>
-                )}                </>
+                )}
                 )}
               </div>
             ) : activeNav === 'Mensagens' ? (
