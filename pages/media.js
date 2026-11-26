@@ -50,6 +50,13 @@ export default function MediaHome() {
   const [fanclubRequests, setFanclubRequests] = useState([{name:'Toni B.',handle:'@tonib',gradient:'linear-gradient(135deg,#ff9a35,#287d42)'},{name:'Dalva N.',handle:'@dalvan',gradient:'linear-gradient(135deg,#77c8ff,#2250b9)'},{name:'Kota Bantu',handle:'@kotabantu',gradient:'linear-gradient(135deg,#853bd8,#b45bff)'}]);
   const [fanclubFeedback, setFanclubFeedback] = useState('');
   const [approvedFanclubMembers, setApprovedFanclubMembers] = useState([]);
+  const [fanclubPostMedia, setFanclubPostMedia] = useState([]);
+  const [fanclubPostDescription, setFanclubPostDescription] = useState('');
+  const [fanclubPollQuestion, setFanclubPollQuestion] = useState('');
+  const [fanclubPollMedia, setFanclubPollMedia] = useState(null);
+  const [fanclubPollOptions, setFanclubPollOptions] = useState(['','']);
+  const [publishedPolls, setPublishedPolls] = useState([]);
+  const [fanclubViewTab, setFanclubViewTab] = useState('Publicações');
   const [createStep, setCreateStep] = useState(1);
   const [captureMode, setCaptureMode] = useState('Foto');
   const [selectedMedia, setSelectedMedia] = useState(null);
@@ -482,9 +489,135 @@ export default function MediaHome() {
                     </div>
                     {fanclubFeedback && <div role="status" style={{marginTop:18,padding:12,borderRadius:14,background:'#fce8f2',color:'#8a164e',fontSize:14,fontWeight:800}}>{fanclubFeedback}</div>}
                   </div>
+                ) : fanclubScreen === 'sendPost' ? (
+                  <div style={{maxWidth:520,margin:'0 auto',paddingTop:4}}>
+                    <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+                      <button type="button" aria-label="Voltar" onClick={()=>setFanclubScreen('overview')} style={{width:48,height:48,border:0,borderRadius:50,background:'#F2F2F2',color:'#000',fontSize:22,display:'grid',placeItems:'center'}}>‹</button>
+                      <div style={{fontSize:28,fontWeight:950,color:'#000'}}>Enviar post</div>
+                    </div>
+                    <div style={{display:'flex',gap:12,marginBottom:12}}>
+                      <button type="button" onClick={()=>{setCaptureMode('Foto');}} style={{flex:1,padding:'12px 10px',border: captureMode==='Foto'?'1px solid #ddd':'0',borderRadius:24,background:captureMode==='Foto'?'#fff':'#F2F2F2',color:captureMode==='Foto'?'#000':'#666',fontSize:18,fontWeight:900}}>▧ Imagens</button>
+                      <button type="button" onClick={()=>{setCaptureMode('Vídeo');setFanclubPostMedia([]);}} style={{flex:1,padding:'12px 10px',border: captureMode==='Vídeo'?'1px solid #ddd':'0',borderRadius:24,background:captureMode==='Vídeo'?'#fff':'#F2F2F2',color:captureMode==='Vídeo'?'#000':'#666',fontSize:18,fontWeight:900}}>▣ Vídeo</button>
+                    </div>
+                    <div style={{fontSize:15,color:'#888',marginBottom:12}}>{captureMode==='Foto'?'Até 10 imagens por post':'1 vídeo por post'} · {fanclubPostMedia.length}/{captureMode==='Foto'?10:1}</div>
+                    <input type="file" accept={captureMode==='Foto'?'image/*':'video/*'} multiple={captureMode==='Foto'} onChange={e=>{const chosen=Array.from(e.target.files||[]);if(!chosen.length)return;const files=captureMode==='Foto'?chosen.filter(f=>f.type.startsWith('image/')).slice(0,10-fanclubPostMedia.length):chosen.filter(f=>f.type.startsWith('video/')).slice(0,1);setFanclubPostMedia(prev=>captureMode==='Foto'?[...prev,...files].slice(0,10):files);e.target.value='';}} style={{display:'none'}} id="fanclubPostMediaInput"/>
+                    <button type="button" onClick={()=>document.getElementById('fanclubPostMediaInput')?.click()} style={{width:140,height:140,border:'2px dashed #FF2E7A',borderRadius:20,background:'#fff,color:'#666',display:'grid',placeContent:'center',gap:6,fontWeight:900,fontSize:18,marginBottom:12}}>
+                      <span style={{fontSize:32,lineHeight:1}}>＋</span><span>Adicionar</span>
+                    </button>
+                    {fanclubPostMedia.length>0&&<div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:16}}>
+                      {fanclubPostMedia.map((file,i)=><div key={file.name+'-'+i} style={{aspectRatio:'1/1',borderRadius:12,overflow:'hidden',background:'#eee',position:'relative'}}>
+                        {file.type.startsWith('video/')?<video src={URL.createObjectURL(file)} muted playsInline style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<img src={URL.createObjectURL(file)} alt={file.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>}
+                        <button type="button" aria-label="Remover mídia" onClick={()=>setFanclubPostMedia(prev=>prev.filter((_,j)=>j!==i))} style={{position:'absolute',top:5,right:5,width:24,height:24,border:0,borderRadius:50,background:'rgba(0,0,0,.65)',color:'#fff'}}>×</button>
+                      </div>)}
+                    </div>}
+                    <div style={{fontSize:19,fontWeight:950,color:'#000',margin:'24px 0 10px'}}>Descrição</div>
+                    <textarea value={fanclubPostDescription} onChange={e=>setFanclubPostDescription(e.target.value)} placeholder="Escreva algo para os seus fãs" style={{width:'100%',height:130,resize:'vertical',border:0,borderRadius:20,padding:16,background:'#F2F2F2',color:'#000',fontSize:18,outline:'none'}}/>
+                    <button type="button" disabled={!fanclubPostMedia.length} onClick={()=>{const now=Date.now();const posts=fanclubPostMedia.map((file,i)=>({id:now+i,url:URL.createObjectURL(file),type:file.type.startsWith('video/')?'video':'image',caption:fanclubPostDescription,tags:'',fanclub:true}));setPublishedMedia(prev=>[...posts,...prev]);setFanclubFeedback('Publicação enviada para o teu fã clube.');setFanclubPostMedia([]);setFanclubPostDescription('');setFanclubScreen('overview');}} style={{width:'100%',height:64,marginTop:24,border:0,borderRadius:20,background:fanclubPostMedia.length?'#FF2E7A':'#e8c5d7',color:'#fff',fontSize:22,fontWeight:950}}>Publicar</button>
+                  </div>
+                ) : fanclubScreen === 'myFanclub' ? (
+                  <div style={{maxWidth:520,margin:'0 auto',paddingTop:4}}>
+                    <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}>
+                      <button type="button" aria-label="Voltar" onClick={()=>{setFanclubScreen('overview');setFanclubFeedback('');}} style={{width:48,height:48,border:0,borderRadius:50,background:'#F2F2F2',color:'#000',fontSize:22,display:'grid',placeItems:'center'}}>‹</button>
+                      <div style={{fontSize:28,fontWeight:950,color:'#000'}}>Ver meu fã clube</div>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',borderBottom:'1px solid #eee',marginBottom:16}}>
+                      {['Publicações','Enquetes'].map(tab=><button key={tab} type="button" onClick={()=>setFanclubViewTab(tab)} style={{position:'relative',border:0,background:'transparent',padding:'12px 4px',fontSize:19,fontWeight:fanclubViewTab===tab?900:500,color:fanclubViewTab===tab?'#000':'#888'}}>{tab} · {tab==='Publicações'?publishedMedia.filter(p=>p.fanclub).length+1:publishedPolls.length+1}{fanclubViewTab===tab&&<span style={{position:'absolute',left:0,right:0,bottom:0,height:4,background:'#FF2E7A',borderRadius:4}}/>}</button>)}
+                    </div>
+                    {fanclubViewTab==='Publicações'?(
+                      <div style={{display:'grid',gap:16}}>
+                        <article style={{padding:12,borderRadius:24,background:'#F2F2F2',display:'grid',gap:12}}>
+                          <div style={{display:'flex',alignItems:'center',gap:10}}>
+                            <div style={{width:56,height:56,borderRadius:50,background:'linear-gradient(135deg,#8ddc82,#17603a)'}}/>
+                            <div><div style={{fontSize:18,fontWeight:950,color:'#000'}}>Mara Kiala <span style={{color:'#46aaff',fontSize:12}}>✓</span> <span style={{color:'#d9a72e'}}>♛</span></div><div style={{fontSize:15,color:'#888'}}>há 3 h</div></div>
+                          </div>
+                          <div style={{fontSize:18,color:'#000'}}>Novo refrão: o que acham?</div>
+                          <div style={{height:280,borderRadius:14,background:'linear-gradient(135deg,#ff9b38,#ff58a8)',position:'relative',display:'grid',placeItems:'center',color:'#fff',fontWeight:900}}><span style={{position:'absolute',top:12,right:12,padding:'6px 10px',borderRadius:20,background:'rgba(0,0,0,.65)',fontSize:15}}>4 fotos</span><span style={{fontSize:30}}>♪</span></div>
+                          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6}}>
+                            {['♡ 210','♨ 98','☆ 57','◉ 3'].map(label=><button key={label} type="button" onClick={()=>setFanclubFeedback('Reação registada: '+label)} style={{height:40,border:'1px solid #ddd',borderRadius:24,background:'#fff,color:'#000',fontSize:13,fontWeight:800}}>{label}</button>)}
+                          </div>
+                          <div style={{fontSize:16,color:'#000'}}>Dalva N. Perfeito!</div>
+                        </article>
+                        {publishedMedia.filter(pub=>pub.fanclub).map(pub=><article key={pub.id} style={{padding:12,borderRadius:24,background:'#F2F2F2',display:'grid',gap:12}}>
+                          <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:56,height:56,borderRadius:50,background:'linear-gradient(135deg,#8ddc82,#17603a)'}}/><div><div style={{fontSize:18,fontWeight:950,color:'#000'}}>Mara Kiala</div><div style={{fontSize:15,color:'#888'}}>agora</div></div></div>
+                          {pub.caption&&<div style={{fontSize:18,color:'#000'}}>{pub.caption}</div>}
+                          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6}}>{pub.type==='video'?<video controls src={pub.url} style={{gridColumn:'span 3',width:'100%',maxHeight:360,borderRadius:12}}/>:<img src={pub.url} alt={pub.caption||'Post'} style={{gridColumn:'span 3',width:'100%',maxHeight:360,objectFit:'contain',borderRadius:12}}/>}</div>
+                          <div style={{display:'flex',justifyContent:'space-around',color:'#777'}}><button type="button" onClick={()=>setFanclubFeedback('Gostaste da publicação.')} style={{border:0,background:'transparent',color:'#333'}}>♡ Gosto</button><button type="button" onClick={()=>setFanclubFeedback('Comentários da publicação.')} style={{border:0,background:'transparent',color:'#333'}}>Comentar</button><button type="button" onClick={()=>setFanclubFeedback('Publicação partilhada.')} style={{border:0,background:'transparent',color:'#333'}}>Partilhar</button></div>
+                        </article>)}
+                      </div>
+                    ):(
+                      <div style={{display:'grid',gap:16}}>
+                        <article style={{padding:16,borderRadius:24,background:'#F2F2F2',display:'grid',gap:12}}>
+                          <div style={{fontSize:18,fontWeight:950,color:'#000'}}>Qual single sai primeiro?</div>
+                          <div style={{height:140,borderRadius:16,background:'linear-gradient(135deg,#7a3dff,#ff5fa8)',display:'grid',placeItems:'center',color:'#fff',fontSize:28}}>♪</div>
+                          {['Afrobeat','Kizomba'].map((option,i)=><button key={option} type="button" onClick={()=>setFanclubFeedback('Voto registado em '+option)} style={{padding:13,borderRadius:18,border:'1px solid #ddd',background:'#fff',color:'#000',textAlign:'left',fontSize:16,fontWeight:800}}>{option}<span style={{float:'right',color:'#888'}}>{i===0?'62%':'38%'}</span></button>)}
+                          <div style={{fontSize:13,color:'#888'}}>Enquete · 1.250 votos</div>
+                        </article>
+                        {publishedPolls.map(poll=><article key={poll.id} style={{padding:16,borderRadius:24,background:'#F2F2F2',display:'grid',gap:12}}>
+                          <div style={{fontSize:18,fontWeight:950,color:'#000'}}>{poll.question}</div>
+                          {poll.mediaUrl&&<img src={poll.mediaUrl} alt="Mídia da enquete" style={{width:'100%',maxHeight:220,objectFit:'contain',borderRadius:14}}/>}
+                          {poll.options.map((option,i)=><button key={option} type="button" onClick={()=>setFanclubFeedback('Voto registado: '+option)} style={{padding:13,borderRadius:18,border:'1px solid #ddd',background:'#fff',color:'#000',textAlign:'left',fontSize:16,fontWeight:800}}>{option}</button>)}
+                          <div style={{fontSize:13,color:'#888'}}>Enquete · votos a aparecerão aqui</div>
+                        </article>)}
+                      </div>
+                    )}
+                    {fanclubFeedback&&<div role="status" style={{marginTop:16,padding:12,borderRadius:14,background:'#fce8f2',color:'#8a164e',fontSize:14,fontWeight:800}}>{fanclubFeedback}</div>}
+                  </div>
+                ) : fanclubScreen === 'poll' ? (
+                  <div style={{maxWidth:520,margin:'0 auto',paddingTop:4}}>
+                    <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:22}}>
+                      <button type="button" aria-label="Voltar" onClick={()=>setFanclubScreen('overview')} style={{width:48,height:48,border:0,borderRadius:50,background:'#F2F2F2',color:'#000',fontSize:22,display:'grid',placeItems:'center'}}>‹</button>
+                      <div style={{fontSize:28,fontWeight:950,color:'#000'}}>Fazer enquete</div>
+                    </div>
+                    <div style={{marginBottom:24}}>
+                      <div style={{fontSize:19,fontWeight:950,color:'#000',marginBottom:8}}>Pergunta principal</div>
+                      <textarea value={fanclubPollQuestion} onChange={e=>setFanclubPollQuestion(e.target.value)} placeholder="Ex.: Qual single sai primeiro?" style={{width:'100%',height:100,resize:'vertical',border:0,borderRadius:20,padding:16,background:'#F2F2F2',color:'#000,fontSize:18,outline:'none'}}/>
+                    </div>
+                    <div style={{marginBottom:24}}>
+                      <div style={{fontSize:19,fontWeight:950,color:'#000',marginBottom:10}}>Imagem ou vídeo (opcional)</div>
+                      <input type="file" accept="image/*,video/*" id="fanclubPollMediaInput" onChange={e=>{const f=e.target.files?.[0];if(f)setFanclubPollMedia({file:f,url:URL.createObjectURL(f)});e.target.value='';}} style={{display:'none'}}/>
+                      <button type="button" onClick={()=>document.getElementById('fanclubPollMediaInput')?.click()} style={{width:'100%',height:220,border:'2px dashed #7A3DFF',borderRadius:20,background:'#fff,color:'#666',display:'grid',placeContent:'center',gap:8,fontSize:18,fontWeight:900}}>
+                        {fanclubPollMedia?<img src={fanclubPollMedia.url} alt="Pré-visualização da mídia da enquete" style={{width:'100%',height:180,objectFit:'contain',borderRadius:14}}/>:<><span style={{fontSize:26}}>▧</span><span>Escolher imagem ou vídeo</span></>}
+                      </button>
+                    </div>
+                    <div style={{marginBottom:24}}>
+                      <div style={{fontSize:19,fontWeight:950,color:'#000',marginBottom:12}}>Opções</div>
+                      <div style={{display:'grid',gap:12}}>
+                        {fanclubPollOptions.map((option,i)=><div key={'polloption-'+i} style={{display:'flex',alignItems:'center',gap:10}}>
+                          <div style={{width:24,color:'#D9A400',fontSize:22,fontWeight:950}}>{String.fromCharCode(65+i)}</div>
+                          <input value={option} onChange={e=>setFanclubPollOptions(prev=>prev.map((v,j)=>j===i?e.target.value:v))} placeholder={'Opção '+String.fromCharCode(65+i)} style={{flex:1,minWidth:0,height:60,border:0,borderRadius:20,padding:'0 16px',background:'#F2F2F2',color:'#000',fontSize:18,outline:'none'}}/>
+                        </div>)}
+                        {fanclubPollOptions.length<6&&<button type="button" onClick={()=>setFanclubPollOptions(prev=>[...prev,''])} style={{height:60,border:0,borderRadius:20,background:'#F2F2F2',color:'#000',fontSize:20,fontWeight:950}}>＋ Adicionar opção {String.fromCharCode(65+fanclubPollOptions.length)}</button>}
+                      </div>
+                    </div>
+                    <button type="button" disabled={!fanclubPollQuestion.trim()||fanclubPollOptions.filter(o=>o.trim()).length<2} onClick={()=>{const poll={id:Date.now(),question:fanclubPollQuestion.trim(),mediaUrl:fanclubPollMedia?.url||'',options:fanclubPollOptions.map(o=>o.trim()).filter(Boolean)};setPublishedPolls(prev=>[poll,...prev]);setFanclubPollQuestion('');setFanclubPollMedia(null);setFanclubPollOptions(['','']);setFanclubViewTab('Enquetes');setFanclubScreen('myFanclub');setFanclubFeedback('Enquete publicada no teu fã clube.');}} style={{width:'100%',height:64,border:0,borderRadius:20,background:'#FF2E7A',color:'#fff',fontSize:22,fontWeight:950,opacity:fanclubPollQuestion.trim()&&fanclubPollOptions.filter(o=>o.trim()).length>=2?1:.55}}>Publicar enquete</button>
+                  </div>
                 ) : (
                 <>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
+                  <div style={{fontSize:20,fontWeight:950,color:'#000'}}>Meu fã clube</div>
+                  <div style={{fontSize:14,color:'#888'}}>Mara Kiala</div>
+                </div>
+                <div style={{fontSize:18,color:'#666',lineHeight:1.5,marginBottom:12}}>Publique, acompanhe os fãs e ouça a opinião deles.</div>
+                <div style={{display:'grid',gap:16}}>
+                  <button type="button" onClick={()=>{setFanclubScreen('sendPost');setFanclubPostMedia([]);setFanclubPostDescription('');setCaptureMode('Foto');}} style={{height:130,padding:20,border:0,borderRadius:24,background:'#F2F2F2',display:'flex',alignItems:'center',gap:16,textAlign:'left'}}>
+                    <div style={{width:72,height:72,borderRadius:20,background:'#FF5FA8',display:'grid',placeItems:'center',color:'#fff',fontSize:25}}>➤</div>
+                    <div><div style={{fontSize:22,fontWeight:950,color:'#000'}}>Enviar post</div><div style={{fontSize:16,color:'#666',lineHeight:1.4,marginTop:5}}>Até 10 imagens ou 1 vídeo, com descrição.</div></div>
+                  </button>
+                  <button type="button" onClick={()=>{setFanclubScreen('myFanclub');setFanclubViewTab('Publicações');setFanclubFeedback('');}} style={{height:130,padding:20,border:0,borderRadius:24,background:'#F2F2F2',display:'flex',alignItems:'center',gap:16,textAlign:'left'}}>
+                    <div style={{width:72,height:72,borderRadius:20,background:'#7A3DFF',display:'grid',placeItems:'center',color:'#fff',fontSize:24}}>♙</div>
+                    <div><div style={{fontSize:22,fontWeight:950,color:'#000'}}>Ver meu fã clube</div><div style={{fontSize:16,color:'#666',lineHeight:1.4,marginTop:5}}>Publicações, reações, comentários e resultados das enquetes.</div></div>
+                  </button>
+                  <button type="button" onClick={()=>{setFanclubScreen('poll');setFanclubPollQuestion('');setFanclubPollMedia(null);setFanclubPollOptions(['','']);}} style={{height:130,padding:20,border:0,borderRadius:24,background:'#F2F2F2',display:'flex',alignItems:'center',gap:16,textAlign:'left'}}>
+                    <div style={{width:72,height:72,borderRadius:20,background:'#FFD966',display:'grid',placeItems:'center',color:'#111',fontSize:24}}>▥</div>
+                    <div><div style={{fontSize:22,fontWeight:950,color:'#000'}}>Fazer enquete</div><div style={{fontSize:16,color:'#666',lineHeight:1.4,marginTop:5}}>Pergunta, imagem ou vídeo e as opções que quiser.</div></div>
+                  </button>
+                </div>
+                {fanclubFeedback&&<div role="status" style={{marginTop:16,padding:12,borderRadius:14,background:'#fce8f2',color:'#8a164e',fontSize:14,fontWeight:800}}>{fanclubFeedback}</div>}
+                </>
+                )}                </>
+                )}
+              </div>
+            ) : activeNav === 'Mensagens' ? (
 
                   <div style={{ fontSize:28, fontWeight:950, letterSpacing:-.5 }}><span style={{color:'#000'}}>fã</span><span style={{color:'#FF2E7A'}}>.</span><span style={{color:'#000'}}>clube</span></div>
                   <div style={{ display:'flex', gap:8 }}>
