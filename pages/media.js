@@ -504,12 +504,16 @@ export default function MediaHome() {
                     <button type="button" onClick={()=>document.getElementById('fanclubPostMediaInput')?.click()} style={{width:140,height:140,border:'2px dashed #FF2E7A',borderRadius:20,background:'#fff,color:'#666',display:'grid',placeContent:'center',gap:6,fontWeight:900,fontSize:18,marginBottom:12}}>
                       <span style={{fontSize:32,lineHeight:1}}>＋</span><span>Adicionar</span>
                     </button>
-                    {fanclubPostMedia.length>0&&<div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:16}}>
-                      {fanclubPostMedia.map((file,i)=><div key={file.name+'-'+i} style={{aspectRatio:'1/1',borderRadius:12,overflow:'hidden',background:'#eee',position:'relative'}}>
-                        {file.type.startsWith('video/')?<video src={URL.createObjectURL(file)} muted playsInline style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<img src={URL.createObjectURL(file)} alt={file.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>}
-                        <button type="button" aria-label="Remover mídia" onClick={()=>setFanclubPostMedia(prev=>prev.filter((_,j)=>j!==i))} style={{position:'absolute',top:5,right:5,width:24,height:24,border:0,borderRadius:50,background:'rgba(0,0,0,.65)',color:'#fff'}}>×</button>
-                      </div>)}
-                    </div>}
+                    {fanclubPostMedia.length > 0 ? (
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:16}}>
+                        {fanclubPostMedia.map((file,i) => (
+                          <div key={file.name+'-'+i} style={{aspectRatio:'1/1',borderRadius:12,overflow:'hidden',background:'#eee',position:'relative'}}>
+                            {file.type.startsWith('video/') ? <video src={URL.createObjectURL(file)} muted playsInline style={{width:'100%',height:'100%',objectFit:'cover'}}/> : <img src={URL.createObjectURL(file)} alt={file.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>}
+                            <button type="button" aria-label="Remover mídia" onClick={()=>setFanclubPostMedia(prev=>prev.filter((_,j)=>j!==i))} style={{position:'absolute',top:5,right:5,width:24,height:24,border:0,borderRadius:50,background:'rgba(0,0,0,.65)',color:'#fff'}}>×</button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                     <div style={{fontSize:19,fontWeight:950,color:'#000',margin:'24px 0 10px'}}>Descrição</div>
                     <textarea value={fanclubPostDescription} onChange={e=>setFanclubPostDescription(e.target.value)} placeholder="Escreva algo para os seus fãs" style={{width:'100%',height:130,resize:'vertical',border:0,borderRadius:20,padding:16,background:'#F2F2F2',color:'#000',fontSize:18,outline:'none'}}/>
                     <button type="button" disabled={!fanclubPostMedia.length} onClick={()=>{const now=Date.now();const posts=fanclubPostMedia.map((file,i)=>({id:now+i,url:URL.createObjectURL(file),type:file.type.startsWith('video/')?'video':'image',caption:fanclubPostDescription,tags:'',fanclub:true}));setPublishedMedia(prev=>[...posts,...prev]);setFanclubFeedback('Publicação enviada para o teu fã clube.');setFanclubPostMedia([]);setFanclubPostDescription('');setFanclubScreen('overview');}} style={{width:'100%',height:64,marginTop:24,border:0,borderRadius:20,background:fanclubPostMedia.length?'#FF2E7A':'#e8c5d7',color:'#fff',fontSize:22,fontWeight:950}}>Publicar</button>
