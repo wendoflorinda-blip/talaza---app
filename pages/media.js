@@ -384,7 +384,27 @@ export default function MediaHome() {
                     ].map((item,i) => <div key={'notification-'+i} style={{ display:'flex', alignItems:'center', gap:12, minHeight:56 }}>
                       <div style={{ width:56,height:56,flex:'0 0 56px',borderRadius:50,background:item.gradient }}/>
                       <div style={{ flex:1,minWidth:0,fontSize:17,color:'#000',lineHeight:1.35 }}>{item.text}</div>
-                      {item.action ? <button type="button" onClick={() => setFollowed(v=>({...v,['notif-'+i]:!v['notif-'+i]}))} style={{ border:0,borderRadius:22,height:38,padding:'0 12px',background:'#FF2E7A',color:'#fff,fontSize:14,fontWeight:900,whiteSpace:'nowrap' }}>{i===4?'Ver':(followed['notif-'+i]?'Seguindo':'Seguir de volta')}</button> : <div style={{ color:'#888',fontSize:14,whiteSpace:'nowrap' }}>{item.time}</div>}
+                      {item.action ? (
+                        <button
+                          type="button"
+                          onClick={() => setFollowed(prev => ({ ...prev, ['notif-' + i]: !prev['notif-' + i] }))}
+                          style={{
+                            border: 0,
+                            borderRadius: 22,
+                            height: 38,
+                            padding: '0 12px',
+                            background: '#FF2E7A',
+                            color: '#fff',
+                            fontSize: 14,
+                            fontWeight: 900,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {i === 4 ? 'Ver' : (followed['notif-' + i] ? 'Seguindo' : 'Seguir de volta')}
+                        </button>
+                      ) : (
+                        <div style={{ color: '#888', fontSize: 14, whiteSpace: 'nowrap' }}>{item.time}</div>
+                      )}
                     </div>)}
                   </div>
                 )}
