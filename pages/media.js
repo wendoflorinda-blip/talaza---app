@@ -12,6 +12,10 @@ function Icon({ name, size = 22 }) {
     message: <><path d="M20.5 11.5a8.3 8.3 0 0 1-8.5 8.1 9.6 9.6 0 0 1-4-.8L3 20l1.3-4.2a7.8 7.8 0 0 1-1.3-4.3A8.3 8.3 0 0 1 11.5 3h.5a8.2 8.2 0 0 1 8.5 8.1z" /></>,
     user: <><circle cx="12" cy="7.5" r="4" /><path d="M4 21c.4-4.2 3.1-6.5 8-6.5s7.6 2.3 8 6.5" /></>,
     plus: <><path d="M12 5v14M5 12h14" /></>,
+    bell: <><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>,
+    photo: <><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5-8 8"/></>,
+    comment: <><path d="M20.5 11.5a8.3 8.3 0 0 1-8.5 8.1 9.6 9.6 0 0 1-4-.8L3 20l1.3-4.2a7.8 7.8 0 0 1-1.3-4.3A8.3 8.3 0 0 1 11.5 3h.5a8.2 8.2 0 0 1 8.5 8.1z"/></>,
+    share: <><path d="M12 16V3M7 8l5-5 5 5"/><path d="M5 13v7h14v-7"/></>,
     menu: <><path d="M4 6h16M4 12h16M4 18h11" /></>
   };
   if (name === 'compass') return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ filter: 'drop-shadow(0 0 5px rgba(255,91,160,.85)) drop-shadow(0 0 7px rgba(255,153,55,.5))' }}><defs><linearGradient id="mediaExploreGradient" x1="2" y1="3" x2="22" y2="21"><stop stopColor="#FF55B8"/><stop offset="1" stopColor="#FF9B38"/></linearGradient></defs><circle cx="12" cy="12" r="9.2" stroke="url(#mediaExploreGradient)" strokeWidth="1.8"/><path d="m15.9 8.1-2.8 6-5 1.8 2.8-6 5-1.8Z" fill="url(#mediaExploreGradient)" stroke="url(#mediaExploreGradient)" strokeWidth="1.4"/><circle cx="12" cy="12" r="1.1" fill="#fff"/></svg>;
@@ -26,6 +30,9 @@ export default function MediaHome() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [notice, setNotice] = useState('');
+  const [exploreTab, setExploreTab] = useState('Explorar');
+  const [followed, setFollowed] = useState({});
+  const [postLiked, setPostLiked] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -100,7 +107,7 @@ export default function MediaHome() {
     setActiveNav(item);
     if (item === 'Início') return;
     if (item === 'Fã clube') setNotice('Os conteúdos dos criadores que segue aparecerão aqui.');
-    if (item === 'Explorar') setNotice('Descubra criadores e conteúdos de novas comunidades.');
+    if (item === 'Explorar') { setNotice(''); setExploreTab('Explorar'); return; }
     if (item === 'Mensagens') setNotice('A área de mensagens da MÍDIA TALAZA está a ser preparada.');
     if (item === 'Perfil') setNotice('As definições e o seu perfil estarão disponíveis nesta área.');
   }
@@ -129,7 +136,76 @@ export default function MediaHome() {
           </header>
 
           <section aria-label="Feed vertical de vídeos" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 18px 96px', textAlign: 'center' }}>
-            {notice ? (
+            {activeNav === 'Explorar' ? (
+              <div style={{ position: 'absolute', inset: 0, background: '#1b0629', overflowY: 'auto', padding: 'max(62px, env(safe-area-inset-top)) 12px calc(90px + env(safe-area-inset-bottom))', textAlign: 'left', color: '#fff' }}>
+                <div style={{ position: 'sticky', top: 0, zIndex: 3, display: 'flex', gap: 8, padding: '9px 0 13px', background: '#1b0629' }}>
+                  <button type="button" onClick={() => setExploreTab('Explorar')} style={{ padding: '9px 17px', border: 0, borderRadius: 22, background: exploreTab === 'Explorar' ? '#fff' : '#2b103b', color: exploreTab === 'Explorar' ? '#19121d' : '#d3c6dc', fontSize: 13, fontWeight: 900 }}>Explorar</button>
+                  <button type="button" onClick={() => setExploreTab('Descoberta')} style={{ padding: '9px 17px', border: 0, borderRadius: 22, background: exploreTab === 'Descoberta' ? '#fff' : '#2b103b', color: exploreTab === 'Descoberta' ? '#19121d' : '#d3c6dc', fontSize: 13, fontWeight: 900 }}>Descoberta</button>
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                    <button aria-label="Mensagens" type="button" onClick={() => selectNav('Mensagens')} style={{ width: 37, height: 37, borderRadius: 50, border: '1px solid #4b2a5c', background: '#2b103b', color: '#fff', display: 'grid', placeItems: 'center' }}><Icon name="message" size={19}/></button>
+                    <button aria-label="Notificações" type="button" onClick={() => setNotice('As notificações serão mostradas aqui.')} style={{ position: 'relative', width: 37, height: 37, borderRadius: 50, border: '1px solid #4b2a5c', background: '#2b103b', color: '#fff', display: 'grid', placeItems: 'center' }}><Icon name="bell" size={19}/><span style={{ position: 'absolute', right: -2, top: -2, width: 9, height: 9, borderRadius: 50, background: '#ff4fa9', boxShadow: '0 0 8px #ff4fa9' }}/></button>
+                  </div>
+                </div>
+                {exploreTab === 'Explorar' ? (
+                  <div style={{ display: 'grid', gap: 18 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 10 }}>Sugestões de pessoas</div>
+                      <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4 }}>
+                        {['Yuri','Zuri','Lucie','Kota'].map((name,i) => (
+                          <div key={name} style={{ flex: '0 0 82px', display: 'grid', justifyItems: 'center', gap: 6 }}>
+                            <div style={{ width: 62, height: 62, borderRadius: 50, padding: 3, background: 'linear-gradient(135deg,#ff4fa9,#ff9a37)', boxShadow: '0 0 12px rgba(255,86,164,.35)' }}><div style={{ width: '100%', height: '100%', borderRadius: 50, background: ['linear-gradient(145deg,#48c5ff,#3154bd)','linear-gradient(145deg,#ff85b5,#9b4bca)','linear-gradient(145deg,#54d8c1,#2374a2)','linear-gradient(145deg,#ffd15e,#e55e47)'][i], display: 'grid', placeItems: 'center', fontWeight: 900, fontSize: 20 }}>{name[0]}</div></div>
+                            <div style={{ fontSize: 12, fontWeight: 800 }}>{name}</div>
+                            <button type="button" onClick={() => setFollowed(v => ({...v,[name]:!v[name]}))} style={{ width: 76, padding: '6px 0', border: 0, borderRadius: 18, background: followed[name] ? '#482451' : '#ff3fa3', color: '#fff', fontSize: 10, fontWeight: 900 }}>{followed[name] ? 'Seguindo' : 'Seguir'}</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: 12, borderRadius: 15, background: '#2b103b', border: '1px solid #45245b' }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 50, background: 'linear-gradient(135deg,#45c5ff,#8753d9)', display: 'grid', placeItems: 'center', fontWeight: 900 }}>A</div>
+                      <div style={{ flex: 1, padding: '9px 11px', borderRadius: 20, background: '#3a1b4a', color: '#cdbed7', fontSize: 12 }}>No que está a pensar?</div>
+                      <button aria-label="Adicionar imagem" type="button" style={{ border: 0, background: 'transparent', color: '#ff75bb', display: 'grid', placeItems: 'center' }}><Icon name="photo" size={22}/></button>
+                    </div>
+                    <article style={{ padding: 12, borderRadius: 16, background: '#2b103b', border: '1px solid #45245b', display: 'grid', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <div style={{ width: 39, height: 39, borderRadius: 50, background: 'linear-gradient(135deg,#59a9ff,#4060c8)', display: 'grid', placeItems: 'center', fontWeight: 900 }}>A</div>
+                        <div><div style={{ fontSize: 13, fontWeight: 900 }}>Ana Bela</div><div style={{ fontSize: 10, color: '#b7a6c6', marginTop: 2 }}>há 20 min · Português</div></div>
+                      </div>
+                      <div style={{ fontSize: 12, lineHeight: 1.55 }}>Quem vem à live de sábado? Vou mostrar os bastidores do novo clipe.</div>
+                      <div style={{ height: 180, borderRadius: 12, background: 'linear-gradient(135deg,#3c2d8d 0%,#7743a7 40%,#20285b 100%)', display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 30%,rgba(255,112,193,.55),transparent 42%),linear-gradient(150deg,transparent,rgba(9,9,38,.55))' }}/>
+                        <div style={{ zIndex: 1, fontSize: 13, fontWeight: 950, letterSpacing: 2, textShadow: '0 2px 9px #190c39' }}>BASTIDORES · LIVE</div>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-around', color: '#c5b4d1', fontSize: 11 }}>
+                        <button type="button" onClick={() => setPostLiked(v => !v)} style={{ border: 0, background: 'transparent', color: postLiked ? '#ff64b5' : '#c5b4d1', display: 'flex', gap: 5, alignItems: 'center' }}><Icon name="heart" size={17}/> {postLiked ? 'Gostei' : 'Gosto'}</button>
+                        <button type="button" onClick={() => setNotice('Comentários do post de Ana Bela.')} style={{ border: 0, background: 'transparent', color: '#c5b4d1', display: 'flex', gap: 5, alignItems: 'center' }}><Icon name="comment" size={17}/>Comentar</button>
+                        <button type="button" onClick={() => setNotice('Partilha do post de Ana Bela.')} style={{ border: 0, background: 'transparent', color: '#c5b4d1', display: 'flex', gap: 5, alignItems: 'center' }}><Icon name="share" size={17}/>Partilhar</button>
+                      </div>
+                    </article>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}><div style={{ fontSize: 14, fontWeight: 900 }}>Fã-clubes para aderir</div><div style={{ color: '#b7a6c6', fontSize: 11 }}>sugestões</div></div>
+                      <div style={{ display: 'flex', gap: 11, overflowX: 'auto', paddingBottom: 5 }}>
+                        {[
+                          {name:'Yuri Estúdio',detail:'640 membros · English',color:'linear-gradient(135deg,#2368d6,#543b9e)',button:'Aderir desde…'},
+                          {name:'Lucie M.',detail:'1,5 mil membros · França',color:'linear-gradient(135deg,#238b68,#2364a8)',button:'Aderir'}
+                        ].map(club => (
+                          <div key={club.name} style={{ flex: '0 0 174px', borderRadius: 14, overflow: 'hidden', background: '#2b103b', border: '1px solid #45245b' }}>
+                            <div style={{ height: 90, background: club.color, display: 'grid', placeItems: 'center', fontSize: 18, fontWeight: 950, letterSpacing: 1 }}>{club.name.toUpperCase()}</div>
+                            <div style={{ padding: 10, display: 'grid', gap: 5 }}>
+                              <div style={{ fontSize: 12, fontWeight: 900 }}>{club.name}</div><div style={{ fontSize: 10, color: '#b7a6c6' }}>{club.detail}</div>
+                              <button type="button" onClick={() => setNotice('A adesão ao fã-clube estará disponível em breve.')} style={{ marginTop: 3, border: 0, borderRadius: 18, padding: '7px 5px', background: '#ff3fa3', color: '#fff', fontSize: 10, fontWeight: 900 }}>{club.button}</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ minHeight: 240, display: 'grid', alignContent: 'center', justifyItems: 'center', gap: 8, textAlign: 'center', padding: 20, borderRadius: 18, background: '#2b103b', border: '1px solid #45245b' }}>
+                    <div style={{ fontSize: 22 }}>✨</div><div style={{ fontWeight: 900 }}>Descoberta</div><div style={{ fontSize: 12, color: '#c8b8d4' }}>Novos criadores, vídeos e comunidades aparecerão aqui.</div>
+                  </div>
+                )}
+              </div>
+            ) : notice ? (
               <div style={{ maxWidth: 300 }}>
                 <div style={{ width: 58, height: 58, borderRadius: 50, margin: '0 auto 15px', display: 'grid', placeItems: 'center', border: '1px solid rgba(32,180,122,.6)', color: '#20B47A', background: 'rgba(10,40,27,.5)' }}><Icon name={activeNav === 'Mensagens' ? 'message' : activeNav === 'Perfil' ? 'user' : 'people'} size={26} /></div>
                 <div style={{ fontSize: 17, fontWeight: 900 }}>{activeNav}</div>
