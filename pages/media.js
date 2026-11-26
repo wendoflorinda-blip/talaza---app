@@ -12,6 +12,11 @@ function Icon({ name, size = 22 }) {
     message: <><path d="M20.5 11.5a8.3 8.3 0 0 1-8.5 8.1 9.6 9.6 0 0 1-4-.8L3 20l1.3-4.2a7.8 7.8 0 0 1-1.3-4.3A8.3 8.3 0 0 1 11.5 3h.5a8.2 8.2 0 0 1 8.5 8.1z" /></>,
     user: <><circle cx="12" cy="7.5" r="4" /><path d="M4 21c.4-4.2 3.1-6.5 8-6.5s7.6 2.3 8 6.5" /></>,
     plus: <><path d="M12 5v14M5 12h14" /></>,
+    edit: <><path d="m4 16.5 11.8-11.8 3.5 3.5L7.5 19.3 4 20z"/><path d="m14.5 6 3.5 3.5"/></>,
+    globe: <><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></>,
+    sparkle: <><path d="m12 3 1.7 6.3L20 11l-6.3 1.7L12 19l-1.7-6.3L4 11l6.3-1.7L12 3Z"/><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></>,
+    link: <><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.2 1.2"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 10 20.1l1.2-1.2"/></>,
+    lock: <><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></>,
     bell: <><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>,
     photo: <><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5-8 8"/></>,
     comment: <><path d="M20.5 11.5a8.3 8.3 0 0 1-8.5 8.1 9.6 9.6 0 0 1-4-.8L3 20l1.3-4.2a7.8 7.8 0 0 1-1.3-4.3A8.3 8.3 0 0 1 11.5 3h.5a8.2 8.2 0 0 1 8.5 8.1z"/></>,
@@ -33,6 +38,7 @@ export default function MediaHome() {
   const [exploreTab, setExploreTab] = useState('Explorar');
   const [followed, setFollowed] = useState({});
   const [postLiked, setPostLiked] = useState(false);
+  const [profileTab, setProfileTab] = useState('Fotos');
 
   useEffect(() => {
     let mounted = true;
@@ -109,7 +115,7 @@ export default function MediaHome() {
     if (item === 'Fã clube') setNotice('Os conteúdos dos criadores que segue aparecerão aqui.');
     if (item === 'Explorar') { setNotice(''); setExploreTab('Explorar'); return; }
     if (item === 'Mensagens') setNotice('A área de mensagens da MÍDIA TALAZA está a ser preparada.');
-    if (item === 'Perfil') setNotice('As definições e o seu perfil estarão disponíveis nesta área.');
+    if (item === 'Perfil') { setNotice(''); setProfileTab('Fotos'); return; }
   }
 
   if (loading) return <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#050706', color: '#fff', fontFamily: 'system-ui' }}>A preparar a MÍDIA TALAZA…</main>;
@@ -126,17 +132,66 @@ export default function MediaHome() {
         <div className="media-shell" style={{ height: '100%', width: '100%', position: 'relative', overflow: 'hidden', background: '#050706' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(0,0,0,.42) 0%,transparent 22%,transparent 58%,rgba(0,0,0,.76) 100%)', pointerEvents: 'none' }} />
 
-          <header style={{ position: 'absolute', zIndex: 3, top: 0, left: 0, right: 0, padding: 'max(12px, env(safe-area-inset-top)) 13px 0' }}>
+          {activeNav === 'Início' && (          <header style={{ position: 'absolute', zIndex: 3, top: 0, left: 0, right: 0, padding: 'max(12px, env(safe-area-inset-top)) 13px 0' }}>
             <div style={{ display: 'flex', justifyContent: 'flex-end', minHeight: 34 }}>
               <button type="button" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid rgba(255,255,255,.3)', background: 'rgba(0,0,0,.24)', color: '#fff', borderRadius: 20, padding: '6px 10px', fontSize: 11, fontWeight: 800, cursor: 'pointer', backdropFilter: 'blur(8px)' }}>
                 <Icon name="menu" size={16} /> Menu
               </button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', marginTop: 9, paddingBottom: 7 }}><div style={{ color: '#fff', fontSize: 16, fontWeight: 950 }}>Pra você</div></div>
-          </header>
+          </header>)}
+
 
           <section aria-label="Feed vertical de vídeos" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 18px 96px', textAlign: 'center' }}>
-            {activeNav === 'Explorar' ? (
+            {activeNav === 'Perfil' ? (
+              <div style={{ position: 'absolute', inset: 0, background: '#1b0629', overflowY: 'auto', padding: 'max(12px,env(safe-area-inset-top)) 14px calc(88px + env(safe-area-inset-bottom))', color: '#fff', textAlign: 'left' }}>
+                <div style={{ position: 'relative', height: 156, borderRadius: 19, background: 'linear-gradient(115deg,#c9f33a 0%,#68bb38 45%,#11643b 100%)', marginBottom: 64, overflow: 'visible' }}>
+                  <div style={{ position: 'absolute', right: 12, top: 12, display: 'flex', gap: 9 }}>
+                    <button aria-label="Adicionar pessoa" type="button" onClick={() => setNotice('Convidar pessoas para o perfil.')} style={{ width: 36, height: 36, borderRadius: 50, border: '1px solid rgba(0,0,0,.25)', background: 'rgba(20,30,24,.65)', color: '#fff', display: 'grid', placeItems: 'center' }}><Icon name="people" size={18}/></button>
+                    <button aria-label="Configurações do perfil" type="button" onClick={() => setNotice('Configurações de aparência do perfil.')} style={{ width: 36, height: 36, borderRadius: 50, border: '1px solid rgba(0,0,0,.25)', background: 'rgba(20,30,24,.65)', color: '#fff', display: 'grid', placeItems: 'center' }}><Icon name="sparkle" size={18}/></button>
+                  </div>
+                  <div style={{ position: 'absolute', left: 14, bottom: -51, width: 104, height: 104, borderRadius: 22, padding: 3, background: 'linear-gradient(135deg,#ff4da9,#a83bfa)', boxShadow: '0 0 17px rgba(229,61,202,.3)' }}>
+                    <div style={{ width: '100%', height: '100%', borderRadius: 19, background: 'linear-gradient(140deg,#ff74bb,#8d42e7)', display: 'grid', placeItems: 'center', fontSize: 29, fontWeight: 950, letterSpacing: 1 }}>MK</div>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gap: 6 }}>
+                  <div style={{ fontSize: 24, fontWeight: 950, letterSpacing: -.4 }}>Mara Kiala</div>
+                  <div style={{ fontSize: 12, color: '#b9a8c8' }}>@marakiala · fala Português</div>
+                  <div style={{ fontSize: 12, color: '#b9a8c8', display: 'flex', alignItems: 'center', gap: 5 }}>⌖ Luanda, Angola</div>
+                  <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5 }}>Bastidores, ensaios e música nova toda semana. Entre no meu fã clube.</div>
+                  <button type="button" onClick={() => setNotice('Editar o link do perfil.')} style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 12, border: '1px solid #45245b', background: '#2b103b', color: '#9ed9ff', fontSize: 12, fontWeight: 800, textAlign: 'left' }}><Icon name="link" size={16}/> marakiala.com/links <span style={{ marginLeft: 'auto', color: '#c4b4d2' }}><Icon name="edit" size={15}/></span></button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginTop: 19, marginBottom: 18, textAlign: 'center' }}>
+                  {[['18,4 mil','seguidores'],['312','seguindo'],['2.310','no fã clube']].map(([count,label]) => <div key={label}><div style={{ fontSize: 17, fontWeight: 950 }}>{count}</div><div style={{ color: '#b9a8c8', fontSize: 11, marginTop: 3 }}>{label}</div></div>)}
+                </div>
+                <div style={{ display: 'grid', gap: 9, marginBottom: 19 }}>
+                  <button type="button" onClick={() => setNotice('Criar uma publicação no Explore.')} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#f4df83', color: '#241b10', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="globe" size={18}/>Publicar no explore</button>
+                  <button type="button" onClick={() => setNotice('Planos do fã clube.')} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#ff3fa3', color: '#fff', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="sparkle" size={18}/>Ver planos</button>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
+                    <button type="button" onClick={() => selectNav('Mensagens')} style={{ border: '1px solid #4a2a5c', borderRadius: 12, padding: 11, background: '#2b103b', color: '#fff', fontSize: 12, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Icon name="message" size={16}/>Mensagens</button>
+                    <button type="button" onClick={() => setNotice('Editar perfil.')} style={{ border: '1px solid #4a2a5c', borderRadius: 12, padding: 11, background: '#2b103b', color: '#fff', fontSize: 12, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Icon name="edit" size={16}/>Editar perfil</button>
+                  </div>
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 950, marginBottom: 10 }}>Gerir o meu fã clube</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+                  <button type="button" onClick={() => setNotice('Gerir publicações, lives e enquetes do fã clube.')} style={{ padding: 12, border: '1px solid #45245b', borderRadius: 15, background: '#2b103b', textAlign: 'left', color: '#fff' }}>
+                    <div style={{ width: 37, height: 37, borderRadius: 11, background: '#ff3fa3', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="people" size={20}/></div>
+                    <div style={{ fontSize: 12, fontWeight: 950 }}>Meu fã clube</div><div style={{ fontSize: 10, color: '#b9a8c8', lineHeight: 1.5, marginTop: 4 }}>Publicar, lives e enquetes</div>
+                  </button>
+                  <button type="button" onClick={() => setNotice('Configurar como os fãs interagem.')} style={{ padding: 12, border: '1px solid #45245b', borderRadius: 15, background: '#2b103b', textAlign: 'left', color: '#fff' }}>
+                    <div style={{ width: 37, height: 37, borderRadius: 11, background: '#ff3fa3', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="sparkle" size={20/></div>
+                    <div style={{ fontSize: 12, fontWeight: 950 }}>Configurar</div><div style={{ fontSize: 10, color: '#b9a8c8', lineHeight: 1.5, marginTop: 4 }}>Como os fãs interagem</div>
+                  </button>
+                </div>
+                <div style={{ display: 'flex', borderBottom: '1px solid #45245b', marginBottom: 10 }}>
+                  {['Fotos','Vídeos'].map(tab => <button key={tab} type="button" onClick={() => setProfileTab(tab)} style={{ flex: 1, padding: '11px 8px', border: 0, borderBottom: profileTab === tab ? '2px solid #ff4fa9' : '2px solid transparent', background: 'transparent', color: profileTab === tab ? '#fff' : '#b9a8c8', fontSize: 12, fontWeight: 900 }}>{tab}</button>)}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 5 }}>
+                  {['linear-gradient(145deg,#ff68ad,#8a36ce)','linear-gradient(145deg,#ffab43,#d83f56)','linear-gradient(145deg,#44d6a0,#1a8465)','linear-gradient(145deg,#53a8ff,#4545bb)','linear-gradient(145deg,#b879ff,#6434ae)','linear-gradient(145deg,#ff586c,#9e315c)','linear-gradient(145deg,#d9e73f,#569e39)','linear-gradient(145deg,#37d5e4,#356aa8)','linear-gradient(145deg,#ed81d0,#6b42c8)'].map((gradient,i) => <div key={'tile-'+profileTab+'-'+i} style={{ aspectRatio: '1/1', borderRadius: 9, background: gradient, display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden' }}>{i%3===1 && <Icon name="lock" size={21}/>}</div>)}
+                </div>
+              </div>
+            ) : activeNav === 'Explorar' ? (
+
               <div style={{ position: 'absolute', inset: 0, background: '#1b0629', overflowY: 'auto', padding: 'max(62px, env(safe-area-inset-top)) 12px calc(90px + env(safe-area-inset-bottom))', textAlign: 'left', color: '#fff' }}>
                 <div style={{ position: 'sticky', top: 0, zIndex: 3, display: 'flex', gap: 8, padding: '9px 0 13px', background: '#1b0629' }}>
                   <button type="button" onClick={() => setExploreTab('Explorar')} style={{ padding: '9px 17px', border: 0, borderRadius: 22, background: exploreTab === 'Explorar' ? '#fff' : '#2b103b', color: exploreTab === 'Explorar' ? '#19121d' : '#d3c6dc', fontSize: 13, fontWeight: 900 }}>Explorar</button>
