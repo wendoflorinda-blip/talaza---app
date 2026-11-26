@@ -39,6 +39,8 @@ export default function MediaHome() {
   const [followed, setFollowed] = useState({});
   const [postLiked, setPostLiked] = useState(false);
   const [profileTab, setProfileTab] = useState('Fotos');
+  const [discoveryLanguage, setDiscoveryLanguage] = useState('Français');
+  const [discoveryLiked, setDiscoveryLiked] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -255,8 +257,44 @@ export default function MediaHome() {
                     </div>
                   </div>
                 ) : (
-                  <div style={{ minHeight: 240, display: 'grid', alignContent: 'center', justifyItems: 'center', gap: 8, textAlign: 'center', padding: 20, borderRadius: 18, background: '#2b103b', border: '1px solid #45245b' }}>
-                    <div style={{ fontSize: 22 }}>✨</div><div style={{ fontWeight: 900 }}>Descoberta</div><div style={{ fontSize: 12, color: '#c8b8d4' }}>Novos criadores, vídeos e comunidades aparecerão aqui.</div>
+                  <div style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', overflow: 'hidden', background: 'linear-gradient(150deg,#c9f33a 0%,#5eb73c 38%,#155d3c 100%)', textAlign: 'left' }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 25% 15%,rgba(222,255,118,.4),transparent 40%),linear-gradient(180deg,rgba(8,22,13,.38) 0%,transparent 30%,rgba(5,18,11,.35) 55%,rgba(3,14,9,.8) 100%)' }} />
+                    <div style={{ position: 'absolute', zIndex: 2, top: 'max(14px,env(safe-area-inset-top))', left: 12, right: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', gap: 6, padding: 4, borderRadius: 24, background: 'rgba(25,17,38,.72)', backdropFilter: 'blur(12px)' }}>
+                          <button type="button" onClick={() => setExploreTab('Explorar')} style={{ border: 0, borderRadius: 20, padding: '8px 13px', background: 'transparent', color: 'rgba(255,255,255,.72)', fontSize: 12, fontWeight: 850 }}>Explorar</button>
+                          <button type="button" onClick={() => setExploreTab('Descoberta')} style={{ border: 0, borderRadius: 20, padding: '8px 13px', background: '#fff', color: '#15121b', fontSize: 12, fontWeight: 950 }}>Descoberta</button>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button aria-label="Mensagens" type="button" onClick={() => setNotice('Mensagens da Mídia Talaza.')} style={{ width: 36, height: 36, position: 'relative', border: '1px solid rgba(255,255,255,.18)', borderRadius: 50, background: 'rgba(30,15,43,.7)', color: '#fff', display: 'grid', placeItems: 'center' }}><Icon name="message" size={17}/><span style={{ position: 'absolute', top: 3, right: 2, width: 8, height: 8, borderRadius: 50, background: '#ff4aa8' }}/></button>
+                          <button aria-label="Notificações" type="button" onClick={() => setNotice('Notificações da Mídia Talaza.')} style={{ width: 36, height: 36, position: 'relative', border: '1px solid rgba(255,255,255,.18)', borderRadius: 50, background: 'rgba(30,15,43,.7)', color: '#fff', display: 'grid', placeItems: 'center' }}><Icon name="bell" size={17}/><span style={{ position: 'absolute', top: 3, right: 2, width: 8, height: 8, borderRadius: 50, background: '#ff4aa8' }}/></button>
+                        </div>
+                      </div>
+                      <div className="media-tabs" style={{ display: 'flex', gap: 7, overflowX: 'auto', marginTop: 10, paddingBottom: 2 }}>
+                        {['Todos','Português','English','Français','Español','Kiswahili'].map(lang => <button key={lang} type="button" onClick={() => setDiscoveryLanguage(lang)} style={{ flexShrink: 0, border: discoveryLanguage === lang ? '1px solid #ff55aa' : '1px solid rgba(255,255,255,.24)', borderRadius: 20, padding: '7px 12px', background: discoveryLanguage === lang ? '#ff3fa3' : 'rgba(30,15,43,.58)', color: '#fff', fontSize: 11, fontWeight: 850 }}>{lang}</button>)}
+                      </div>
+                    </div>
+                    <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', opacity: .25, pointerEvents: 'none' }}>
+                      <div style={{ width: 180, height: 180, borderRadius: 90, border: '2px solid rgba(255,255,255,.55)', background: 'radial-gradient(circle at 35% 25%,rgba(255,255,255,.5),transparent 42%),linear-gradient(135deg,#a5e83b,#12653f)', boxShadow: '0 0 60px rgba(226,255,128,.35)' }} />
+                    </div>
+                    <div style={{ position: 'absolute', zIndex: 2, right: 12, bottom: 190, display: 'grid', justifyItems: 'center', gap: 13 }}>
+                      <div style={{ position: 'relative', marginBottom: 4 }}>
+                        <div style={{ width: 46, height: 46, borderRadius: 50, border: '2px solid #fff', background: 'linear-gradient(135deg,#55aaff,#3546aa)', display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 950 }}>LM</div>
+                        <button type="button" aria-label="Seguir Lucie" onClick={() => setFollowed(v => ({...v, luciem: !v.luciem}))} style={{ position: 'absolute', bottom: -4, right: -4, width: 19, height: 19, borderRadius: 50, border: 0, background: '#ff3fa3', color: '#fff', fontSize: 13, fontWeight: 950, display: 'grid', placeItems: 'center' }}>{followed.luciem ? '✓' : '+'}</button>
+                      </div>
+                      <button type="button" onClick={() => setDiscoveryLiked(v => !v)} style={{ border: 0, background: 'transparent', color: discoveryLiked ? '#ff5cab' : '#fff', display: 'grid', justifyItems: 'center', gap: 3, textShadow: '0 2px 8px rgba(0,0,0,.4)' }}><Icon name="heart" size={28}/><span style={{ fontSize: 11, fontWeight: 850 }}>15 mil</span></button>
+                      <button type="button" onClick={() => setNotice('Comentários do vídeo de Lucie.')} style={{ border: 0, background: 'transparent', color: '#fff', display: 'grid', justifyItems: 'center', gap: 3, textShadow: '0 2px 8px rgba(0,0,0,.4)' }}><Icon name="comment" size={27}/><span style={{ fontSize: 11, fontWeight: 850 }}>530</span></button>
+                      <button type="button" onClick={() => setNotice('Partilhar vídeo de Lucie.')} style={{ border: 0, background: 'transparent', color: '#fff', display: 'grid', justifyItems: 'center', gap: 3, textShadow: '0 2px 8px rgba(0,0,0,.4)' }}><Icon name="share" size={27}/><span style={{ fontSize: 11, fontWeight: 850 }}>Enviar</span></button>
+                    </div>
+                    <div style={{ position: 'absolute', zIndex: 2, left: 13, right: 78, bottom: 'calc(94px + env(safe-area-inset-bottom))', display: 'grid', gap: 9, textShadow: '0 2px 7px rgba(0,0,0,.45)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <div style={{ fontSize: 17, fontWeight: 950 }}>@luciem</div>
+                        <span style={{ padding: '5px 9px', borderRadius: 18, background: 'rgba(14,70,42,.85)', fontSize: 10, fontWeight: 850 }}>Français</span>
+                        <button type="button" onClick={() => setFollowed(v => ({...v, luciem: !v.luciem}))} style={{ border: '1px solid #fff', borderRadius: 18, padding: '5px 12px', background: '#fff', color: '#17121b', fontSize: 11, fontWeight: 900, textShadow: 'none' }}>{followed.luciem ? 'Seguindo' : 'Seguir'}</button>
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 650, lineHeight: 1.45 }}>Chorégraphie du week-end, essayez avec moi</div>
+                      <button type="button" onClick={() => setNotice('Planos e benefícios do fã clube de Lucie.')} style={{ width: 'fit-content', border: 0, borderRadius: 14, padding: '12px 17px', background: '#f4df83', color: '#241b10', fontSize: 12, fontWeight: 950, display: 'flex', alignItems: 'center', gap: 8, textShadow: 'none' }}><Icon name="sparkle" size={17}/>Entrar no fã clube</button>
+                    </div>
                   </div>
                 )}
               </div>
