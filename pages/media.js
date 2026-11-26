@@ -534,7 +534,7 @@ export default function MediaHome() {
                             <div style={{width:56,height:56,borderRadius:50,background:'linear-gradient(135deg,#8ddc82,#17603a)'}}/>
                             <div><div style={{fontSize:18,fontWeight:950,color:'#000'}}>Mara Kiala <span style={{color:'#46aaff',fontSize:12}}>✓</span> <span style={{color:'#d9a72e'}}>♛</span></div><div style={{fontSize:15,color:'#888'}}>há 3 h</div></div>
                           </div>
-                          <div style={{fontSize:18,color:'#000'}}>Novo refrão: o que acham?</div>
+                          <div style={{ fontSize: 18, color: '#000' }}>Novo refrão: o que acham?</div>
                           <div style={{height:280,borderRadius:14,background:'linear-gradient(135deg,#ff9b38,#ff58a8)',position:'relative',display:'grid',placeItems:'center',color:'#fff',fontWeight:900}}><span style={{position:'absolute',top:12,right:12,padding:'6px 10px',borderRadius:20,background:'rgba(0,0,0,.65)',fontSize:15}}>4 fotos</span><span style={{fontSize:30}}>♪</span></div>
                           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6}}>
                             {['♡ 210','♨ 98','☆ 57','◉ 3'].map(label=><button key={label} type="button" onClick={()=>setFanclubFeedback('Reação registada: '+label)} style={{height:40,border:'1px solid #ddd',borderRadius:24,background:'#fff,color:'#000',fontSize:13,fontWeight:800}}>{label}</button>)}
