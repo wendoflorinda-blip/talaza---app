@@ -501,7 +501,7 @@ export default function MediaHome() {
                     </div>
                     <div style={{fontSize:15,color:'#888',marginBottom:12}}>{captureMode==='Foto'?'Até 10 imagens por post':'1 vídeo por post'} · {fanclubPostMedia.length}/{captureMode==='Foto'?10:1}</div>
                     <input type="file" accept={captureMode==='Foto'?'image/*':'video/*'} multiple={captureMode==='Foto'} onChange={e=>{const chosen=Array.from(e.target.files||[]);if(!chosen.length)return;const files=captureMode==='Foto'?chosen.filter(f=>f.type.startsWith('image/')).slice(0,10-fanclubPostMedia.length):chosen.filter(f=>f.type.startsWith('video/')).slice(0,1);setFanclubPostMedia(prev=>captureMode==='Foto'?[...prev,...files].slice(0,10):files);e.target.value='';}} style={{display:'none'}} id="fanclubPostMediaInput"/>
-                    <button type="button" onClick={()=>document.getElementById('fanclubPostMediaInput')?.click()} style={{width:140,height:140,border:'2px dashed #FF2E7A',borderRadius:20,background:'#fff,color:'#666',display:'grid',placeContent:'center',gap:6,fontWeight:900,fontSize:18,marginBottom:12}}>
+                    <button type="button" onClick={()=>document.getElementById('fanclubPostMediaInput')?.click()} style={{width:140,height:140,borderWidth:2,borderStyle:'dashed',borderColor:'#FF2E7A',borderRadius:20,background:'#fff',color:'#666',display:'grid',placeContent:'center',gap:6,fontWeight:900,fontSize:18,marginBottom:12}}>
                       <span style={{fontSize:32,lineHeight:1}}>＋</span><span>Adicionar</span>
                     </button>
                     {fanclubPostMedia.length > 0 ? (
