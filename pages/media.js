@@ -3,12 +3,10 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
-const feedTabs = ['Para você', 'Descoberta', 'Agendados', 'Publicidade', 'Desafio'];
-
 function Icon({ name, size = 22 }) {
   const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.9, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true };
   const paths = {
-    search: <><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 4.5 4.5" /></>,
+    heart: <><path d="M20.8 8.8c0 5.1-8.8 11-8.8 11s-8.8-5.9-8.8-11A4.8 4.8 0 0 1 12 7.1a4.8 4.8 0 0 1 8.8 1.7Z" fill="currentColor" stroke="none" /></>,
     home: <><path d="m3 10 9-7 9 7" /><path d="M5.5 9v11h13V9M9.5 20v-6h5v6" /></>,
     people: <><circle cx="9" cy="8" r="3.2" /><path d="M2.8 20c.3-3.5 2.4-5.5 6.2-5.5s5.9 2 6.2 5.5" /><path d="M16 5.2a3.1 3.1 0 0 1 0 6M17 14.8c2.4.4 3.8 2.1 4.2 4.7" /></>,
     message: <><path d="M20.5 11.5a8.3 8.3 0 0 1-8.5 8.1 9.6 9.6 0 0 1-4-.8L3 20l1.3-4.2a7.8 7.8 0 0 1-1.3-4.3A8.3 8.3 0 0 1 11.5 3h.5a8.2 8.2 0 0 1 8.5 8.1z" /></>,
@@ -16,6 +14,7 @@ function Icon({ name, size = 22 }) {
     plus: <><path d="M12 5v14M5 12h14" /></>,
     menu: <><path d="M4 6h16M4 12h16M4 18h11" /></>
   };
+  if (name === 'compass') return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ filter: 'drop-shadow(0 0 5px rgba(255,91,160,.85)) drop-shadow(0 0 7px rgba(255,153,55,.5))' }}><defs><linearGradient id="mediaExploreGradient" x1="2" y1="3" x2="22" y2="21"><stop stopColor="#FF55B8"/><stop offset="1" stopColor="#FF9B38"/></linearGradient></defs><circle cx="12" cy="12" r="9.2" stroke="url(#mediaExploreGradient)" strokeWidth="1.8"/><path d="m15.9 8.1-2.8 6-5 1.8 2.8-6 5-1.8Z" fill="url(#mediaExploreGradient)" stroke="url(#mediaExploreGradient)" strokeWidth="1.4"/><circle cx="12" cy="12" r="1.1" fill="#fff"/></svg>;
   return <svg {...common}>{paths[name]}</svg>;
 }
 
@@ -23,11 +22,8 @@ export default function MediaHome() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('Para você');
   const [activeNav, setActiveNav] = useState('Início');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [notice, setNotice] = useState('');
 
@@ -103,7 +99,8 @@ export default function MediaHome() {
   function selectNav(item) {
     setActiveNav(item);
     if (item === 'Início') return;
-    if (item === 'Seguindo') setNotice('Os conteúdos dos criadores que segue aparecerão aqui.');
+    if (item === 'Fã clube') setNotice('Os conteúdos dos criadores que segue aparecerão aqui.');
+    if (item === 'Explorar') setNotice('Descubra criadores e conteúdos de novas comunidades.');
     if (item === 'Mensagens') setNotice('A área de mensagens da MÍDIA TALAZA está a ser preparada.');
     if (item === 'Perfil') setNotice('As definições e o seu perfil estarão disponíveis nesta área.');
   }
@@ -128,15 +125,7 @@ export default function MediaHome() {
                 <Icon name="menu" size={16} /> Menu
               </button>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-              <nav className="media-tabs" aria-label="Navegação do feed" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 17, overflowX: 'auto', flex: 1, whiteSpace: 'nowrap', padding: '0 0 8px' }}>
-                {feedTabs.map(tab => (
-                  <button key={tab} type="button" onClick={() => { setActiveTab(tab); setActiveNav('Início'); setNotice(''); }} style={{ position: 'relative', flex: '0 0 auto', border: 0, borderBottom: activeTab === tab ? '2px solid #fff' : '2px solid transparent', padding: '6px 0 8px', background: 'transparent', color: activeTab === tab ? '#fff' : 'rgba(255,255,255,.72)', fontSize: 11, fontWeight: activeTab === tab ? 900 : 700, cursor: 'pointer', textShadow: '0 1px 5px #000' }}>{tab}</button>
-                ))}
-              </nav>
-              <button type="button" aria-label="Pesquisar" onClick={() => setSearchOpen(v => !v)} style={{ flex: '0 0 auto', width: 31, height: 31, display: 'grid', placeItems: 'center', border: 0, borderRadius: 50, color: '#fff', background: 'rgba(0,0,0,.25)', cursor: 'pointer' }}><Icon name="search" size={19} /></button>
-            </div>
-            {searchOpen && <input autoFocus value={searchValue} onChange={e => setSearchValue(e.target.value)} placeholder="Pesquisar criadores e conteúdos" aria-label="Pesquisar criadores e conteúdos" style={{ width: '100%', marginTop: 5, padding: '10px 13px', border: '1px solid rgba(32,180,122,.8)', borderRadius: 12, background: 'rgba(0,0,0,.88)', color: '#fff', outline: 'none', fontSize: 13 }} />}
+            <div style={{ display: 'flex', alignItems: 'center', marginTop: 9, paddingBottom: 7 }}><div style={{ color: '#fff', fontSize: 16, fontWeight: 950 }}>Pra você</div></div>
           </header>
 
           <section aria-label="Feed vertical de vídeos" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 18px 96px', textAlign: 'center' }}>
@@ -148,24 +137,24 @@ export default function MediaHome() {
                 <button type="button" onClick={() => { setActiveNav('Início'); setNotice(''); }} style={{ border: '1px solid #20B47A', borderRadius: 22, background: 'rgba(32,180,122,.12)', color: '#fff', padding: '9px 18px', fontWeight: 800, cursor: 'pointer' }}>Voltar ao feed</button>
               </div>
             ) : (
-              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 'calc(94px + env(safe-area-inset-bottom))', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
+              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 'calc(102px + env(safe-area-inset-bottom))', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
                 <span style={{ padding: '7px 12px', borderRadius: 20, background: 'rgba(0,0,0,.28)', color: 'rgba(255,255,255,.72)', fontSize: 11, fontWeight: 600 }}>Os vídeos aparecerão aqui</span>
               </div>
             )}
           </section>
 
-          <div style={{ position: 'absolute', zIndex: 2, left: 18, right: 82, bottom: 'calc(78px + env(safe-area-inset-bottom))', textAlign: 'left', pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', zIndex: 2, left: 18, right: 82, bottom: 'calc(94px + env(safe-area-inset-bottom))', textAlign: 'left', pointerEvents: 'none' }}>
             <div style={{ fontSize: 14, fontWeight: 900, textShadow: '0 2px 8px #000' }}>{displayName}</div>
             {username && <div style={{ fontSize: 12, color: 'rgba(255,255,255,.72)', marginTop: 3 }}>{username}</div>}
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,.82)', marginTop: 7 }}>Descubra conteúdos de Angola e de todo o mundo.</div>
           </div>
 
-          <nav aria-label="Navegação principal" style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, bottom: 0, minHeight: 'calc(65px + env(safe-area-inset-bottom))', padding: '8px 7px max(8px, env(safe-area-inset-bottom))', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', alignItems: 'center', background: 'rgba(0,0,0,.94)', borderTop: '1px solid rgba(255,255,255,.07)' }}>
-            <button type="button" onClick={() => selectNav('Início')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Início' ? '#fff' : 'rgba(255,255,255,.58)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="home" size={22} />Início</button>
-            <button type="button" onClick={() => selectNav('Seguindo')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Seguindo' ? '#20B47A' : 'rgba(255,255,255,.58)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="people" size={22} />Seguindo</button>
-            <button type="button" aria-label="Criar publicação" onClick={() => setCreateOpen(true)} style={{ justifySelf: 'center', width: 39, height: 31, display: 'grid', placeItems: 'center', border: '1px solid #20B47A', borderRadius: 8, background: '#fff', color: '#07110c', boxShadow: '3px 0 0 rgba(32,180,122,.55)', cursor: 'pointer' }}><Icon name="plus" size={23} /></button>
-            <button type="button" onClick={() => selectNav('Mensagens')} style={{ position: 'relative', display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Mensagens' ? '#20B47A' : 'rgba(255,255,255,.58)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="message" size={22} /><span style={{ position: 'absolute', top: -3, left: 'calc(50% + 5px)', minWidth: 15, height: 15, display: 'grid', placeItems: 'center', borderRadius: 50, background: '#E53D4D', color: '#fff', fontSize: 9, fontWeight: 900 }}>2</span>Mensagens</button>
-            <button type="button" onClick={() => selectNav('Perfil')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Perfil' ? '#20B47A' : 'rgba(255,255,255,.58)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="user" size={22} />Perfil</button>
+          <nav aria-label="Navegação principal" style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, bottom: 0, minHeight: 'calc(65px + env(safe-area-inset-bottom))', padding: '8px 7px max(8px, env(safe-area-inset-bottom))', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', alignItems: 'center', background: 'linear-gradient(180deg,#321047 0%,#260834 55%,#1d062c 100%)', borderTop: '1px solid rgba(255,117,196,.25)', boxShadow: '0 -5px 24px rgba(27,4,39,.35)' }}>
+            <button type="button" onClick={() => selectNav('Fã clube')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Fã clube' ? '#ff62b8' : 'rgba(255,255,255,.78)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="heart" size={23} />Fã clube</button>
+            <button type="button" onClick={() => selectNav('Explorar')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Explorar' ? '#ff72c4' : 'rgba(255,255,255,.85)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="compass" size={29} />Explorar</button>
+            <button type="button" aria-label="Criar publicação" onClick={() => setCreateOpen(true)} style={{ justifySelf: 'center', width: 48, height: 44, display: 'grid', placeItems: 'center', border: '1px solid rgba(255,186,225,.65)', borderRadius: 13, background: 'linear-gradient(145deg,#ff54b1,#f7258f 65%,#df1378)', color: '#fff', boxShadow: '0 0 14px rgba(255,56,160,.55),0 4px 12px rgba(0,0,0,.32)', cursor: 'pointer' }}><Icon name="plus" size={29} /></button>
+            <button type="button" onClick={() => selectNav('Mensagens')} style={{ position: 'relative', display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Mensagens' ? '#ff62b8' : 'rgba(255,255,255,.78)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="message" size={23} /><span style={{ position: 'absolute', top: -3, left: 'calc(50% + 5px)', minWidth: 15, height: 15, display: 'grid', placeItems: 'center', borderRadius: 50, background: '#ff4aa8', color: '#fff', fontSize: 9, fontWeight: 900, boxShadow: '0 0 8px rgba(255,74,168,.55)' }}>2</span>Mensagens</button>
+            <button type="button" onClick={() => selectNav('Perfil')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Perfil' ? '#ff62b8' : 'rgba(255,255,255,.78)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="user" size={23} />Perfil</button>
           </nav>
         </div>
 
