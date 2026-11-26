@@ -181,7 +181,7 @@ export default function MediaHome() {
           </div>
           <div style={{display:'grid',gap:8,marginBottom:20}}>
             <label style={{fontSize:19,fontWeight:900,color:'#666'}}>Descrição</label>
-            <textarea value={profileBio} maxLength={150} onChange={e=>setProfileBio(e.target.value)} style={{height:150,resize:'vertical',border:0,borderRadius:20,padding:16,background:'#F2F2F2',color:'#000,fontSize:20,lineHeight:1.45}}/>
+            <textarea value={profileBio} maxLength={150} onChange={e=>setProfileBio(e.target.value)} style={{height:150,resize:'vertical',border:0,borderRadius:20,padding:16,background:'#F2F2F2',color:'#000',fontSize:20,lineHeight:1.45}}/>
             <div style={{fontSize:17,color:'#888'}}>{profileBio.length}/150</div>
           </div>
           <div style={{display:'grid',gap:8,marginBottom:20}}>
