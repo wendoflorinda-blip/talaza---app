@@ -312,6 +312,38 @@ export default function MediaHome() {
                   </div>
                 )}
               </div>
+            ) : activeNav === 'Fã clube' ? (
+              <div style={{ position:'absolute', inset:0, background:'#ffffff', overflowY:'auto', padding:'max(14px,env(safe-area-inset-top)) 14px calc(92px + env(safe-area-inset-bottom))', textAlign:'left', color:'#111' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
+                  <div style={{ fontSize:23, fontWeight:950, letterSpacing:-.5 }}><span style={{color:'#111'}}>fã</span><span style={{color:'#ff3fa3'}}>.</span><span style={{color:'#111'}}>clube</span></div>
+                  <div style={{ display:'flex', gap:9 }}>
+                    <button type="button" onClick={() => setNotice('Mensagens do fã clube.')} style={{width:38,height:38,borderRadius:50,border:0,background:'#eeeeF2',color:'#111',position:'relative',display:'grid',placeItems:'center'}}><Icon name="message" size={18}/><span style={{position:'absolute',right:-1,top:-1,width:9,height:9,borderRadius:50,background:'#ff3fa3'}}/></button>
+                    <button type="button" onClick={() => setNotice('Notificações do fã clube.')} style={{width:38,height:38,borderRadius:50,border:0,background:'#eeeeF2',color:'#111',position:'relative',display:'grid',placeItems:'center'}}><Icon name="bell" size={18}/><span style={{position:'absolute',right:-1,top:-1,width:9,height:9,borderRadius:50,background:'#ff3fa3'}}/></button>
+                  </div>
+                </div>
+                <div style={{ borderRadius:20, padding:20, background:'linear-gradient(135deg,#ff4fa8 0%,#b53ee5 50%,#6733bc 100%)', color:'#fff', marginBottom:22, boxShadow:'0 7px 18px rgba(130,45,180,.18)' }}>
+                  <div style={{fontSize:22,fontWeight:950,marginBottom:8}}>Quer ter um fã clube?</div>
+                  <div style={{fontSize:13,lineHeight:1.5,marginBottom:16}}>Crie o seu espaço, defina os planos e receba apoio direto dos seus fãs.</div>
+                  <button type="button" onClick={() => setNotice('Criar o meu fã clube.')} style={{background:'#fff',color:'#111',border:0,borderRadius:22,padding:'11px 16px',fontSize:12,fontWeight:950}}>Criar o meu fã clube</button>
+                </div>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:11}}><div style={{fontSize:16,fontWeight:950,color:'#111'}}>Fã-clubes de que faz parte</div><div style={{fontSize:12,color:'#888'}}>2</div></div>
+                <div style={{display:'grid',gap:10,marginBottom:24}}>
+                  {[{name:'Dj Nelito',tag:'👑',members:'890 fã clube',badge:'♛',grad:'linear-gradient(135deg,#873bce,#4a1d8b)',notif:'3'},{name:'Ana Bela',tag:'💎',members:'1.240 fã clube',badge:'◆',grad:'linear-gradient(135deg,#28ad70,#126345)',notif:'1'}].map((club,i)=><div key={club.name} style={{display:'flex',alignItems:'center',gap:12,padding:13,borderRadius:16,background:'#2b103b',border:'1px solid #45245b',color:'#fff'}}>
+                    <div style={{width:48,height:48,flex:'0 0 48px',borderRadius:50,background:club.grad,display:'grid',placeItems:'center',fontSize:23}}>{club.tag}</div>
+                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:950}}>{club.name} <span style={{color:'#46aaff',fontSize:11}}>✓</span> <span style={{color:'#f3c449}}>{club.badge}</span></div><div style={{fontSize:11,color:'#b7a6c6,marginTop:4}}>{club.members}</div></div>
+                    <button type="button" onClick={() => setNotice('Abrir fã clube '+club.name)} style={{border:0,borderRadius:20,padding:'8px 10px',background:'#1c0a29',color:'#fff,fontSize:11,fontWeight:900}}>Abrir <span style={{marginLeft:5,color:'#ff3fa3'}}>● {club.notif}</span></button>
+                  </div>)}
+                </div>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:11}}><div style={{fontSize:16,fontWeight:950,color:'#111'}}>Fã-clubes para aderir</div><div style={{fontSize:11,color:'#888'}}>sugestões</div></div>
+                <div style={{display:'grid',gap:10,marginBottom:18}}>
+                  {[{name:'Yuri Estúdio',detail:'640 fã clube',color:'linear-gradient(135deg,#ff8a25,#d94b17)',seal:'👑',members:'640 fã clube'},{name:'Lucie M.',detail:'1,5 mil fã clube · com pedido',color:'linear-gradient(135deg,#4ca5ff,#2348b5)',seal:'◆',members:'1,5 mil fã clube · com pedido'},{name:'Kota Creator',detail:'980 fã clube',color:'linear-gradient(135deg,#ff59b4,#a73bce)',seal:'♛',members:'980 fã clube'},{name:'Zuri Studio',detail:'2,2 mil fã clube',color:'linear-gradient(135deg,#44bd90,#21735b)',seal:'◆',members:'2,2 mil fã clube'}].map(club=><div key={club.name} style={{display:'flex',alignItems:'center',gap:12,padding:13,borderRadius:16,background:'#2b103b',border:'1px solid #45245b',color:'#fff'}}>
+                    <div style={{width:48,height:48,flex:'0 0 48px',borderRadius:50,background:club.color,display:'grid',placeItems:'center',fontSize:22}}>{club.seal}</div>
+                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:950}}>{club.name} <span style={{color:'#46aaff',fontSize:11}}>✓</span></div><div style={{fontSize:11,color:'#b7a6c6,marginTop:4}}>{club.members}</div></div>
+                    <button type="button" onClick={() => setNotice('Aderir ao fã clube '+club.name)} style={{border:0,borderRadius:20,padding:'8px 13px',background:'#ff3fa3,color:'#fff,fontSize:11,fontWeight:950}}>Aderir</button>
+                  </div>)}
+                </div>
+                <div style={{fontSize:11,color:'#777',textAlign:'center',padding:10}}>Os fãs não pagam. Os fã clubes permanecem abertos.</div>
+              </div>
             ) : notice ? (
               <div style={{ maxWidth: 300 }}>
                 <div style={{ width: 58, height: 58, borderRadius: 50, margin: '0 auto 15px', display: 'grid', placeItems: 'center', border: '1px solid rgba(32,180,122,.6)', color: '#20B47A', background: 'rgba(10,40,27,.5)' }}><Icon name={activeNav === 'Mensagens' ? 'message' : activeNav === 'Perfil' ? 'user' : 'people'} size={26} /></div>
