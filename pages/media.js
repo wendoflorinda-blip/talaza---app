@@ -43,6 +43,13 @@ export default function MediaHome() {
   const [discoveryLiked, setDiscoveryLiked] = useState(false);
   const [messagesTab, setMessagesTab] = useState('Notificações');
   const [communityFilter, setCommunityFilter] = useState('Sugestões');
+  const [fanclubScreen, setFanclubScreen] = useState('overview');
+  const [fanclubAccessMode, setFanclubAccessMode] = useState('request');
+  const [hideFanCount, setHideFanCount] = useState(true);
+  const [restrictMessages, setRestrictMessages] = useState(true);
+  const [fanclubRequests, setFanclubRequests] = useState([{name:'Toni B.',handle:'@tonib',gradient:'linear-gradient(135deg,#ff9a35,#287d42)'},{name:'Dalva N.',handle:'@dalvan',gradient:'linear-gradient(135deg,#77c8ff,#2250b9)'},{name:'Kota Bantu',handle:'@kotabantu',gradient:'linear-gradient(135deg,#853bd8,#b45bff)'}]);
+  const [fanclubFeedback, setFanclubFeedback] = useState('');
+  const [approvedFanclubMembers, setApprovedFanclubMembers] = useState([]);
   const [createStep, setCreateStep] = useState(1);
   const [captureMode, setCaptureMode] = useState('Foto');
   const [selectedMedia, setSelectedMedia] = useState(null);
@@ -144,7 +151,7 @@ export default function MediaHome() {
   function selectNav(item) {
     setActiveNav(item);
     if (item === 'Início') return;
-    if (item === 'Fã clube') setNotice('Os conteúdos dos criadores que segue aparecerão aqui.');
+    if (item === 'Fã clube') { setNotice('Os conteúdos dos criadores que segue aparecerão aqui.'); setFanclubScreen('overview'); setFanclubFeedback(''); }
     if (item === 'Explorar') { setNotice(''); setExploreTab('Explorar'); return; }
     if (item === 'Mensagens') { setNotice(''); setMessagesTab('Notificações'); setCommunityFilter('Sugestões'); }
     if (item === 'Perfil') { setNotice(''); setProfileTab('Fotos'); return; }
@@ -277,9 +284,9 @@ export default function MediaHome() {
                     <div style={{ width: 37, height: 37, borderRadius: 11, background: '#ff3fa3', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="people" size={20}/></div>
                     <div style={{ fontSize: 12, fontWeight: 950 }}>Meu fã clube</div><div style={{ fontSize: 10, color: '#b9a8c8', lineHeight: 1.5, marginTop: 4 }}>Publicar, lives e enquetes</div>
                   </button>
-                  <button type="button" onClick={() => setNotice('Configurar como os fãs interagem.')} style={{ padding: 12, border: '1px solid #45245b', borderRadius: 15, background: '#2b103b', textAlign: 'left', color: '#fff' }}>
+                  <button type="button" onClick={() => { setFanclubScreen('settings'); setFanclubFeedback(''); setActiveNav('Fã clube'); setNotice(''); }} style={{ padding: 12, border: '1px solid #45245b', borderRadius: 15, background: '#2b103b', textAlign: 'left', color: '#fff' }}>
                     <div style={{ width: 37, height: 37, borderRadius: 11, background: '#ff3fa3', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="sparkle" size={20}/></div>
-                    <div style={{ fontSize: 12, fontWeight: 950 }}>Configurar</div><div style={{ fontSize: 10, color: '#b9a8c8', lineHeight: 1.5, marginTop: 4 }}>Como os fãs interagem</div>
+                    <div style={{ fontSize: 12, fontWeight: 950 }}>Configurar fã clube</div><div style={{ fontSize: 10, color: '#b9a8c8', lineHeight: 1.5, marginTop: 4 }}>Como os fãs interagem</div>
                   </button>
                 </div>
                 <div style={{ display: 'flex', borderBottom: '1px solid #45245b', marginBottom: 10 }}>
@@ -413,7 +420,71 @@ export default function MediaHome() {
               </div>
             ) : activeNav === 'Fã clube' ? (
               <div style={{ position:'absolute', inset:0, background:'#ffffff', overflowY:'auto', padding:'max(14px,env(safe-area-inset-top)) 14px calc(92px + env(safe-area-inset-bottom))', textAlign:'left', color:'#111' }}>
+                {fanclubScreen === 'settings' ? (
+                  <div style={{maxWidth:520,margin:'0 auto',paddingTop:4}}>
+                    <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:24}}>
+                      <button type="button" aria-label="Voltar" onClick={()=>{setFanclubScreen('overview');setFanclubFeedback('');}} style={{width:48,height:48,border:0,borderRadius:50,background:'#F2F2F2',color:'#000',fontSize:22,display:'grid',placeItems:'center'}}>‹</button>
+                      <div style={{fontSize:28,fontWeight:950,color:'#000'}}>Configurar fã clube</div>
+                    </div>
+                    <div style={{display:'grid',gap:22}}>
+                      <div>
+                        <div style={{fontSize:17,fontWeight:900,color:'#666',marginBottom:10}}>Como as pessoas entram no seu fã clube</div>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                          {[
+                            {value:'automatic',title:'Automática',description:'Quem quiser entra na hora.'},
+                            {value:'request',title:'Com pedido',description:'Você aprova cada pessoa.'}
+                          ].map(option=><button key={option.value} type="button" onClick={()=>setFanclubAccessMode(option.value)} style={{height:130,padding:16,borderRadius:20,border:fanclubAccessMode===option.value?'3px solid #FF2E7A':'3px solid transparent',background:'#F2F2F2',textAlign:'left',display:'flex',flexDirection:'column',justifyContent:'center',gap:8}}>
+                            <div style={{fontSize:20,fontWeight:950,color:'#000'}}>{option.title}</div><div style={{fontSize:15,color:'#666',lineHeight:1.4}}>{option.description}</div>
+                          </button>)}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{fontSize:17,fontWeight:900,color:'#666',marginBottom:10}}>Vitrine</div>
+                        <div style={{padding:18,borderRadius:20,background:'#F2F2F2',display:'flex',alignItems:'center',gap:12}}>
+                          <div style={{flex:1,minWidth:0}}><div style={{fontSize:20,fontWeight:950,color:'#000'}}>Ocultar número de fãs</div><div style={{fontSize:15,color:'#666',lineHeight:1.45,marginTop:8}}>No perfil, em vez do número aparece só um ícone mostrando que você tem fã clube.</div></div>
+                          <button type="button" aria-label="Alternar ocultar número de fãs" onClick={()=>setHideFanCount(v=>!v)} style={{width:56,height:32,flexShrink:0,border:0,borderRadius:20,background:hideFanCount?'#FF2E7A':'#D9D9D9',padding:2,display:'flex',alignItems:'center',justifyContent:hideFanCount?'flex-end':'flex-start'}}><span style={{width:28,height:28,borderRadius:50,background:'#fff',boxShadow:'0 1px 3px rgba(0,0,0,.15)'}}/></button>
+                        </div>
+                        <div style={{display:'flex',alignItems:'center',gap:6,marginTop:10,fontSize:16,color:'#888'}}><span>Pré-visualização:</span><span style={{fontSize:20,fontWeight:950,color:'#000'}}>2.310</span><span>fã clube</span></div>
+                      </div>
+                      <div>
+                        <div style={{fontSize:17,fontWeight:900,color:'#666',marginBottom:10}}>Mensagens</div>
+                        <div style={{padding:18,borderRadius:20,background:'#F2F2F2',display:'flex',alignItems:'center',gap:12}}>
+                          <div style={{flex:1,minWidth:0}}><div style={{fontSize:20,fontWeight:950,color:'#000'}}>Restringir envio de mensagens</div><div style={{fontSize:15,color:'#666',lineHeight:1.45,marginTop:8}}>Os fãs só poderão comentar, reagir e votar.</div></div>
+                          <button type="button" aria-label="Alternar restrição de mensagens" onClick={()=>setRestrictMessages(v=>!v)} style={{width:56,height:32,flexShrink:0,border:0,borderRadius:20,background:restrictMessages?'#FF2E7A':'#D9D9D9',padding:2,display:'flex',alignItems:'center',justifyContent:restrictMessages?'flex-end':'flex-start'}}><span style={{width:28,height:28,borderRadius:50,background:'#fff',boxShadow:'0 1px 3px rgba(0,0,0,.15)'}}/></button>
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{fontSize:17,fontWeight:900,color:'#666',marginBottom:10}}>Pedidos</div>
+                        <button type="button" aria-label={'Pedidos de adesão: '+fanclubRequests.length+' pendentes, '+approvedFanclubMembers.length+' aprovados nesta sessão'} onClick={()=>setFanclubScreen('requests')} style={{width:'100%',padding:18,border:0,borderRadius:20,background:'#F2F2F2',display:'flex',alignItems:'center',gap:12,textAlign:'left'}}>
+                          <div style={{flex:1,minWidth:0}}><div style={{fontSize:20,fontWeight:950,color:'#000'}}>Pedidos de adesão</div><div style={{fontSize:15,color:'#666',lineHeight:1.45,marginTop:8}}>Ver, aprovar ou rejeitar quem quer entrar.</div></div>
+                          <span style={{width:56,height:48,borderRadius:14,background:'#FF2E7A',color:'#fff',fontSize:20,fontWeight:950,display:'grid',placeItems:'center',flexShrink:0}}>{fanclubRequests.length}</span><span style={{fontSize:24,color:'#000'}}>›</span>
+                        </button>
+                      </div>
+                    </div>
+                    {fanclubFeedback && <div role="status" style={{marginTop:18,padding:12,borderRadius:14,background:'#fce8f2',color:'#8a164e',fontSize:14,fontWeight:800}}>{fanclubFeedback}</div>}
+                  </div>
+                ) : fanclubScreen === 'requests' ? (
+                  <div style={{maxWidth:520,margin:'0 auto',paddingTop:4}}>
+                    <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:24}}>
+                      <button type="button" aria-label="Voltar" onClick={()=>{setFanclubScreen('settings');setFanclubFeedback('');}} style={{width:48,height:48,border:0,borderRadius:50,background:'#F2F2F2',color:'#000',fontSize:22,display:'grid',placeItems:'center'}}>‹</button>
+                      <div style={{fontSize:28,fontWeight:950,color:'#000'}}>Pedidos de adesão</div>
+                    </div>
+                    <div style={{display:'grid',gap:24}}>
+                      {fanclubRequests.map(person=><div key={person.handle} style={{display:'flex',alignItems:'center',gap:10,minHeight:56}}>
+                        <div style={{width:56,height:56,flex:'0 0 56px',borderRadius:50,background:person.gradient}}/>
+                        <div style={{flex:1,minWidth:0}}><div style={{fontSize:18,fontWeight:950,color:'#000'}}>{person.name}</div><div style={{fontSize:16,color:'#888',marginTop:3}}>{person.handle}</div></div>
+                        <div style={{display:'flex',gap:8,flexShrink:0}}>
+                          <button type="button" onClick={()=>{setFanclubRequests(prev=>prev.filter(p=>p.handle!==person.handle));setFanclubFeedback(person.name+': pedido rejeitado.');}} style={{height:44,border:0,borderRadius:20,padding:'0 12px',background:'#F2F2F2',color:'#666',fontSize:16,fontWeight:900}}>Rejeitar</button>
+                          <button type="button" onClick={()=>{setFanclubRequests(prev=>prev.filter(p=>p.handle!==person.handle));setApprovedFanclubMembers(prev=>prev.includes(person.handle)?prev:[...prev,person.handle]);setFanclubFeedback(person.name+' entrou no teu fã clube.');}} style={{height:44,border:0,borderRadius:20,padding:'0 12px',background:'#FF2E7A',color:'#fff',fontSize:16,fontWeight:900}}>Aprovar</button>
+                        </div>
+                      </div>)}
+                      {fanclubRequests.length===0 && <div style={{padding:20,textAlign:'center',color:'#666',background:'#F2F2F2',borderRadius:18}}>Não há pedidos pendentes.</div>}
+                    </div>
+                    {fanclubFeedback && <div role="status" style={{marginTop:18,padding:12,borderRadius:14,background:'#fce8f2',color:'#8a164e',fontSize:14,fontWeight:800}}>{fanclubFeedback}</div>}
+                  </div>
+                ) : (
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
+
                   <div style={{ fontSize:28, fontWeight:950, letterSpacing:-.5 }}><span style={{color:'#000'}}>fã</span><span style={{color:'#FF2E7A'}}>.</span><span style={{color:'#000'}}>clube</span></div>
                   <div style={{ display:'flex', gap:8 }}>
                     <button type="button" onClick={() => setNotice('Mensagens do fã clube.')} style={{width:44,height:44,borderRadius:50,border:0,background:'#F2F2F2',color:'#000',position:'relative',display:'grid',placeItems:'center'}}><Icon name="message" size={22}/><span style={{position:'absolute',right:2,top:2,width:8,height:8,borderRadius:50,background:'#FF2E7A'}}/></button>
@@ -462,6 +533,8 @@ export default function MediaHome() {
                   </div>
                 </div>
                 <div style={{fontSize:12,color:'#777',textAlign:'center',padding:10}}>Os fãs não pagam. Os fã clubes permanecem abertos.</div>
+                </>
+                )}
               </div>
             ) : activeNav === 'Mensagens' ? (
               <div style={{ position:'absolute', inset:0, background:'#FFFFFF', overflowY:'auto', padding:'max(14px,env(safe-area-inset-top)) 16px calc(92px + env(safe-area-inset-bottom))', textAlign:'left', color:'#000' }}>
