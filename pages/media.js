@@ -194,7 +194,7 @@ export default function MediaHome() {
           </div>
           <div style={{display:'grid',gap:8,marginBottom:20}}>
             <label style={{fontSize:19,fontWeight:900,color:'#666'}}>E-mail</label>
-            <input type="email" value={profileEmail} onChange={e=>setProfileEmail(e.target.value)} placeholder="seuemail@exemplo.com" style={{height:64,border:0,borderRadius:20,padding:'0 16px',background:'#F2F2F2',color:'#000,fontSize:20}}/>
+            <input type="email" value={profileEmail} onChange={e=>setProfileEmail(e.target.value)} placeholder="seuemail@exemplo.com" style={{height:64,border:0,borderRadius:20,padding:'0 16px',background:'#F2F2F2',color:'#000',fontSize:20}}/>
             <div style={{height:90,borderRadius:20,background:'#F2F2F2',padding:16,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
               <div><div style={{fontSize:20,fontWeight:900,color:'#000'}}>Mostrar no perfil</div><div style={{fontSize:17,color:'#888',marginTop:3}}>Quem visitar o perfil vê o e-mail.</div></div>
               <button type="button" aria-label="Mostrar e-mail" onClick={()=>setShowEmail(v=>!v)} style={{width:60,height:36,border:0,borderRadius:20,background:showEmail?'#FF2E7A':'#CCCCCC',padding:2,display:'flex',alignItems:'center',justifyContent:showEmail?'flex-end':'flex-start',flexShrink:0}}><span style={{width:32,height:32,borderRadius:50,background:'#fff'}}/></button>
