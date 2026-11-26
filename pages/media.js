@@ -156,7 +156,7 @@ export default function MediaHome() {
                     <div style={{ width: '100%', height: '100%', borderRadius: 19, background: 'linear-gradient(140deg,#ff74bb,#8d42e7)', display: 'grid', placeItems: 'center', fontSize: 29, fontWeight: 950, letterSpacing: 1 }}>MK</div>
                   </div>
                 </div>
-                <div style={{ display: 'grid', gap: 6 }}>
+                <div style={{ display: 'grid', gap: 6, padding: 12, borderRadius: 15, background: '#2b103b', border: '1px solid #45245b' }}>
                   <div style={{ fontSize: 24, fontWeight: 950, letterSpacing: -.4 }}>Mara Kiala</div>
                   <div style={{ fontSize: 12, color: '#b9a8c8' }}>@marakiala · fala Português</div>
                   <div style={{ fontSize: 12, color: '#b9a8c8', display: 'flex', alignItems: 'center', gap: 5 }}>⌖ Luanda, Angola</div>
@@ -195,7 +195,7 @@ export default function MediaHome() {
             ) : activeNav === 'Explorar' ? (
 
               <div style={{ position: 'absolute', inset: 0, background: '#ffffff', overflowY: 'auto', padding: 'max(62px, env(safe-area-inset-top)) 12px calc(90px + env(safe-area-inset-bottom))', textAlign: 'left', color: '#fff' }}>
-                {exploreTab === 'Explorar' && <div style={{ position: 'sticky', top: 0, zIndex: 3, display: 'flex', gap: 8, padding: '9px 0 13px', background: '#ffffff' }}>
+                {exploreTab === 'Explorar' && <div style={{ position: 'sticky', top: 0, zIndex: 50, display: 'flex', gap: 8, padding: '9px 0 13px', background: '#ffffff' }}>
                   <button type="button" onClick={() => setExploreTab('Explorar')} style={{ padding: '9px 17px', border: 0, borderRadius: 22, background: exploreTab === 'Explorar' ? '#fff' : '#2b103b', color: exploreTab === 'Explorar' ? '#19121d' : '#d3c6dc', fontSize: 13, fontWeight: 900 }}>Explorar</button>
                   <button type="button" onClick={() => setExploreTab('Descoberta')} style={{ padding: '9px 17px', border: 0, borderRadius: 22, background: exploreTab === 'Descoberta' ? '#fff' : '#2b103b', color: exploreTab === 'Descoberta' ? '#19121d' : '#d3c6dc', fontSize: 13, fontWeight: 900 }}>Descoberta</button>
                   <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
@@ -228,7 +228,7 @@ export default function MediaHome() {
                         <div><div style={{ fontSize: 13, fontWeight: 900 }}>Ana Bela</div><div style={{ fontSize: 10, color: '#b7a6c6', marginTop: 2 }}>há 20 min · Português</div></div>
                       </div>
                       <div style={{ fontSize: 12, lineHeight: 1.55 }}>Quem vem à live de sábado? Vou mostrar os bastidores do novo clipe.</div>
-                      <div style={{ height: 180, borderRadius: 12, background: 'linear-gradient(135deg,#3c2d8d 0%,#7743a7 40%,#20285b 100%)', display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden' }}>
+                      <div style={{ aspectRatio: '1/1', width: '100%', borderRadius: 12, background: 'linear-gradient(135deg,#3c2d8d 0%,#7743a7 40%,#20285b 100%)', display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden' }}>
                         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 30%,rgba(255,112,193,.55),transparent 42%),linear-gradient(150deg,transparent,rgba(9,9,38,.55))' }}/>
                         <div style={{ zIndex: 1, fontSize: 13, fontWeight: 950, letterSpacing: 2, textShadow: '0 2px 9px #190c39' }}>BASTIDORES · LIVE</div>
                       </div>
@@ -242,7 +242,7 @@ export default function MediaHome() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}><div style={{ fontSize: 14, fontWeight: 900 }}>Fã-clubes para aderir</div><div style={{ color: '#b7a6c6', fontSize: 11 }}>sugestões</div></div>
                       <div style={{ display: 'flex', gap: 11, overflowX: 'auto', paddingBottom: 5 }}>
                         {[
-                          {name:'Yuri Estúdio',detail:'640 membros · English',color:'linear-gradient(135deg,#2368d6,#543b9e)',button:'Aderir desde…'},
+                          {name:'Yuri Estúdio',detail:'640 membros · English',color:'linear-gradient(135deg,#2368d6,#543b9e)',button:'Aderir'},
                           {name:'Lucie M.',detail:'1,5 mil membros · França',color:'linear-gradient(135deg,#238b68,#2364a8)',button:'Aderir'}
                         ].map(club => (
                           <div key={club.name} style={{ flex: '0 0 174px', borderRadius: 14, overflow: 'hidden', background: '#2b103b', border: '1px solid #45245b' }}>
@@ -254,6 +254,20 @@ export default function MediaHome() {
                           </div>
                         ))}
                       </div>
+                    </div>
+                    <div style={{ display: 'grid', gap: 14, marginTop: 18 }}>
+                      {['Mais conteúdos da Ana Bela','Novo vídeo · Luanda','Momentos da comunidade'].map((label,i) => <article key={label} style={{ padding: 12, borderRadius: 16, background: '#2b103b', border: '1px solid #45245b', display: 'grid', gap: 9 }}>
+                        <div style={{ fontSize: 12, fontWeight: 900 }}>{label}</div>
+                        <div style={{ aspectRatio: '1/1', width: '100%', borderRadius: 12, background: ['linear-gradient(135deg,#5730a2,#1d4e82)','linear-gradient(135deg,#e95f9f,#9c3d6f)','linear-gradient(135deg,#44b89c,#275a9c)'][i], display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden' }}>
+                          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 20%,rgba(255,255,255,.25),transparent 38%)' }}/>
+                          <div style={{ zIndex: 1, fontSize: 13, fontWeight: 950 }}>TALAZA · EXPLORE</div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-around', color: '#c5b4d1', fontSize: 11 }}>
+                          <button type="button" onClick={() => setPostLiked(v => !v)} style={{ border: 0, background: 'transparent', color: postLiked ? '#ff64b5' : '#c5b4d1' }}>♡ Gosto</button>
+                          <button type="button" onClick={() => setNotice('Comentários desta publicação.')} style={{ border: 0, background: 'transparent', color: '#c5b4d1' }}>Comentar</button>
+                          <button type="button" onClick={() => setNotice('Partilhar esta publicação.')} style={{ border: 0, background: 'transparent', color: '#c5b4d1' }}>Partilhar</button>
+                        </div>
+                      </article>)}
                     </div>
                   </div>
                 ) : (
