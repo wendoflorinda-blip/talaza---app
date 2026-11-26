@@ -49,6 +49,11 @@ export default function MediaHome() {
   const [captionText, setCaptionText] = useState('');
   const [hashtagText, setHashtagText] = useState('');
   const [publishedMedia, setPublishedMedia] = useState([]);
+  const [explorePublishOpen, setExplorePublishOpen] = useState(false);
+  const [explorePhotos, setExplorePhotos] = useState([]);
+  const [exploreCaption, setExploreCaption] = useState('');
+  const explorePhotoInputRef = useRef(null);
+
   const [cameraFacing, setCameraFacing] = useState('environment');
   const galleryInputRef = useRef(null);
   const captureInputRef = useRef(null);
@@ -179,7 +184,7 @@ export default function MediaHome() {
                   {[['18,4 mil','seguidores'],['312','seguindo'],['2.310','no fã clube']].map(([count,label]) => <div key={label}><div style={{ fontSize: 17, fontWeight: 950, color: '#111111' }}>{count}</div><div style={{ color: '#666666', fontSize: 11, marginTop: 3 }}>{label}</div></div>)}
                 </div>
                 <div style={{ display: 'grid', gap: 9, marginBottom: 19 }}>
-                  <button type="button" onClick={() => setNotice('Criar uma publicação no Explore.')} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#f4df83', color: '#241b10', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="globe" size={18}/>Publicar no explore</button>
+                  <button type="button" onClick={() => { setExplorePublishOpen(true); setExplorePhotos([]); setExploreCaption(''); }} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#f4df83', color: '#241b10', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="globe" size={18}/>Publicar no explore</button>
                   <button type="button" onClick={() => setNotice('Planos do fã clube.')} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#ff3fa3', color: '#fff', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="sparkle" size={18}/>Ver planos</button>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
                     <button type="button" onClick={() => selectNav('Mensagens')} style={{ border: '1px solid #4a2a5c', borderRadius: 12, padding: 11, background: '#2b103b', color: '#fff', fontSize: 12, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Icon name="message" size={16}/>Mensagens</button>
@@ -514,6 +519,23 @@ export default function MediaHome() {
           </aside>
         </div>}
 
+        {explorePublishOpen && <div role="dialog" aria-modal="true" aria-label="Publicar no explore" style={{position:'fixed',inset:0,zIndex:35,background:'#fff',color:'#000',fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif",overflowY:'auto',padding:'max(12px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom))'}}>
+          <input ref={explorePhotoInputRef} type="file" accept="image/*" multiple style={{display:'none'}} onChange={e=>{const files=Array.from(e.target.files||[]).filter(f=>f.type.startsWith('image/'));const remaining=Math.max(0,10-explorePhotos.length);setExplorePhotos(prev=>[...prev,...files.slice(0,remaining).map(file=>({file,url:URL.createObjectURL(file)}))]);e.target.value='';}}/>
+          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+            <button type="button" aria-label="Voltar" onClick={()=>setExplorePublishOpen(false)} style={{width:48,height:48,flexShrink:0,border:0,borderRadius:50,background:'#F2F2F2',color:'#000',display:'grid',placeItems:'center',fontSize:22}}>‹</button>
+            <div style={{fontSize:28,fontWeight:950,color:'#000'}}>Publicar no explore</div>
+          </div>
+          <div style={{fontSize:17,color:'#666',marginBottom:12}}>Até 10 fotos · {explorePhotos.length}/10</div>
+          <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+            {explorePhotos.map((photo,i)=><div key={'explore-photo-'+i} style={{width:140,height:140,position:'relative',borderRadius:20,overflow:'hidden',background:'#f2f2f2'}}><img src={photo.url} alt={'Foto '+(i+1)} style={{width:'100%',height:'100%',objectFit:'cover'}}/><button type="button" aria-label="Remover foto" onClick={()=>setExplorePhotos(prev=>prev.filter((_,j)=>j!==i))} style={{position:'absolute',top:6,right:6,width:24,height:24,border:0,borderRadius:50,background:'rgba(0,0,0,.65)',color:'#fff'}}>×</button></div>)}
+            {explorePhotos.length<10&&<button type="button" onClick={()=>explorePhotoInputRef.current?.click()} style={{width:140,height:140,borderRadius:20,border:'2px dotted #FF2E7A',background:'#fff,color:'#666',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:8}}><span style={{fontSize:32,lineHeight:1}}>+</span><span style={{fontSize:18,fontWeight:900}}>Adicionar</span></button>}
+          </div>
+          <div style={{marginTop:24}}>
+            <div style={{fontSize:19,fontWeight:950,color:'#000',marginBottom:10}}>Legenda</div>
+            <textarea value={exploreCaption} onChange={e=>setExploreCaption(e.target.value)} placeholder="Escreva uma legenda" style={{width:'100%',boxSizing:'border-box',height:140,resize:'vertical',border:0,borderRadius:20,padding:16,background:'#F2F2F2',color:'#000',fontSize:18,outline:'none'}}/>
+          </div>
+          <button type="button" disabled={!explorePhotos.length} onClick={()=>{const posts=explorePhotos.map((photo,i)=>({id:Date.now()+i,url:photo.url,type:'image',caption:exploreCaption}));setPublishedMedia(prev=>[...posts,...prev]);setExplorePublishOpen(false);setExplorePhotos([]);setExploreCaption('');setActiveNav('Explorar');setExploreTab('Explorar');setNotice('Fotos publicadas no Explorar.');}} style={{marginTop:24,width:'100%',height:64,border:0,borderRadius:20,background:'#FF2E7A',color:'#fff',fontSize:22,fontWeight:950,opacity:explorePhotos.length?1:.5,cursor:explorePhotos.length?'pointer':'not-allowed'}}>Publicar</button>
+        </div>}
         {createOpen && <div role="dialog" aria-modal="true" aria-label="Criar publicação" style={{ position:'fixed',inset:0,zIndex:30,background:'#000',color:'#fff',fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif" }}>
           <input ref={galleryInputRef} type="file" accept={captureMode==='Foto'?'image/*':'video/*'} style={{display:'none'}} onChange={e=>{const file=e.target.files?.[0];if(file){setSelectedMedia({file,url:URL.createObjectURL(file),type:file.type.startsWith('video/')?'video':'image'});setCreateStep(2);}e.target.value='';}}/>
           <input ref={captureInputRef} type="file" accept={captureMode==='Foto'?'image/*':'video/*'} capture={cameraFacing} style={{display:'none'}} onChange={e=>{const file=e.target.files?.[0];if(file){setSelectedMedia({file,url:URL.createObjectURL(file),type:file.type.startsWith('video/')?'video':'image'});setCreateStep(2);}e.target.value='';}}/>
