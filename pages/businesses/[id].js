@@ -20,6 +20,7 @@ export default function BusinessPublicProfile() {
   const [mainImages, setMainImages] = useState([]);
   const [businessUpdates, setBusinessUpdates] = useState([]);
   const [isSavedGraceProfile, setIsSavedGraceProfile] = useState(false);
+  const [isMediaCreator, setIsMediaCreator] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copyToast, setCopyToast] = useState('');
@@ -30,6 +31,7 @@ export default function BusinessPublicProfile() {
 
     async function loadProfile() {
       setIsSavedGraceProfile(false);
+      setIsMediaCreator(false);
       setLoading(true);
       setError('');
       try {
@@ -73,6 +75,8 @@ export default function BusinessPublicProfile() {
         // A URL não pode ser usada para mudar o país de visualização.
         const { data: viewerAuth } = await supabase.auth.getUser();
         if (!viewerAuth?.user) throw new Error('Inicia sessão para consultar perfis na Talaza Comercial do teu país.');
+        const mediaCreatorAccess = viewerAuth.user.user_metadata?.media_account_type === 'creator' || viewerAuth.user.user_metadata?.media_creator_onboarding === true;
+        if (!cancelled) setIsMediaCreator(mediaCreatorAccess);
         let { data: creatorMetadataProfile } = await supabase.from('profiles')
           .select('country_id,province_id').eq('id', viewerAuth.user.id).maybeSingle();
         if (!creatorMetadataProfile?.country_id || !creatorMetadataProfile?.province_id) {
@@ -151,7 +155,7 @@ export default function BusinessPublicProfile() {
   const backLabel = backHref.startsWith('/perfil') ? 'Voltar aos guardados' : backHref.startsWith('/subcategory?') ? 'Voltar à subcategoria' : backHref.startsWith('/category?') ? 'Voltar às subcategorias' : 'Voltar à Vitrine';
 
   const contactNumber = business?.phone;
-  const messageHref = business?.owner_id && business?.is_active ? '/mensagens?to=' + encodeURIComponent(business.owner_id) + '&source=Vitrine&sourceId=' + encodeURIComponent(business.id) + '&returnTo=' + encodeURIComponent(backHref) : null;
+  const messageHref = business?.owner_id && (business?.is_active || isMediaCreator) ? '/mensagens?to=' + encodeURIComponent(business.owner_id) + '&source=Vitrine&sourceId=' + encodeURIComponent(business.id) + '&returnTo=' + encodeURIComponent(backHref) : null;
   const addressParts = [business?.address, business?.neighborhood].map(clean).filter(Boolean);
   const addressLine = addressParts.join(', ');
 
