@@ -179,7 +179,7 @@ export default function MediaHome() {
                     <div style={{ fontSize: 12, fontWeight: 950 }}>Meu fã clube</div><div style={{ fontSize: 10, color: '#b9a8c8', lineHeight: 1.5, marginTop: 4 }}>Publicar, lives e enquetes</div>
                   </button>
                   <button type="button" onClick={() => setNotice('Configurar como os fãs interagem.')} style={{ padding: 12, border: '1px solid #45245b', borderRadius: 15, background: '#2b103b', textAlign: 'left', color: '#fff' }}>
-                    <div style={{ width: 37, height: 37, borderRadius: 11, background: '#ff3fa3', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="sparkle" size={20/></div>
+                    <div style={{ width: 37, height: 37, borderRadius: 11, background: '#ff3fa3', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="sparkle" size={20}/></div>
                     <div style={{ fontSize: 12, fontWeight: 950 }}>Configurar</div><div style={{ fontSize: 10, color: '#b9a8c8', lineHeight: 1.5, marginTop: 4 }}>Como os fãs interagem</div>
                   </button>
                 </div>
