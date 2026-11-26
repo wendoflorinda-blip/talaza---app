@@ -315,34 +315,54 @@ export default function MediaHome() {
             ) : activeNav === 'Fã clube' ? (
               <div style={{ position:'absolute', inset:0, background:'#ffffff', overflowY:'auto', padding:'max(14px,env(safe-area-inset-top)) 14px calc(92px + env(safe-area-inset-bottom))', textAlign:'left', color:'#111' }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
-                  <div style={{ fontSize:23, fontWeight:950, letterSpacing:-.5 }}><span style={{color:'#111'}}>fã</span><span style={{color:'#ff3fa3'}}>.</span><span style={{color:'#111'}}>clube</span></div>
-                  <div style={{ display:'flex', gap:9 }}>
-                    <button type="button" onClick={() => setNotice('Mensagens do fã clube.')} style={{width:38,height:38,borderRadius:50,border:0,background:'#eeeeF2',color:'#111',position:'relative',display:'grid',placeItems:'center'}}><Icon name="message" size={18}/><span style={{position:'absolute',right:-1,top:-1,width:9,height:9,borderRadius:50,background:'#ff3fa3'}}/></button>
-                    <button type="button" onClick={() => setNotice('Notificações do fã clube.')} style={{width:38,height:38,borderRadius:50,border:0,background:'#eeeeF2',color:'#111',position:'relative',display:'grid',placeItems:'center'}}><Icon name="bell" size={18}/><span style={{position:'absolute',right:-1,top:-1,width:9,height:9,borderRadius:50,background:'#ff3fa3'}}/></button>
+                  <div style={{ fontSize:28, fontWeight:950, letterSpacing:-.5 }}><span style={{color:'#000'}}>fã</span><span style={{color:'#FF2E7A'}}>.</span><span style={{color:'#000'}}>clube</span></div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button type="button" onClick={() => setNotice('Mensagens do fã clube.')} style={{width:44,height:44,borderRadius:50,border:0,background:'#F2F2F2',color:'#000',position:'relative',display:'grid',placeItems:'center'}}><Icon name="message" size={22}/><span style={{position:'absolute',right:2,top:2,width:8,height:8,borderRadius:50,background:'#FF2E7A'}}/></button>
+                    <button type="button" onClick={() => setNotice('Notificações do fã clube.')} style={{width:44,height:44,borderRadius:50,border:0,background:'#F2F2F2',color:'#000',position:'relative',display:'grid',placeItems:'center'}}><Icon name="bell" size={22}/><span style={{position:'absolute',right:2,top:2,width:8,height:8,borderRadius:50,background:'#FF2E7A'}}/></button>
                   </div>
                 </div>
-                <div style={{ borderRadius:20, padding:20, background:'linear-gradient(135deg,#ff4fa8 0%,#b53ee5 50%,#6733bc 100%)', color:'#fff', marginBottom:22, boxShadow:'0 7px 18px rgba(130,45,180,.18)' }}>
-                  <div style={{fontSize:22,fontWeight:950,marginBottom:8}}>Quer ter um fã clube?</div>
-                  <div style={{fontSize:13,lineHeight:1.5,marginBottom:16}}>Crie o seu espaço, defina os planos e receba apoio direto dos seus fãs.</div>
-                  <button type="button" onClick={() => setNotice('Criar o meu fã clube.')} style={{background:'#fff',color:'#111',border:0,borderRadius:22,padding:'11px 16px',fontSize:12,fontWeight:950}}>Criar o meu fã clube</button>
+                <div style={{ borderRadius:24, padding:20, background:'linear-gradient(135deg,#FF5FA8 0%,#E94EC8 50%,#7A3DFF 100%)', color:'#fff', marginBottom:22, boxShadow:'0 7px 18px rgba(130,45,180,.18)' }}>
+                  <div style={{fontSize:26,fontWeight:950,marginBottom:8}}>Quer ter um fã clube?</div>
+                  <div style={{fontSize:15,lineHeight:1.5,marginBottom:16}}>Crie o seu espaço, defina os planos e receba apoio direto dos seus fãs.</div>
+                  <button type="button" onClick={() => setNotice('Criar o meu fã clube.')} style={{background:'#fff',color:'#000',border:0,borderRadius:24,padding:'12px 18px',fontSize:16,fontWeight:950}}>Criar o meu fã clube</button>
                 </div>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:11}}><div style={{fontSize:16,fontWeight:950,color:'#111'}}>Fã-clubes de que faz parte</div><div style={{fontSize:12,color:'#888'}}>2</div></div>
-                <div style={{display:'grid',gap:10,marginBottom:24}}>
-                  {[{ name: 'Dj Nelito', tag: '👑', members: '890 fã clube', badge: '♛', grad: 'linear-gradient(135deg,#873bce,#4a1d8b)', notif: '3' }, { name: 'Ana Bela', tag: '💎', members: '1.240 fã clube', badge: '◆', grad: 'linear-gradient(135deg,#28ad70,#126345)', notif: '1' }].map((club, i) => <div key={club.name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 13, borderRadius: 16, background: '#2b103b', border: '1px solid #45245b', color: '#fff' }}>
-                    <div style={{width:48,height:48,flex:'0 0 48px',borderRadius:50,background:club.grad,display:'grid',placeItems:'center',fontSize:23}}>{club.tag}</div>
-                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:950}}>{club.name} <span style={{color:'#46aaff',fontSize:11}}>✓</span> <span style={{color:'#f3c449}}>{club.badge}</span></div><div style={{fontSize:11,color:'#b7a6c6',marginTop:4}}>{club.members}</div></div>
-                    <button type="button" onClick={() => setNotice('Abrir fã clube '+club.name)} style={{border:0,borderRadius:20,padding:'8px 10px',background:'#1c0a29',color:'#fff',fontSize:11,fontWeight:900}}>Abrir <span style={{marginLeft:5,color:'#ff3fa3'}}>● {club.notif}</span></button>
-                  </div>)}
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:11}}><div style={{fontSize:19,fontWeight:950,color:'#000'}}>Fã-clubes de que faz parte</div><div style={{fontSize:16,color:'#888'}}>2</div></div>
+                <div style={{display:'grid',gap:12,marginBottom:24}}>
+                  <div style={{display:'flex',alignItems:'center',gap:12,padding:12,borderRadius:20,background:'#2A1745',color:'#fff',minHeight:80}}>
+                    <div style={{width:56,height:56,flex:'0 0 56px',borderRadius:50,background:'linear-gradient(135deg,#873bce,#4a1d8b)'}}/>
+                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:17,fontWeight:950}}>Dj Nelito <span style={{color:'#46aaff',fontSize:12}}>✓</span> <span style={{color:'#f3c449'}}>♛</span></div><div style={{fontSize:12,color:'#b7a6c6',marginTop:4}}>890 fã clube</div></div>
+                    <button type="button" onClick={() => setNotice('Abrir fã clube Dj Nelito')} style={{border:0,borderRadius:22,padding:'9px 11px',background:'#1c0a29',color:'#fff',fontSize:11,fontWeight:900}}>Abrir <span style={{marginLeft:5,color:'#FF2E7A'}}>● 3</span></button>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:12,padding:12,borderRadius:20,background:'#2A1745',color:'#fff',minHeight:80}}>
+                    <div style={{width:56,height:56,flex:'0 0 56px',borderRadius:50,background:'linear-gradient(135deg,#28ad70,#126345)'}}/>
+                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:17,fontWeight:950}}>Ana Bela <span style={{color:'#46aaff',fontSize:12}}>✓</span></div><div style={{fontSize:12,color:'#b7a6c6',marginTop:4}}>1.240 fã clube <span style={{color:'#f3c449'}}>◆</span></div></div>
+                    <button type="button" onClick={() => setNotice('Abrir fã clube Ana Bela')} style={{border:0,borderRadius:22,padding:'9px 11px',background:'#1c0a29',color:'#fff',fontSize:11,fontWeight:900}}>Abrir <span style={{marginLeft:5,color:'#FF2E7A'}}>● 1</span></button>
+                  </div>
                 </div>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:11}}><div style={{fontSize:16,fontWeight:950,color:'#111'}}>Fã-clubes para aderir</div><div style={{fontSize:11,color:'#888'}}>sugestões</div></div>
-                <div style={{display:'grid',gap:10,marginBottom:18}}>
-                  {[{ name: 'Yuri Estúdio', detail: '640 fã clube', color: 'linear-gradient(135deg,#ff8a25,#d94b17)', seal: '👑', members: '640 fã clube' }, { name: 'Lucie M.', detail: '1,5 mil fã clube · com pedido', color: 'linear-gradient(135deg,#4ca5ff,#2348b5)', seal: '◆', members: '1,5 mil fã clube · com pedido' }, { name: 'Kota Creator', detail: '980 fã clube', color: 'linear-gradient(135deg,#ff59b4,#a73bce)', seal: '♛', members: '980 fã clube' }, { name: 'Zuri Studio', detail: '2,2 mil fã clube', color: 'linear-gradient(135deg,#44bd90,#21735b)', seal: '◆', members: '2,2 mil fã clube' }].map(club => <div key={club.name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 13, borderRadius: 16, background: '#2b103b', border: '1px solid #45245b', color: '#fff' }}>
-                    <div style={{width:48,height:48,flex:'0 0 48px',borderRadius:50,background:club.color,display:'grid',placeItems:'center',fontSize:22}}>{club.seal}</div>
-                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:950}}>{club.name} <span style={{color:'#46aaff',fontSize:11}}>✓</span></div><div style={{fontSize:11,color:'#b7a6c6',marginTop:4}}>{club.members}</div></div>
-                    <button type="button" onClick={() => setNotice('Aderir ao fã clube '+club.name)} style={{border:0,borderRadius:20,padding:'8px 13px',background:'#ff3fa3,color:'#fff',fontSize:11,fontWeight:950}}>Aderir</button>
-                  </div>)}
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:11}}><div style={{fontSize:19,fontWeight:950,color:'#000'}}>Fã-clubes para aderir</div><div style={{fontSize:12,color:'#888'}}>sugestões</div></div>
+                <div style={{display:'grid',gap:12,marginBottom:18}}>
+                  <div style={{display:'flex',alignItems:'center',gap:12,padding:12,borderRadius:20,background:'#2A1745',color:'#fff'}}>
+                    <div style={{width:56,height:56,flex:'0 0 56px',borderRadius:50,background:'linear-gradient(135deg,#ff8a25,#d94b17)'}}/>
+                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:16,fontWeight:950}}>Yuri Estúdio <span style={{color:'#46aaff',fontSize:12}}>✓</span> <span style={{color:'#f3c449'}}>♛</span></div><div style={{fontSize:12,color:'#b7a6c6',marginTop:4}}>640 fã clube</div></div>
+                    <button type="button" onClick={() => setNotice('Aderir ao fã clube Yuri Estúdio')} style={{border:0,borderRadius:22,padding:'9px 13px',background:'#FF2E7A',color:'#fff',fontSize:12,fontWeight:950}}>Aderir</button>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:12,padding:12,borderRadius:20,background:'#2A1745',color:'#fff'}}>
+                    <div style={{width:56,height:56,flex:'0 0 56px',borderRadius:50,background:'linear-gradient(135deg,#4ca5ff,#2348b5)'}}/>
+                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:16,fontWeight:950}}>Lucie M. <span style={{color:'#46aaff',fontSize:12}}>✓</span></div><div style={{fontSize:12,color:'#b7a6c6',marginTop:4}}>1,5 mil fã clube · com pedido</div></div>
+                    <button type="button" onClick={() => setNotice('Aderir ao fã clube Lucie M.')} style={{border:0,borderRadius:22,padding:'9px 13px',background:'#FF2E7A',color:'#fff',fontSize:12,fontWeight:950}}>Aderir</button>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:12,padding:12,borderRadius:20,background:'#2A1745',color:'#fff'}}>
+                    <div style={{width:56,height:56,flex:'0 0 56px',borderRadius:50,background:'linear-gradient(135deg,#ff59b4,#a73bce)'}}/>
+                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:16,fontWeight:950}}>Kota Creator <span style={{color:'#46aaff',fontSize:12}}>✓</span></div><div style={{fontSize:12,color:'#b7a6c6',marginTop:4}}>980 fã clube</div></div>
+                    <button type="button" onClick={() => setNotice('Aderir ao fã clube Kota Creator')} style={{border:0,borderRadius:22,padding:'9px 13px',background:'#FF2E7A',color:'#fff',fontSize:12,fontWeight:950}}>Aderir</button>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:12,padding:12,borderRadius:20,background:'#2A1745',color:'#fff'}}>
+                    <div style={{width:56,height:56,flex:'0 0 56px',borderRadius:50,background:'linear-gradient(135deg,#44bd90,#21735b)'}}/>
+                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:16,fontWeight:950}}>Zuri Studio <span style={{color:'#46aaff',fontSize:12}}>✓</span></div><div style={{fontSize:12,color:'#b7a6c6',marginTop:4}}>2,2 mil fã clube</div></div>
+                    <button type="button" onClick={() => setNotice('Aderir ao fã clube Zuri Studio')} style={{border:0,borderRadius:22,padding:'9px 13px',background:'#FF2E7A',color:'#fff',fontSize:12,fontWeight:950}}>Aderir</button>
+                  </div>
                 </div>
-                <div style={{fontSize:11,color:'#777',textAlign:'center',padding:10}}>Os fãs não pagam. Os fã clubes permanecem abertos.</div>
+                <div style={{fontSize:12,color:'#777',textAlign:'center',padding:10}}>Os fãs não pagam. Os fã clubes permanecem abertos.</div>
               </div>
             ) : notice ? (
               <div style={{ maxWidth: 300 }}>
