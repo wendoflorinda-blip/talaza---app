@@ -283,6 +283,24 @@ export default function MediaHome() {
                   </button>
                 </div>
               </div>
+            ) : ownerFanclubScreen === 'sendPost' ? (
+              <div style={{ position: 'absolute', inset: 0, background: '#fff', color: '#111', overflowY: 'auto', padding: 'max(14px,env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom))', textAlign: 'left' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
+                  <button type="button" onClick={() => setOwnerFanclubScreen('menu')} style={{ width: 46, height: 46, border: 0, borderRadius: 50, background: '#F2F2F2', color: '#111', display: 'grid', placeItems: 'center', fontSize: 24 }}>‹</button>
+                  <div style={{ fontSize: 26, fontWeight: 950, color: '#111' }}>Enviar post</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                  <button type="button" onClick={() => setCaptureMode('Foto')} style={{ flex: 1, padding: 12, border: 0, borderRadius: 14, background: captureMode === 'Foto' ? '#2b103b' : '#F2F2F2', color: captureMode === 'Foto' ? '#fff' : '#111', fontWeight: 900 }}>Imagens</button>
+                  <button type="button" onClick={() => setCaptureMode('Vídeo')} style={{ flex: 1, padding: 12, border: 0, borderRadius: 14, background: captureMode === 'Vídeo' ? '#2b103b' : '#F2F2F2', color: captureMode === 'Vídeo' ? '#fff' : '#111', fontWeight: 900 }}>Vídeo</button>
+                </div>
+                <div style={{ fontSize: 12, color: '#777', marginBottom: 16 }}>Até 10 imagens por post · 0/10</div>
+                <button type="button" style={{ width: '100%', minHeight: 145, border: '2px dashed #E5E5E5', borderRadius: 18, background: '#fff', color: '#111', display: 'grid', placeContent: 'center', gap: 8, fontSize: 15 }}>
+                  <span style={{ fontSize: 30, lineHeight: 1 }}>+</span><span>Adicionar</span>
+                </button>
+                <div style={{ fontSize: 15, fontWeight: 900, color: '#111', marginTop: 22, marginBottom: 8 }}>Descrição</div>
+                <textarea value={captionText} onChange={e => setCaptionText(e.target.value)} placeholder="Escreva algo para os seus fãs" style={{ width: '100%', minHeight: 120, resize: 'vertical', padding: 14, border: 0, borderRadius: 16, background: '#F2F2F2', color: '#111', font: 'inherit', outline: 'none' }} />
+                <button type="button" style={{ width: '100%', marginTop: 20, padding: 14, border: 0, borderRadius: 20, background: '#FF2E7A', color: '#fff', fontSize: 15, fontWeight: 950 }}>Publicar</button>
+              </div>
             ) : activeNav === 'Perfil' ? (
               <div style={{ position: 'absolute', inset: 0, background: '#ffffff', overflowY: 'auto', padding: 'max(12px,env(safe-area-inset-top)) 14px calc(88px + env(safe-area-inset-bottom))', color: '#fff', textAlign: 'left' }}>
                 <div style={{ position: 'relative', height: 156, borderRadius: 19, background: metadata.media_cover_color || 'linear-gradient(115deg,#c9f33a 0%,#68bb38 45%,#11643b 100%)', marginBottom: 64, overflow: 'visible' }}>
@@ -314,13 +332,13 @@ export default function MediaHome() {
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 950, marginBottom: 10, color: '#111' }}>Gerir o meu fã clube</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-                  <button type="button" onClick={() => setOwnerFanclubScreen('menu')} style={{ padding: 12, border: '1px solid #E5E5E5', borderRadius: 15, background: '#fff', textAlign: 'left', color: '#111' }}>
+                  <button type="button" onClick={() => setOwnerFanclubScreen('menu')} style={{ padding: 12, border: '1px solid #45245b', borderRadius: 15, background: '#2b103b', textAlign: 'left', color: '#111' }}>
                     <div style={{ width: 37, height: 37, borderRadius: 11, background: '#FFE5F0', color: '#FF2E7A', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="people" size={20}/></div>
-                    <div style={{ fontSize: 12, fontWeight: 950, color: '#111' }}>Meu fã clube</div><div style={{ fontSize: 10, color: '#777', lineHeight: 1.5, marginTop: 4 }}>Publicar, lives e enquetes</div>
+                    <div style={{ fontSize: 12, fontWeight: 950, color: '#fff' }}>Meu fã clube</div><div style={{ fontSize: 10, color: '#b9a8c8', lineHeight: 1.5, marginTop: 4 }}>Publicar, lives e enquetes</div>
                   </button>
-                  <button type="button" onClick={() => { setOwnerFanclubScreen(null); setFanclubScreen('settings'); setActiveNav('Fã clube'); }} style={{ padding: 12, border: '1px solid #E5E5E5', borderRadius: 15, background: '#fff', textAlign: 'left', color: '#111' }}>
+                  <button type="button" onClick={() => { setOwnerFanclubScreen(null); setFanclubScreen('settings'); setActiveNav('Fã clube'); }} style={{ padding: 12, border: '1px solid #45245b', borderRadius: 15, background: '#2b103b', textAlign: 'left', color: '#111' }}>
                     <div style={{ width: 37, height: 37, borderRadius: 11, background: '#FFE5F0', color: '#FF2E7A', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="sparkle" size={20}/></div>
-                    <div style={{ fontSize: 12, fontWeight: 950, color: '#111' }}>Configurar fã clube</div><div style={{ fontSize: 10, color: '#777', lineHeight: 1.5, marginTop: 4 }}>Como os fãs interagem</div>
+                    <div style={{ fontSize: 12, fontWeight: 950, color: '#fff' }}>Configurar fã clube</div><div style={{ fontSize: 10, color: '#b9a8c8', lineHeight: 1.5, marginTop: 4 }}>Como os fãs interagem</div>
                   </button>
                 </div>
                 <div style={{ display: 'flex', borderBottom: '1px solid #45245b', marginBottom: 10 }}>
