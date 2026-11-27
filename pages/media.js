@@ -21,7 +21,8 @@ function Icon({ name, size = 22 }) {
     photo: <><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5-8 8"/></>,
     comment: <><path d="M20.5 11.5a8.3 8.3 0 0 1-8.5 8.1 9.6 9.6 0 0 1-4-.8L3 20l1.3-4.2a7.8 7.8 0 0 1-1.3-4.3A8.3 8.3 0 0 1 11.5 3h.5a8.2 8.2 0 0 1 8.5 8.1z"/></>,
     share: <><path d="M12 16V3M7 8l5-5 5 5"/><path d="M5 13v7h14v-7"/></>,
-    menu: <><path d="M4 6h16M4 12h16M4 18h11" /></>
+    menu: <><path d="M4 6h16M4 12h16M4 18h11" /></>,
+    back: <><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></>
   };
   if (name === 'compass') return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ filter: 'drop-shadow(0 0 5px rgba(255,91,160,.85)) drop-shadow(0 0 7px rgba(255,153,55,.5))' }}><defs><linearGradient id="mediaExploreGradient" x1="2" y1="3" x2="22" y2="21"><stop stopColor="#FF55B8"/><stop offset="1" stopColor="#FF9B38"/></linearGradient></defs><circle cx="12" cy="12" r="9.2" stroke="url(#mediaExploreGradient)" strokeWidth="1.8"/><path d="m15.9 8.1-2.8 6-5 1.8 2.8-6 5-1.8Z" fill="url(#mediaExploreGradient)" stroke="url(#mediaExploreGradient)" strokeWidth="1.4"/><circle cx="12" cy="12" r="1.1" fill="#fff"/></svg>;
   return <svg {...common}>{paths[name]}</svg>;
@@ -32,6 +33,7 @@ export default function MediaHome() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [activeNav, setActiveNav] = useState('Início');
+  const [navigationRestored, setNavigationRestored] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [notice, setNotice] = useState('');
@@ -92,25 +94,84 @@ export default function MediaHome() {
   useEffect(() => {
     let mounted = true;
     async function load() {
-      const { data, error } = await supabase.auth.getUser();
-      if (!mounted) return;
-      if (error || !data?.user) {
-        await router.replace('/login?next=/media');
-        return;
+      try {
+        const [{ data: userData }, { data: sessionData }] = await Promise.all([supabase.auth.getUser(), supabase.auth.getSession()]);
+        if (!mounted) return;
+        const currentUser = userData?.user || sessionData?.session?.user || null;
+        if (currentUser) setUser(currentUser);
+        // Uma resposta temporária sem utilizador não deve expulsar a pessoa da Mídia.
+        setLoading(false);
+      } catch (error) {
+        if (!mounted) return;
+        console.warn('Não foi possível confirmar a sessão da Mídia neste momento:', error);
+        setLoading(false);
       }
-      setUser(data.user);
-      setLoading(false);
     }
     load();
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) router.replace('/login?next=/media');
-      else setUser(session.user);
+      if (session?.user) setUser(session.user);
+      // Eventos sem sessão são ignorados. O login só é aberto pelo fluxo explícito de saída.
     });
     return () => {
       mounted = false;
       listener?.subscription?.unsubscribe();
     };
-  }, [router]);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('talaza_media_navigation') || 'null');
+      if (saved) {
+        if (['Início','Perfil','Explorar','Fã clube','Mensagens'].includes(saved.activeNav)) setActiveNav(saved.activeNav);
+        if (['overview','settings','requests'].includes(saved.fanclubScreen)) setFanclubScreen(saved.fanclubScreen);
+        if ([null,'menu','myFanclub','createPoll','sendPost'].includes(saved.ownerFanclubScreen)) setOwnerFanclubScreen(saved.ownerFanclubScreen);
+        if (['Explorar','Descoberta'].includes(saved.exploreTab)) setExploreTab(saved.exploreTab);
+        if (['Notificações','Mensagens','Comunidade'].includes(saved.messagesTab)) setMessagesTab(saved.messagesTab);
+        if (['Publicações','Fotos','Vídeos','Favoritos','Guardados'].includes(saved.profileTab)) setProfileTab(saved.profileTab);
+      }
+    } catch (error) { console.warn('Não foi possível restaurar a navegação da Mídia:', error); }
+    setNavigationRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!navigationRestored) return;
+    try { sessionStorage.setItem('talaza_media_navigation', JSON.stringify({activeNav,fanclubScreen,ownerFanclubScreen,exploreTab,messagesTab,profileTab})); }
+    catch (error) { console.warn('Não foi possível guardar a navegação da Mídia:', error); }
+  }, [navigationRestored,activeNav,fanclubScreen,ownerFanclubScreen,exploreTab,messagesTab,profileTab]);
+
+  useEffect(() => {
+    let keyboardGuardActive = false;
+    let ignoreGuardPop = false;
+    const isEditable = element => element instanceof HTMLElement && (element.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(element.tagName));
+    const onFocusIn = event => {
+      if (!isEditable(event.target) || keyboardGuardActive) return;
+      window.history.pushState({...window.history.state,__talazaMediaKeyboardGuard:true},'',window.location.href);
+      keyboardGuardActive = true;
+    };
+    const onFocusOut = () => {
+      window.setTimeout(() => {
+        if (!keyboardGuardActive || isEditable(document.activeElement)) return;
+        keyboardGuardActive = false;
+        ignoreGuardPop = true;
+        window.history.back();
+      },0);
+    };
+    const onPopState = () => {
+      if (ignoreGuardPop) { ignoreGuardPop = false; return; }
+      const focused = document.activeElement;
+      if (!keyboardGuardActive || !isEditable(focused)) return;
+      window.history.pushState({...window.history.state,__talazaMediaKeyboardGuard:true},'',window.location.href);
+      focused.blur();
+    };
+    document.addEventListener('focusin',onFocusIn);
+    document.addEventListener('focusout',onFocusOut);
+    window.addEventListener('popstate',onPopState);
+    return () => {
+      document.removeEventListener('focusin',onFocusIn);
+      document.removeEventListener('focusout',onFocusOut);
+      window.removeEventListener('popstate',onPopState);
+    };
+  }, []);
 
   const metadata = user?.user_metadata || {};
   const displayName = metadata.media_display_name || metadata.display_name || 'Criador';
@@ -356,6 +417,7 @@ export default function MediaHome() {
               </div>
             ) : activeNav === 'Perfil' ? (
               <div style={{ position: 'absolute', inset: 0, background: '#ffffff', overflowY: 'auto', padding: 'max(12px,env(safe-area-inset-top)) 14px calc(88px + env(safe-area-inset-bottom))', color: '#111', textAlign: 'left' }}>
+                <div style={{display:'flex',alignItems:'center',marginBottom:10}}><button type="button" aria-label="Voltar ao início" onClick={()=>selectNav('Início')} style={{width:42,height:42,border:0,borderRadius:50,background:'#F2F2F2',color:'#111',display:'grid',placeItems:'center'}}><Icon name="back" size={22}/></button></div>
                 <div style={{ position: 'relative', height: 156, borderRadius: 19, background: metadata.media_cover_color || 'linear-gradient(115deg,#c9f33a 0%,#68bb38 45%,#11643b 100%)', marginBottom: 64, overflow: 'visible' }}>
                   <div style={{ position: 'absolute', left: 14, bottom: -51, width: 104, height: 104, borderRadius: 22, padding: 3, background: '#E6C65A', boxShadow: '0 0 18px rgba(230,198,90,.55)' }}>
                     <div style={{ width: '100%', height: '100%', borderRadius: 19, background: 'linear-gradient(140deg,#ff74bb,#8d42e7)', display: 'grid', placeItems: 'center', fontSize: 29, fontWeight: 950, letterSpacing: 1 }}>MK</div>
@@ -392,7 +454,8 @@ export default function MediaHome() {
 
               <div style={{ position: 'absolute', inset: 0, background: '#ffffff', overflowY: 'auto', padding: 'max(12px, env(safe-area-inset-top)) 12px calc(90px + env(safe-area-inset-bottom))', textAlign: 'left', color: '#fff' }}>
                 {exploreTab === 'Explorar' && <div style={{ position: 'fixed', top: 0, left: 0, right: 0, width: '100%', maxWidth: 520, margin: '0 auto', zIndex: 60, display: 'flex', gap: 8, padding: 'max(9px,env(safe-area-inset-top)) 12px 13px', background: '#ffffff', opacity: 1, boxShadow: '0 5px 12px rgba(0,0,0,.12)' }}>
-                  <button type="button" onClick={() => setExploreTab('Explorar')} style={{ padding: '9px 17px', border: 0, borderRadius: 22, background: exploreTab === 'Explorar' ? '#fff' : '#2b103b', color: exploreTab === 'Explorar' ? '#19121d' : '#d3c6dc', fontSize: 13, fontWeight: 900 }}>Explorar</button>
+                  <button type="button" aria-label="Voltar ao início" onClick={() => selectNav('Início')} style={{width:37,height:37,border:0,borderRadius:50,background:'#F2F2F2',color:'#111',display:'grid',placeItems:'center',flexShrink:0}}><Icon name="back" size={19}/></button>
+                  <button type="button" onClick={() => setExploreTab('Explorar') style={{ padding: '9px 17px', border: 0, borderRadius: 22, background: exploreTab === 'Explorar' ? '#fff' : '#2b103b', color: exploreTab === 'Explorar' ? '#19121d' : '#d3c6dc', fontSize: 13, fontWeight: 900 }}>Explorar</button>
                   <button type="button" onClick={() => setExploreTab('Descoberta')} style={{ padding: '9px 17px', border: 0, borderRadius: 22, background: exploreTab === 'Descoberta' ? '#fff' : '#2b103b', color: exploreTab === 'Descoberta' ? '#19121d' : '#d3c6dc', fontSize: 13, fontWeight: 900 }}>Descoberta</button>
                   <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                     <button aria-label="Mensagens" type="button" onClick={() => selectNav('Mensagens')} style={{ width: 37, height: 37, borderRadius: 50, border: '1px solid #4b2a5c', background: '#2b103b', color: '#fff', display: 'grid', placeItems: 'center' }}><Icon name="message" size={19}/></button>
@@ -472,6 +535,7 @@ export default function MediaHome() {
                     <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 25% 15%,rgba(222,255,118,.4),transparent 40%),linear-gradient(180deg,rgba(8,22,13,.38) 0%,transparent 30%,rgba(5,18,11,.35) 55%,rgba(3,14,9,.8) 100%)' }} />
                     <div style={{ position: 'absolute', zIndex: 2, top: 'max(14px,env(safe-area-inset-top))', left: 12, right: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <button type="button" aria-label="Voltar ao início" onClick={() => selectNav('Início')} style={{width:36,height:36,border:0,borderRadius:50,background:'rgba(25,17,38,.72)',color:'#fff',display:'grid',placeItems:'center',flexShrink:0}}><Icon name="back" size={19}/></button>
                         <div style={{ display: 'flex', gap: 6, padding: 4, borderRadius: 24, background: 'rgba(25,17,38,.72)', backdropFilter: 'blur(12px)' }}>
                           <button type="button" onClick={() => setExploreTab('Explorar')} style={{ border: 0, borderRadius: 20, padding: '8px 13px', background: 'transparent', color: 'rgba(255,255,255,.72)', fontSize: 12, fontWeight: 850 }}>Explorar</button>
                           <button type="button" onClick={() => setExploreTab('Descoberta')} style={{ border: 0, borderRadius: 20, padding: '8px 13px', background: '#fff', color: '#15121b', fontSize: 12, fontWeight: 950 }}>Descoberta</button>
@@ -576,8 +640,7 @@ export default function MediaHome() {
                 ) : (
                 <>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
-
-                  <div style={{ fontSize:28, fontWeight:950, letterSpacing:-.5 }}><span style={{color:'#000'}}>fã</span><span style={{color:'#FF2E7A'}}>.</span><span style={{color:'#000'}}>clube</span></div>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}><button type="button" aria-label="Voltar ao início" onClick={()=>selectNav('Início')} style={{width:42,height:42,border:0,borderRadius:50,background:'#F2F2F2',color:'#111',display:'grid',placeItems:'center'}}><Icon name="back" size={22}/></button><div style={{ fontSize:28, fontWeight:950, letterSpacing:-.5 }}><span style={{color:'#000'}}>fã</span><span style={{color:'#FF2E7A'}}>.</span><span style={{color:'#000'}}>clube</span></div></div>
                   <div style={{ display:'flex', gap:8 }}>
                     <button type="button" onClick={() => setNotice('Mensagens do fã clube.')} style={{width:44,height:44,borderRadius:50,border:0,background:'#F2F2F2',color:'#000',position:'relative',display:'grid',placeItems:'center'}}><Icon name="message" size={22}/><span style={{position:'absolute',right:2,top:2,width:8,height:8,borderRadius:50,background:'#FF2E7A'}}/></button>
                     <button type="button" onClick={() => setNotice('Notificações do fã clube.')} style={{width:44,height:44,borderRadius:50,border:0,background:'#F2F2F2',color:'#000',position:'relative',display:'grid',placeItems:'center'}}><Icon name="bell" size={22}/><span style={{position:'absolute',right:2,top:2,width:8,height:8,borderRadius:50,background:'#FF2E7A'}}/></button>
@@ -631,6 +694,7 @@ export default function MediaHome() {
             ) : activeNav === 'Mensagens' ? (
               <div style={{ position:'absolute', inset:0, background:'#FFFFFF', overflowY:'auto', padding:'max(14px,env(safe-area-inset-top)) 16px calc(92px + env(safe-area-inset-bottom))', textAlign:'left', color:'#000' }}>
                 <div style={{ position:'sticky', top:0, zIndex:10, background:'#FFFFFF', paddingTop:5, boxShadow:'0 4px 10px rgba(0,0,0,.05)' }}>
+                  <div style={{display:'flex',alignItems:'center',paddingBottom:8}}><button type="button" aria-label="Voltar ao início" onClick={()=>selectNav('Início')} style={{width:42,height:42,border:0,borderRadius:50,background:'#F2F2F2',color:'#111',display:'grid',placeItems:'center'}}><Icon name="back" size={22}/></button></div>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', alignItems:'end', borderBottom:'1px solid #eeeeee' }}>
                     {['Notificações','Mensagens','Comunidade'].map(tab => <button key={tab} type="button" onClick={() => setMessagesTab(tab)} style={{ border:0, background:'transparent', color:messagesTab===tab?'#000':'#888', fontSize:20, fontWeight:messagesTab===tab?900:500, padding:'13px 2px 12px', position:'relative', whiteSpace:'nowrap' }}>{tab}{messagesTab===tab && <span style={{ position:'absolute', left:0,right:0,bottom:0,height:4,borderRadius:4,background:'#FF2E7A' }}/>}</button>)}
                   </div>
