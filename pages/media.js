@@ -57,6 +57,8 @@ export default function MediaHome() {
   const [captionText, setCaptionText] = useState('');
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
+  const [plansOpen, setPlansOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState('basic');
   const [hashtagText, setHashtagText] = useState('');
   const [publishedMedia, setPublishedMedia] = useState([]);
   const [explorePublishOpen, setExplorePublishOpen] = useState(false);
@@ -165,7 +167,7 @@ export default function MediaHome() {
   if (profileEditing) {
     return (
       <main style={{height:'100dvh',minHeight:540,width:'100%',background:'#fff',color:'#000',fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif",overflowY:'auto'}}>
-        <style>{' * { box-sizing:border-box; } button { font:inherit; }'}</style>
+        <style>{' * { box-sizing:border-box; } button { font:inherit; } @keyframes talazaPlansSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }'}</style>
         <div style={{maxWidth:520,margin:'0 auto',padding:'max(12px,env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))'}}>
           <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
             <button type="button" onClick={()=>setProfileEditing(false)} style={{width:48,height:48,border:0,borderRadius:50,background:'#F2F2F2',color:'#000',fontSize:22,display:'grid',placeItems:'center'}}>‹</button>
@@ -370,7 +372,7 @@ export default function MediaHome() {
                 </div>
                 <div style={{ display: 'grid', gap: 9, marginBottom: 19 }}>
                   <button type="button" onClick={() => { setExplorePublishOpen(true); setExplorePhotos([]); setExploreCaption(''); }} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#f4df83', color: '#241b10', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="globe" size={18}/>Publicar no explore</button>
-                  <button type="button" onClick={() => setNotice('Planos do fã clube.')} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#ff3fa3', color: '#fff', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="sparkle" size={18}/>Ver planos</button>
+                  <button type="button" onClick={() => setPlansOpen(true)} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#ff3fa3', color: '#fff', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="sparkle" size={18}/>Ver planos</button>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
                     <button type="button" onClick={() => selectNav('Mensagens')} style={{ border: '1px solid #4a2a5c', borderRadius: 12, padding: 11, background: '#2b103b', color: '#fff', fontSize: 12, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Icon name="message" size={16}/>Mensagens</button>
                     <button type="button" onClick={() => { setProfileEditing(true); setProfileName(user?.user_metadata?.media_display_name || 'Mara Kiala'); setProfileUsername(user?.user_metadata?.media_username || 'marakiala'); setProfileBio(user?.user_metadata?.media_bio || 'Bastidores, ensaios e música nova toda semana. Entre no meu fã clube.'); setProfileLinks(user?.user_metadata?.media_links || ['marakiala.com/links']); setProfileEmail(user?.user_metadata?.media_email || user?.email || ''); setShowEmail(!!user?.user_metadata?.media_email_visible); setProfileCoverColor(user?.user_metadata?.media_cover_color || '#E84A8A'); setProfileAvatarPreview(''); }} style={{ border: '1px solid #4a2a5c', borderRadius: 12, padding: 11, background: '#2b103b', color: '#fff', fontSize: 12, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Icon name="edit" size={16}/>Editar perfil</button>
@@ -739,7 +741,7 @@ export default function MediaHome() {
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,.82)', marginTop: 7 }}>Descubra conteúdos de Angola e de todo o mundo.</div>
           </div>}
 
-          {ownerFanclubScreen !== 'myFanclub' && ownerFanclubScreen !== 'createPoll' && <nav aria-label="Navegação principal" style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, bottom: 0, minHeight: 'calc(65px + env(safe-area-inset-bottom))', padding: '8px 7px max(8px, env(safe-area-inset-bottom))', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', alignItems: 'center', background: 'linear-gradient(180deg,#321047 0%,#260834 55%,#1d062c 100%)', borderTop: '1px solid rgba(255,117,196,.25)', boxShadow: '0 -5px 24px rgba(27,4,39,.35)' }}>
+          {ownerFanclubScreen !== 'myFanclub' && ownerFanclubScreen !== 'createPoll' && !plansOpen && <nav aria-label="Navegação principal" style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, bottom: 0, minHeight: 'calc(65px + env(safe-area-inset-bottom))', padding: '8px 7px max(8px, env(safe-area-inset-bottom))', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', alignItems: 'center', background: 'linear-gradient(180deg,#321047 0%,#260834 55%,#1d062c 100%)', borderTop: '1px solid rgba(255,117,196,.25)', boxShadow: '0 -5px 24px rgba(27,4,39,.35)' }}>
             <button type="button" onClick={() => selectNav('Fã clube')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Fã clube' ? '#ff62b8' : 'rgba(255,255,255,.78)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="heart" size={23} />Fã clube</button>
             <button type="button" onClick={() => selectNav('Explorar')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Explorar' ? '#ff72c4' : 'rgba(255,255,255,.85)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="compass" size={29} />Explorar</button>
             <button type="button" aria-label="Criar publicação" onClick={() => setCreateOpen(true)} style={{ justifySelf: 'center', width: 48, height: 44, display: 'grid', placeItems: 'center', border: '1px solid rgba(255,186,225,.65)', borderRadius: 13, background: 'linear-gradient(145deg,#ff54b1,#f7258f 65%,#df1378)', color: '#fff', boxShadow: '0 0 14px rgba(255,56,160,.55),0 4px 12px rgba(0,0,0,.32)', cursor: 'pointer' }}><Icon name="plus" size={29} /></button>
@@ -747,6 +749,25 @@ export default function MediaHome() {
             <button type="button" onClick={() => selectNav('Perfil')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Perfil' ? '#ff62b8' : 'rgba(255,255,255,.78)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="user" size={23} />Perfil</button>
           </nav>}
         </div>
+
+        {plansOpen && <div role="dialog" aria-modal="true" aria-label="Os seus planos" style={{ position: 'fixed', inset: 0, zIndex: 40, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <button type="button" aria-label="Fechar planos" onClick={() => setPlansOpen(false)} style={{ position: 'absolute', inset: 0, border: 0, background: 'rgba(0,0,0,.62)' }} />
+          <section style={{ position: 'relative', width: 'min(520px,100%)', maxHeight: '92dvh', overflowY: 'auto', background: '#1a0a2e', color: '#fff', padding: '14px 16px 24px', borderRadius: '24px 24px 0 0', animation: 'talazaPlansSheetUp .28s ease-out' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}><div style={{ width: 42, height: 5, borderRadius: 5, background: '#777' }} /></div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}><div style={{ fontSize: 26, fontWeight: 950, color: '#fff' }}>Os seus planos</div><button type="button" aria-label="Fechar" onClick={() => setPlansOpen(false)} style={{ width: 38, height: 38, border: 0, borderRadius: 50, background: '#2b103b', color: '#fff', fontSize: 23 }}>×</button></div>
+            <div style={{ fontSize: 16, color: '#b9a8c8', marginBottom: 20 }}>O plano Premium dá ao seu perfil um visual exclusivo.</div>
+            <button type="button" onClick={() => setSelectedPlan('basic')} style={{ width: '100%', textAlign: 'left', background: '#2b103b', border: selectedPlan === 'basic' ? '2px solid #4DA3FF' : '2px solid transparent', borderRadius: 20, padding: 18, color: '#fff' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}><span style={{ color: '#4DA3FF', fontSize: 22 }}>★</span><span style={{ color: '#4DA3FF', fontSize: 20, fontWeight: 950 }}>Básico</span><span style={{ marginLeft: 'auto', color: '#4DA3FF', fontSize: 20, fontWeight: 950 }}>1.500 Kz</span><span style={{ color: '#b9a8c8', fontSize: 13 }}>/mês</span></div>
+              {['Perfil padrão','Fã clube com posts e enquetes','Até 10 fotos por post'].map(item => <div key={'basic-'+item} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginTop: 10, color: '#4DA3FF', fontSize: 15, fontWeight: 700 }}><span>✓</span><span>{item}</span></div>)}
+            </button>
+            <button type="button" onClick={() => setSelectedPlan('premium')} style={{ position: 'relative', width: '100%', textAlign: 'left', background: '#2b103b', border: '2px solid #E6C65A', borderRadius: 20, padding: 18, color: '#fff', marginTop: 14 }}>
+              <span style={{ position: 'absolute', right: 10, top: -13, borderRadius: 20, background: '#E6C65A', color: '#111', padding: '5px 12px', fontSize: 12, fontWeight: 900 }}>Mais completo</span>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}><span style={{ color: '#E6C65A', fontSize: 22 }}>♛</span><span style={{ color: '#E6C65A', fontSize: 20, fontWeight: 950 }}>Premium</span><span style={{ marginLeft: 'auto', color: '#E6C65A', fontSize: 20, fontWeight: 950 }}>4.000 Kz</span><span style={{ color: '#b9a8c8', fontSize: 13 }}>/mês</span></div>
+              {['Perfil premium com moldura dourada','Ícone premium ao lado do nome no feed','Destaque no Explorar e nas sugestões','Estatísticas completas das enquetes'].map(item => <div key={'premium-'+item} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginTop: 10, color: '#E6C65A', fontSize: 15, fontWeight: 700 }}><span>✓</span><span>{item}</span></div>)}
+            </button>
+            <button type="button" onClick={() => setNotice('Os planos ainda não estão configurados.')} style={{ width: '100%', marginTop: 18, background: '#E6C65A', color: '#111', border: 0, borderRadius: 20, padding: 18, fontWeight: 950, fontSize: 17 }}>Plano atual</button>
+          </section>
+        </div>}
 
         {menuOpen && <div role="dialog" aria-modal="true" aria-label="Menu MÍDIA TALAZA" style={{ position: 'fixed', inset: 0, zIndex: 20, display: 'flex', justifyContent: 'flex-end' }}>
           <button type="button" aria-label="Fechar menu" onClick={() => setMenuOpen(false)} style={{ position: 'absolute', inset: 0, border: 0, background: 'rgba(0,0,0,.7)' }} />
