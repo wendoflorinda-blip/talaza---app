@@ -283,6 +283,28 @@ export default function MediaHome() {
                   </button>
                 </div>
               </div>
+            ) : ownerFanclubScreen === 'myFanclub' ? (
+              <div style={{ position: 'absolute', inset: 0, background: '#fff', color: '#111', overflowY: 'auto', padding: 'max(14px,env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom))', textAlign: 'left' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
+                  <button type="button" onClick={() => setOwnerFanclubScreen('menu')} style={{ width: 46, height: 46, border: 0, borderRadius: 50, background: '#F2F2F2', color: '#111', display: 'grid', placeItems: 'center', fontSize: 24 }}>‹</button>
+                  <div style={{ fontSize: 26, fontWeight: 950, color: '#111' }}>Ver meu fã clube</div>
+                </div>
+                {publishedMedia.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    {publishedMedia.map((post, index) => (
+                      <div key={post.id || index} style={{ border: '1px solid #E5E5E5', borderRadius: 16, overflow: 'hidden', background: '#fff' }}>
+                        {(post.image || post.url || post.src) && <img src={post.image || post.url || post.src} alt="" style={{ display: 'block', width: '100%', height: 'auto', maxHeight: 520, objectFit: 'contain', background: '#fff' }} />}
+                        {post.description || post.caption ? <div style={{ padding: 12, color: '#111', fontSize: 14, lineHeight: 1.5 }}>{post.description || post.caption}</div> : null}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: 12, borderTop: '1px solid #F2F2F2', color: '#777', fontSize: 13 }}>
+                          <span>♡ {post.reactions || 0}</span><span>Comentários {post.comments || 0}</span><span>Enquetes {post.polls || 0}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ padding: '40px 12px', textAlign: 'center', color: '#777', fontSize: 15 }}>Ainda não tens publicações</div>
+                )}
+              </div>
             ) : ownerFanclubScreen === 'sendPost' ? (
               <div style={{ position: 'absolute', inset: 0, background: '#fff', color: '#111', overflowY: 'auto', padding: 'max(14px,env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom))', textAlign: 'left' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
@@ -693,13 +715,13 @@ export default function MediaHome() {
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,.82)', marginTop: 7 }}>Descubra conteúdos de Angola e de todo o mundo.</div>
           </div>}
 
-          <nav aria-label="Navegação principal" style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, bottom: 0, minHeight: 'calc(65px + env(safe-area-inset-bottom))', padding: '8px 7px max(8px, env(safe-area-inset-bottom))', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', alignItems: 'center', background: 'linear-gradient(180deg,#321047 0%,#260834 55%,#1d062c 100%)', borderTop: '1px solid rgba(255,117,196,.25)', boxShadow: '0 -5px 24px rgba(27,4,39,.35)' }}>
+          {ownerFanclubScreen !== 'myFanclub' && <nav aria-label="Navegação principal" style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, bottom: 0, minHeight: 'calc(65px + env(safe-area-inset-bottom))', padding: '8px 7px max(8px, env(safe-area-inset-bottom))', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', alignItems: 'center', background: 'linear-gradient(180deg,#321047 0%,#260834 55%,#1d062c 100%)', borderTop: '1px solid rgba(255,117,196,.25)', boxShadow: '0 -5px 24px rgba(27,4,39,.35)' }}>
             <button type="button" onClick={() => selectNav('Fã clube')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Fã clube' ? '#ff62b8' : 'rgba(255,255,255,.78)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="heart" size={23} />Fã clube</button>
             <button type="button" onClick={() => selectNav('Explorar')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Explorar' ? '#ff72c4' : 'rgba(255,255,255,.85)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="compass" size={29} />Explorar</button>
             <button type="button" aria-label="Criar publicação" onClick={() => setCreateOpen(true)} style={{ justifySelf: 'center', width: 48, height: 44, display: 'grid', placeItems: 'center', border: '1px solid rgba(255,186,225,.65)', borderRadius: 13, background: 'linear-gradient(145deg,#ff54b1,#f7258f 65%,#df1378)', color: '#fff', boxShadow: '0 0 14px rgba(255,56,160,.55),0 4px 12px rgba(0,0,0,.32)', cursor: 'pointer' }}><Icon name="plus" size={29} /></button>
             <button type="button" onClick={() => selectNav('Mensagens')} style={{ position: 'relative', display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Mensagens' ? '#ff62b8' : 'rgba(255,255,255,.78)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="message" size={23} /><span style={{ position: 'absolute', top: -3, left: 'calc(50% + 5px)', minWidth: 15, height: 15, display: 'grid', placeItems: 'center', borderRadius: 50, background: '#ff4aa8', color: '#fff', fontSize: 9, fontWeight: 900, boxShadow: '0 0 8px rgba(255,74,168,.55)' }}>2</span>Mensagens</button>
             <button type="button" onClick={() => selectNav('Perfil')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Perfil' ? '#ff62b8' : 'rgba(255,255,255,.78)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="user" size={23} />Perfil</button>
-          </nav>
+          </nav>}
         </div>
 
         {menuOpen && <div role="dialog" aria-modal="true" aria-label="Menu MÍDIA TALAZA" style={{ position: 'fixed', inset: 0, zIndex: 20, display: 'flex', justifyContent: 'flex-end' }}>
