@@ -64,9 +64,6 @@ export default function MediaHome() {
   const [hashtagText, setHashtagText] = useState('');
   const [publishedMedia, setPublishedMedia] = useState([]);
   const [explorePublishOpen, setExplorePublishOpen] = useState(false);
-  const [phraseOpen, setPhraseOpen] = useState(false);
-  const [phraseText, setPhraseText] = useState('');
-  const [phraseBackground, setPhraseBackground] = useState('#5B6BFF');
   const [explorePhotos, setExplorePhotos] = useState([]);
   const [exploreCaption, setExploreCaption] = useState('');
   const explorePhotoInputRef = useRef(null);
@@ -720,10 +717,7 @@ export default function MediaHome() {
                 <button type="button" onClick={() => { setActiveNav('Início'); setNotice(''); }} style={{ border: '1px solid #20B47A', borderRadius: 22, background: 'rgba(32,180,122,.12)', color: '#fff', padding: '9px 18px', fontWeight: 800, cursor: 'pointer' }}>Voltar ao feed</button>
               </div>
             ) : (
-              <div style={{ position: 'absolute', top: 'max(66px, calc(env(safe-area-inset-top) + 54px))', left: 14, right: 14, display: 'flex', alignItems: 'center', gap: 9, padding: 12, borderRadius: 15, background: '#2b103b', border: '1px solid #45245b', textAlign: 'left', pointerEvents: 'auto' }}>
-                <div style={{ width: 38, height: 38, borderRadius: 50, background: 'linear-gradient(135deg,#45c5ff,#8753d9)', display: 'grid', placeItems: 'center', fontWeight: 900, flexShrink: 0 }}>A</div>
-                <button type="button" onClick={() => { setPhraseText(''); setPhraseBackground('#5B6BFF'); setPhraseOpen(true); }} style={{ flex: 1, minWidth: 0, padding: '9px 11px', border: 0, borderRadius: 20, background: '#3a1b4a', color: '#cdbed7', fontSize: 12, textAlign: 'left' }}>No que está a pensar?</button>
-              </div>
+              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 'calc(102px + env(safe-area-inset-bottom))', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
                 <span style={{ padding: '7px 12px', borderRadius: 20, background: 'rgba(0,0,0,.28)', color: 'rgba(255,255,255,.72)', fontSize: 11, fontWeight: 600 }}>Os vídeos aparecerão aqui</span>
               </div>
             )}
@@ -744,22 +738,7 @@ export default function MediaHome() {
           </nav>}
         </div>
 
-        {phraseOpen && <div role="dialog" aria-modal="true" aria-label="Nova frase" style={{ position: 'fixed', inset: 0, zIndex: 45, background: '#1a0a2e', color: '#fff', fontFamily: "'Plus Jakarta Sans',system-ui,sans-serif", display: 'flex', flexDirection: 'column', padding: 'max(14px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom))', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-            <button type="button" aria-label="Voltar" onClick={() => { setPhraseOpen(false); setActiveNav('Início'); setNotice(''); }} style={{ width: 48, height: 48, flexShrink: 0, border: 0, borderRadius: 50, background: '#2b103b', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 24 }}>‹</button>
-            <div style={{ flex: 1, fontSize: 26, fontWeight: 950, color: '#fff' }}>Nova frase</div>
-            <button type="button" onClick={() => { setPhraseOpen(false); setActiveNav('Início'); setNotice('A publicação de frases ainda não está configurada.'); }} style={{ border: 0, borderRadius: 24, background: '#FF2E7A', color: '#fff', padding: '10px 17px', fontSize: 15, fontWeight: 900 }}>Publicar</button>
-          </div>
-          <div style={{ position: 'relative', height: 400, flexShrink: 0, borderRadius: 24, background: phraseBackground, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <textarea value={phraseText} maxLength={200} onChange={e => setPhraseText(e.target.value)} placeholder="Escreva a sua frase" style={{ width: '100%', height: '100%', border: 0, outline: 'none', resize: 'none', background: 'transparent', color: '#fff', fontSize: 26, fontWeight: 800, textAlign: 'center', padding: '32px 12px' }} />
-            <div style={{ position: 'absolute', bottom: 14, right: 16, color: 'rgba(255,255,255,.7)', fontSize: 13 }}>{phraseText.length}/200</div>
-          </div>
-          <div style={{ color: '#aaa', fontSize: 16, fontWeight: 800, margin: '18px 0 12px' }}>Cor de fundo</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 12, marginBottom: 14 }}>
-            {['#5B6BFF','#8B5CF6','#D946EF','#FF2E7A','#FF5C5C','#FF8A3D','#FFC857','#E6C65A','#24C6A5','#18A0FB','#4361EE','#3A0CA3','#A3E635','#69B34C','#2E8B57','#1A6E4B','#111827','#374151','#6B7280','#9CA3AF','#B91C1C','#BE185D','#7C3AED','#0F766E'].map(color => <button key={color} type="button" aria-label={'Cor '+color} onClick={() => setPhraseBackground(color)} style={{ width: '100%', aspectRatio: '1/1', borderRadius: 50, border: phraseBackground === color ? '3px solid #fff' : '2px solid rgba(255,255,255,.25)', background: color, padding: 0, boxShadow: phraseBackground === color ? '0 0 0 2px #FF2E7A' : 'none' }} />)}
-          </div>
-          <div style={{ color: '#aaa', fontSize: 14, marginTop: 8 }}>Até 200 caracteres. Frases curtas ficam mais fortes.</div>
-        </div>}        {plansOpen && <div role="dialog" aria-modal="true" aria-label="Os seus planos" style={{ position: 'fixed', inset: 0, zIndex: 40, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+        {plansOpen && <div role="dialog" aria-modal="true" aria-label="Os seus planos" style={{ position: 'fixed', inset: 0, zIndex: 40, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
           <button type="button" aria-label="Fechar planos" onClick={() => setPlansOpen(false)} style={{ position: 'absolute', inset: 0, border: 0, background: 'rgba(0,0,0,.62)' }} />
           <section style={{ position: 'relative', width: 'min(520px,100%)', maxHeight: '92dvh', overflowY: 'auto', background: '#1a0a2e', color: '#fff', padding: '14px 16px 24px', borderRadius: '24px 24px 0 0', animation: 'talazaPlansSheetUp .28s ease-out' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}><div style={{ width: 42, height: 5, borderRadius: 5, background: '#777' }} /></div>
