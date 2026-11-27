@@ -50,6 +50,7 @@ export default function MediaHome() {
   const [fanclubRequests, setFanclubRequests] = useState([{name:'Toni B.',handle:'@tonib',gradient:'linear-gradient(135deg,#ff9a35,#287d42)'},{name:'Dalva N.',handle:'@dalvan',gradient:'linear-gradient(135deg,#77c8ff,#2250b9)'},{name:'Kota Bantu',handle:'@kotabantu',gradient:'linear-gradient(135deg,#853bd8,#b45bff)'}]);
   const [fanclubFeedback, setFanclubFeedback] = useState('');
   const [approvedFanclubMembers, setApprovedFanclubMembers] = useState([]);
+  const [ownerFanclubScreen, setOwnerFanclubScreen] = useState(null);
   const [createStep, setCreateStep] = useState(1);
   const [captureMode, setCaptureMode] = useState('Foto');
   const [selectedMedia, setSelectedMedia] = useState(null);
@@ -249,7 +250,40 @@ export default function MediaHome() {
 
 
           <section aria-label="Feed vertical de vídeos" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 18px 96px', textAlign: 'center' }}>
-            {activeNav === 'Perfil' ? (
+            {ownerFanclubScreen === 'menu' ? (
+              <div style={{ position: 'absolute', inset: 0, background: '#fff', color: '#111', overflowY: 'auto', padding: 'max(14px,env(safe-area-inset-top)) 14px 24px', textAlign: 'left' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                  <button type="button" onClick={() => { setOwnerFanclubScreen(null); setActiveNav('Perfil'); }} style={{ width: 46, height: 46, border: 0, borderRadius: 50, background: '#F2F2F2', color: '#111', display: 'grid', placeItems: 'center', fontSize: 24 }}>‹</button>
+                  <div style={{ fontSize: 26, fontWeight: 950, color: '#111' }}>Meu fã clube</div>
+                </div>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  <button type="button" style={{ width: '100%', padding: 16, border: '1px solid #E5E5E5', borderRadius: 20, background: '#fff', color: '#111', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 50, height: 50, flexShrink: 0, borderRadius: 15, background: '#FFE5F0', color: '#FF2E7A', display: 'grid', placeItems: 'center' }}><Icon name="photo" size={24}/></div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 17, fontWeight: 950, color: '#111' }}>Enviar post</div>
+                      <div style={{ fontSize: 13, color: '#777', marginTop: 5 }}>Publicar fotos, vídeo e descrição</div>
+                    </div>
+                    <span style={{ fontSize: 23, color: '#999' }}>›</span>
+                  </button>
+                  <button type="button" style={{ width: '100%', padding: 16, border: '1px solid #E5E5E5', borderRadius: 20, background: '#fff', color: '#111', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 50, height: 50, flexShrink: 0, borderRadius: 15, background: '#FFE5F0', color: '#FF2E7A', display: 'grid', placeItems: 'center' }}><Icon name="heart" size={24}/></div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 17, fontWeight: 950, color: '#111' }}>Ver meu fã clube</div>
+                      <div style={{ fontSize: 13, color: '#777', marginTop: 5 }}>Posts, reações, comentários e enquetes</div>
+                    </div>
+                    <span style={{ fontSize: 23, color: '#999' }}>›</span>
+                  </button>
+                  <button type="button" style={{ width: '100%', padding: 16, border: '1px solid #E5E5E5', borderRadius: 20, background: '#fff', color: '#111', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 50, height: 50, flexShrink: 0, borderRadius: 15, background: '#FFE5F0', color: '#FF2E7A', display: 'grid', placeItems: 'center' }}><Icon name="sparkle" size={24}/></div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 17, fontWeight: 950, color: '#111' }}>Fazer enquete</div>
+                      <div style={{ fontSize: 13, color: '#777', marginTop: 5 }}>Criar uma votação para os meus fãs</div>
+                    </div>
+                    <span style={{ fontSize: 23, color: '#999' }}>›</span>
+                  </button>
+                </div>
+              </div>
+            ) : activeNav === 'Perfil' ? (
               <div style={{ position: 'absolute', inset: 0, background: '#ffffff', overflowY: 'auto', padding: 'max(12px,env(safe-area-inset-top)) 14px calc(88px + env(safe-area-inset-bottom))', color: '#fff', textAlign: 'left' }}>
                 <div style={{ position: 'relative', height: 156, borderRadius: 19, background: metadata.media_cover_color || 'linear-gradient(115deg,#c9f33a 0%,#68bb38 45%,#11643b 100%)', marginBottom: 64, overflow: 'visible' }}>
                   <div style={{ position: 'absolute', right: 12, top: 12, display: 'flex', gap: 9 }}>
@@ -278,15 +312,15 @@ export default function MediaHome() {
                     <button type="button" onClick={() => { setProfileEditing(true); setProfileName(user?.user_metadata?.media_display_name || 'Mara Kiala'); setProfileUsername(user?.user_metadata?.media_username || 'marakiala'); setProfileBio(user?.user_metadata?.media_bio || 'Bastidores, ensaios e música nova toda semana. Entre no meu fã clube.'); setProfileLinks(user?.user_metadata?.media_links || ['marakiala.com/links']); setProfileEmail(user?.user_metadata?.media_email || user?.email || ''); setShowEmail(!!user?.user_metadata?.media_email_visible); setProfileCoverColor(user?.user_metadata?.media_cover_color || '#E84A8A'); setProfileAvatarPreview(''); }} style={{ border: '1px solid #4a2a5c', borderRadius: 12, padding: 11, background: '#2b103b', color: '#fff', fontSize: 12, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Icon name="edit" size={16}/>Editar perfil</button>
                   </div>
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 950, marginBottom: 10 }}>Gerir o meu fã clube</div>
+                <div style={{ fontSize: 15, fontWeight: 950, marginBottom: 10, color: '#111' }}>Gerir o meu fã clube</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-                  <button type="button" onClick={() => setNotice('Gerir publicações, lives e enquetes do fã clube.')} style={{ padding: 12, border: '1px solid #45245b', borderRadius: 15, background: '#2b103b', textAlign: 'left', color: '#fff' }}>
-                    <div style={{ width: 37, height: 37, borderRadius: 11, background: '#ff3fa3', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="people" size={20}/></div>
-                    <div style={{ fontSize: 12, fontWeight: 950 }}>Meu fã clube</div><div style={{ fontSize: 10, color: '#b9a8c8', lineHeight: 1.5, marginTop: 4 }}>Publicar, lives e enquetes</div>
+                  <button type="button" onClick={() => setOwnerFanclubScreen('menu')} style={{ padding: 12, border: '1px solid #E5E5E5', borderRadius: 15, background: '#fff', textAlign: 'left', color: '#111' }}>
+                    <div style={{ width: 37, height: 37, borderRadius: 11, background: '#FFE5F0', color: '#FF2E7A', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="people" size={20}/></div>
+                    <div style={{ fontSize: 12, fontWeight: 950, color: '#111' }}>Meu fã clube</div><div style={{ fontSize: 10, color: '#777', lineHeight: 1.5, marginTop: 4 }}>Publicar, lives e enquetes</div>
                   </button>
-                  <button type="button" onClick={() => { setFanclubScreen('settings'); setFanclubFeedback(''); setActiveNav('Fã clube'); setNotice(''); }} style={{ padding: 12, border: '1px solid #45245b', borderRadius: 15, background: '#2b103b', textAlign: 'left', color: '#fff' }}>
-                    <div style={{ width: 37, height: 37, borderRadius: 11, background: '#ff3fa3', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="sparkle" size={20}/></div>
-                    <div style={{ fontSize: 12, fontWeight: 950 }}>Configurar fã clube</div><div style={{ fontSize: 10, color: '#b9a8c8', lineHeight: 1.5, marginTop: 4 }}>Como os fãs interagem</div>
+                  <button type="button" onClick={() => setOwnerFanclubScreen('settings')} style={{ padding: 12, border: '1px solid #E5E5E5', borderRadius: 15, background: '#fff', textAlign: 'left', color: '#111' }}>
+                    <div style={{ width: 37, height: 37, borderRadius: 11, background: '#FFE5F0', color: '#FF2E7A', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="sparkle" size={20}/></div>
+                    <div style={{ fontSize: 12, fontWeight: 950, color: '#111' }}>Configurar fã clube</div><div style={{ fontSize: 10, color: '#777', lineHeight: 1.5, marginTop: 4 }}>Como os fãs interagem</div>
                   </button>
                 </div>
                 <div style={{ display: 'flex', borderBottom: '1px solid #45245b', marginBottom: 10 }}>
