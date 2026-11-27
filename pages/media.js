@@ -318,7 +318,7 @@ export default function MediaHome() {
                     <div style={{ width: 37, height: 37, borderRadius: 11, background: '#FFE5F0', color: '#FF2E7A', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="people" size={20}/></div>
                     <div style={{ fontSize: 12, fontWeight: 950, color: '#111' }}>Meu fã clube</div><div style={{ fontSize: 10, color: '#777', lineHeight: 1.5, marginTop: 4 }}>Publicar, lives e enquetes</div>
                   </button>
-                  <button type="button" onClick={() => setOwnerFanclubScreen('settings')} style={{ padding: 12, border: '1px solid #E5E5E5', borderRadius: 15, background: '#fff', textAlign: 'left', color: '#111' }}>
+                  <button type="button" onClick={() => { setOwnerFanclubScreen(null); setFanclubScreen('settings'); setActiveNav('Fã clube'); }} style={{ padding: 12, border: '1px solid #E5E5E5', borderRadius: 15, background: '#fff', textAlign: 'left', color: '#111' }}>
                     <div style={{ width: 37, height: 37, borderRadius: 11, background: '#FFE5F0', color: '#FF2E7A', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="sparkle" size={20}/></div>
                     <div style={{ fontSize: 12, fontWeight: 950, color: '#111' }}>Configurar fã clube</div><div style={{ fontSize: 10, color: '#777', lineHeight: 1.5, marginTop: 4 }}>Como os fãs interagem</div>
                   </button>
