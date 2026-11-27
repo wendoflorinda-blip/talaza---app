@@ -359,11 +359,11 @@ export default function MediaHome() {
                 <div style={{ position: 'relative', height: 156, borderRadius: 19, background: metadata.media_cover_color || 'linear-gradient(115deg,#c9f33a 0%,#68bb38 45%,#11643b 100%)', marginBottom: 64, overflow: 'visible' }}>
                   <div style={{ position: 'absolute', left: 14, bottom: -51, width: 104, height: 104, borderRadius: 22, padding: 3, background: '#E6C65A', boxShadow: '0 0 18px rgba(230,198,90,.55)' }}>
                     <div style={{ width: '100%', height: '100%', borderRadius: 19, background: 'linear-gradient(140deg,#ff74bb,#8d42e7)', display: 'grid', placeItems: 'center', fontSize: 29, fontWeight: 950, letterSpacing: 1 }}>MK</div>
-                    <span style={{ position: 'absolute', right: -3, bottom: -3, width: 30, height: 30, borderRadius: 50, background: '#1a0a2e', border: '2px solid #E6C65A', color: '#E6C65A', display: 'grid', placeItems: 'center' }}><Icon name="crown" size={16}/></span>
+                    <span aria-label="Coroa Premium" style={{ position: 'absolute', right: -5, bottom: -5, width: 32, height: 32, borderRadius: 50, background: '#E6C65A', border: '2px solid #fff', color: '#1a0a2e', display: 'grid', placeItems: 'center', fontSize: 20, fontWeight: 950, lineHeight: 1 }}>♛</span>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gap: 6, padding: 0, borderRadius: 0, background: 'transparent', border: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><span style={{ fontSize: 24, fontWeight: 950, letterSpacing: -.4, color: '#111' }}>{metadata.media_display_name || 'Mara Kiala'}</span><span style={{ width: 22, height: 22, borderRadius: 50, background: '#1D9BF0', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 950 }}>✓</span><Icon name="crown" size={22} color="#E6C65A"/></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><span style={{ fontSize: 24, fontWeight: 950, letterSpacing: -.4, color: '#111' }}>{metadata.media_display_name || 'Mara Kiala'}</span><svg width="23" height="23" viewBox="0 0 24 24" aria-label="Selo de verificação" role="img" style={{ display: 'inline-block', verticalAlign: 'middle' }}><path d="M12 1.8 14.2 3l2.8-.1 1.5 2.4 2.5 1.3-.2 2.8 1.2 2.4-1.2 2.4.2 2.8-2.5 1.3-1.5 2.4-2.8-.1L12 22.2 9.8 21l-2.8.1-1.5-2.4-2.5-1.3.2-2.8L2 12.2l1.2-2.4-.2-2.8 2.5-1.3 1.5-2.4 2.8.1Z" fill="#1D9BF0"/><path d="m7.7 12.2 2.6 2.5 6-6.2" fill="none" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"/></svg><Icon name="crown" size={22} color="#E6C65A"/></div>
                   <div style={{ fontSize: 12, color: '#555' }}>@{metadata.media_username || 'marakiala'} · fala Português</div>
                   <div style={{ fontSize: 12, color: '#555', display: 'flex', alignItems: 'center', gap: 5 }}>⌖ Luanda, Angola</div>
                   <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5, color: '#111' }}>{metadata.media_bio || 'Bastidores, ensaios e música nova toda semana. Entre no meu fã clube.'}</div>
@@ -391,7 +391,7 @@ export default function MediaHome() {
             ) : activeNav === 'Explorar' ? (
 
               <div style={{ position: 'absolute', inset: 0, background: '#ffffff', overflowY: 'auto', padding: 'max(12px, env(safe-area-inset-top)) 12px calc(90px + env(safe-area-inset-bottom))', textAlign: 'left', color: '#fff' }}>
-                {exploreTab === 'Explorar' && <div style={{ position: 'sticky', top: 0, zIndex: 50, display: 'flex', gap: 8, padding: '9px 0 13px', background: '#ffffff', opacity: 1, boxShadow: '0 5px 12px rgba(0,0,0,.12)' }}>
+                {exploreTab === 'Explorar' && <div style={{ position: 'fixed', top: 0, left: 0, right: 0, width: '100%', maxWidth: 520, margin: '0 auto', zIndex: 60, display: 'flex', gap: 8, padding: 'max(9px,env(safe-area-inset-top)) 12px 13px', background: '#ffffff', opacity: 1, boxShadow: '0 5px 12px rgba(0,0,0,.12)' }}>
                   <button type="button" onClick={() => setExploreTab('Explorar')} style={{ padding: '9px 17px', border: 0, borderRadius: 22, background: exploreTab === 'Explorar' ? '#fff' : '#2b103b', color: exploreTab === 'Explorar' ? '#19121d' : '#d3c6dc', fontSize: 13, fontWeight: 900 }}>Explorar</button>
                   <button type="button" onClick={() => setExploreTab('Descoberta')} style={{ padding: '9px 17px', border: 0, borderRadius: 22, background: exploreTab === 'Descoberta' ? '#fff' : '#2b103b', color: exploreTab === 'Descoberta' ? '#19121d' : '#d3c6dc', fontSize: 13, fontWeight: 900 }}>Descoberta</button>
                   <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
@@ -400,7 +400,7 @@ export default function MediaHome() {
                   </div>
                 </div>}
                 {exploreTab === 'Explorar' ? (
-                  <div style={{ display: 'grid', gap: 18 }}>
+                  <div style={{ display: 'grid', gap: 18, paddingTop: 66 }}>
                     {publishedMedia.map(pub=><article key={'feedpub-'+pub.id} style={{padding:12,borderRadius:16,background:'#2b103b',border:'1px solid #45245b',display:'grid',gap:10}}><div style={{fontSize:13,fontWeight:900,color:'#fff'}}>Mara Kiala · agora</div>{pub.caption&&<div style={{fontSize:12,lineHeight:1.55,color:'#fff'}}>{pub.caption}</div>}{pub.tags&&<div style={{fontSize:12,color:'#f08ac5'}}>{pub.tags}</div>}<div style={{aspectRatio:'1/1',width:'100%',borderRadius:12,overflow:'hidden',background:'#fff',display:'grid',placeItems:'center'}}>{pub.type==='video'?<video src={pub.url} controls playsInline style={{width:'100%',height:'100%',objectFit:'contain'}}/>:<img src={pub.url} alt={pub.caption||'Publicação'} style={{width:'100%',height:'100%',objectFit:'contain'}}/>}</div><div style={{display:'flex',justifyContent:'space-around',color:'#c5b4d1',fontSize:11}}><span>♡ Gosto</span><span>Comentar</span><span>Partilhar</span></div></article>)}
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 10 }}>Sugestões de pessoas</div>
@@ -416,7 +416,7 @@ export default function MediaHome() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: 12, borderRadius: 15, background: '#2b103b', border: '1px solid #45245b' }}>
                       <div style={{ width: 38, height: 38, borderRadius: 50, background: 'linear-gradient(135deg,#45c5ff,#8753d9)', display: 'grid', placeItems: 'center', fontWeight: 900 }}>A</div>
-                      <div style={{ flex: 1, padding: '9px 11px', borderRadius: 20, background: '#3a1b4a', color: '#cdbed7', fontSize: 12 }}>No que está a pensar?</div>
+                      <button type="button" onClick={() => { setNovaFraseTexto(''); setNovaFraseCor('#5B6BFF'); setNovaFraseOpen(true); }} style={{ flex: 1, padding: '9px 11px', borderRadius: 20, background: '#3a1b4a', color: '#cdbed7', fontSize: 12, border: 0, textAlign: 'left' }}>No que está a pensar?</button>
                       <button aria-label="Adicionar imagem" type="button" style={{ border: 0, background: 'transparent', color: '#ff75bb', display: 'grid', placeItems: 'center' }}><Icon name="photo" size={22}/></button>
                     </div>
                     <article style={{ padding: 12, borderRadius: 16, background: '#2b103b', border: '1px solid #45245b', display: 'grid', gap: 10 }}>
@@ -726,10 +726,6 @@ export default function MediaHome() {
             )}
           </section>
 
-          {activeNav === 'Início' && !ownerFanclubScreen && !notice && <div style={{ position: 'absolute', zIndex: 4, top: 'max(108px, calc(env(safe-area-inset-top) + 98px))', left: 14, right: 14, display: 'flex', alignItems: 'center', gap: 9, padding: 12, borderRadius: 15, background: '#2b103b', border: '1px solid #45245b', pointerEvents: 'auto' }}>
-            <div style={{ width: 38, height: 38, borderRadius: 50, background: 'linear-gradient(135deg,#45c5ff,#8753d9)', display: 'grid', placeItems: 'center', fontWeight: 900, flexShrink: 0 }}>A</div>
-            <button type="button" onClick={() => { setNovaFraseTexto(''); setNovaFraseCor('#5B6BFF'); setNovaFraseOpen(true); }} style={{ flex: 1, minWidth: 0, padding: '9px 11px', border: 0, borderRadius: 20, background: '#3a1b4a', color: '#cdbed7', fontSize: 12, textAlign: 'left' }}>No que está a pensar?</button>
-          </div>}
           {activeNav === 'Início' && <div style={{ position: 'absolute', zIndex: 2, left: 18, right: 82, bottom: 'calc(94px + env(safe-area-inset-bottom))', textAlign: 'left', pointerEvents: 'none' }}>
             <div style={{ fontSize: 14, fontWeight: 900, textShadow: '0 2px 8px #000' }}>{displayName}</div>
             {username && <div style={{ fontSize: 12, color: 'rgba(255,255,255,.72)', marginTop: 3 }}>{username}</div>}
