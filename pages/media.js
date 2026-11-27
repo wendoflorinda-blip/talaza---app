@@ -55,6 +55,8 @@ export default function MediaHome() {
   const [captureMode, setCaptureMode] = useState('Foto');
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [captionText, setCaptionText] = useState('');
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
   const [hashtagText, setHashtagText] = useState('');
   const [publishedMedia, setPublishedMedia] = useState([]);
   const [explorePublishOpen, setExplorePublishOpen] = useState(false);
@@ -304,6 +306,28 @@ export default function MediaHome() {
                 ) : (
                   <div style={{ padding: '40px 12px', textAlign: 'center', color: '#777', fontSize: 15 }}>Ainda não tens publicações</div>
                 )}
+              </div>
+            ) : ownerFanclubScreen === 'createPoll' ? (
+              <div style={{ position: 'absolute', inset: 0, background: '#1a0a2e', color: '#fff', overflowY: 'auto', padding: '14px 16px 24px', textAlign: 'left' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                  <button type="button" onClick={() => setOwnerFanclubScreen('menu')} style={{ width: 46, height: 46, borderRadius: 50, background: '#2b103b', color: '#fff', border: 0, fontSize: 24 }}>‹</button>
+                  <div style={{ fontSize: 26, fontWeight: 950, color: '#fff' }}>Fazer enquete</div>
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#b9a8c8', marginBottom: 8 }}>Pergunta principal</div>
+                <input value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} placeholder="Ex.: Qual single sai primeiro?" style={{ width: '100%', boxSizing: 'border-box', background: '#2b103b', border: 0, borderRadius: 20, padding: 18, color: '#fff', fontSize: 17, marginBottom: 24 }} />
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#b9a8c8', marginBottom: 8 }}>Imagem ou vídeo (opcional)</div>
+                <button type="button" style={{ width: '100%', height: 220, boxSizing: 'border-box', border: '2px dashed #45245b', borderRadius: 20, background: '#1a0a2e', display: 'grid', placeItems: 'center', textAlign: 'center', color: '#b9a8c8', marginBottom: 24 }}>
+                  <span><Icon name="photo" size={30}/><span style={{ display: 'block', marginTop: 8, fontSize: 16, fontWeight: 800 }}>Escolher imagem ou vídeo</span></span>
+                </button>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#b9a8c8', marginBottom: 10 }}>Opções</div>
+                {pollOptions.map((option, index) => (
+                  <div key={'poll-option-' + index} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                    <div style={{ width: 30, textAlign: 'center', fontSize: 22, fontWeight: 950, color: '#E6C65A' }}>{String.fromCharCode(65 + index)}</div>
+                    <input value={option} onChange={e => setPollOptions(prev => prev.map((value, i) => i === index ? e.target.value : value))} placeholder={'Opção ' + String.fromCharCode(65 + index)} style={{ flex: 1, minWidth: 0, background: '#2b103b', border: 0, borderRadius: 18, padding: 16, color: '#fff', fontSize: 16 }} />
+                  </div>
+                ))}
+                <button type="button" onClick={() => setPollOptions(prev => [...prev, ''])} style={{ width: '100%', background: '#2b103b', border: 0, borderRadius: 18, padding: 16, color: '#fff', fontSize: 17, fontWeight: 800, textAlign: 'center', marginBottom: 14 }}>+ Adicionar opção {String.fromCharCode(65 + pollOptions.length)}</button>
+                <button type="button" style={{ width: '100%', background: '#FF2E7A', border: 0, borderRadius: 20, padding: 18, color: '#fff', fontSize: 19, fontWeight: 950, textAlign: 'center' }}>Publicar enquete</button>
               </div>
             ) : ownerFanclubScreen === 'sendPost' ? (
               <div style={{ position: 'absolute', inset: 0, background: '#fff', color: '#111', overflowY: 'auto', padding: 'max(14px,env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom))', textAlign: 'left' }}>
@@ -715,7 +739,7 @@ export default function MediaHome() {
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,.82)', marginTop: 7 }}>Descubra conteúdos de Angola e de todo o mundo.</div>
           </div>}
 
-          {ownerFanclubScreen !== 'myFanclub' && <nav aria-label="Navegação principal" style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, bottom: 0, minHeight: 'calc(65px + env(safe-area-inset-bottom))', padding: '8px 7px max(8px, env(safe-area-inset-bottom))', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', alignItems: 'center', background: 'linear-gradient(180deg,#321047 0%,#260834 55%,#1d062c 100%)', borderTop: '1px solid rgba(255,117,196,.25)', boxShadow: '0 -5px 24px rgba(27,4,39,.35)' }}>
+          {ownerFanclubScreen !== 'myFanclub' && ownerFanclubScreen !== 'createPoll' && <nav aria-label="Navegação principal" style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, bottom: 0, minHeight: 'calc(65px + env(safe-area-inset-bottom))', padding: '8px 7px max(8px, env(safe-area-inset-bottom))', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', alignItems: 'center', background: 'linear-gradient(180deg,#321047 0%,#260834 55%,#1d062c 100%)', borderTop: '1px solid rgba(255,117,196,.25)', boxShadow: '0 -5px 24px rgba(27,4,39,.35)' }}>
             <button type="button" onClick={() => selectNav('Fã clube')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Fã clube' ? '#ff62b8' : 'rgba(255,255,255,.78)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="heart" size={23} />Fã clube</button>
             <button type="button" onClick={() => selectNav('Explorar')} style={{ display: 'grid', justifyItems: 'center', gap: 3, border: 0, background: 'transparent', color: activeNav === 'Explorar' ? '#ff72c4' : 'rgba(255,255,255,.85)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}><Icon name="compass" size={29} />Explorar</button>
             <button type="button" aria-label="Criar publicação" onClick={() => setCreateOpen(true)} style={{ justifySelf: 'center', width: 48, height: 44, display: 'grid', placeItems: 'center', border: '1px solid rgba(255,186,225,.65)', borderRadius: 13, background: 'linear-gradient(145deg,#ff54b1,#f7258f 65%,#df1378)', color: '#fff', boxShadow: '0 0 14px rgba(255,56,160,.55),0 4px 12px rgba(0,0,0,.32)', cursor: 'pointer' }}><Icon name="plus" size={29} /></button>
