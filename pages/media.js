@@ -257,7 +257,7 @@ export default function MediaHome() {
                   <div style={{ fontSize: 26, fontWeight: 950, color: '#111' }}>Meu fã clube</div>
                 </div>
                 <div style={{ display: 'grid', gap: 12 }}>
-                  <button type="button" style={{ width: '100%', padding: 16, border: '1px solid #E5E5E5', borderRadius: 20, background: '#fff', color: '#111', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <button type="button" onClick={() => setOwnerFanclubScreen('sendPost')} style={{ width: '100%', padding: 16, border: '1px solid #E5E5E5', borderRadius: 20, background: '#fff', color: '#111', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14 }}>
                     <div style={{ width: 50, height: 50, flexShrink: 0, borderRadius: 15, background: '#FFE5F0', color: '#FF2E7A', display: 'grid', placeItems: 'center' }}><Icon name="photo" size={24}/></div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 17, fontWeight: 950, color: '#111' }}>Enviar post</div>
@@ -265,7 +265,7 @@ export default function MediaHome() {
                     </div>
                     <span style={{ fontSize: 23, color: '#999' }}>›</span>
                   </button>
-                  <button type="button" style={{ width: '100%', padding: 16, border: '1px solid #E5E5E5', borderRadius: 20, background: '#fff', color: '#111', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <button type="button" onClick={() => setOwnerFanclubScreen('myFanclub')} style={{ width: '100%', padding: 16, border: '1px solid #E5E5E5', borderRadius: 20, background: '#fff', color: '#111', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14 }}>
                     <div style={{ width: 50, height: 50, flexShrink: 0, borderRadius: 15, background: '#FFE5F0', color: '#FF2E7A', display: 'grid', placeItems: 'center' }}><Icon name="heart" size={24}/></div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 17, fontWeight: 950, color: '#111' }}>Ver meu fã clube</div>
@@ -273,7 +273,7 @@ export default function MediaHome() {
                     </div>
                     <span style={{ fontSize: 23, color: '#999' }}>›</span>
                   </button>
-                  <button type="button" style={{ width: '100%', padding: 16, border: '1px solid #E5E5E5', borderRadius: 20, background: '#fff', color: '#111', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <button type="button" onClick={() => setOwnerFanclubScreen('createPoll')} style={{ width: '100%', padding: 16, border: '1px solid #E5E5E5', borderRadius: 20, background: '#fff', color: '#111', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14 }}>
                     <div style={{ width: 50, height: 50, flexShrink: 0, borderRadius: 15, background: '#FFE5F0', color: '#FF2E7A', display: 'grid', placeItems: 'center' }}><Icon name="sparkle" size={24}/></div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 17, fontWeight: 950, color: '#111' }}>Fazer enquete</div>
