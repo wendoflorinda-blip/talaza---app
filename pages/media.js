@@ -256,7 +256,7 @@ export default function MediaHome() {
 
 
           <section aria-label="Feed vertical de vídeos" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 18px 96px', textAlign: 'center' }}>
-            {activeNav === 'Perfil' ? (
+            {activeNav === 'Perfil' && (
               <div style={{ position: 'absolute', inset: 0, background: '#ffffff', overflowY: 'auto', padding: 'max(12px,env(safe-area-inset-top)) 14px calc(88px + env(safe-area-inset-bottom))', color: '#fff', textAlign: 'left' }}>
                 <div style={{ position: 'relative', height: 156, borderRadius: 19, background: metadata.media_cover_color || 'linear-gradient(115deg,#c9f33a 0%,#68bb38 45%,#11643b 100%)', marginBottom: 64, overflow: 'visible' }}>
                   <div style={{ position: 'absolute', right: 12, top: 12, display: 'flex', gap: 9 }}>
@@ -304,7 +304,8 @@ export default function MediaHome() {
                   {['linear-gradient(145deg,#ff68ad,#8a36ce)','linear-gradient(145deg,#ffab43,#d83f56)','linear-gradient(145deg,#44d6a0,#1a8465)','linear-gradient(145deg,#53a8ff,#4545bb)','linear-gradient(145deg,#b879ff,#6434ae)','linear-gradient(145deg,#ff586c,#9e315c)','linear-gradient(145deg,#d9e73f,#569e39)','linear-gradient(145deg,#37d5e4,#356aa8)','linear-gradient(145deg,#ed81d0,#6b42c8)'].map((gradient,i) => <div key={'tile-'+profileTab+'-'+i} style={{ aspectRatio: '1/1', borderRadius: 9, background: gradient, display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden' }}>{i%3===1 && <Icon name="lock" size={21}/>}</div>)}
                 </div>
               </div>
-            ) : activeNav === 'Explorar' ? (
+            )}
+            {activeNav === 'Explorar' && (
 
               <div style={{ position: 'absolute', inset: 0, background: '#ffffff', overflowY: 'auto', padding: 'max(62px, env(safe-area-inset-top)) 12px calc(90px + env(safe-area-inset-bottom))', textAlign: 'left', color: '#fff' }}>
                 {exploreTab === 'Explorar' && <div style={{ position: 'sticky', top: 0, zIndex: 50, display: 'flex', gap: 8, padding: '9px 0 13px', background: '#ffffff', opacity: 1, boxShadow: '0 5px 12px rgba(0,0,0,.12)' }}>
@@ -425,7 +426,8 @@ export default function MediaHome() {
                   </div>
                 )}
               </div>
-            ) : activeNav === 'Fã clube' ? (
+            )}
+            {activeNav === 'Fã clube' && (
   <div style={{position:'absolute',inset:0,background:'#FFFFFF',color:'#000000',overflowY:'auto',padding:'max(14px,env(safe-area-inset-top)) 16px calc(92px + env(safe-area-inset-bottom))',fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif",textAlign:'left'}}>
     <div style={{maxWidth:520,margin:'0 auto'}}>
       {fanclubScreen === 'overview' ? (
@@ -559,7 +561,10 @@ export default function MediaHome() {
       )}
     </div>
   </div>
-) : activeNav === 'Mensagens' ? (
+            )}
+            {activeNav === 'Mensagens' && (
+              <>
+                <div>
                   <div style={{ fontSize:28, fontWeight:950, letterSpacing:-.5 }}><span style={{color:'#000'}}>fã</span><span style={{color:'#FF2E7A'}}>.</span><span style={{color:'#000'}}>clube</span></div>
                   <div style={{ display:'flex', gap:8 }}>
                     <button type="button" onClick={() => setNotice('Mensagens do fã clube.')} style={{width:44,height:44,borderRadius:50,border:0,background:'#F2F2F2',color:'#000',position:'relative',display:'grid',placeItems:'center'}}><Icon name="message" size={22}/><span style={{position:'absolute',right:2,top:2,width:8,height:8,borderRadius:50,background:'#FF2E7A'}}/></button>
@@ -608,10 +613,7 @@ export default function MediaHome() {
                   </div>
                 </div>
                 <div style={{fontSize:12,color:'#777',textAlign:'center',padding:10}}>Os fãs não pagam. Os fã clubes permanecem abertos.</div>
-                </>
-                )}
               </div>
-            ) : activeNav === 'Mensagens' ? (
               <div style={{ position:'absolute', inset:0, background:'#FFFFFF', overflowY:'auto', padding:'max(14px,env(safe-area-inset-top)) 16px calc(92px + env(safe-area-inset-bottom))', textAlign:'left', color:'#000' }}>
                 <div style={{ position:'sticky', top:0, zIndex:10, background:'#FFFFFF', paddingTop:5, boxShadow:'0 4px 10px rgba(0,0,0,.05)' }}>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', alignItems:'end', borderBottom:'1px solid #eeeeee' }}>
@@ -695,14 +697,17 @@ export default function MediaHome() {
                   </div>
                 )}
               </div>
-            ) : notice ? (
+              </>
+            )}
+            {notice && (
               <div style={{ maxWidth: 300 }}>
                 <div style={{ width: 58, height: 58, borderRadius: 50, margin: '0 auto 15px', display: 'grid', placeItems: 'center', border: '1px solid rgba(32,180,122,.6)', color: '#20B47A', background: 'rgba(10,40,27,.5)' }}><Icon name={activeNav === 'Mensagens' ? 'message' : activeNav === 'Perfil' ? 'user' : 'people'} size={26} /></div>
                 <div style={{ fontSize: 17, fontWeight: 900 }}>{activeNav}</div>
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,.68)', lineHeight: 1.6 }}>{notice}</p>
                 <button type="button" onClick={() => { setActiveNav('Início'); setNotice(''); }} style={{ border: '1px solid #20B47A', borderRadius: 22, background: 'rgba(32,180,122,.12)', color: '#fff', padding: '9px 18px', fontWeight: 800, cursor: 'pointer' }}>Voltar ao feed</button>
               </div>
-            ) : (
+            )}
+            {!notice && activeNav === 'Início' && (
               <div style={{ position: 'absolute', left: 0, right: 0, bottom: 'calc(102px + env(safe-area-inset-bottom))', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
                 <span style={{ padding: '7px 12px', borderRadius: 20, background: 'rgba(0,0,0,.28)', color: 'rgba(255,255,255,.72)', fontSize: 11, fontWeight: 600 }}>Os vídeos aparecerão aqui</span>
               </div>
