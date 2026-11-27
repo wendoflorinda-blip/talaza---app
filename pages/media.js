@@ -437,7 +437,6 @@ export default function MediaHome() {
             <div style={{fontSize:28,fontWeight:950,color:'#000'}}>Meu fã clube</div>
           </div>
           <div style={{fontSize:18,color:'#666666',lineHeight:1.5,marginBottom:16}}>Publique, acompanhe os fãs e ouça a opinião deles.</div>
-                <div>
                   <div style={{ fontSize:28, fontWeight:950, letterSpacing:-.5 }}><span style={{color:'#000'}}>fã</span><span style={{color:'#FF2E7A'}}>.</span><span style={{color:'#000'}}>clube</span></div>
                   <div style={{ display:'flex', gap:8 }}>
                     <button type="button" onClick={() => setNotice('Mensagens do fã clube.')} style={{width:44,height:44,borderRadius:50,border:0,background:'#F2F2F2',color:'#000',position:'relative',display:'grid',placeItems:'center'}}><Icon name="message" size={22}/><span style={{position:'absolute',right:2,top:2,width:8,height:8,borderRadius:50,background:'#FF2E7A'}}/></button>
@@ -486,7 +485,6 @@ export default function MediaHome() {
                   </div>
                 </div>
                 <div style={{fontSize:12,color:'#777',textAlign:'center',padding:10}}>Os fãs não pagam. Os fã clubes permanecem abertos.</div>
-              </div>
           <div style={{display:'grid',gap:16}}>
             <button type="button" onClick={()=>{setFanclubScreen('sendPost');setFanclubPostMedia([]);setFanclubPostDescription('');setCaptureMode('Foto');setFanclubFeedback('');}} style={{height:130,padding:20,border:0,borderRadius:24,background:'#F2F2F2',display:'flex',alignItems:'center',gap:16,textAlign:'left',width:'100%'}}>
               <div style={{width:72,height:72,flex:'0 0 72px',borderRadius:20,background:'#FF5FA8',display:'grid',placeItems:'center',color:'#fff'}}>
