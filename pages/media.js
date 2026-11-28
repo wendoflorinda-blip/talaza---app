@@ -35,6 +35,11 @@ export default function MediaHome() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [notice, setNotice] = useState('');
+  const [professionalPlanOpen, setProfessionalPlanOpen] = useState(false);
+  const [professionalPlanLoading, setProfessionalPlanLoading] = useState(false);
+  const [professionalPlan, setProfessionalPlan] = useState(null);
+  const [professionalPlanError, setProfessionalPlanError] = useState('');
+  const [professionalPlanNotice, setProfessionalPlanNotice] = useState('');
   const [exploreTab, setExploreTab] = useState('Explorar');
   const [followed, setFollowed] = useState({});
   const [postLiked, setPostLiked] = useState(false);
@@ -116,6 +121,17 @@ export default function MediaHome() {
   async function signOut() {
     await supabase.auth.signOut();
     await router.replace('/login');
+  }
+
+  async function openProfessionalPlan() {
+    setProfessionalPlanOpen(true);
+    setProfessionalPlanLoading(true);
+    setProfessionalPlanError('');
+    setProfessionalPlanNotice('');
+    const { data, error } = await supabase.from('plans').select('id,name,description,price,duration_days').eq('plan_type','talaza_midia').eq('is_active',true).ilike('name','%Perfil Profissional%').maybeSingle();
+    if (error) { setProfessionalPlanError('Não foi possível carregar o plano do Supabase. Tenta novamente.'); setProfessionalPlan(null); }
+    else { setProfessionalPlan(data || null); if (!data) setProfessionalPlanError('O plano Perfil Profissional não foi encontrado na base.'); }
+    setProfessionalPlanLoading(false);
   }
 
   async function openCommercial() {
@@ -233,6 +249,23 @@ export default function MediaHome() {
     );
   }
 
+  if (professionalPlanOpen) {
+    const benefits = String(professionalPlan?.description || '').split('\n').map(line => line.trim().replace('✅','')).filter(line => line && !/^benef[ií]cios$/i.test(line));
+    const priceLabel = professionalPlan?.price != null ? new Intl.NumberFormat('de-DE',{maximumFractionDigits:0}).format(Number(professionalPlan.price)) + ' Kz' : '';
+    const daysLabel = professionalPlan?.duration_days != null ? professionalPlan.duration_days + (Number(professionalPlan.duration_days) === 1 ? ' dia' : ' dias') : '';
+    return (
+      <main style={{height:'100dvh',minHeight:540,width:'100%',background:'#10051f',color:'#fff',fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif",overflowY:'auto'}}>
+        <div style={{maxWidth:520,minHeight:'100%',margin:'0 auto',padding:'max(12px,env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))'}}>
+          <header style={{display:'flex',alignItems:'center',gap:12,marginBottom:22}}><button type="button" aria-label="Voltar" onClick={()=>setProfessionalPlanOpen(false)} style={{width:48,height:48,border:0,borderRadius:50,background:'#2a1745',color:'#fff',fontSize:25}}>‹</button><div style={{fontSize:25,fontWeight:950}}>Perfil Profissional</div></header>
+          {professionalPlanLoading ? <div style={{padding:28,textAlign:'center',color:'#c9b9d8'}}>A carregar plano do Supabase…</div> : professionalPlanError ? <div style={{padding:24,borderRadius:22,background:'#2a1745',textAlign:'center',display:'grid',gap:14}}><div>{professionalPlanError}</div><button type="button" onClick={openProfessionalPlan} style={{border:0,borderRadius:18,padding:13,background:'#e7c75d',color:'#20152b',fontWeight:950}}>Tentar novamente</button></div> : professionalPlan ? <div style={{display:'grid',gap:18}}>
+            <section style={{padding:24,borderRadius:28,background:'linear-gradient(145deg,#f5dc78,#d7a83d 45%,#8b6622)',color:'#25172d,',boxShadow:'0 15px 35px rgba(215,168,61,.18)'}}><div style={{fontSize:13,fontWeight:950,letterSpacing:1.2,marginBottom:10,opacity:.82}}>TALAZA · PROFISSIONAL</div><div style={{fontSize:28,fontWeight:1000,lineHeight:1.18,marginBottom:10}}>{professionalPlan.name}</div><div style={{fontSize:42,fontWeight:1000,lineHeight:1.1}}>{priceLabel}</div><div style={{fontSize:15,fontWeight:800,marginTop:6,opacity:.85}}>{daysLabel}</div></section>
+            <section style={{padding:20,borderRadius:24,background:'#211035',border:'1px solid #43275e'}}><div style={{fontSize:21,fontWeight:950,marginBottom:15}}>Benefícios incluídos</div>{benefits.length ? <div style={{display:'grid',gap:12}}>{benefits.map((benefit,index)=><div key={'professional-benefit-'+index} style={{display:'flex',alignItems:'flex-start',gap:11}}><span style={{width:24,height:24,flexShrink:0,borderRadius:50,background:'#1b9b67',display:'grid',placeItems:'center',fontSize:13,fontWeight:950}}>✓</span><div style={{fontSize:15,lineHeight:1.5,color:'#f1eaf7',whiteSpace:'pre-line'}}>{benefit}</div></div>)}</div> : <div style={{color:'#bca9ce',fontSize:14}}>Este plano não tem benefícios descritos na base de dados.</div>}</section>
+            <button type="button" onClick={()=>setProfessionalPlanNotice('A adesão e pagamentos reais ainda não estão implementados.')} style={{width:'100%',minHeight:64,border:0,borderRadius:22,background:'linear-gradient(135deg,#ff49a4,#e91c8b)',color:'#fff',fontSize:20,fontWeight:950}}>Aderir ao plano</button>{professionalPlanNotice&&<div role="status" style={{padding:15,borderRadius:16,background:'#2a1745',color:'#f5dca0',fontSize:14,lineHeight:1.5,textAlign:'center'}}>{professionalPlanNotice}</div>}
+          </div> : null}
+        </div>
+      </main>
+    );
+  }
   return (
     <>
       <Head>
@@ -279,7 +312,7 @@ export default function MediaHome() {
                 </div>
                 <div style={{ display: 'grid', gap: 9, marginBottom: 19 }}>
                   <button type="button" onClick={() => { setExplorePublishOpen(true); setExplorePhotos([]); setExploreCaption(''); }} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#f4df83', color: '#241b10', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="globe" size={18}/>Publicar no explore</button>
-                  <button type="button" onClick={() => setNotice('Planos do fã clube.')} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#ff3fa3', color: '#fff', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="sparkle" size={18}/>Ver planos</button>
+                  <button type="button" onClick={openProfessionalPlan} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#ff3fa3', color: '#fff', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="sparkle" size={18}/>Ver planos</button>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
                     <button type="button" onClick={() => selectNav('Mensagens')} style={{ border: '1px solid #4a2a5c', borderRadius: 12, padding: 11, background: '#2b103b', color: '#fff', fontSize: 12, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Icon name="message" size={16}/>Mensagens</button>
                     <button type="button" onClick={() => { setProfileEditing(true); setProfileName(user?.user_metadata?.media_display_name || 'Mara Kiala'); setProfileUsername(user?.user_metadata?.media_username || 'marakiala'); setProfileBio(user?.user_metadata?.media_bio || 'Bastidores, ensaios e música nova toda semana. Entre no meu fã clube.'); setProfileLinks(user?.user_metadata?.media_links || ['marakiala.com/links']); setProfileEmail(user?.user_metadata?.media_email || user?.email || ''); setShowEmail(!!user?.user_metadata?.media_email_visible); setProfileCoverColor(user?.user_metadata?.media_cover_color || '#E84A8A'); setProfileAvatarPreview(''); }} style={{ border: '1px solid #4a2a5c', borderRadius: 12, padding: 11, background: '#2b103b', color: '#fff', fontSize: 12, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Icon name="edit" size={16}/>Editar perfil</button>
@@ -615,6 +648,8 @@ export default function MediaHome() {
                 </div>
                 <div style={{fontSize:12,color:'#777',textAlign:'center',padding:10}}>Os fãs não pagam. Os fã clubes permanecem abertos.</div>
               </div>
+            )}
+            {activeNav === 'Mensagens' && (
               <div style={{ position:'absolute', inset:0, background:'#FFFFFF', overflowY:'auto', padding:'max(14px,env(safe-area-inset-top)) 16px calc(92px + env(safe-area-inset-bottom))', textAlign:'left', color:'#000' }}>
                 <div style={{ position:'sticky', top:0, zIndex:10, background:'#FFFFFF', paddingTop:5, boxShadow:'0 4px 10px rgba(0,0,0,.05)' }}>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', alignItems:'end', borderBottom:'1px solid #eeeeee' }}>
