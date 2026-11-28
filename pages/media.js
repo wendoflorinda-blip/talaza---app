@@ -41,7 +41,7 @@ export default function MediaHome() {
   const [exploreTab, setExploreTab] = useState('Explorar');
   const [followed, setFollowed] = useState({});
   const [postLiked, setPostLiked] = useState(false);
-  const [profileTab, setProfileTab] = useState('Fotos');
+  const [profileTab, setProfileTab] = useState('Publicações');
   const [discoveryLanguage, setDiscoveryLanguage] = useState('Français');
   const [discoveryLiked, setDiscoveryLiked] = useState(false);
   const [messagesTab, setMessagesTab] = useState('Notificações');
@@ -136,8 +136,13 @@ export default function MediaHome() {
   }, []);
 
   const metadata = user?.user_metadata || {};
-  const displayName = mediaProfile?.display_name || '';
-  const username = mediaProfile?.username ? '@' + String(mediaProfile.username).replace(/^@+/, '') : '';
+  const displayName = mediaProfile?.display_name?.trim() || '';
+  const username = mediaProfile?.username?.trim() ? '@' + String(mediaProfile.username).trim().replace(/^@+/, '') : '';
+  const profileTitle = displayName || username || 'Perfil';
+  const profileInitials = (displayName || username.replace(/^@/, '') || 'P').split(/[\\s._-]+/).filter(Boolean).slice(0,2).map(part=>part[0].toUpperCase()).join('') || 'P';
+  const followerCount = 0;
+  const followingCount = 0;
+  const fanclubCount = 0;
   const socialLinks = mediaProfile?.social_links;
   const profileLink = typeof socialLinks === 'string' ? socialLinks : Array.isArray(socialLinks) ? (typeof socialLinks[0] === 'string' ? socialLinks[0] : socialLinks[0]?.url || socialLinks[0]?.link || '') : socialLinks?.url || socialLinks?.website || '';
   const pagouPlano = Boolean(mediaProfile?.plan_id && mediaProfile?.plan_paid_at);
@@ -192,7 +197,7 @@ export default function MediaHome() {
     if (item === 'Fã clube') { setNotice('Os conteúdos dos criadores que segue aparecerão aqui.'); setFanclubScreen('overview'); setFanclubFeedback(''); }
     if (item === 'Explorar') { setNotice(''); setExploreTab('Explorar'); return; }
     if (item === 'Mensagens') { setNotice(''); setMessagesTab('Notificações'); setCommunityFilter('Sugestões'); }
-    if (item === 'Perfil') { setNotice(''); setProfileTab('Fotos'); return; }
+    if (item === 'Perfil') { setNotice(''); setProfileTab('Publicações'); return; }
   }
 
   if (loading) return <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#050706', color: '#fff', fontFamily: 'system-ui' }}>A preparar a MÍDIA TALAZA…</main>;
@@ -303,52 +308,46 @@ export default function MediaHome() {
                     <button aria-label="Configurações do perfil" type="button" onClick={() => setNotice('Configurações de aparência do perfil.')} style={{ width: 36, height: 36, borderRadius: 50, border: '1px solid rgba(0,0,0,.25)', background: 'rgba(20,30,24,.65)', color: '#fff', display: 'grid', placeItems: 'center' }}><Icon name="sparkle" size={18}/></button>
                   </div>}
                   <div style={{ position: 'absolute', left: 14, bottom: -51, width: 104, height: 104, borderRadius: 22, padding: 3, background: 'linear-gradient(135deg,#ff4da9,#a83bfa)', boxShadow: '0 0 17px rgba(229,61,202,.3)' }}>
-                    <div style={{ width: '100%', height: '100%', borderRadius: 19, background: '#F2F2F2', display: 'grid', placeItems: 'center', overflow:'hidden' }}>{profileAvatarUrl ? <img src={profileAvatarUrl} alt="Foto de perfil" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : <Icon name="user" size={38}/>}</div>
+                    <div style={{ width: '100%', height: '100%', borderRadius: 19, background: '#F2F2F2', display: 'grid', placeItems: 'center', overflow:'hidden' }}>{profileAvatarUrl ? <img src={profileAvatarUrl} alt="Foto de perfil" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : <div style={{fontSize:30,fontWeight:950,color:'#777'}}>{profileInitials}</div>}</div>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gap: 6, padding: 0, borderRadius: 0, background: 'transparent', border: 0 }}>
-                  <div style={{ fontSize: 24, fontWeight: 950, letterSpacing: -.4, color: '#111111' }}>{displayName || 'Nome não definido'}</div>
-                  <div style={{ fontSize: 12, color: '#555555' }}>{username || 'Username não definido'}</div>
-                  <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5, color: '#111111' }}>{mediaProfile?.bio || 'Sem bio.'}</div>
+                  <div style={{ fontSize: 24, fontWeight: 950, letterSpacing: -.4, color: '#111111', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                    {profileTitle}
+                    {temAcessoPremium && <span style={{padding:'4px 8px',borderRadius:12,background:'#f4df83',color:'#5b4210',fontSize:10,fontWeight:950}}>Perfil profissional</span>}
+                  </div>
+                  {username && displayName && <div style={{ fontSize: 12, color: '#555555' }}>{username}</div>}
+                  {mediaProfile?.bio?.trim() && <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5, color: '#111111' }}>{mediaProfile.bio}</div>}
                   {profileLocation && <div style={{ fontSize: 12, color: '#555555', marginTop: 4 }}>⌖ {profileLocation}</div>}
                   {profileLink && <a href={/^https?:\/\//i.test(profileLink) ? profileLink : `https://${profileLink}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#1674c4', marginTop: 4, display:'inline-flex', alignItems:'center', gap:6 }}><Icon name="link" size={15}/>{profileLink}</a>}
-
                 </div>
-                {!temAcessoPremium ? (
-                  <>
-                    <button type="button" onClick={() => setNotice('Planos profissionais da Mídia Talaza.')} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#ff3fa3', color: '#fff', fontSize: 13, fontWeight: 950, marginTop:18 }}>Ver planos</button>
-                    <div style={{ marginTop:20, padding:20, borderRadius:16, background:'#F2F2F2', color:'#333', textAlign:'center', display:'grid', justifyItems:'center', gap:10 }}>
-                      <Icon name="lock" size={28}/>
-                      <div style={{fontSize:14,lineHeight:1.6}}>Adere a um plano para desbloquear o teu perfil profissional. Após pagamento, aguarda aprovação da administração.</div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginTop: 19, marginBottom: 18, textAlign: 'center' }}>
-                      {['seguidores','seguindo','publicações'].map(label => <div key={label}><div style={{ fontSize: 17, fontWeight: 950, color: '#111111' }}>—</div><div style={{ color: '#666666', fontSize: 11, marginTop: 3 }}>{label}</div></div>)}
-                    </div>
-                    <div style={{ display: 'grid', gap: 9, marginBottom: 19 }}>
-                      <button type="button" onClick={() => { setExplorePublishOpen(true); setExplorePhotos([]); setExploreCaption(''); }} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#f4df83', color: '#241b10', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="globe" size={18}/>Publicar no explore</button>
-                      <button type="button" onClick={() => setNotice('Planos profissionais da Mídia Talaza.')} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#ff3fa3', color: '#fff', fontSize: 13, fontWeight: 950 }}>Ver planos</button>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
-                        <button type="button" onClick={() => setNotice('Gerir publicações, lives e enquetes do fã clube.')} style={{ padding: 12, border: '1px solid #45245b', borderRadius: 15, background: '#2b103b', textAlign: 'left', color: '#fff' }}>
-                          <div style={{ width: 37, height: 37, borderRadius: 11, background: '#ff3fa3', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="people" size={20}/></div>
-                          <div style={{ fontSize: 12, fontWeight: 950 }}>Meu fã clube</div><div style={{ fontSize: 10, color: '#b9a8c8', lineHeight: 1.5, marginTop: 4 }}>Publicar, lives e enquetes</div>
-                        </button>
-                        <button type="button" onClick={() => { setFanclubScreen('settings'); setFanclubFeedback(''); setActiveNav('Fã clube'); setNotice(''); }} style={{ padding: 12, border: '1px solid #45245b', borderRadius: 15, background: '#2b103b', textAlign: 'left', color: '#fff' }}>
-                          <div style={{ width: 37, height: 37, borderRadius: 11, background: '#ff3fa3', display: 'grid', placeItems: 'center', marginBottom: 9 }}><Icon name="sparkle" size={20}/></div>
-                          <div style={{ fontSize: 12, fontWeight: 950 }}>Configurar fã clube</div><div style={{ fontSize: 10, color: '#b9a8c8', lineHeight: 1.5, marginTop: 4 }}>Como os fãs interagem</div>
-                        </button>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, overflowX:'auto', borderBottom: '1px solid #45245b', marginBottom: 10 }}>
-                      {['Fotos','Vídeos','Publicações','Favoritos','Guardados'].map(tab => <button key={tab} type="button" onClick={() => setProfileTab(tab)} style={{ flex:'0 0 auto', padding:'11px 8px', border:0, borderBottom:profileTab===tab?'2px solid #ff4fa9':'2px solid transparent', background:'transparent', color:profileTab===tab?'#222':'#777', fontSize:12, fontWeight:900 }}>{tab}</button>)}
-                    </div>
-                    <div style={{ minHeight:120, display:'grid', placeItems:'center', padding:18, textAlign:'center', color:'#777', fontSize:13 }}>
-                      {'Ainda não existem itens reais na área ' + profileTab.toLowerCase() + '.'}
-                    </div>
-                  </>
-                )}
+                <div style={{ display:'grid', gridTemplateColumns:temAcessoPremium?'repeat(3,1fr)':'repeat(2,1fr)', gap:6, marginTop:19, marginBottom:18, textAlign:'center' }}>
+                  <div><div style={{fontSize:17,fontWeight:950,color:'#111'}}>{followerCount}</div><div style={{fontSize:11,color:'#666',marginTop:3}}>Seguidores</div></div>
+                  <div><div style={{fontSize:17,fontWeight:950,color:'#111'}}>{followingCount}</div><div style={{fontSize:11,color:'#666',marginTop:3}}>Seguindo</div></div>
+                  {temAcessoPremium && <div><div style={{fontSize:17,fontWeight:950,color:'#111'}}>{fanclubCount}</div><div style={{fontSize:11,color:'#666',marginTop:3}}>Fã clube</div></div>}
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:9,marginBottom:18}}>
+                  <button type="button" onClick={()=>selectNav('Mensagens')} style={{border:'1px solid #4a2a5c',borderRadius:12,padding:11,background:'#2b103b',color:'#fff',fontSize:12,fontWeight:850,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="message" size={16}/>Mensagens</button>
+                  <button type="button" onClick={()=>{setProfileEditing(true);setProfileName(mediaProfile?.display_name||'');setProfileUsername(mediaProfile?.username||'');setProfileBio(mediaProfile?.bio||'');setProfileLinks(metadata.media_links||[]);setProfileEmail(metadata.media_email||user?.email||'');setShowEmail(!!metadata.media_email_visible);setProfileCoverColor(metadata.media_cover_color||'#E84A8A');setProfileAvatarPreview('');}} style={{border:'1px solid #4a2a5c',borderRadius:12,padding:11,background:'#2b103b',color:'#fff',fontSize:12,fontWeight:850,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="edit" size={16}/>Editar perfil</button>
+                </div>
+                {temAcessoPremium && <div style={{display:'grid',gap:9,marginBottom:19}}>
+                  <button type="button" onClick={()=>{setExplorePublishOpen(true);setExplorePhotos([]);setExploreCaption('');}} style={{width:'100%',border:0,borderRadius:13,padding:13,background:'#f4df83',color:'#241b10',fontSize:13,fontWeight:950,display:'flex',alignItems:'center',justifyContent:'center',gap:9}}><Icon name="globe" size={18}/>Publicar no explore</button>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:9}}>
+                    <button type="button" onClick={()=>setNotice('Gerir publicações, lives e enquetes do fã clube.')} style={{padding:12,border:'1px solid #45245b',borderRadius:15,background:'#2b103b',textAlign:'left',color:'#fff'}}>
+                      <div style={{width:37,height:37,borderRadius:11,background:'#ff3fa3',display:'grid',placeItems:'center',marginBottom:9}}><Icon name="people" size={20}/></div>
+                      <div style={{fontSize:12,fontWeight:950}}>Meu fã clube</div><div style={{fontSize:10,color:'#b9a8c8',lineHeight:1.5,marginTop:4}}>Publicar, lives e enquetes</div>
+                    </button>
+                    <button type="button" onClick={()=>{setFanclubScreen('settings');setFanclubFeedback('');setActiveNav('Fã clube');setNotice('');}} style={{padding:12,border:'1px solid #45245b',borderRadius:15,background:'#2b103b',textAlign:'left',color:'#fff'}}>
+                      <div style={{width:37,height:37,borderRadius:11,background:'#ff3fa3',display:'grid',placeItems:'center',marginBottom:9}}><Icon name="sparkle" size={20}/></div>
+                      <div style={{fontSize:12,fontWeight:950}}>Configurar fã clube</div><div style={{fontSize:10,color:'#b9a8c8',lineHeight:1.5,marginTop:4}}>Como os fãs interagem</div>
+                    </button>
+                  </div>
+                </div>}
+                <div style={{display:'flex',gap:6,overflowX:'auto',borderBottom:'1px solid #45245b',marginBottom:10}}>
+                  {(temAcessoPremium?['Publicações','Fotos','Vídeos','Favoritos','Guardados']:['Publicações','Guardados','Favoritos']).map(tab=><button key={tab} type="button" onClick={()=>setProfileTab(tab)} style={{flex:'0 0 auto',padding:'11px 8px',border:0,borderBottom:profileTab===tab?'2px solid #ff4fa9':'2px solid transparent',background:'transparent',color:profileTab===tab?'#222':'#777',fontSize:12,fontWeight:900}}>{tab}</button>)}
+                </div>
+                <div style={{minHeight:120,display:'grid',placeItems:'center',padding:18,textAlign:'center',color:'#777',fontSize:13}}>Ainda não tens publicações</div>
+                <button type="button" onClick={()=>setNotice('Planos profissionais da Mídia Talaza.')} style={{width:'100%',border:0,borderRadius:13,padding:13,background:'#ff3fa3',color:'#fff',fontSize:13,fontWeight:950,marginTop:14,marginBottom:12}}>Ver planos</button>
                 </>
                 )}
               </div>
@@ -366,6 +365,11 @@ export default function MediaHome() {
                 </div>}
                 {exploreTab === 'Explorar' ? (
                   <div style={{ display: 'grid', gap: 18 }}>
+                    <div style={{display:'flex',alignItems:'center',gap:9,padding:12,borderRadius:15,background:'#2b103b',border:'1px solid #45245b'}}>
+                      <div style={{width:38,height:38,borderRadius:50,background:'#F2F2F2',display:'grid',placeItems:'center',overflow:'hidden',color:'#777',fontWeight:900}}>{profileAvatarUrl?<img src={profileAvatarUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:profileInitials}</div>
+                      <button type="button" onClick={()=>{if(!user){router.push('/login?next=/media');return;}setCaptureMode('Foto');setCreateStep(1);setSelectedMedia(null);setCreateOpen(true);}} style={{flex:1,minWidth:0,padding:'11px 13px',border:0,borderRadius:20,background:'#3a1b4a',color:'#cdbed7',fontSize:12,textAlign:'left'}}>{user?'No que estás a pensar?':'Entra para criar uma publicação'}</button>
+                      <button aria-label="Adicionar foto ou vídeo" type="button" onClick={()=>{if(!user){router.push('/login?next=/media');return;}setCaptureMode('Foto');setCreateStep(1);setSelectedMedia(null);setCreateOpen(true);}} style={{border:0,background:'transparent',color:'#ff75bb',display:'grid',placeItems:'center'}}><Icon name="photo" size={22}/></button>
+                    </div>
                     {publishedMedia.map(pub=><article key={'feedpub-'+pub.id} style={{padding:12,borderRadius:16,background:'#2b103b',border:'1px solid #45245b',display:'grid',gap:10}}><div style={{fontSize:13,fontWeight:900,color:'#fff'}}>Mara Kiala · agora</div>{pub.caption&&<div style={{fontSize:12,lineHeight:1.55,color:'#fff'}}>{pub.caption}</div>}{pub.tags&&<div style={{fontSize:12,color:'#f08ac5'}}>{pub.tags}</div>}<div style={{aspectRatio:'1/1',width:'100%',borderRadius:12,overflow:'hidden',background:'#fff',display:'grid',placeItems:'center'}}>{pub.type==='video'?<video src={pub.url} controls playsInline style={{width:'100%',height:'100%',objectFit:'contain'}}/>:<img src={pub.url} alt={pub.caption||'Publicação'} style={{width:'100%',height:'100%',objectFit:'contain'}}/>}</div><div style={{display:'flex',justifyContent:'space-around',color:'#c5b4d1',fontSize:11}}><span>♡ Gosto</span><span>Comentar</span><span>Partilhar</span></div></article>)}
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 10 }}>Sugestões de pessoas</div>
@@ -379,11 +383,7 @@ export default function MediaHome() {
                         ))}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: 12, borderRadius: 15, background: '#2b103b', border: '1px solid #45245b' }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 50, background: 'linear-gradient(135deg,#45c5ff,#8753d9)', display: 'grid', placeItems: 'center', fontWeight: 900 }}>A</div>
-                      <div style={{ flex: 1, padding: '9px 11px', borderRadius: 20, background: '#3a1b4a', color: '#cdbed7', fontSize: 12 }}>No que está a pensar?</div>
-                      <button aria-label="Adicionar imagem" type="button" style={{ border: 0, background: 'transparent', color: '#ff75bb', display: 'grid', placeItems: 'center' }}><Icon name="photo" size={22}/></button>
-                    </div>
+
                     <article style={{ padding: 12, borderRadius: 16, background: '#2b103b', border: '1px solid #45245b', display: 'grid', gap: 10 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                         <div style={{ width: 39, height: 39, borderRadius: 50, background: 'linear-gradient(135deg,#59a9ff,#4060c8)', display: 'grid', placeItems: 'center', fontWeight: 900 }}>A</div>
