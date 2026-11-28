@@ -106,7 +106,7 @@ export default function MediaHome() {
   useEffect(() => {
     let mounted = true;
     setMediaPlanLoading(true);
-    supabase.from('plans').select('id,name,price,duration_days,plan_type,is_active')
+    supabase.from('plans').select('id,name,description,price,duration_days,plan_type,is_active')
       .eq('id','f8dae010-62c6-439c-985f-8053bf168dfd').eq('plan_type','talaza_midia').eq('is_active',true).maybeSingle()
       .then(({data,error})=>{if(!mounted)return;if(error)console.error('Erro ao carregar plano Perfil Profissional:',error);setMediaPlan(data||null);setMediaPlanLoading(false);});
     async function loadProfile(authUser) {
@@ -501,11 +501,11 @@ export default function MediaHome() {
                 </div>}
                 {exploreTab === 'Explorar' ? (
                   <div style={{ display: 'grid', gap: 18 }}>
-                    <div style={{display:'flex',alignItems:'center',gap:9,padding:12,borderRadius:15,background:'#2b103b',border:'1px solid #45245b'}}>
+                    {temAcessoPremium && <div style={{display:'flex',alignItems:'center',gap:9,padding:12,borderRadius:15,background:'#2b103b',border:'1px solid #45245b'}}>
                       <div style={{width:38,height:38,borderRadius:50,background:'#F2F2F2',display:'grid',placeItems:'center',overflow:'hidden',color:'#777',fontWeight:900}}>{profileAvatarUrl?<img src={profileAvatarUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:profileInitials || null}</div>
                       <button type="button" onClick={()=>{if(!user){router.push('/login?next=/media');return;}setCaptureMode('Foto');setCreateStep(1);setSelectedMedia(null);setCreateOpen(true);}} style={{flex:1,minWidth:0,padding:'11px 13px',border:0,borderRadius:20,background:'#3a1b4a',color:'#cdbed7',fontSize:12,textAlign:'left'}}>{user?'No que estás a pensar?':'Entra para criar uma publicação'}</button>
                       <button aria-label="Adicionar foto ou vídeo" type="button" onClick={()=>{if(!user){router.push('/login?next=/media');return;}setCaptureMode('Foto');setCreateStep(1);setSelectedMedia(null);setCreateOpen(true);}} style={{border:0,background:'transparent',color:'#ff75bb',display:'grid',placeItems:'center'}}><Icon name="photo" size={22}/></button>
-                    </div>
+                    </div>}
                     {mediaSuggestions.length>0 ? <div>
                       <div style={{fontSize:14,fontWeight:900,marginBottom:10}}>Sugestões de pessoas</div>
                       <div style={{display:'flex',gap:12,overflowX:'auto',paddingBottom:4}}>
@@ -872,11 +872,11 @@ export default function MediaHome() {
             <button type="button" onClick={()=>setPlansOpen(false)} style={{border:0,borderRadius:12,padding:'9px 14px',background:'#F2F2F2',color:'#111',fontWeight:900}}>‹ Voltar ao perfil</button>
             <h2 style={{fontSize:25,fontWeight:950,margin:'22px 0 8px'}}>Planos da MÍDIA TALAZA</h2>
             <p style={{fontSize:13,color:'#666',lineHeight:1.5}}>Escolhe um plano para desbloquear as funcionalidades profissionais após pagamento e aprovação da Administração.</p>
-            {mediaPlanLoading ? <p>A carregar planos…</p> : mediaPlan ? <article style={{marginTop:18,padding:18,borderRadius:18,border:'1px solid #ead9a5',background:'#fffaf0'}}>
+            {mediaPlanLoading ? <p>A carregar planos…</p> : temAcessoPremium ? <p style={{marginTop:18,fontWeight:900,color:'#167044'}}>Plano ativo até {new Date(mediaProfile.plan_expires_at).toLocaleDateString('pt-AO')}</p> : mediaPlan ? <article style={{marginTop:18,padding:18,borderRadius:18,border:'1px solid #ead9a5',background:'#fffaf0'}}>
               <div style={{fontSize:18,fontWeight:950}}>{mediaPlan.name}</div>
               <div style={{fontSize:27,fontWeight:950,marginTop:10}}>{Number(mediaPlan.price).toLocaleString('pt-AO')} Kz</div>
               <div style={{fontSize:13,color:'#666'}}>{mediaPlan.duration_days} dias</div>
-              <p style={{fontSize:13,lineHeight:1.6,color:'#444'}}>Acesso às funcionalidades profissionais após confirmação do pagamento e aprovação administrativa.</p>
+              {mediaPlan.description && <p style={{fontSize:13,lineHeight:1.6,color:'#444',whiteSpace:'pre-wrap'}}>{mediaPlan.description}</p>}
               <button type="button" onClick={()=>router.push('/media-pagamento?plan_id='+mediaPlan.id)} style={{width:'100%',border:0,borderRadius:12,padding:13,background:'#FF2E7A',color:'#fff',fontWeight:950}}>Aderir</button>
             </article> : <p>Não existe um plano profissional ativo disponível.</p>}
           </div>
