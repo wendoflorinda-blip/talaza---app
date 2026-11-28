@@ -98,7 +98,17 @@ for select to public using(bucket_id='media-posts');
 drop policy if exists "Creators upload own Mídia post media" on storage.objects;
 create policy "Creators upload own Mídia post media" on storage.objects
 for insert to authenticated
-with check(bucket_id='media-posts' and (storage.foldername(name))[1]=(select auth.uid())::text);
+with check(
+ bucket_id='media-posts'
+ and (storage.foldername(name))[1]=(select auth.uid())::text
+ and exists(
+  select 1 from public.media_profiles mp
+  where mp.user_id=(select auth.uid()) and mp.status='active'
+   and mp.is_professional=true and mp.professional_status='approved'
+   and mp.plan_id is not null and mp.plan_paid_at is not null
+   and mp.plan_expires_at>now() and mp.approved_by is not null and mp.approved_at is not null
+ )
+);
 drop policy if exists "Creators delete own Mídia post media" on storage.objects;
 create policy "Creators delete own Mídia post media" on storage.objects
 for delete to authenticated
