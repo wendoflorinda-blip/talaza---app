@@ -31,6 +31,8 @@ export default function MediaHome() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [mediaProfile, setMediaProfile] = useState(null);
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
   const [activeNav, setActiveNav] = useState('Início');
   const [menuOpen, setMenuOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -69,9 +71,9 @@ export default function MediaHome() {
   const explorePhotoInputRef = useRef(null);
 
   const [profileEditing, setProfileEditing] = useState(false);
-  const [profileName, setProfileName] = useState('Mara Kiala');
-  const [profileUsername, setProfileUsername] = useState('marakiala');
-  const [profileBio, setProfileBio] = useState('Bastidores, ensaios e música nova toda semana. Entre no meu fã clube.');
+  const [profileName, setProfileName] = useState('');
+  const [profileUsername, setProfileUsername] = useState('');
+  const [profileBio, setProfileBio] = useState('');
   const [profileLinks, setProfileLinks] = useState(['marakiala.com/links']);
   const [profileEmail, setProfileEmail] = useState('');
   const [showEmail, setShowEmail] = useState(false);
@@ -88,30 +90,45 @@ export default function MediaHome() {
 
   useEffect(() => {
     let mounted = true;
+    async function loadProfile(authUser) {
+      if (!authUser) {
+        setMediaProfile(null);
+        setProfileAvatarUrl('');
+        return;
+      }
+      const [{ data: mediaData, error: mediaError }, { data: profileData, error: profileError }] = await Promise.all([
+        supabase.from('media_profiles').select('display_name,username,bio').eq('user_id', authUser.id).maybeSingle(),
+        supabase.from('profiles').select('avatar_url').eq('id', authUser.id).maybeSingle(),
+      ]);
+      if (mediaError) console.error('Erro ao carregar media_profiles:', mediaError);
+      if (profileError) console.error('Erro ao carregar profiles.avatar_url:', profileError);
+      if (!mounted) return;
+      setMediaProfile(mediaData || null);
+      setProfileAvatarUrl(profileData?.avatar_url || '');
+    }
     async function load() {
       const { data, error } = await supabase.auth.getUser();
       if (!mounted) return;
-      if (error || !data?.user) {
-        await router.replace('/login?next=/media');
-        return;
-      }
-      setUser(data.user);
-      setLoading(false);
+      const authUser = error ? null : data?.user || null;
+      setUser(authUser);
+      await loadProfile(authUser);
+      if (mounted) setLoading(false);
     }
     load();
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) router.replace('/login?next=/media');
-      else setUser(session.user);
+      const authUser = session?.user || null;
+      setUser(authUser);
+      loadProfile(authUser);
     });
     return () => {
       mounted = false;
       listener?.subscription?.unsubscribe();
     };
-  }, [router]);
+  }, []);
 
   const metadata = user?.user_metadata || {};
-  const displayName = metadata.media_display_name || metadata.display_name || 'Criador';
-  const username = metadata.media_username ? '@' + String(metadata.media_username).replace(/^@+/, '') : '';
+  const displayName = mediaProfile?.display_name || '';
+  const username = mediaProfile?.username ? '@' + String(mediaProfile.username).replace(/^@+/, '') : '';
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -258,24 +275,31 @@ export default function MediaHome() {
           <section aria-label="Feed vertical de vídeos" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 18px 96px', textAlign: 'center' }}>
             {activeNav === 'Perfil' && (
               <div style={{ position: 'absolute', inset: 0, background: '#ffffff', overflowY: 'auto', padding: 'max(12px,env(safe-area-inset-top)) 14px calc(88px + env(safe-area-inset-bottom))', color: '#fff', textAlign: 'left' }}>
+                {!user ? (
+                  <div style={{ minHeight:'calc(100% - 20px)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', color:'#111', gap:14 }}>
+                    <Icon name="user" size={42}/>
+                    <div style={{fontSize:20,fontWeight:900}}>Entra na tua conta para veres o teu perfil</div>
+                    <button type="button" onClick={() => router.push('/login?next=/media')} style={{border:0,borderRadius:14,padding:'12px 28px',background:'#FF2E7A',color:'#fff',fontSize:15,fontWeight:900}}>Entrar</button>
+                  </div>
+                ) : (
+                <>
                 <div style={{ position: 'relative', height: 156, borderRadius: 19, background: metadata.media_cover_color || 'linear-gradient(115deg,#c9f33a 0%,#68bb38 45%,#11643b 100%)', marginBottom: 64, overflow: 'visible' }}>
                   <div style={{ position: 'absolute', right: 12, top: 12, display: 'flex', gap: 9 }}>
                     <button aria-label="Adicionar pessoa" type="button" onClick={() => setNotice('Convidar pessoas para o perfil.')} style={{ width: 36, height: 36, borderRadius: 50, border: '1px solid rgba(0,0,0,.25)', background: 'rgba(20,30,24,.65)', color: '#fff', display: 'grid', placeItems: 'center' }}><Icon name="people" size={18}/></button>
                     <button aria-label="Configurações do perfil" type="button" onClick={() => setNotice('Configurações de aparência do perfil.')} style={{ width: 36, height: 36, borderRadius: 50, border: '1px solid rgba(0,0,0,.25)', background: 'rgba(20,30,24,.65)', color: '#fff', display: 'grid', placeItems: 'center' }}><Icon name="sparkle" size={18}/></button>
                   </div>
                   <div style={{ position: 'absolute', left: 14, bottom: -51, width: 104, height: 104, borderRadius: 22, padding: 3, background: 'linear-gradient(135deg,#ff4da9,#a83bfa)', boxShadow: '0 0 17px rgba(229,61,202,.3)' }}>
-                    <div style={{ width: '100%', height: '100%', borderRadius: 19, background: 'linear-gradient(140deg,#ff74bb,#8d42e7)', display: 'grid', placeItems: 'center', fontSize: 29, fontWeight: 950, letterSpacing: 1 }}>MK</div>
+                    <div style={{ width: '100%', height: '100%', borderRadius: 19, background: '#F2F2F2', display: 'grid', placeItems: 'center', overflow:'hidden' }}>{profileAvatarUrl ? <img src={profileAvatarUrl} alt="Foto de perfil" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : <Icon name="user" size={38}/>}</div>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gap: 6, padding: 0, borderRadius: 0, background: 'transparent', border: 0 }}>
-                  <div style={{ fontSize: 24, fontWeight: 950, letterSpacing: -.4, color: '#111111' }}>{metadata.media_display_name || 'Mara Kiala'}</div>
-                  <div style={{ fontSize: 12, color: '#555555' }}>@{metadata.media_username || 'marakiala'} · fala Português</div>
-                  <div style={{ fontSize: 12, color: '#555555', display: 'flex', alignItems: 'center', gap: 5 }}>⌖ Luanda, Angola</div>
-                  <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5, color: '#111111' }}>{metadata.media_bio || 'Bastidores, ensaios e música nova toda semana. Entre no meu fã clube.'}</div>
+                  <div style={{ fontSize: 24, fontWeight: 950, letterSpacing: -.4, color: '#111111' }}>{displayName || 'Nome não definido'}</div>
+                  <div style={{ fontSize: 12, color: '#555555' }}>{username || 'Username não definido'}</div>
+                  <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5, color: '#111111' }}>{mediaProfile?.bio || 'Sem bio.'}</div>
                   <button type="button" onClick={() => { setProfileEditing(true); setProfileName(metadata.media_display_name || 'Mara Kiala'); setProfileUsername(metadata.media_username || 'marakiala'); setProfileBio(metadata.media_bio || 'Bastidores, ensaios e música nova toda semana. Entre no meu fã clube.'); setProfileLinks(metadata.media_links || ['marakiala.com/links']); setProfileEmail(metadata.media_email || user?.email || ''); setShowEmail(!!metadata.media_email_visible); setProfileCoverColor(metadata.media_cover_color || '#E84A8A'); setProfileAvatarPreview(''); }} style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 12, border: '1px solid rgba(0,0,0,.06)', background: 'rgba(255,255,255,.5)', color: '#1674c4', fontSize: 12, fontWeight: 800, textAlign: 'left' }}><Icon name="link" size={16}/> {(metadata.media_links && metadata.media_links[0]) || 'marakiala.com/links'} <span style={{ marginLeft: 'auto', color: '#555555' }}><Icon name="edit" size={15}/></span></button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginTop: 19, marginBottom: 18, textAlign: 'center' }}>
-                  {[['18,4 mil','seguidores'],['312','seguindo'],['2.310','no fã clube']].map(([count,label]) => <div key={label}><div style={{ fontSize: 17, fontWeight: 950, color: '#111111' }}>{count}</div><div style={{ color: '#666666', fontSize: 11, marginTop: 3 }}>{label}</div></div>)}
+                  {['seguidores','seguindo','publicações'].map(label => <div key={label}><div style={{ fontSize: 17, fontWeight: 950, color: '#111111' }}>—</div><div style={{ color: '#666666', fontSize: 11, marginTop: 3 }}>{label}</div></div>)}
                 </div>
                 <div style={{ display: 'grid', gap: 9, marginBottom: 19 }}>
                   <button type="button" onClick={() => { setExplorePublishOpen(true); setExplorePhotos([]); setExploreCaption(''); }} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#f4df83', color: '#241b10', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="globe" size={18}/>Publicar no explore</button>
@@ -300,9 +324,10 @@ export default function MediaHome() {
                   {['Fotos','Vídeos'].map(tab => <button key={tab} type="button" onClick={() => setProfileTab(tab)} style={{ flex: 1, padding: '11px 8px', border: 0, borderBottom: profileTab === tab ? '2px solid #ff4fa9' : '2px solid transparent', background: 'transparent', color: profileTab === tab ? '#fff' : '#b9a8c8', fontSize: 12, fontWeight: 900 }}>{tab}</button>)}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 5 }}>
-                  {publishedMedia.map(pub=><div key={'profilepub-'+pub.id} style={{aspectRatio:'1/1',borderRadius:9,overflow:'hidden',background:'#eee'}}>{pub.type==='video'?<video src={pub.url} muted playsInline style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<img src={pub.url} alt={pub.caption||'Publicação'} style={{width:'100%',height:'100%',objectFit:'cover'}}/>}</div>)}
-                  {['linear-gradient(145deg,#ff68ad,#8a36ce)','linear-gradient(145deg,#ffab43,#d83f56)','linear-gradient(145deg,#44d6a0,#1a8465)','linear-gradient(145deg,#53a8ff,#4545bb)','linear-gradient(145deg,#b879ff,#6434ae)','linear-gradient(145deg,#ff586c,#9e315c)','linear-gradient(145deg,#d9e73f,#569e39)','linear-gradient(145deg,#37d5e4,#356aa8)','linear-gradient(145deg,#ed81d0,#6b42c8)'].map((gradient,i) => <div key={'tile-'+profileTab+'-'+i} style={{ aspectRatio: '1/1', borderRadius: 9, background: gradient, display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden' }}>{i%3===1 && <Icon name="lock" size={21}/>}</div>)}
+                  <div style={{gridColumn:'1 / -1',padding:18,textAlign:'center',color:'#777',fontSize:13}}>As publicações da Mídia serão apresentadas aqui.</div>
                 </div>
+                </>
+                )}
               </div>
             )}
             {activeNav === 'Explorar' && (
