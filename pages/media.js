@@ -42,7 +42,7 @@ export default function MediaHome() {
   const [followed, setFollowed] = useState({});
   const [postLiked, setPostLiked] = useState(false);
   const [profileTab, setProfileTab] = useState('Publicações');
-  const [discoveryLanguage, setDiscoveryLanguage] = useState('Français');
+  const [discoveryLanguage, setDiscoveryLanguage] = useState('Todos');
   const [discoveryLiked, setDiscoveryLiked] = useState(false);
   const [messagesTab, setMessagesTab] = useState('Notificações');
   const [communityFilter, setCommunityFilter] = useState('Sugestões');
@@ -90,6 +90,8 @@ export default function MediaHome() {
   const [mediaFollowIds, setMediaFollowIds] = useState([]);
   const [discoveryLanguages, setDiscoveryLanguages] = useState([]);
   const [mediaDataLoading, setMediaDataLoading] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
   const profileAvatarInputRef = useRef(null);
   const coverColorInputRef = useRef(null);
   const coverPalette = ['#E84A8A','#FF2E7A','#FF5FA8','#FF8A3D','#FFD966','#D6E83D','#63C653','#19A875','#36C6C9','#45A5F5','#5C6DFF','#8A3DFF','#B44AFF','#D94AFF','#FF4A58','#914D36','#222222','#F2F2F2'];
@@ -127,7 +129,7 @@ export default function MediaHome() {
         provinceId ? supabase.from('provinces').select('name').eq('id', provinceId).maybeSingle() : Promise.resolve({data:null}),
       ]);
       if (!mounted) return;
-      setMediaProfile(mediaData || null);
+      setMediaProfile(mediaData ? {...mediaData,show_email:Boolean(profileData?.show_email)} : null);
       setProfileAvatarUrl(profileData?.avatar_url || authUser.user_metadata?.avatar_url || '');
       setProfileName(mediaData?.display_name || profileData?.name || authUser.user_metadata?.media_display_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || '');
       setProfileUsername(mediaData?.username || authUser.user_metadata?.media_username || '');
@@ -162,8 +164,6 @@ export default function MediaHome() {
   const profileTitle = displayName || username;
   const profileInitials = displayName.split(/[\\s._-]+/).filter(Boolean).slice(0,2).map(part=>part[0].toUpperCase()).join('');
   const profileLanguage = mediaProfile?.interface_language || user?.user_metadata?.media_interface_language || '';
-  const followerCount = 0;
-  const followingCount = 0;
   const fanclubCount = 0;
   const socialLinks = mediaProfile?.social_links || metadata.media_links;
   const profileBioValue = mediaProfile?.bio || metadata.media_bio || '';
@@ -171,6 +171,52 @@ export default function MediaHome() {
   const pagouPlano = Boolean(mediaProfile?.plan_id && mediaProfile?.plan_paid_at);
   const aprovadoPelaAdmin = Boolean(mediaProfile?.is_professional && mediaProfile?.professional_status === 'approved' && mediaProfile?.approved_by && mediaProfile?.approved_at);
   const temAcessoPremium = pagouPlano && aprovadoPelaAdmin && Boolean(mediaProfile?.plan_expires_at && new Date(mediaProfile.plan_expires_at).getTime() > Date.now());
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMediaCommunity() {
+      if (!user?.id) {
+        setMediaSuggestions([]); setMediaPosts([]); setMediaFollowIds([]);
+        setFollowerCount(0); setFollowingCount(0); setDiscoveryLanguages([]);
+        return;
+      }
+      setMediaDataLoading(true);
+      const [{data:suggestions,error:suggestionsError},{data:posts,error:postsError},{data:follows,error:followsError},{count:followers,error:followersError},{count:following,error:followingError}] = await Promise.all([
+        supabase.from('media_discovery_profiles').select('user_id,display_name,username,interface_language,avatar_url,plan_expires_at').neq('user_id',user.id).order('display_name'),
+        supabase.from('media_posts').select('id,user_id,media_url,media_type,caption,hashtags,language,created_at').eq('status','published').order('created_at',{ascending:false}),
+        supabase.from('media_follows').select('following_id').eq('follower_id',user.id),
+        supabase.from('media_follows').select('follower_id',{count:'exact',head:true}).eq('following_id',user.id),
+        supabase.from('media_follows').select('following_id',{count:'exact',head:true}).eq('follower_id',user.id)
+      ]);
+      if(cancelled)return;
+      if(suggestionsError)console.error('Erro ao carregar sugestões Mídia:',suggestionsError);
+      if(postsError)console.error('Erro ao carregar publicações Mídia:',postsError);
+      if(followsError)console.error('Erro ao carregar seguimentos Mídia:',followsError);
+      if(followersError)console.error('Erro ao contar seguidores Mídia:',followersError);
+      if(followingError)console.error('Erro ao contar seguindo Mídia:',followingError);
+      const activeSuggestions=suggestions||[];
+      setMediaSuggestions(activeSuggestions);
+      setMediaPosts(posts||[]);
+      setMediaFollowIds((follows||[]).map(row=>row.following_id));
+      setFollowerCount(followers||0);
+      setFollowingCount(following||0);
+      setDiscoveryLanguages([...new Set(activeSuggestions.map(row=>row.interface_language).filter(Boolean))].sort((a,b)=>a.localeCompare(b)));
+      setMediaDataLoading(false);
+    }
+    loadMediaCommunity();
+    return()=>{cancelled=true;};
+  },[user?.id]);
+
+  async function toggleMediaFollow(targetId) {
+    if(!user?.id)return router.push('/login?next=/media');
+    const alreadyFollowing=mediaFollowIds.includes(targetId);
+    const result=alreadyFollowing
+      ? await supabase.from('media_follows').delete().eq('follower_id',user.id).eq('following_id',targetId)
+      : await supabase.from('media_follows').insert({follower_id:user.id,following_id:targetId});
+    if(result.error){setNotice('Não foi possível atualizar o seguimento: '+result.error.message);return;}
+    setMediaFollowIds(current=>alreadyFollowing?current.filter(id=>id!==targetId):[...current,targetId]);
+    setFollowingCount(current=>Math.max(0,current+(alreadyFollowing?-1:1)));
+  }
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -308,7 +354,7 @@ export default function MediaHome() {
               if (profileError) throw profileError;
               const { error: mediaError } = await supabase.from('media_profiles').update({
                 display_name:profileName.trim(),username:cleanUsername || null,bio:profileBio.trim() || null,
-                social_links:temAcessoPremium?cleanLinks:(mediaProfile?.social_links||[]),email:user.email || null,show_email:showEmail
+                social_links:temAcessoPremium?cleanLinks:(mediaProfile?.social_links||[]),email:user.email || null
               }).eq('user_id',user.id);
               if (mediaError) throw mediaError;
               setUser(authData.user || user);
