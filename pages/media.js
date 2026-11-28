@@ -80,6 +80,11 @@ export default function MediaHome() {
   const [showEmail, setShowEmail] = useState(false);
   const [profileCoverColor, setProfileCoverColor] = useState('#E84A8A');
   const [profileAvatarPreview, setProfileAvatarPreview] = useState('');
+  const [profileAvatarFile, setProfileAvatarFile] = useState(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [plansOpen, setPlansOpen] = useState(false);
+  const [mediaPlan, setMediaPlan] = useState(null);
+  const [mediaPlanLoading, setMediaPlanLoading] = useState(false);
   const profileAvatarInputRef = useRef(null);
   const coverColorInputRef = useRef(null);
   const coverPalette = ['#E84A8A','#FF2E7A','#FF5FA8','#FF8A3D','#FFD966','#D6E83D','#63C653','#19A875','#36C6C9','#45A5F5','#5C6DFF','#8A3DFF','#B44AFF','#D94AFF','#FF4A58','#914D36','#222222','#F2F2F2'];
@@ -91,6 +96,10 @@ export default function MediaHome() {
 
   useEffect(() => {
     let mounted = true;
+    setMediaPlanLoading(true);
+    supabase.from('plans').select('id,name,price,duration_days,plan_type,is_active')
+      .eq('id','f8dae010-62c6-439c-985f-8053bf168dfd').eq('plan_type','talaza_midia').eq('is_active',true).maybeSingle()
+      .then(({data,error})=>{if(!mounted)return;if(error)console.error('Erro ao carregar plano Perfil Profissional:',error);setMediaPlan(data||null);setMediaPlanLoading(false);});
     async function loadProfile(authUser) {
       if (!authUser) {
         setMediaProfile(null);
@@ -99,8 +108,8 @@ export default function MediaHome() {
         return;
       }
       const [{ data: mediaData, error: mediaError }, { data: profileData, error: profileError }] = await Promise.all([
-        supabase.from('media_profiles').select('display_name,username,bio,social_links,country_id,province_id,is_professional,professional_status,plan_id,plan_paid_at,approved_by,approved_at').eq('user_id', authUser.id).maybeSingle(),
-        supabase.from('profiles').select('avatar_url,country_id,province_id').eq('id', authUser.id).maybeSingle(),
+        supabase.from('media_profiles').select('display_name,username,email,bio,social_links,country_id,province_id,interface_language,is_professional,professional_status,plan_id,plan_paid_at,approved_by,approved_at').eq('user_id', authUser.id).maybeSingle(),
+        supabase.from('profiles').select('name,avatar_url,country_id,province_id').eq('id', authUser.id).maybeSingle(),
       ]);
       if (mediaError) console.error('Erro ao carregar media_profiles:', mediaError);
       if (profileError) console.error('Erro ao carregar profiles:', profileError);
@@ -112,7 +121,9 @@ export default function MediaHome() {
       ]);
       if (!mounted) return;
       setMediaProfile(mediaData || null);
-      setProfileAvatarUrl(profileData?.avatar_url || '');
+      setProfileAvatarUrl(profileData?.avatar_url || authUser.user_metadata?.avatar_url || '');
+      setProfileName(mediaData?.display_name || profileData?.name || authUser.user_metadata?.media_display_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || '');
+      setProfileUsername(mediaData?.username || authUser.user_metadata?.media_username || '');
       setProfileLocation([provinceData?.name, countryData?.name].filter(Boolean).join(', '));
     }
     async function load() {
@@ -136,10 +147,12 @@ export default function MediaHome() {
   }, []);
 
   const metadata = user?.user_metadata || {};
-  const displayName = mediaProfile?.display_name?.trim() || '';
-  const username = mediaProfile?.username?.trim() ? '@' + String(mediaProfile.username).trim().replace(/^@+/, '') : '';
-  const profileTitle = displayName || username || 'Perfil';
-  const profileInitials = (displayName || username.replace(/^@/, '') || 'P').split(/[\\s._-]+/).filter(Boolean).slice(0,2).map(part=>part[0].toUpperCase()).join('') || 'P';
+  const displayName = String(mediaProfile?.display_name || user?.user_metadata?.media_display_name || user?.user_metadata?.full_name || user?.user_metadata?.name || '').trim();
+  const rawUsername = String(mediaProfile?.username || user?.user_metadata?.media_username || '').trim().replace(/^@+/, '');
+  const username = rawUsername ? '@' + rawUsername : '';
+  const profileTitle = displayName || username;
+  const profileInitials = (displayName || rawUsername).split(/[\\s._-]+/).filter(Boolean).slice(0,2).map(part=>part[0].toUpperCase()).join('');
+  const profileLanguage = mediaProfile?.interface_language || user?.user_metadata?.media_interface_language || '';
   const followerCount = 0;
   const followingCount = 0;
   const fanclubCount = 0;
@@ -215,7 +228,7 @@ export default function MediaHome() {
             <button type="button" onClick={()=>profileAvatarInputRef.current?.click()} style={{width:110,height:110,flexShrink:0,border:0,borderRadius:24,background:'linear-gradient(180deg,#FF5FA8,#8A3DFF)',color:'#fff',fontSize:44,fontWeight:900,display:'grid',placeItems:'center',overflow:'hidden'}}>
               {profileAvatarPreview ? <img src={profileAvatarPreview} alt="Pré-visualização" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : 'MA'}
             </button>
-            <input ref={profileAvatarInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const file=e.target.files?.[0];if(file){const reader=new FileReader();reader.onload=()=>setProfileAvatarPreview(String(reader.result||''));reader.readAsDataURL(file);}}}/>
+            <input ref={profileAvatarInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const file=e.target.files?.[0];if(file){setProfileAvatarFile(file);const reader=new FileReader();reader.onload=()=>setProfileAvatarPreview(String(reader.result||''));reader.readAsDataURL(file);}}}/>
             <button type="button" onClick={()=>profileAvatarInputRef.current?.click()} style={{height:60,flex:1,border:0,borderRadius:20,background:'#F2F2F2',color:'#000',fontSize:19,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',gap:10}}>📷 Alterar foto</button>
           </div>
           <div style={{display:'grid',gap:8,marginBottom:20}}>
@@ -244,7 +257,7 @@ export default function MediaHome() {
           </div>
           <div style={{display:'grid',gap:8,marginBottom:20}}>
             <label style={{fontSize:19,fontWeight:900,color:'#666'}}>E-mail</label>
-            <input type="email" value={profileEmail} onChange={e=>setProfileEmail(e.target.value)} placeholder="seuemail@exemplo.com" style={{height:64,border:0,borderRadius:20,padding:'0 16px',background:'#F2F2F2',color:'#000',fontSize:20}}/>
+            <input type="email" value={user?.email || ''} readOnly disabled style={{height:64,border:0,borderRadius:20,padding:'0 16px',background:'#F2F2F2',color:'#666',fontSize:20}}/>
             <div style={{height:90,borderRadius:20,background:'#F2F2F2',padding:16,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
               <div><div style={{fontSize:20,fontWeight:900,color:'#000'}}>Mostrar no perfil</div><div style={{fontSize:17,color:'#888',marginTop:3}}>Quem visitar o perfil vê o e-mail.</div></div>
               <button type="button" aria-label="Mostrar e-mail" onClick={()=>setShowEmail(v=>!v)} style={{width:60,height:36,border:0,borderRadius:20,background:showEmail?'#FF2E7A':'#CCCCCC',padding:2,display:'flex',alignItems:'center',justifyContent:showEmail?'flex-end':'flex-start',flexShrink:0}}><span style={{width:32,height:32,borderRadius:50,background:'#fff'}}/></button>
@@ -256,14 +269,44 @@ export default function MediaHome() {
             <div style={{display:'flex',alignItems:'center',gap:12}}><input type="color" ref={coverColorInputRef} value={profileCoverColor} onChange={e=>setProfileCoverColor(e.target.value)} style={{width:80,height:48,padding:0,border:'1px solid #aaa',background:'transparent'}}/><span style={{fontSize:18,color:'#666'}}>Toque para escolher qualquer cor</span></div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(10,1fr)',gap:7}}>{coverPalette.map(color=><button key={color} type="button" aria-label={'Selecionar '+color} onClick={()=>setProfileCoverColor(color)} style={{aspectRatio:'1/1',border:profileCoverColor===color?'2px solid #222':'1px solid #ddd',borderRadius:8,background:color,padding:0}}/>)}</div>
           </div>
-          <button type="button" onClick={async()=>{
-            const cleanUsername=profileUsername.trim().replace(/^@+/,'');
-            const cleanLinks=profileLinks.map(v=>v.trim()).filter(Boolean).slice(0,2);
-            const {data,error}=await supabase.auth.updateUser({data:{media_display_name:profileName.trim(),media_username:cleanUsername,media_bio:profileBio,media_links:cleanLinks,media_email:profileEmail.trim(),media_email_visible:showEmail,media_cover_color:profileCoverColor}});
-            if(error){setNotice('Não foi possível guardar as alterações. Tenta novamente.');return;}
-            setUser(data.user||user);setProfileEditing(false);setNotice('Perfil atualizado.');
-          }} style={{width:'100%',height:64,border:0,borderRadius:20,background:'#FF2E7A',color:'#fff',fontSize:22,fontWeight:900,marginBottom:8}}>Guardar alterações</button>
-          {profileAvatarPreview&&<div style={{fontSize:13,color:'#777',textAlign:'center'}}>A foto escolhida está apenas em pré-visualização nesta versão.</div>}
+          <button type="button" disabled={profileSaving} onClick={async()=>{
+            setProfileSaving(true);
+            try {
+              const cleanUsername=profileUsername.trim().replace(/^@+/,'').toLowerCase();
+              const cleanLinks=profileLinks.map(v=>v.trim()).filter(Boolean).slice(0,2);
+              let avatarUrl = profileAvatarUrl;
+              if (profileAvatarFile) {
+                const bitmap = await createImageBitmap(profileAvatarFile);
+                const canvas = document.createElement('canvas');
+                canvas.width = bitmap.width; canvas.height = bitmap.height;
+                canvas.getContext('2d').drawImage(bitmap,0,0);
+                const jpegBlob = await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.9));
+                bitmap.close?.();
+                if (!jpegBlob) throw new Error('Não foi possível preparar a fotografia.');
+                const { error: uploadError } = await supabase.storage.from('avatars').upload(user.id + '.jpg', jpegBlob, { upsert:true, contentType:'image/jpeg' });
+                if (uploadError) throw uploadError;
+                const { data: publicAvatar } = supabase.storage.from('avatars').getPublicUrl(user.id + '.jpg');
+                avatarUrl = publicAvatar.publicUrl;
+                const { error: avatarError } = await supabase.from('profiles').update({ avatar_url: avatarUrl }).eq('id',user.id);
+                if (avatarError) throw avatarError;
+              }
+              const { data: authData, error: authError } = await supabase.auth.updateUser({data:{media_display_name:profileName.trim(),media_username:cleanUsername,media_bio:profileBio,media_links:cleanLinks,media_cover_color:profileCoverColor}});
+              if (authError) throw authError;
+              const { error: mediaError } = await supabase.from('media_profiles').update({
+                display_name:profileName.trim(),username:cleanUsername || null,bio:profileBio.trim() || null,
+                social_links:cleanLinks,email:user.email || null
+              }).eq('user_id',user.id);
+              if (mediaError) throw mediaError;
+              setUser(authData.user || user);
+              setProfileAvatarUrl(avatarUrl || '');
+              setMediaProfile(prev=>({...prev,display_name:profileName.trim(),username:cleanUsername || null,bio:profileBio.trim() || null,social_links:cleanLinks,email:user.email || null}));
+              setProfileAvatarFile(null);setProfileAvatarPreview('');
+              setProfileEditing(false);setNotice('Perfil atualizado.');
+            } catch(error) {
+              console.error('Erro ao guardar perfil da Mídia:',error);
+              setNotice('Não foi possível guardar o perfil: ' + (error.message || 'tenta novamente.'));
+            } finally { setProfileSaving(false); }
+          }} style={{width:'100%',height:64,border:0,borderRadius:20,background:'#FF2E7A',color:'#fff',fontSize:22,fontWeight:900,marginBottom:8}}>{profileSaving?'A guardar…':'Guardar alterações'}</button>
         </div>
       </main>
     );
@@ -308,7 +351,7 @@ export default function MediaHome() {
                     <button aria-label="Configurações do perfil" type="button" onClick={() => setNotice('Configurações de aparência do perfil.')} style={{ width: 36, height: 36, borderRadius: 50, border: '1px solid rgba(0,0,0,.25)', background: 'rgba(20,30,24,.65)', color: '#fff', display: 'grid', placeItems: 'center' }}><Icon name="sparkle" size={18}/></button>
                   </div>}
                   <div style={{ position: 'absolute', left: 14, bottom: -51, width: 104, height: 104, borderRadius: 22, padding: 3, background: 'linear-gradient(135deg,#ff4da9,#a83bfa)', boxShadow: '0 0 17px rgba(229,61,202,.3)' }}>
-                    <div style={{ width: '100%', height: '100%', borderRadius: 19, background: '#F2F2F2', display: 'grid', placeItems: 'center', overflow:'hidden' }}>{profileAvatarUrl ? <img src={profileAvatarUrl} alt="Foto de perfil" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : <div style={{fontSize:30,fontWeight:950,color:'#777'}}>{profileInitials}</div>}</div>
+                    <div style={{ width: '100%', height: '100%', borderRadius: 19, background: '#F2F2F2', display: 'grid', placeItems: 'center', overflow:'hidden' }}>{profileAvatarUrl ? <img src={profileAvatarUrl} alt="Foto de perfil" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : profileInitials ? <div style={{fontSize:30,fontWeight:950,color:'#777'}}>{profileInitials}</div> : null}</div>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gap: 6, padding: 0, borderRadius: 0, background: 'transparent', border: 0 }}>
@@ -316,9 +359,9 @@ export default function MediaHome() {
                     {profileTitle}
                     {temAcessoPremium && <span style={{padding:'4px 8px',borderRadius:12,background:'#f4df83',color:'#5b4210',fontSize:10,fontWeight:950}}>Perfil profissional</span>}
                   </div>
-                  {username && displayName && <div style={{ fontSize: 12, color: '#555555' }}>{username}</div>}
-                  {mediaProfile?.bio?.trim() && <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5, color: '#111111' }}>{mediaProfile.bio}</div>}
+                  {username && <div style={{ fontSize: 12, color: '#555555' }}>{username}{profileLanguage ? ' · ' + profileLanguage : ''}</div>}
                   {profileLocation && <div style={{ fontSize: 12, color: '#555555', marginTop: 4 }}>⌖ {profileLocation}</div>}
+                  {mediaProfile?.bio?.trim() && <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5, color: '#111111' }}>{mediaProfile.bio}</div>}
                   {profileLink && <a href={/^https?:\/\//i.test(profileLink) ? profileLink : `https://${profileLink}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#1674c4', marginTop: 4, display:'inline-flex', alignItems:'center', gap:6 }}><Icon name="link" size={15}/>{profileLink}</a>}
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:temAcessoPremium?'repeat(3,1fr)':'repeat(2,1fr)', gap:6, marginTop:19, marginBottom:18, textAlign:'center' }}>
@@ -326,9 +369,10 @@ export default function MediaHome() {
                   <div><div style={{fontSize:17,fontWeight:950,color:'#111'}}>{followingCount}</div><div style={{fontSize:11,color:'#666',marginTop:3}}>Seguindo</div></div>
                   {temAcessoPremium && <div><div style={{fontSize:17,fontWeight:950,color:'#111'}}>{fanclubCount}</div><div style={{fontSize:11,color:'#666',marginTop:3}}>Fã clube</div></div>}
                 </div>
+                <button type="button" onClick={()=>setPlansOpen(true)} style={{width:'100%',border:0,borderRadius:13,padding:13,background:'#ff3fa3',color:'#fff',fontSize:13,fontWeight:950,marginTop:8,marginBottom:18}}>Ver planos</button>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:9,marginBottom:18}}>
                   <button type="button" onClick={()=>selectNav('Mensagens')} style={{border:'1px solid #4a2a5c',borderRadius:12,padding:11,background:'#2b103b',color:'#fff',fontSize:12,fontWeight:850,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="message" size={16}/>Mensagens</button>
-                  <button type="button" onClick={()=>{setProfileEditing(true);setProfileName(mediaProfile?.display_name||'');setProfileUsername(mediaProfile?.username||'');setProfileBio(mediaProfile?.bio||'');setProfileLinks(metadata.media_links||[]);setProfileEmail(metadata.media_email||user?.email||'');setShowEmail(!!metadata.media_email_visible);setProfileCoverColor(metadata.media_cover_color||'#E84A8A');setProfileAvatarPreview('');}} style={{border:'1px solid #4a2a5c',borderRadius:12,padding:11,background:'#2b103b',color:'#fff',fontSize:12,fontWeight:850,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="edit" size={16}/>Editar perfil</button>
+                  <button type="button" onClick={()=>{setProfileEditing(true);setProfileName(displayName);setProfileUsername(rawUsername);setProfileBio(mediaProfile?.bio||metadata.media_bio||'');setProfileLinks(Array.isArray(mediaProfile?.social_links)?mediaProfile.social_links:metadata.media_links||[]);setProfileEmail(metadata.media_email||user?.email||'');setShowEmail(!!metadata.media_email_visible);setProfileCoverColor(metadata.media_cover_color||'#E84A8A');setProfileAvatarPreview('');}} style={{border:'1px solid #4a2a5c',borderRadius:12,padding:11,background:'#2b103b',color:'#fff',fontSize:12,fontWeight:850,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="edit" size={16}/>Editar perfil</button>
                 </div>
                 {temAcessoPremium && <div style={{display:'grid',gap:9,marginBottom:19}}>
                   <button type="button" onClick={()=>{setExplorePublishOpen(true);setExplorePhotos([]);setExploreCaption('');}} style={{width:'100%',border:0,borderRadius:13,padding:13,background:'#f4df83',color:'#241b10',fontSize:13,fontWeight:950,display:'flex',alignItems:'center',justifyContent:'center',gap:9}}><Icon name="globe" size={18}/>Publicar no explore</button>
@@ -347,7 +391,6 @@ export default function MediaHome() {
                   {(temAcessoPremium?['Publicações','Fotos','Vídeos','Favoritos','Guardados']:['Publicações','Guardados','Favoritos']).map(tab=><button key={tab} type="button" onClick={()=>setProfileTab(tab)} style={{flex:'0 0 auto',padding:'11px 8px',border:0,borderBottom:profileTab===tab?'2px solid #ff4fa9':'2px solid transparent',background:'transparent',color:profileTab===tab?'#222':'#777',fontSize:12,fontWeight:900}}>{tab}</button>)}
                 </div>
                 <div style={{minHeight:120,display:'grid',placeItems:'center',padding:18,textAlign:'center',color:'#777',fontSize:13}}>Ainda não tens publicações</div>
-                <button type="button" onClick={()=>setNotice('Planos profissionais da Mídia Talaza.')} style={{width:'100%',border:0,borderRadius:13,padding:13,background:'#ff3fa3',color:'#fff',fontSize:13,fontWeight:950,marginTop:14,marginBottom:12}}>Ver planos</button>
                 </>
                 )}
               </div>
@@ -366,7 +409,7 @@ export default function MediaHome() {
                 {exploreTab === 'Explorar' ? (
                   <div style={{ display: 'grid', gap: 18 }}>
                     <div style={{display:'flex',alignItems:'center',gap:9,padding:12,borderRadius:15,background:'#2b103b',border:'1px solid #45245b'}}>
-                      <div style={{width:38,height:38,borderRadius:50,background:'#F2F2F2',display:'grid',placeItems:'center',overflow:'hidden',color:'#777',fontWeight:900}}>{profileAvatarUrl?<img src={profileAvatarUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:profileInitials}</div>
+                      <div style={{width:38,height:38,borderRadius:50,background:'#F2F2F2',display:'grid',placeItems:'center',overflow:'hidden',color:'#777',fontWeight:900}}>{profileAvatarUrl?<img src={profileAvatarUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:profileInitials || null}</div>
                       <button type="button" onClick={()=>{if(!user){router.push('/login?next=/media');return;}setCaptureMode('Foto');setCreateStep(1);setSelectedMedia(null);setCreateOpen(true);}} style={{flex:1,minWidth:0,padding:'11px 13px',border:0,borderRadius:20,background:'#3a1b4a',color:'#cdbed7',fontSize:12,textAlign:'left'}}>{user?'No que estás a pensar?':'Entra para criar uma publicação'}</button>
                       <button aria-label="Adicionar foto ou vídeo" type="button" onClick={()=>{if(!user){router.push('/login?next=/media');return;}setCaptureMode('Foto');setCreateStep(1);setSelectedMedia(null);setCreateOpen(true);}} style={{border:0,background:'transparent',color:'#ff75bb',display:'grid',placeItems:'center'}}><Icon name="photo" size={22}/></button>
                     </div>
@@ -779,6 +822,20 @@ export default function MediaHome() {
           </nav>
         </div>
 
+        {plansOpen && <div role="dialog" aria-modal="true" aria-label="Planos da MÍDIA TALAZA" style={{position:'fixed',inset:0,zIndex:45,background:'#fff',color:'#111',fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif",overflowY:'auto',padding:'max(20px,env(safe-area-inset-top)) 18px max(24px,env(safe-area-inset-bottom))'}}>
+          <div style={{maxWidth:520,margin:'0 auto'}}>
+            <button type="button" onClick={()=>setPlansOpen(false)} style={{border:0,borderRadius:12,padding:'9px 14px',background:'#F2F2F2',color:'#111',fontWeight:900}}>‹ Voltar ao perfil</button>
+            <h2 style={{fontSize:25,fontWeight:950,margin:'22px 0 8px'}}>Planos da MÍDIA TALAZA</h2>
+            <p style={{fontSize:13,color:'#666',lineHeight:1.5}}>Escolhe um plano para desbloquear as funcionalidades profissionais após pagamento e aprovação da Administração.</p>
+            {mediaPlanLoading ? <p>A carregar planos…</p> : mediaPlan ? <article style={{marginTop:18,padding:18,borderRadius:18,border:'1px solid #ead9a5',background:'#fffaf0'}}>
+              <div style={{fontSize:18,fontWeight:950}}>{mediaPlan.name}</div>
+              <div style={{fontSize:27,fontWeight:950,marginTop:10}}>{Number(mediaPlan.price).toLocaleString('pt-AO')} Kz</div>
+              <div style={{fontSize:13,color:'#666'}}>{mediaPlan.duration_days} dias</div>
+              <p style={{fontSize:13,lineHeight:1.6,color:'#444'}}>Acesso às funcionalidades profissionais após confirmação do pagamento e aprovação administrativa.</p>
+              <button type="button" onClick={()=>router.push('/media-pagamento?plan_id='+mediaPlan.id)} style={{width:'100%',border:0,borderRadius:12,padding:13,background:'#FF2E7A',color:'#fff',fontWeight:950}}>Aderir</button>
+            </article> : <p>Não existe um plano profissional ativo disponível.</p>}
+          </div>
+        </div>}
         {menuOpen && <div role="dialog" aria-modal="true" aria-label="Menu MÍDIA TALAZA" style={{ position: 'fixed', inset: 0, zIndex: 20, display: 'flex', justifyContent: 'flex-end' }}>
           <button type="button" aria-label="Fechar menu" onClick={() => setMenuOpen(false)} style={{ position: 'absolute', inset: 0, border: 0, background: 'rgba(0,0,0,.7)' }} />
           <aside style={{ position: 'relative', width: 'min(350px,88vw)', height: '100%', background: '#0b100d', borderLeft: '1px solid #1d4934', padding: 22, display: 'flex', flexDirection: 'column', boxShadow: '-12px 0 36px rgba(0,0,0,.4)' }}>
