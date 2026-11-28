@@ -10,7 +10,7 @@ export default function MediaPayment() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [plan, setPlan] = useState(null);
-  const [senderPhone, setSenderPhone] = useState('');
+  const [orderingName, setOrderingName] = useState('');
   const [proof, setProof] = useState(null);
   const [pending, setPending] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +36,7 @@ export default function MediaPayment() {
       setPlan(planData || null);
       if (planData) {
         const { data: existing, error: existingError } = await supabase.from('payment_submissions')
-          .select('id,status,created_at,amount,proof_url,express_sender_phone')
+          .select('id,status,created_at,amount,proof_url,ordering_name')
           .eq('user_id',auth.user.id).eq('plan_id',PLAN_ID)
           .is('business_id',null).is('event_id',null).is('job_post_id',null).is('premium_promotion_id',null)
           .in('status',['pending','submitted']).order('created_at',{ascending:false}).limit(1).maybeSingle();
@@ -56,9 +56,9 @@ export default function MediaPayment() {
       setError('Seleciona o comprovativo da transferência.');
       return;
     }
-    const normalizedPhone = senderPhone.replace(/[^0-9]/g,'');
-    if (normalizedPhone.length < 7 || normalizedPhone.length > 15) {
-      setError('Introduz o número Express que fez a transferência.');
+    const normalizedOrderingName = orderingName.trim();
+    if (!normalizedOrderingName) {
+      setError('Nome do ordenante é obrigatório.');
       return;
     }
     if (!['image/jpeg','image/png','application/pdf'].includes(proof.type)) {
@@ -79,7 +79,7 @@ export default function MediaPayment() {
       if (uploadError) throw uploadError;
       const { data: inserted, error: insertError } = await supabase.rpc('submit_media_professional_payment',{
         p_amount:Number(plan.price),
-        p_express_sender_phone:normalizedPhone,
+        p_ordering_name:normalizedOrderingName,
         p_proof_path:path,
         p_proof_type:extension
       });
@@ -109,7 +109,7 @@ export default function MediaPayment() {
           <div style={{padding:18,borderRadius:18,background:'#FFFFFF',border:'1px solid #E9DFEA'}}>
             <div style={{fontSize:26,fontWeight:950}}>{formatKz(plan.price)}</div>
             <div style={{fontSize:14,color:'#68606D',marginTop:4}}>{plan.duration_days} dias</div>
-            <p style={{fontSize:13,lineHeight:1.6,color:'#5F5864'}}>O perfil profissional só será ativado depois da validação do pagamento e da aprovação da Administração.</p>
+            {plan.description && <p style={{fontSize:13,lineHeight:1.6,color:'#5F5864',whiteSpace:'pre-wrap'}}>{plan.description}</p>}
           </div>
           {done ? <div role="status" style={{marginTop:16,padding:18,borderRadius:16,background:'#E9F5EF',color:'#145B3D'}}>
             <strong>Comprovativo enviado.</strong>
@@ -127,8 +127,9 @@ export default function MediaPayment() {
             <strong style={{display:'block',fontSize:18,marginTop:4}}>{PAYMENT_MESSAGE}</strong>
             <div style={{fontSize:12,color:'#69616D',marginTop:14}}>Valor a pagar</div>
             <strong style={{display:'block',fontSize:28,color:'#A56B00',marginTop:4}}>{formatKz(plan.price)}</strong>
-            <label style={{display:'block',fontSize:13,fontWeight:850,marginTop:18}}>Número Express que fez a transferência</label>
-            <input value={senderPhone} onChange={e=>setSenderPhone(e.target.value.replace(/[^0-9]/g,''))} inputMode="numeric" placeholder="Número do remetente" style={{width:'100%',boxSizing:'border-box',padding:13,border:'1px solid #DDD4E2',borderRadius:12,marginTop:7,fontSize:16}}/>
+            <label style={{display:'block',fontSize:13,fontWeight:850,marginTop:18}}>Nome do ordenante *</label>
+            <input required value={orderingName} onChange={e=>setOrderingName(e.target.value)} placeholder="Nome do ordenante" style={{width:'100%',boxSizing:'border-box',padding:13,border:'1px solid #DDD4E2',borderRadius:12,marginTop:7,fontSize:16}}/>
+            <p style={{fontSize:12,color:'#69616D',marginTop:6}}>Escreve o nome igual ao que colocaste quando fizeste a transferência.</p>
             <label style={{display:'block',fontSize:13,fontWeight:850,marginTop:16}}>Comprovativo (JPG, PNG ou PDF · máximo 8 MB)</label>
             <input type="file" accept="image/jpeg,image/png,application/pdf" onChange={e=>setProof(e.target.files?.[0]||null)} style={{display:'block',width:'100%',marginTop:8}}/>
             {proof && <p style={{fontSize:12,color:'#69616D'}}>{proof.name}</p>}
