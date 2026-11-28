@@ -85,6 +85,11 @@ export default function MediaHome() {
   const [plansOpen, setPlansOpen] = useState(false);
   const [mediaPlan, setMediaPlan] = useState(null);
   const [mediaPlanLoading, setMediaPlanLoading] = useState(false);
+  const [mediaSuggestions, setMediaSuggestions] = useState([]);
+  const [mediaPosts, setMediaPosts] = useState([]);
+  const [mediaFollowIds, setMediaFollowIds] = useState([]);
+  const [discoveryLanguages, setDiscoveryLanguages] = useState([]);
+  const [mediaDataLoading, setMediaDataLoading] = useState(false);
   const profileAvatarInputRef = useRef(null);
   const coverColorInputRef = useRef(null);
   const coverPalette = ['#E84A8A','#FF2E7A','#FF5FA8','#FF8A3D','#FFD966','#D6E83D','#63C653','#19A875','#36C6C9','#45A5F5','#5C6DFF','#8A3DFF','#B44AFF','#D94AFF','#FF4A58','#914D36','#222222','#F2F2F2'];
@@ -110,8 +115,8 @@ export default function MediaHome() {
         return;
       }
       const [{ data: mediaData, error: mediaError }, { data: profileData, error: profileError }] = await Promise.all([
-        supabase.from('media_profiles').select('display_name,username,email,bio,social_links,country_id,province_id,interface_language,is_professional,professional_status,plan_id,plan_paid_at,approved_by,approved_at').eq('user_id', authUser.id).maybeSingle(),
-        supabase.from('profiles').select('name,avatar_url,country_id,province_id').eq('id', authUser.id).maybeSingle(),
+        supabase.from('media_profiles').select('display_name,username,email,bio,social_links,country_id,province_id,interface_language,is_professional,professional_status,plan_id,plan_paid_at,plan_expires_at,approved_by,approved_at').eq('user_id', authUser.id).maybeSingle(),
+        supabase.from('profiles').select('name,username,avatar_url,country_id,province_id,show_email').eq('id', authUser.id).maybeSingle(),
       ]);
       if (mediaError) console.error('Erro ao carregar media_profiles:', mediaError);
       if (profileError) console.error('Erro ao carregar profiles:', profileError);
@@ -127,6 +132,8 @@ export default function MediaHome() {
       setProfileName(mediaData?.display_name || profileData?.name || authUser.user_metadata?.media_display_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || '');
       setProfileUsername(mediaData?.username || authUser.user_metadata?.media_username || '');
       setProfileLocation([provinceData?.name, countryData?.name].filter(Boolean).join(', '));
+      setShowEmail(Boolean(profileData?.show_email));
+      setProfileCoverColor(authUser.user_metadata?.media_cover_color || '#E84A8A');
     }
     async function load() {
       const { data, error } = await supabase.auth.getUser();
@@ -163,7 +170,7 @@ export default function MediaHome() {
   const profileLink = typeof socialLinks === 'string' ? socialLinks : Array.isArray(socialLinks) ? (typeof socialLinks[0] === 'string' ? socialLinks[0] : socialLinks[0]?.url || socialLinks[0]?.link || '') : socialLinks?.url || socialLinks?.website || '';
   const pagouPlano = Boolean(mediaProfile?.plan_id && mediaProfile?.plan_paid_at);
   const aprovadoPelaAdmin = Boolean(mediaProfile?.is_professional && mediaProfile?.professional_status === 'approved' && mediaProfile?.approved_by && mediaProfile?.approved_at);
-  const temAcessoPremium = pagouPlano && aprovadoPelaAdmin;
+  const temAcessoPremium = pagouPlano && aprovadoPelaAdmin && Boolean(mediaProfile?.plan_expires_at && new Date(mediaProfile.plan_expires_at).getTime() > Date.now());
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -250,14 +257,14 @@ export default function MediaHome() {
             <textarea value={profileBio} maxLength={150} onChange={e=>setProfileBio(e.target.value)} style={{height:150,resize:'vertical',border:0,borderRadius:20,padding:16,background:'#F2F2F2',color:'#000',fontSize:20,lineHeight:1.45}}/>
             <div style={{fontSize:17,color:'#888'}}>{profileBio.length}/150</div>
           </div>
-          <div style={{display:'grid',gap:8,marginBottom:20}}>
+          {temAcessoPremium && <div style={{display:'grid',gap:8,marginBottom:20}}>
             <label style={{fontSize:19,fontWeight:900,color:'#666'}}>Links (máximo 2)</label>
             {profileLinks.map((link,i)=><div key={'profile-link-'+i} style={{display:'flex',gap:10,alignItems:'center'}}>
               <input value={link} onChange={e=>setProfileLinks(prev=>prev.map((v,j)=>j===i?e.target.value:v))} placeholder="Link" style={{height:64,flex:1,minWidth:0,border:0,borderRadius:20,padding:'0 16px',background:'#F2F2F2',color:'#000',fontSize:20}}/>
               <button type="button" aria-label="Apagar link" onClick={()=>setProfileLinks(prev=>prev.filter((_,j)=>j!==i))} style={{width:64,height:64,border:0,borderRadius:20,background:'#F2F2F2',color:'#000',fontSize:20}}>⌫</button>
             </div>)}
             {profileLinks.length<2&&<button type="button" onClick={()=>setProfileLinks(prev=>[...prev,''])} style={{height:64,border:0,borderRadius:20,background:'#F2F2F2',color:'#000',fontSize:20,fontWeight:900}}>＋ Adicionar link ({profileLinks.length}/2)</button>}
-          </div>
+          </div>}
           <div style={{display:'grid',gap:8,marginBottom:20}}>
             <label style={{fontSize:19,fontWeight:900,color:'#666'}}>E-mail</label>
             <input type="email" value={user?.email || ''} readOnly disabled style={{height:64,border:0,borderRadius:20,padding:'0 16px',background:'#F2F2F2',color:'#666',fontSize:20}}/>
@@ -293,16 +300,22 @@ export default function MediaHome() {
                 const { error: avatarError } = await supabase.from('profiles').update({ avatar_url: avatarUrl }).eq('id',user.id);
                 if (avatarError) throw avatarError;
               }
-              const { data: authData, error: authError } = await supabase.auth.updateUser({data:{media_display_name:profileName.trim(),media_username:cleanUsername,media_bio:profileBio,media_links:cleanLinks,media_cover_color:profileCoverColor}});
+              const { data: authData, error: authError } = await supabase.auth.updateUser({data:{media_display_name:profileName.trim(),media_username:cleanUsername,media_bio:profileBio,media_links:temAcessoPremium?cleanLinks:(mediaProfile?.social_links||[]),media_cover_color:profileCoverColor}});
               if (authError) throw authError;
+              const { error: profileError } = await supabase.from('profiles').update({
+                name:profileName.trim(),username:cleanUsername || null,show_email:showEmail,avatar_url:avatarUrl || null
+              }).eq('id',user.id);
+              if (profileError) throw profileError;
               const { error: mediaError } = await supabase.from('media_profiles').update({
                 display_name:profileName.trim(),username:cleanUsername || null,bio:profileBio.trim() || null,
-                social_links:cleanLinks,email:user.email || null
+                social_links:temAcessoPremium?cleanLinks:(mediaProfile?.social_links||[]),email:user.email || null,show_email:showEmail
               }).eq('user_id',user.id);
               if (mediaError) throw mediaError;
               setUser(authData.user || user);
               setProfileAvatarUrl(avatarUrl || '');
-              setMediaProfile(prev=>({...prev,display_name:profileName.trim(),username:cleanUsername || null,bio:profileBio.trim() || null,social_links:cleanLinks,email:user.email || null}));
+              setMediaProfile(prev=>({...prev,display_name:profileName.trim(),username:cleanUsername || null,bio:profileBio.trim() || null,social_links:temAcessoPremium?cleanLinks:(prev?.social_links||[]),email:user.email || null,show_email:showEmail}));
+              setProfileName(profileName.trim());
+              setProfileUsername(cleanUsername);
               setProfileAvatarFile(null);setProfileAvatarPreview('');
               setProfileEditing(false);setNotice('Perfil atualizado.');
             } catch(error) {
@@ -362,10 +375,11 @@ export default function MediaHome() {
                     {profileTitle}
                     {temAcessoPremium && <span style={{padding:'4px 8px',borderRadius:12,background:'#f4df83',color:'#5b4210',fontSize:10,fontWeight:950}}>Perfil profissional</span>}
                   </div>
-                  {username && displayName && <div style={{ fontSize: 12, color: '#555555' }}>{username}{profileLanguage ? ' · ' + profileLanguage : ''}</div>}
+                  {username && <div style={{ fontSize: 12, color: '#555555' }}>{username}{temAcessoPremium && profileLanguage ? ' · ' + profileLanguage : ''}</div>}
                   {profileLocation && <div style={{ fontSize: 12, color: '#555555', marginTop: 4 }}>⌖ {profileLocation}</div>}
                   {profileBioValue?.trim() && <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5, color: '#111111' }}>{profileBioValue}</div>}
-                  {profileLink && <a href={/^https?:\/\//i.test(profileLink) ? profileLink : `https://${profileLink}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#1674c4', marginTop: 4, display:'inline-flex', alignItems:'center', gap:6 }}><Icon name="link" size={15}/>{profileLink}</a>}
+                  {temAcessoPremium && profileLink && <a href={/^https?:\/\//i.test(profileLink) ? profileLink : `https://${profileLink}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#1674c4', marginTop: 4, display:'inline-flex', alignItems:'center', gap:6 }}><Icon name="link" size={15}/>{profileLink}</a>}
+                  {mediaProfile?.show_email && user?.email && <div style={{fontSize:12,color:'#555',marginTop:4}}>{user.email}</div>}
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:temAcessoPremium?'repeat(3,1fr)':'repeat(2,1fr)', gap:6, marginTop:19, marginBottom:18, textAlign:'center' }}>
                   <div><div style={{fontSize:17,fontWeight:950,color:'#111'}}>{followerCount}</div><div style={{fontSize:11,color:'#666',marginTop:3}}>Seguidores</div></div>
@@ -375,7 +389,7 @@ export default function MediaHome() {
                 <button type="button" onClick={()=>setPlansOpen(true)} style={{width:'100%',border:0,borderRadius:13,padding:13,background:'#ff3fa3',color:'#fff',fontSize:13,fontWeight:950,marginTop:8,marginBottom:18}}>Ver planos</button>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:9,marginBottom:18}}>
                   <button type="button" onClick={()=>selectNav('Mensagens')} style={{border:'1px solid #4a2a5c',borderRadius:12,padding:11,background:'#2b103b',color:'#fff',fontSize:12,fontWeight:850,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="message" size={16}/>Mensagens</button>
-                  <button type="button" onClick={()=>{setProfileEditing(true);setProfileName(displayName);setProfileUsername(rawUsername);setProfileBio(mediaProfile?.bio||metadata.media_bio||'');setProfileLinks(Array.isArray(mediaProfile?.social_links)?mediaProfile.social_links:metadata.media_links||[]);setProfileEmail(metadata.media_email||user?.email||'');setShowEmail(!!metadata.media_email_visible);setProfileCoverColor(metadata.media_cover_color||'#E84A8A');setProfileAvatarPreview('');}} style={{border:'1px solid #4a2a5c',borderRadius:12,padding:11,background:'#2b103b',color:'#fff',fontSize:12,fontWeight:850,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="edit" size={16}/>Editar perfil</button>
+                  <button type="button" onClick={()=>{setProfileEditing(true);setProfileName(displayName);setProfileUsername(rawUsername);setProfileBio(mediaProfile?.bio||metadata.media_bio||'');setProfileLinks(Array.isArray(mediaProfile?.social_links)?mediaProfile.social_links:metadata.media_links||[]);setProfileEmail(user?.email||'');setShowEmail(Boolean(mediaProfile?.show_email));setProfileCoverColor(metadata.media_cover_color||'#E84A8A');setProfileAvatarPreview('');}} style={{border:'1px solid #4a2a5c',borderRadius:12,padding:11,background:'#2b103b',color:'#fff',fontSize:12,fontWeight:850,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="edit" size={16}/>Editar perfil</button>
                 </div>
                 {temAcessoPremium && <div style={{display:'grid',gap:9,marginBottom:19}}>
                   <button type="button" onClick={()=>{setExplorePublishOpen(true);setExplorePhotos([]);setExploreCaption('');}} style={{width:'100%',border:0,borderRadius:13,padding:13,background:'#f4df83',color:'#241b10',fontSize:13,fontWeight:950,display:'flex',alignItems:'center',justifyContent:'center',gap:9}}><Icon name="globe" size={18}/>Publicar no explore</button>
