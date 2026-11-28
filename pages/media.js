@@ -700,7 +700,6 @@ export default function MediaHome() {
                   </div>
                 )}
               </div>
-              </>
             )}
             {notice && (
               <div style={{ maxWidth: 300 }}>
