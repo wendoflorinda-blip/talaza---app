@@ -104,6 +104,8 @@ export default function MediaHome() {
       if (!authUser) {
         setMediaProfile(null);
         setProfileAvatarUrl('');
+        setProfileName('');
+        setProfileUsername('');
         setProfileLocation('');
         return;
       }
@@ -147,8 +149,8 @@ export default function MediaHome() {
   }, []);
 
   const metadata = user?.user_metadata || {};
-  const displayName = String(mediaProfile?.display_name || user?.user_metadata?.media_display_name || user?.user_metadata?.full_name || user?.user_metadata?.name || '').trim();
-  const rawUsername = String(mediaProfile?.username || user?.user_metadata?.media_username || '').trim().replace(/^@+/, '');
+  const displayName = String(mediaProfile?.display_name || profileName || user?.user_metadata?.media_display_name || user?.user_metadata?.full_name || user?.user_metadata?.name || '').trim();
+  const rawUsername = String(mediaProfile?.username || profileUsername || user?.user_metadata?.media_username || '').trim().replace(/^@+/, '');
   const username = rawUsername ? '@' + rawUsername : '';
   const profileTitle = displayName || username;
   const profileInitials = (displayName || rawUsername).split(/[\\s._-]+/).filter(Boolean).slice(0,2).map(part=>part[0].toUpperCase()).join('');
@@ -156,7 +158,8 @@ export default function MediaHome() {
   const followerCount = 0;
   const followingCount = 0;
   const fanclubCount = 0;
-  const socialLinks = mediaProfile?.social_links;
+  const socialLinks = mediaProfile?.social_links || metadata.media_links;
+  const profileBio = mediaProfile?.bio || metadata.media_bio || '';
   const profileLink = typeof socialLinks === 'string' ? socialLinks : Array.isArray(socialLinks) ? (typeof socialLinks[0] === 'string' ? socialLinks[0] : socialLinks[0]?.url || socialLinks[0]?.link || '') : socialLinks?.url || socialLinks?.website || '';
   const pagouPlano = Boolean(mediaProfile?.plan_id && mediaProfile?.plan_paid_at);
   const aprovadoPelaAdmin = Boolean(mediaProfile?.is_professional && mediaProfile?.professional_status === 'approved' && mediaProfile?.approved_by && mediaProfile?.approved_at);
@@ -226,7 +229,7 @@ export default function MediaHome() {
           </div>
           <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24}}>
             <button type="button" onClick={()=>profileAvatarInputRef.current?.click()} style={{width:110,height:110,flexShrink:0,border:0,borderRadius:24,background:'linear-gradient(180deg,#FF5FA8,#8A3DFF)',color:'#fff',fontSize:44,fontWeight:900,display:'grid',placeItems:'center',overflow:'hidden'}}>
-              {profileAvatarPreview ? <img src={profileAvatarPreview} alt="Pré-visualização" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : 'MA'}
+              {profileAvatarPreview ? <img src={profileAvatarPreview} alt="Pré-visualização" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : profileAvatarUrl ? <img src={profileAvatarUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : profileInitials || null}
             </button>
             <input ref={profileAvatarInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const file=e.target.files?.[0];if(file){setProfileAvatarFile(file);const reader=new FileReader();reader.onload=()=>setProfileAvatarPreview(String(reader.result||''));reader.readAsDataURL(file);}}}/>
             <button type="button" onClick={()=>profileAvatarInputRef.current?.click()} style={{height:60,flex:1,border:0,borderRadius:20,background:'#F2F2F2',color:'#000',fontSize:19,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',gap:10}}>📷 Alterar foto</button>
@@ -361,7 +364,7 @@ export default function MediaHome() {
                   </div>
                   {username && <div style={{ fontSize: 12, color: '#555555' }}>{username}{profileLanguage ? ' · ' + profileLanguage : ''}</div>}
                   {profileLocation && <div style={{ fontSize: 12, color: '#555555', marginTop: 4 }}>⌖ {profileLocation}</div>}
-                  {mediaProfile?.bio?.trim() && <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5, color: '#111111' }}>{mediaProfile.bio}</div>}
+                  {profileBio?.trim() && <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5, color: '#111111' }}>{profileBio}</div>}
                   {profileLink && <a href={/^https?:\/\//i.test(profileLink) ? profileLink : `https://${profileLink}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#1674c4', marginTop: 4, display:'inline-flex', alignItems:'center', gap:6 }}><Icon name="link" size={15}/>{profileLink}</a>}
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:temAcessoPremium?'repeat(3,1fr)':'repeat(2,1fr)', gap:6, marginTop:19, marginBottom:18, textAlign:'center' }}>
