@@ -223,12 +223,18 @@ export default function AuthCallback() {
             }).eq('id', applicationId).eq('user_id', user.id);
             if (applicationUpdateError) throw applicationUpdateError;
           }
+          const { data: countryLanguageRows, error: countryLanguageError } = await supabase
+            .from('country_languages').select('languages(name)').eq('country_id', source.country_id).eq('is_active', true);
+          if (countryLanguageError) throw countryLanguageError;
+          const allowedInterfaceLanguages = (countryLanguageRows || []).map(row => row.languages?.name).filter(Boolean);
+          const selectedInterfaceLanguage = allowedInterfaceLanguages.includes(pending.media_interface_language)
+            ? pending.media_interface_language : null;
           const mediaProfileData = {
             user_id: user.id, application_id: applicationId, display_name: applicationData.display_name,
             username: applicationData.username, email: user.email || null, country_id: source.country_id,
             province_id: source.province_id, content_category: applicationData.content_category, languages: applicationData.languages,
             status: 'active', gender: String(source.gender || '').toLowerCase() || null, tipo_conta: 'creator',
-            interface_language: pending.media_interface_language || null,
+            interface_language: selectedInterfaceLanguage,
             niches: Array.isArray(pending.media_niches) ? pending.media_niches : [],
           };
           const { error: mediaProfileError } = await supabase.from('media_profiles').upsert(mediaProfileData, { onConflict: 'user_id', ignoreDuplicates: true });
@@ -238,7 +244,7 @@ export default function AuthCallback() {
           const { data: commercialSync, error: commercialSyncError } = await supabase.rpc('sync_media_creator_commercial_profile');
           if (commercialSyncError) console.warn('Perfil Comercial será sincronizado ao primeiro acesso:', commercialSyncError);
           else if (commercialSync?.ok) {
-            await supabase.from('profiles').update({ name: source.name, commercial_display_name: source.name, media_synced_display_name: source.name }).eq('id', user.id);
+            await supabase.from('profiles').update({ name: source.name, username: applicationData.username || null, commercial_display_name: source.name, media_synced_display_name: source.name }).eq('id', user.id);
           }
           await finishEnvelopeCleanup(session.access_token);
           setMessage('Email confirmado. A abrir a MÍDIA TALAZA…');
