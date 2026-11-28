@@ -2424,7 +2424,7 @@ export default function Admin() {
                 <div style={styles.details}>
                   <p><strong>Plano:</strong> Perfil Profissional</p>
                   <p><strong>Valor:</strong> {Number(request.amount).toLocaleString('pt-AO')} Kz</p>
-                  <p><strong>Número Express:</strong> {request.express_sender_phone || '—'}</p>
+                  <p><strong>Nome do ordenante:</strong> {request.ordering_name || 'Não informado (registo antigo)'}</p>
                   {mediaProfessionalProofUrls[request.id] ? <p><a href={mediaProfessionalProofUrls[request.id]} target="_blank" rel="noreferrer" style={{color:'#075B4E',fontWeight:800}}>Abrir comprovativo ↗</a></p> : <p>Comprovativo indisponível.</p>}
                   {request.notes && <p><strong>Observação:</strong> {request.notes}</p>}
                 </div>
