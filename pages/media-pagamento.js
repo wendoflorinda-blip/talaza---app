@@ -23,7 +23,7 @@ export default function MediaPayment() {
     async function load() {
       const [{ data: auth }, { data: planData, error: planError }] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from('plans').select('id,name,price,duration_days,plan_type,is_active')
+        supabase.from('plans').select('id,name,description,price,duration_days,plan_type,is_active')
           .eq('id', PLAN_ID).eq('plan_type','talaza_midia').eq('is_active',true).maybeSingle()
       ]);
       if (!active) return;
