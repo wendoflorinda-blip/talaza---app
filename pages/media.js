@@ -614,7 +614,6 @@ export default function MediaHome() {
                   </div>
                 </div>
                 <div style={{fontSize:12,color:'#777',textAlign:'center',padding:10}}>Os fãs não pagam. Os fã clubes permanecem abertos.</div>
-              </div>
             </>
             )}
             {activeNav === 'Mensagens' && (
