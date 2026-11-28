@@ -57,13 +57,13 @@ export default function OportunidadeDetalhe() {
       } else {
         setOpportunity(data);
         const [{ data: author }, { data: provinceRecord }, { data: authResult }, { data: publisherBusiness }] = await Promise.all([
-          supabase.from('profiles').select('name,avatar_url').eq('id',data.user_id).maybeSingle(),
+          supabase.from('profiles_public').select('display_name,avatar').eq('id',data.user_id).maybeSingle(),
           supabase.from('provinces').select('name').eq('id',data.province_id).maybeSingle(),
           supabase.auth.getUser(),
           supabase.from('businesses').select('name,logo_url').eq('owner_id',data.user_id).order('created_at',{ascending:false}).limit(1).maybeSingle()
         ]);
-        setPublisherName(publisherBusiness?.name||author?.name||'Utilizador Talaza');
-        setPublisherPhoto(publisherBusiness?.logo_url||author?.avatar_url||'');
+        setPublisherName(publisherBusiness?.name||author?.display_name||'Utilizador Talaza');
+        setPublisherPhoto(publisherBusiness?.logo_url||author?.avatar||'');
         setProvinceName(provinceRecord?.name||'');
         const viewer=authResult?.user||null;setCurrentUser(viewer);
         if(viewer&&String(viewer.id)!==String(data.user_id)){

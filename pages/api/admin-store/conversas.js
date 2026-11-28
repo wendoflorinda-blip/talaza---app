@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     if(participantsError) throw participantsError;
     const userIds=[...new Set((participants||[]).map(row=>row.user_id).filter(Boolean))];
     const {data:profiles,error:profilesError}=userIds.length
-      ? await auth.supabase.from('profiles').select('id,name,avatar_url').in('id',userIds)
+      ? await auth.supabase.from('profiles_public').select('id,display_name,avatar').in('id',userIds)
       : {data:[],error:null};
     if(profilesError) throw profilesError;
     const profileMap=new Map((profiles||[]).map(row=>[String(row.id),row]));
@@ -39,8 +39,8 @@ export default async function handler(req, res) {
         source:conversation.source||'',
         created_at:conversation.created_at,
         updated_at:conversation.updated_at,
-        participants:(participants||[]).filter(row=>row.conversation_id===conversation.id).map(row=>({user_id:row.user_id,name:profileMap.get(String(row.user_id))?.name||'Utilizador Talaza',avatar_url:profileMap.get(String(row.user_id))?.avatar_url||null})),
-        messages:(messages||[]).filter(row=>row.conversation_id===conversation.id).map(row=>({...row,sender_name:profileMap.get(String(row.sender_id))?.name||'Utilizador Talaza'})),
+        participants:(participants||[]).filter(row=>row.conversation_id===conversation.id).map(row=>({user_id:row.user_id,name:profileMap.get(String(row.user_id))?.display_name||'Utilizador Talaza',avatar_url:profileMap.get(String(row.user_id))?.avatar||null})),
+        messages:(messages||[]).filter(row=>row.conversation_id===conversation.id).map(row=>({...row,sender_name:profileMap.get(String(row.sender_id))?.display_name||'Utilizador Talaza'})),
       };
     }).filter(thread=>thread.messages.length>0);
     return res.status(200).json({ businesses:businessRows, threads });

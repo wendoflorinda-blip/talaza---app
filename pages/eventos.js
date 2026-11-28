@@ -338,7 +338,7 @@ export default function Eventos() {
       const businessIds = [...new Set(rows.filter(item => item.publisher_mode === 'store' && item.publisher_business_id).map(item => item.publisher_business_id))];
       if (publisherIds.length) {
         const [{ data: profiles }, { data: businesses }] = await Promise.all([
-          supabase.from('profiles').select('id,name,avatar_url').in('id', publisherIds),
+          supabase.from('profiles_public').select('id,display_name,avatar').in('id', publisherIds),
           businessIds.length ? supabase.from('businesses').select('id,owner_id,name,logo_url').in('id', businessIds) : Promise.resolve({data:[]})
         ]);
         const profilesById = Object.fromEntries((profiles || []).map(item => [item.id, item]));
@@ -347,7 +347,7 @@ export default function Eventos() {
           const profile = profilesById[event.user_id] || {};
           const business = event.publisher_mode === 'store' && event.publisher_business_id ? businessesById[event.publisher_business_id] : null;
           const validBusiness = business && String(business.owner_id) === String(event.user_id);
-          return [event.id, validBusiness ? {name:business.name,photo:business.logo_url || '',mode:'store',businessId:business.id} : {name:profile.name || 'Utilizador Talaza',photo:profile.avatar_url || '',mode:'explorer',businessId:null}];
+          return [event.id, validBusiness ? {name:business.name,photo:business.logo_url || '',mode:'store',businessId:business.id} : {name:profile.display_name || 'Utilizador Talaza',photo:profile.avatar || '',mode:'explorer',businessId:null}];
         })));
       } else setPublisherDetails({});
       if (user?.id && rows.length) {

@@ -114,8 +114,8 @@ export default function Mensagens() {
     const peerIds = [...new Set((participants || []).filter(p => p.user_id !== currentUser.id).map(p => p.user_id))];
     let profiles = [];
     if (peerIds.length) {
-      const { data, error: profilesError } = await supabase.from('profiles')
-        .select('*').in('id', peerIds);
+      const { data, error: profilesError } = await supabase.from('profiles_public')
+        .select('id,display_name,username,avatar,bio').in('id', peerIds);
       if (profilesError) throw profilesError;
       profiles = data || [];
     }
@@ -168,8 +168,8 @@ export default function Mensagens() {
         ...row,
         isUnread,
         peerId:peer?.user_id || '',
-        peerName:sourceBusiness?.name || peerProfile?.name || 'Utilizador Talaza',
-        peerPhoto:sourceBusiness?.logo_url || peerProfile?.avatar_url || peerProfile?.photo_url || peerProfile?.photo || '',
+        peerName:sourceBusiness?.name || peerProfile?.display_name || 'Utilizador Talaza',
+        peerPhoto:sourceBusiness?.logo_url || peerProfile?.avatar || '',
         sourceLabel:contextParts.join(' · ')
       };
     });
@@ -266,18 +266,20 @@ export default function Mensagens() {
             if (isStoreMode && !currentProfile?.province_id) {
               throw new Error('Não foi possível confirmar a província principal da loja.');
             }
-            const { data:target, error:targetError } = await supabase.from('profiles')
-              .select('*').eq('id',targetId).maybeSingle();
+            const { data:target, error:targetError } = await supabase.from('profiles_public')
+              .select('id,display_name,username,avatar,bio').eq('id',targetId).maybeSingle();
             if (targetError || !target) throw new Error('Não foi possível encontrar este perfil.');
-            if (isStoreMode && !target.province_id) {
-              throw new Error('Este utilizador ainda não tem uma província principal definida no perfil.');
+            // A província privada é validada no servidor sem a devolver ao cliente.
+            if (isStoreMode) {
+              const { data: sameProvince, error: locationError } = await supabase.rpc('talaza_is_same_primary_province', { p_target_user_id: targetId });
+              if (locationError || sameProvince !== true) throw new Error('A conta da loja só pode iniciar mensagens dentro da sua província principal.');
             }
-            // A restrição geográfica só é aplicada numa ação explicitamente iniciada
-            // na caixa da loja. No Explorar Talaza/Vitrine nunca há bloqueio provincial.
-            if (isStoreMode && String(target.province_id) !== String(currentProfile.province_id)) {
-              throw new Error('A conta da loja só pode iniciar mensagens dentro da sua província principal.');
+            let conversationProvinceId = currentProfile?.province_id || null;
+            if (!conversationProvinceId && source === 'Vitrine' && createdSourceId) {
+              const { data: publicBusinessLocation } = await supabase.from('businesses').select('province_id').eq('id', createdSourceId).eq('owner_id', targetId).maybeSingle();
+              conversationProvinceId = publicBusinessLocation?.province_id || null;
             }
-            let conversationProvinceId = currentProfile?.province_id || target.province_id;
+            if (!conversationProvinceId) throw new Error('Não foi possível confirmar a província necessária para iniciar a conversa.')
             if (source === 'Oportunidades' && createdSourceId) {
               const { data:sourceJob, error:sourceJobError } = await supabase.from('job_posts')
                 .select('id,user_id,province_id,title,status,is_active,admin_approved,expires_at,publisher_mode,publisher_business_id')
@@ -329,8 +331,8 @@ export default function Mensagens() {
               await refreshBusinessConversationStatus(existing);
               setActivePeer({
                 id:target.id,
-                name:existing.peerName || target.name || 'Utilizador Talaza',
-                photo:existing.peerPhoto || target.avatar_url || target.photo_url || target.photo || '',
+                name:existing.peerName || target.display_name || 'Utilizador Talaza',
+                photo:existing.peerPhoto || target.avatar || '',
                 sourceLabel:existing.sourceLabel || existing.source
               });
               await loadMessages(existing.id);
@@ -390,8 +392,8 @@ export default function Mensagens() {
               const newConversation = {
                 ...created,
                 peerId:target.id,
-                peerName:publisherBusiness?.name || targetBusiness?.name || target.name || 'Utilizador Talaza',
-                peerPhoto:publisherBusiness?.logo_url || targetBusiness?.logo_url || target.avatar_url || target.photo_url || target.photo || '',
+                peerName:publisherBusiness?.name || targetBusiness?.name || target.display_name || 'Utilizador Talaza',
+                peerPhoto:publisherBusiness?.logo_url || targetBusiness?.logo_url || target.avatar || '',
                 sourceLabel:contextParts.join(' · ')
               };
               setConversations(previous => [newConversation,...previous]);

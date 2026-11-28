@@ -393,19 +393,19 @@ export default function Oportunidades() {
       const businessIds = [...new Set((data || []).filter(item => item.publisher_mode === 'store' && item.publisher_business_id).map(item => item.publisher_business_id))];
       if (publisherIds.length) {
         const [{ data: publishers, error: publisherError }, { data: publisherBusinesses, error: businessError }] = await Promise.all([
-          supabase.from('profiles').select('id,name,avatar_url').in('id', publisherIds),
+          supabase.from('profiles_public').select('id,display_name,avatar').in('id', publisherIds),
           businessIds.length ? supabase.from('businesses').select('id,owner_id,name,logo_url').in('id', businessIds) : Promise.resolve({data:[],error:null})
         ]);
         if (publisherError) console.warn('Não foi possível carregar os nomes dos responsáveis pelas vagas:', publisherError.message);
         if (businessError) console.warn('Não foi possível carregar as lojas associadas às publicações:', businessError.message);
         const profilesById = Object.fromEntries((publishers || []).map(item => [item.id, item]));
         const businessesById = Object.fromEntries((publisherBusinesses || []).map(item => [item.id, item]));
-        setPublisherNames(Object.fromEntries((publishers || []).map(item => [item.id, item.name || 'Utilizador Talaza'])));
+        setPublisherNames(Object.fromEntries((publishers || []).map(item => [item.id, item.display_name || 'Utilizador Talaza'])));
         setPublisherDetails(Object.fromEntries((data || []).map(post => {
           const profile = profilesById[post.user_id] || {};
           const business = post.publisher_mode === 'store' && post.publisher_business_id ? businessesById[post.publisher_business_id] : null;
           const validBusiness = business && String(business.owner_id) === String(post.user_id);
-          return [post.id, validBusiness ? {name:business.name,photo:business.logo_url || '',mode:'store',businessId:business.id} : {name:profile.name || 'Utilizador Talaza',photo:profile.avatar_url || '',mode:'explorer',businessId:null}];
+          return [post.id, validBusiness ? {name:business.name,photo:business.logo_url || '',mode:'store',businessId:business.id} : {name:profile.display_name || 'Utilizador Talaza',photo:profile.avatar || '',mode:'explorer',businessId:null}];
         })));
       } else { setPublisherNames({}); setPublisherDetails({}); }
     } catch (err) {
