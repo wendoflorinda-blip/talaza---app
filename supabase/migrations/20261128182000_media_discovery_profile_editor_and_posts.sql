@@ -132,9 +132,11 @@ where mp.plan_id=p.id and mp.plan_paid_at is not null
 create or replace view public.media_discovery_profiles
 with(security_invoker=true,security_barrier=true)
 as
-select mp.user_id,mp.display_name,mp.username,mp.interface_language,
+select mp.user_id,mp.display_name,mp.username,l.name as interface_language,
  mp.country_id,mp.plan_expires_at,p.avatar_url
 from public.media_profiles mp
+join public.country_languages cl on cl.country_id=mp.country_id and cl.is_active=true
+join public.languages l on l.id=cl.language_id and l.is_active=true and l.name=mp.interface_language
 left join public.profiles p on p.id=mp.user_id
 where mp.status='active' and mp.is_professional=true
  and mp.professional_status='approved' and mp.plan_id is not null
