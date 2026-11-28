@@ -126,12 +126,16 @@ export default function MediaHome() {
       if (profileError) console.error('Erro ao carregar profiles:', profileError);
       const countryId = mediaData?.country_id || profileData?.country_id;
       const provinceId = mediaData?.province_id || profileData?.province_id;
-      const [{ data: countryData }, { data: provinceData }] = await Promise.all([
+      const [{ data: countryData }, { data: provinceData }, { data: countryLanguageRows, error: countryLanguageError }] = await Promise.all([
         countryId ? supabase.from('countries').select('name').eq('id', countryId).maybeSingle() : Promise.resolve({data:null}),
         provinceId ? supabase.from('provinces').select('name').eq('id', provinceId).maybeSingle() : Promise.resolve({data:null}),
+        countryId ? supabase.from('country_languages').select('languages(name)').eq('country_id',countryId).eq('is_active',true) : Promise.resolve({data:[],error:null}),
       ]);
+      if (countryLanguageError) console.error('Erro ao validar idioma do país:',countryLanguageError);
+      const allowedLanguages=(countryLanguageRows||[]).map(row=>row.languages?.name).filter(Boolean);
+      const validatedMediaData=mediaData?{...mediaData,interface_language:allowedLanguages.includes(mediaData.interface_language)?mediaData.interface_language:null,show_email:Boolean(profileData?.show_email)}:null;
       if (!mounted) return;
-      setMediaProfile(mediaData ? {...mediaData,show_email:Boolean(profileData?.show_email)} : null);
+      setMediaProfile(validatedMediaData);
       setProfileAvatarUrl(profileData?.avatar_url || authUser.user_metadata?.avatar_url || '');
       setProfileName(mediaData?.display_name || profileData?.name || authUser.user_metadata?.media_display_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || '');
       setProfileUsername(mediaData?.username || profileData?.username || authUser.user_metadata?.media_username || authUser.user_metadata?.username || '');
@@ -165,7 +169,7 @@ export default function MediaHome() {
   const username = rawUsername ? '@' + rawUsername : '';
   const profileTitle = displayName || username;
   const profileInitials = displayName.split(/[\\s._-]+/).filter(Boolean).slice(0,2).map(part=>part[0].toUpperCase()).join('');
-  const profileLanguage = mediaProfile?.interface_language || user?.user_metadata?.media_interface_language || '';
+  const profileLanguage = mediaProfile?.interface_language || '';
   const fanclubCount = 0;
   const socialLinks = mediaProfile?.social_links || metadata.media_links;
   const profileBioValue = mediaProfile?.bio || metadata.media_bio || '';
