@@ -150,10 +150,10 @@ export default function MediaHome() {
 
   const metadata = user?.user_metadata || {};
   const displayName = String(mediaProfile?.display_name || profileName || user?.user_metadata?.media_display_name || user?.user_metadata?.full_name || user?.user_metadata?.name || '').trim();
-  const rawUsername = String(mediaProfile?.username || profileUsername || user?.user_metadata?.media_username || '').trim().replace(/^@+/, '');
+  const rawUsername = String(mediaProfile?.username || profileUsername || user?.user_metadata?.media_username || user?.user_metadata?.username || '').trim().replace(/^@+/, '');
   const username = rawUsername ? '@' + rawUsername : '';
   const profileTitle = displayName || username;
-  const profileInitials = (displayName || rawUsername).split(/[\\s._-]+/).filter(Boolean).slice(0,2).map(part=>part[0].toUpperCase()).join('');
+  const profileInitials = displayName.split(/[\\s._-]+/).filter(Boolean).slice(0,2).map(part=>part[0].toUpperCase()).join('');
   const profileLanguage = mediaProfile?.interface_language || user?.user_metadata?.media_interface_language || '';
   const followerCount = 0;
   const followingCount = 0;
