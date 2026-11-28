@@ -134,7 +134,7 @@ export default function MediaHome() {
       setMediaProfile(mediaData ? {...mediaData,show_email:Boolean(profileData?.show_email)} : null);
       setProfileAvatarUrl(profileData?.avatar_url || authUser.user_metadata?.avatar_url || '');
       setProfileName(mediaData?.display_name || profileData?.name || authUser.user_metadata?.media_display_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || '');
-      setProfileUsername(mediaData?.username || authUser.user_metadata?.media_username || '');
+      setProfileUsername(mediaData?.username || profileData?.username || authUser.user_metadata?.media_username || authUser.user_metadata?.username || '');
       setProfileLocation([provinceData?.name, countryData?.name].filter(Boolean).join(', '));
       setShowEmail(Boolean(profileData?.show_email));
       setProfileCoverColor(authUser.user_metadata?.media_cover_color || '#E84A8A');
