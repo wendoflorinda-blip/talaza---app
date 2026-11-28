@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
@@ -29,11 +29,22 @@ function Icon({ name, size = 22 }) {
 }
 
 function CrownIcon({ size = 22 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}>
-    <defs><linearGradient id="talazaCrownGold" x1="3" y1="3" x2="21" y2="20"><stop stopColor="#FFF1A8"/><stop offset=".48" stopColor="#E6C65A"/><stop offset="1" stopColor="#B8860B"/></linearGradient></defs>
-    <path d="M3 7 8 10 12 3 16 10 21 7 19 18H5L3 7Z" fill="url(#talazaCrownGold)" stroke="#A87512" strokeWidth="1.15" strokeLinejoin="round"/>
-    <path d="M5 20H19" stroke="#A87512" strokeWidth="2.2" strokeLinecap="round"/>
-    <circle cx="3" cy="7" r="1.2" fill="#FFF4BF"/><circle cx="12" cy="3" r="1.2" fill="#FFF4BF"/><circle cx="21" cy="7" r="1.2" fill="#FFF4BF"/>
+  const crownId = useId().replace(/:/g, '');
+  return <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true" style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, overflow: 'visible' }}>
+    <defs>
+      <linearGradient id={`crownGold-${crownId}`} x1="3" y1="2" x2="28" y2="30"><stop stopColor="#FFF8D8"/><stop offset=".22" stopColor="#F8D76B"/><stop offset=".5" stopColor="#D79A20"/><stop offset=".75" stopColor="#FFECA1"/><stop offset="1" stopColor="#A76A0B"/></linearGradient>
+      <linearGradient id={`crownGoldSide-${crownId}`} x1="5" y1="18" x2="28" y2="28"><stop stopColor="#9C5D08"/><stop offset=".5" stopColor="#E5B83C"/><stop offset="1" stopColor="#7A4A06"/></linearGradient>
+      <linearGradient id={`crownGem-${crownId}`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#E8FFFF"/><stop offset=".35" stopColor="#48D8FF"/><stop offset=".7" stopColor="#1779D6"/><stop offset="1" stopColor="#06418D"/></linearGradient>
+      <linearGradient id={`crownRuby-${crownId}`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#FFD7DE"/><stop offset=".4" stopColor="#F33C70"/><stop offset="1" stopColor="#8D123D"/></linearGradient>
+    </defs>
+    <path d="M3.2 8.8 9.2 13.2 15.9 4.2 22.7 13.2 28.8 8.8 25.8 24.1H6.2L3.2 8.8Z" fill={`url(#crownGold-${crownId})`} stroke="#8E5B0A" strokeWidth="1.1" strokeLinejoin="round"/>
+    <path d="M6.2 24.1H25.8L24.4 27.5H7.6L6.2 24.1Z" fill={`url(#crownGoldSide-${crownId})`} stroke="#9A650D" strokeWidth=".8"/>
+    <path d="M5.3 10.2 9.3 13.5 15.9 5.9 22.5 13.5 26.7 10.2 24.7 22.4H7.3L5.3 10.2Z" fill="none" stroke="#FFF4C7" strokeOpacity=".85" strokeWidth=".65"/>
+    <path d="M8.8 15.1 11.5 17.5 8.5 21.5 7.8 17.8 8.8 15.1Z" fill={`url(#crownGem-${crownId})`} stroke="#C8F5FF" strokeWidth=".65"/>
+    <path d="M20.5 15.1 23.2 17.8 22.5 21.5 19.5 17.5 20.5 15.1Z" fill={`url(#crownGem-${crownId})`} stroke="#C8F5FF" strokeWidth=".65"/>
+    <path d="M15.9 13.7 18.3 16.1 15.9 19.7 13.5 16.1 15.9 13.7Z" fill={`url(#crownRuby-${crownId})`} stroke="#FFD0DD" strokeWidth=".65"/>
+    <circle cx="3.2" cy="8.8" r="1.4" fill="#FFF2C3" stroke="#B57B16" strokeWidth=".5"/><circle cx="15.9" cy="4.2" r="1.5" fill="#FFF5CB" stroke="#B57B16" strokeWidth=".5"/><circle cx="28.8" cy="8.8" r="1.4" fill="#FFF2C3" stroke="#B57B16" strokeWidth=".5"/>
+    <path d="M10 14.1 11.1 15.1M21.3 14.1 22.4 15.1M15.2 14.3 16.4 14.3" stroke="#fff" strokeWidth=".6" strokeLinecap="round"/>
   </svg>;
 }
 
@@ -493,6 +504,10 @@ export default function MediaHome() {
                   {[['18,4 mil','seguidores'],['312','seguindo'],['2.310','no fã clube']].map(([count,label]) => <div key={label}><div style={{ fontSize: 17, fontWeight: 950, color: '#111' }}>{count}</div><div style={{ color: '#666', fontSize: 11, marginTop: 3 }}>{label}</div></div>)}
                 </div>
                 <div style={{ display: 'grid', gap: 9, marginBottom: 19 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
+                    <button type="button" onClick={() => { setActiveNav('Início'); setOwnerFanclubScreen('menu'); }} style={{ border: '1px solid #4a2a5c', borderRadius: 12, padding: 11, background: '#2b103b', color: '#fff', fontSize: 12, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Icon name="heart" size={16}/>Meu fã clube</button>
+                    <button type="button" onClick={() => { setActiveNav('Fã clube'); setFanclubScreen('settings'); setFanclubFeedback(''); }} style={{ border: '1px solid #4a2a5c', borderRadius: 12, padding: 11, background: '#2b103b', color: '#fff', fontSize: 12, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Icon name="edit" size={16}/>Configurar fã clube</button>
+                  </div>
                   <button type="button" onClick={() => { setExplorePublishOpen(true); setExplorePhotos([]); setExploreCaption(''); }} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#f4df83', color: '#241b10', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="globe" size={18}/>Publicar no explore</button>
                   <button type="button" onClick={() => setPlansOpen(true)} style={{ width: '100%', border: 0, borderRadius: 13, padding: 13, background: '#ff3fa3', color: '#fff', fontSize: 13, fontWeight: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}><Icon name="sparkle" size={18}/>Ver planos</button>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
@@ -500,7 +515,7 @@ export default function MediaHome() {
                     <button type="button" onClick={() => { setProfileEditing(true); setProfileName(user?.user_metadata?.media_display_name || 'Mara Kiala'); setProfileUsername(user?.user_metadata?.media_username || 'marakiala'); setProfileBio(user?.user_metadata?.media_bio || 'Bastidores, ensaios e música nova toda semana. Entre no meu fã clube.'); setProfileLinks(user?.user_metadata?.media_links || ['marakiala.com/links']); setProfileEmail(user?.user_metadata?.media_email || user?.email || ''); setShowEmail(!!user?.user_metadata?.media_email_visible); setProfileCoverColor(user?.user_metadata?.media_cover_color || '#E84A8A'); setProfileAvatarPreview(''); }} style={{ border: '1px solid #4a2a5c', borderRadius: 12, padding: 11, background: '#2b103b', color: '#fff', fontSize: 12, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Icon name="edit" size={16}/>Editar perfil</button>
                   </div>
                 </div>
-                <div style={{ display: 'flex', overflowX: 'auto', gap: 20, whiteSpace: 'nowrap', borderBottom: '1px solid #e6e6e6', marginBottom: 10 }}>
+                <div style={{ position: 'sticky', top: 48, zIndex: 12, display: 'flex', overflowX: 'auto', gap: 20, whiteSpace: 'nowrap', borderBottom: '1px solid #e6e6e6', marginBottom: 10, background: '#fff', boxShadow: '0 3px 9px rgba(0,0,0,.06)' }}>
                   {['Publicações','Fotos','Vídeos','Favoritos','Guardados'].map(tab => <button key={tab} type="button" onClick={() => setProfileTab(tab)} style={{ flex: '0 0 auto', padding: '12px 16px', border: 0, borderBottom: profileTab === tab ? '3px solid #FF2E7A' : '3px solid transparent', background: '#fff', color: profileTab === tab ? '#111' : '#777', fontSize: 16, fontWeight: 800 }}>{tab}</button>)}
                 </div>
                 {((profileTab === 'Favoritos' && !Object.values(profileLikedItems).some(Boolean)) || (profileTab === 'Guardados' && !Object.values(profileSavedItems).some(Boolean))) ? <div style={{ padding: '34px 10px', textAlign: 'center', color: '#777', fontSize: 15 }}>Ainda não tens nada aqui</div> : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 5 }}>
@@ -538,7 +553,7 @@ export default function MediaHome() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: 12, borderRadius: 15, background: '#2b103b', border: '1px solid #45245b' }}>
                       <div style={{ width: 38, height: 38, borderRadius: 50, background: 'linear-gradient(135deg,#45c5ff,#8753d9)', display: 'grid', placeItems: 'center', fontWeight: 900 }}>A</div>
                       <button type="button" onClick={() => { setNovaFraseTexto(''); setNovaFraseCor('#5B6BFF'); setNovaFraseOpen(true); }} style={{ flex: 1, padding: '9px 11px', borderRadius: 20, background: '#3a1b4a', color: '#cdbed7', fontSize: 12, border: 0, textAlign: 'left' }}>No que está a pensar?</button>
-                      <button aria-label="Adicionar imagem" type="button" style={{ border: 0, background: 'transparent', color: '#ff75bb', display: 'grid', placeItems: 'center' }}><Icon name="photo" size={22}/></button>
+                      <button aria-label="Adicionar imagem" type="button" onClick={() => { setExplorePublishOpen(true); setExplorePhotos([]); setExploreCaption(''); }} style={{ border: 0, background: 'transparent', color: '#ff75bb', display: 'grid', placeItems: 'center' }}><Icon name="photo" size={22}/></button>
                     </div>
                     <article style={{ padding: 12, borderRadius: 16, background: '#2b103b', border: '1px solid #45245b', display: 'grid', gap: 10 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
