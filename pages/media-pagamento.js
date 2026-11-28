@@ -77,13 +77,12 @@ export default function MediaPayment() {
         contentType:proof.type, upsert:false
       });
       if (uploadError) throw uploadError;
-      const { data: inserted, error: insertError } = await supabase.from('payment_submissions').insert({
-        business_id:null, event_id:null, job_post_id:null, premium_promotion_id:null,
-        plan_id:PLAN_ID, user_id:user.id, amount:Number(plan.price), currency:'Kz',
-        payment_method:'Express', express_sender_phone:normalizedPhone,
-        proof_url:path, proof_type:extension, proof_image_url:extension==='pdf'?null:path,
-        proof_file_url:extension==='pdf'?path:null, status:'pending'
-      }).select('id,status,created_at').single();
+      const { data: inserted, error: insertError } = await supabase.rpc('submit_media_professional_payment',{
+        p_amount:Number(plan.price),
+        p_express_sender_phone:normalizedPhone,
+        p_proof_path:path,
+        p_proof_type:extension
+      });
       if (insertError) {
         await supabase.storage.from('media-payment-proofs').remove([path]);
         throw insertError;
