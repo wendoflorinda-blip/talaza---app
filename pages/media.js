@@ -453,7 +453,13 @@ export default function MediaHome() {
                 <div style={{display:'flex',gap:6,overflowX:'auto',borderBottom:'1px solid #45245b',marginBottom:10}}>
                   {(temAcessoPremium?['Publicações','Fotos','Vídeos','Favoritos','Guardados']:['Publicações','Guardados','Favoritos']).map(tab=><button key={tab} type="button" onClick={()=>setProfileTab(tab)} style={{flex:'0 0 auto',padding:'11px 8px',border:0,borderBottom:profileTab===tab?'2px solid #ff4fa9':'2px solid transparent',background:'transparent',color:profileTab===tab?'#222':'#777',fontSize:12,fontWeight:900}}>{tab}</button>)}
                 </div>
-                <div style={{minHeight:120,display:'grid',placeItems:'center',padding:18,textAlign:'center',color:'#777',fontSize:13}}>Ainda não tens publicações</div>
+                {profileTab==='Publicações'||profileTab==='Fotos'||profileTab==='Vídeos' ? (
+                  (mediaPosts.filter(post=>post.user_id===user.id && (profileTab==='Publicações'||(profileTab==='Fotos'&&post.media_type==='image')||(profileTab==='Vídeos'&&post.media_type==='video'))).length===0)
+                    ? <div style={{minHeight:120,display:'grid',placeItems:'center',padding:18,textAlign:'center',color:'#777',fontSize:13}}>Ainda não tens publicações</div>
+                    : <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:4}}>
+                      {mediaPosts.filter(post=>post.user_id===user.id && (profileTab==='Publicações'||(profileTab==='Fotos'&&post.media_type==='image')||(profileTab==='Vídeos'&&post.media_type==='video'))).map(post=><div key={post.id} style={{aspectRatio:'1/1',background:'#eee',overflow:'hidden'}}>{post.media_type==='video'?<video src={post.media_url} controls playsInline style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<img src={post.media_url} alt={post.caption||'Publicação'} style={{width:'100%',height:'100%',objectFit:'cover'}}/>}</div>)}
+                    </div>
+                ) : <div style={{minHeight:120,display:'grid',placeItems:'center',padding:18,textAlign:'center',color:'#777',fontSize:13}}>{profileTab==='Guardados'?'Ainda não tens publicações guardadas':'Ainda não tens publicações favoritas'}</div>}
                 </>
                 )}
               </div>
