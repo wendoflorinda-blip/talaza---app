@@ -476,107 +476,59 @@ export default function MediaHome() {
                       <button type="button" onClick={()=>{if(!user){router.push('/login?next=/media');return;}setCaptureMode('Foto');setCreateStep(1);setSelectedMedia(null);setCreateOpen(true);}} style={{flex:1,minWidth:0,padding:'11px 13px',border:0,borderRadius:20,background:'#3a1b4a',color:'#cdbed7',fontSize:12,textAlign:'left'}}>{user?'No que estás a pensar?':'Entra para criar uma publicação'}</button>
                       <button aria-label="Adicionar foto ou vídeo" type="button" onClick={()=>{if(!user){router.push('/login?next=/media');return;}setCaptureMode('Foto');setCreateStep(1);setSelectedMedia(null);setCreateOpen(true);}} style={{border:0,background:'transparent',color:'#ff75bb',display:'grid',placeItems:'center'}}><Icon name="photo" size={22}/></button>
                     </div>
-                    {publishedMedia.map(pub=><article key={'feedpub-'+pub.id} style={{padding:12,borderRadius:16,background:'#2b103b',border:'1px solid #45245b',display:'grid',gap:10}}><div style={{fontSize:13,fontWeight:900,color:'#fff'}}>Mara Kiala · agora</div>{pub.caption&&<div style={{fontSize:12,lineHeight:1.55,color:'#fff'}}>{pub.caption}</div>}{pub.tags&&<div style={{fontSize:12,color:'#f08ac5'}}>{pub.tags}</div>}<div style={{aspectRatio:'1/1',width:'100%',borderRadius:12,overflow:'hidden',background:'#fff',display:'grid',placeItems:'center'}}>{pub.type==='video'?<video src={pub.url} controls playsInline style={{width:'100%',height:'100%',objectFit:'contain'}}/>:<img src={pub.url} alt={pub.caption||'Publicação'} style={{width:'100%',height:'100%',objectFit:'contain'}}/>}</div><div style={{display:'flex',justifyContent:'space-around',color:'#c5b4d1',fontSize:11}}><span>♡ Gosto</span><span>Comentar</span><span>Partilhar</span></div></article>)}
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 10 }}>Sugestões de pessoas</div>
-                      <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4 }}>
-                        {['Yuri','Zuri','Lucie','Kota'].map((name,i) => (
-                          <div key={name} style={{ flex: '0 0 82px', display: 'grid', justifyItems: 'center', gap: 6 }}>
-                            <div style={{ width: 62, height: 62, borderRadius: 50, padding: 3, background: 'linear-gradient(135deg,#ff4fa9,#ff9a37)', boxShadow: '0 0 12px rgba(255,86,164,.35)' }}><div style={{ width: '100%', height: '100%', borderRadius: 50, background: ['linear-gradient(145deg,#48c5ff,#3154bd)','linear-gradient(145deg,#ff85b5,#9b4bca)','linear-gradient(145deg,#54d8c1,#2374a2)','linear-gradient(145deg,#ffd15e,#e55e47)'][i], display: 'grid', placeItems: 'center', fontWeight: 900, fontSize: 20 }}>{name[0]}</div></div>
-                            <div style={{ fontSize: 12, fontWeight: 800 }}>{name}</div>
-                            <button type="button" onClick={() => setFollowed(v => ({...v,[name]:!v[name]}))} style={{ width: 76, padding: '6px 0', border: 0, borderRadius: 18, background: followed[name] ? '#482451' : '#ff3fa3', color: '#fff', fontSize: 10, fontWeight: 900 }}>{followed[name] ? 'Seguindo' : 'Seguir'}</button>
-                          </div>
-                        ))}
+                    {mediaSuggestions.length>0 ? <div>
+                      <div style={{fontSize:14,fontWeight:900,marginBottom:10}}>Sugestões de pessoas</div>
+                      <div style={{display:'flex',gap:12,overflowX:'auto',paddingBottom:4}}>
+                        {mediaSuggestions.map(person=><div key={person.user_id} style={{flex:'0 0 90px',display:'grid',justifyItems:'center',gap:6}}>
+                          <div style={{width:62,height:62,borderRadius:50,padding:3,background:'linear-gradient(135deg,#ff4fa9,#ff9a37)'}}><div style={{width:'100%',height:'100%',borderRadius:50,background:'#eee',overflow:'hidden',display:'grid',placeItems:'center',color:'#777',fontWeight:900}}>{person.avatar_url?<img src={person.avatar_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:String(person.display_name||'').trim().split(/\\s+/).map(p=>p[0]).join('').slice(0,2)}</div></div>
+                          <div style={{fontSize:12,fontWeight:800,color:'#21152a',textAlign:'center'}}>{person.display_name}</div>
+                          <div style={{fontSize:10,color:'#777'}}>@{person.username}</div>
+                          <button type="button" onClick={()=>toggleMediaFollow(person.user_id)} style={{width:82,padding:'6px 0',border:0,borderRadius:18,background:mediaFollowIds.includes(person.user_id)?'#482451':'#ff3fa3',color:'#fff',fontSize:10,fontWeight:900}}>{mediaFollowIds.includes(person.user_id)?'Seguindo':'Seguir'}</button>
+                        </div>)}
                       </div>
-                    </div>
-
-                    <article style={{ padding: 12, borderRadius: 16, background: '#2b103b', border: '1px solid #45245b', display: 'grid', gap: 10 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                        <div style={{ width: 39, height: 39, borderRadius: 50, background: 'linear-gradient(135deg,#59a9ff,#4060c8)', display: 'grid', placeItems: 'center', fontWeight: 900 }}>A</div>
-                        <div><div style={{ fontSize: 13, fontWeight: 900 }}>Ana Bela</div><div style={{ fontSize: 10, color: '#b7a6c6', marginTop: 2 }}>há 20 min · Português</div></div>
+                    </div> : <div style={{padding:12,textAlign:'center',color:'#777',fontSize:12}}>Ainda não há sugestões</div>}
+                    {mediaPosts.length===0 ? <div style={{padding:24,textAlign:'center',color:'#777',fontSize:13}}>Ainda não há publicações</div> : mediaPosts.map(post=><article key={post.id} style={{padding:12,borderRadius:16,background:'#2b103b',border:'1px solid #45245b',display:'grid',gap:10}}>
+                      <div style={{display:'flex',alignItems:'center',gap:9}}>
+                        <div style={{width:38,height:38,borderRadius:50,background:'#eee',overflow:'hidden',display:'grid',placeItems:'center',color:'#777',fontWeight:900}}>{mediaSuggestions.find(p=>p.user_id===post.user_id)?.avatar_url?<img src={mediaSuggestions.find(p=>p.user_id===post.user_id).avatar_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:''}</div>
+                        <div style={{fontSize:13,fontWeight:900,color:'#fff'}}>{mediaSuggestions.find(p=>p.user_id===post.user_id)?.display_name || (post.user_id===user?.id?displayName:'')}</div>
                       </div>
-                      <div style={{ fontSize: 12, lineHeight: 1.55 }}>Quem vem à live de sábado? Vou mostrar os bastidores do novo clipe.</div>
-                      <div style={{ aspectRatio: '1/1', width: '100%', borderRadius: 12, background: 'linear-gradient(135deg,#3c2d8d 0%,#7743a7 40%,#20285b 100%)', display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden' }}>
-                        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 30%,rgba(255,112,193,.55),transparent 42%),linear-gradient(150deg,transparent,rgba(9,9,38,.55))' }}/>
-                        <div style={{ zIndex: 1, fontSize: 13, fontWeight: 950, letterSpacing: 2, textShadow: '0 2px 9px #190c39' }}>BASTIDORES · LIVE</div>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-around', color: '#c5b4d1', fontSize: 11 }}>
-                        <button type="button" onClick={() => setPostLiked(v => !v)} style={{ border: 0, background: 'transparent', color: postLiked ? '#ff64b5' : '#c5b4d1', display: 'flex', gap: 5, alignItems: 'center' }}><Icon name="heart" size={17}/> {postLiked ? 'Gostei' : 'Gosto'}</button>
-                        <button type="button" onClick={() => setNotice('Comentários do post de Ana Bela.')} style={{ border: 0, background: 'transparent', color: '#c5b4d1', display: 'flex', gap: 5, alignItems: 'center' }}><Icon name="comment" size={17}/>Comentar</button>
-                        <button type="button" onClick={() => setNotice('Partilha do post de Ana Bela.')} style={{ border: 0, background: 'transparent', color: '#c5b4d1', display: 'flex', gap: 5, alignItems: 'center' }}><Icon name="share" size={17}/>Partilhar</button>
-                      </div>
-                    </article>
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}><div style={{ fontSize: 14, fontWeight: 900 }}>Fã-clubes para aderir</div><div style={{ color: '#b7a6c6', fontSize: 11 }}>sugestões</div></div>
-                      <div style={{ display: 'flex', gap: 11, overflowX: 'auto', paddingBottom: 5 }}>
-                        {[
-                          {name:'Yuri Estúdio',detail:'640 membros · English',color:'linear-gradient(135deg,#2368d6,#543b9e)',button:'Aderir'},
-                          {name:'Lucie M.',detail:'1,5 mil membros · França',color:'linear-gradient(135deg,#238b68,#2364a8)',button:'Aderir'}
-                        ].map(club => (
-                          <div key={club.name} style={{ flex: '0 0 174px', borderRadius: 14, overflow: 'hidden', background: '#2b103b', border: '1px solid #45245b' }}>
-                            <div style={{ height: 90, background: club.color, display: 'grid', placeItems: 'center', fontSize: 18, fontWeight: 950, letterSpacing: 1 }}>{club.name.toUpperCase()}</div>
-                            <div style={{ padding: 10, display: 'grid', gap: 5 }}>
-                              <div style={{ fontSize: 12, fontWeight: 900 }}>{club.name}</div><div style={{ fontSize: 10, color: '#b7a6c6' }}>{club.detail}</div>
-                              <button type="button" onClick={() => setNotice('A adesão ao fã-clube estará disponível em breve.')} style={{ marginTop: 3, border: 0, borderRadius: 18, padding: '7px 5px', background: '#ff3fa3', color: '#fff', fontSize: 10, fontWeight: 900 }}>{club.button}</button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div style={{ display: 'grid', gap: 14, marginTop: 18 }}>
-                      {['Mais conteúdos da Ana Bela','Novo vídeo · Luanda','Momentos da comunidade'].map((label,i) => <article key={label} style={{ padding: 12, borderRadius: 16, background: '#2b103b', border: '1px solid #45245b', display: 'grid', gap: 9 }}>
-                        <div style={{ fontSize: 12, fontWeight: 900 }}>{label}</div>
-                        <div style={{ aspectRatio: '1/1', width: '100%', borderRadius: 12, background: ['linear-gradient(135deg,#5730a2,#1d4e82)','linear-gradient(135deg,#e95f9f,#9c3d6f)','linear-gradient(135deg,#44b89c,#275a9c)'][i], display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden' }}>
-                          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 20%,rgba(255,255,255,.25),transparent 38%)' }}/>
-                          <div style={{ zIndex: 1, fontSize: 13, fontWeight: 950 }}>TALAZA · EXPLORE</div>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-around', color: '#c5b4d1', fontSize: 11 }}>
-                          <button type="button" onClick={() => setPostLiked(v => !v)} style={{ border: 0, background: 'transparent', color: postLiked ? '#ff64b5' : '#c5b4d1' }}>♡ Gosto</button>
-                          <button type="button" onClick={() => setNotice('Comentários desta publicação.')} style={{ border: 0, background: 'transparent', color: '#c5b4d1' }}>Comentar</button>
-                          <button type="button" onClick={() => setNotice('Partilhar esta publicação.')} style={{ border: 0, background: 'transparent', color: '#c5b4d1' }}>Partilhar</button>
-                        </div>
-                      </article>)}
-                    </div>
+                      {post.caption&&<div style={{fontSize:12,lineHeight:1.55,color:'#fff'}}>{post.caption}</div>}
+                      {post.hashtags&&<div style={{fontSize:12,color:'#f08ac5'}}>{post.hashtags}</div>}
+                      <div style={{width:'100%',borderRadius:12,overflow:'hidden',background:'#111',display:'grid',placeItems:'center'}}>{post.media_type==='video'?<video src={post.media_url} controls playsInline style={{width:'100%',maxHeight:520,objectFit:'contain'}}/>:<img src={post.media_url} alt={post.caption||'Publicação'} style={{width:'100%',maxHeight:520,objectFit:'contain'}}/>}</div>
+                      <div style={{fontSize:10,color:'#c5b4d1'}}>{new Date(post.created_at).toLocaleString('pt-AO')}</div>
+                    </article>)}
                   </div>
                 ) : (
-                  <div style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', overflow: 'hidden', background: 'linear-gradient(150deg,#c9f33a 0%,#5eb73c 38%,#155d3c 100%)', textAlign: 'left' }}>
-                    <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 25% 15%,rgba(222,255,118,.4),transparent 40%),linear-gradient(180deg,rgba(8,22,13,.38) 0%,transparent 30%,rgba(5,18,11,.35) 55%,rgba(3,14,9,.8) 100%)' }} />
-                    <div style={{ position: 'absolute', zIndex: 2, top: 'max(14px,env(safe-area-inset-top))', left: 12, right: 12 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', gap: 6, padding: 4, borderRadius: 24, background: 'rgba(25,17,38,.72)', backdropFilter: 'blur(12px)' }}>
-                          <button type="button" onClick={() => setExploreTab('Explorar')} style={{ border: 0, borderRadius: 20, padding: '8px 13px', background: 'transparent', color: 'rgba(255,255,255,.72)', fontSize: 12, fontWeight: 850 }}>Explorar</button>
-                          <button type="button" onClick={() => setExploreTab('Descoberta')} style={{ border: 0, borderRadius: 20, padding: '8px 13px', background: '#fff', color: '#15121b', fontSize: 12, fontWeight: 950 }}>Descoberta</button>
+                  <div style={{position:'absolute',inset:0,overflowY:'auto',background:'#1A0B2E',padding:'max(14px,env(safe-area-inset-top)) 12px calc(100px + env(safe-area-inset-bottom))',color:'#fff'}}>
+                    <div style={{position:'sticky',top:0,zIndex:5,background:'#1A0B2E',paddingBottom:12}}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+                        <div style={{display:'flex',gap:6}}>
+                          <button type="button" onClick={()=>setExploreTab('Explorar')} style={{border:0,borderRadius:20,padding:'8px 13px',background:'transparent',color:'#ddd',fontSize:12,fontWeight:850}}>Explorar</button>
+                          <button type="button" style={{border:0,borderRadius:20,padding:'8px 13px',background:'#fff',color:'#15121b',fontSize:12,fontWeight:950}}>Descoberta</button>
                         </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button aria-label="Mensagens" type="button" onClick={() => setNotice('Mensagens da Mídia Talaza.')} style={{ width: 36, height: 36, position: 'relative', border: '1px solid rgba(255,255,255,.18)', borderRadius: 50, background: 'rgba(30,15,43,.7)', color: '#fff', display: 'grid', placeItems: 'center' }}><Icon name="message" size={17}/><span style={{ position: 'absolute', top: 3, right: 2, width: 8, height: 8, borderRadius: 50, background: '#ff4aa8' }}/></button>
-                          <button aria-label="Notificações" type="button" onClick={() => setNotice('Notificações da Mídia Talaza.')} style={{ width: 36, height: 36, position: 'relative', border: '1px solid rgba(255,255,255,.18)', borderRadius: 50, background: 'rgba(30,15,43,.7)', color: '#fff', display: 'grid', placeItems: 'center' }}><Icon name="bell" size={17}/><span style={{ position: 'absolute', top: 3, right: 2, width: 8, height: 8, borderRadius: 50, background: '#ff4aa8' }}/></button>
+                        <div style={{display:'flex',gap:8}}>
+                          <button aria-label="Mensagens" type="button" onClick={()=>selectNav('Mensagens')} style={{width:36,height:36,border:'1px solid rgba(255,255,255,.18)',borderRadius:50,background:'rgba(30,15,43,.7)',color:'#fff'}}><Icon name="message" size={17}/></button>
+                          <button aria-label="Notificações" type="button" onClick={()=>setNotice('Notificações da Mídia Talaza.')} style={{width:36,height:36,border:'1px solid rgba(255,255,255,.18)',borderRadius:50,background:'rgba(30,15,43,.7)',color:'#fff'}}><Icon name="bell" size={17}/></button>
                         </div>
                       </div>
-                      <div className="media-tabs" style={{ display: 'flex', gap: 7, overflowX: 'auto', marginTop: 10, paddingBottom: 2 }}>
-                        {['Todos','Português','English','Français','Español','Kiswahili'].map(lang => <button key={lang} type="button" onClick={() => setDiscoveryLanguage(lang)} style={{ flexShrink: 0, border: discoveryLanguage === lang ? '1px solid #ff55aa' : '1px solid rgba(255,255,255,.24)', borderRadius: 20, padding: '7px 12px', background: discoveryLanguage === lang ? '#ff3fa3' : 'rgba(30,15,43,.58)', color: '#fff', fontSize: 11, fontWeight: 850 }}>{lang}</button>)}
+                      <div style={{display:'flex',gap:7,overflowX:'auto',marginTop:10}}>
+                        {['Todos',...discoveryLanguages].map(lang=><button key={lang} type="button" onClick={()=>setDiscoveryLanguage(lang)} style={{flexShrink:0,border:discoveryLanguage===lang?'1px solid #ff55aa':'1px solid rgba(255,255,255,.24)',borderRadius:20,padding:'7px 12px',background:discoveryLanguage===lang?'#ff3fa3':'rgba(30,15,43,.58)',color:'#fff',fontSize:11,fontWeight:850}}>{lang}</button>)}
                       </div>
                     </div>
-                    <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', opacity: .25, pointerEvents: 'none' }}>
-                      <div style={{ width: 180, height: 180, borderRadius: 90, border: '2px solid rgba(255,255,255,.55)', background: 'radial-gradient(circle at 35% 25%,rgba(255,255,255,.5),transparent 42%),linear-gradient(135deg,#a5e83b,#12653f)', boxShadow: '0 0 60px rgba(226,255,128,.35)' }} />
-                    </div>
-                    <div style={{ position: 'absolute', zIndex: 2, right: 12, bottom: 190, display: 'grid', justifyItems: 'center', gap: 13 }}>
-                      <div style={{ position: 'relative', marginBottom: 4 }}>
-                        <div style={{ width: 46, height: 46, borderRadius: 50, border: '2px solid #fff', background: 'linear-gradient(135deg,#55aaff,#3546aa)', display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 950 }}>LM</div>
-                        <button type="button" aria-label="Seguir Lucie" onClick={() => setFollowed(v => ({...v, luciem: !v.luciem}))} style={{ position: 'absolute', bottom: -4, right: -4, width: 19, height: 19, borderRadius: 50, border: 0, background: '#ff3fa3', color: '#fff', fontSize: 13, fontWeight: 950, display: 'grid', placeItems: 'center' }}>{followed.luciem ? '✓' : '+'}</button>
-                      </div>
-                      <button type="button" onClick={() => setDiscoveryLiked(v => !v)} style={{ border: 0, background: 'transparent', color: discoveryLiked ? '#ff5cab' : '#fff', display: 'grid', justifyItems: 'center', gap: 3, textShadow: '0 2px 8px rgba(0,0,0,.4)' }}><Icon name="heart" size={28}/><span style={{ fontSize: 11, fontWeight: 850 }}>15 mil</span></button>
-                      <button type="button" onClick={() => setNotice('Comentários do vídeo de Lucie.')} style={{ border: 0, background: 'transparent', color: '#fff', display: 'grid', justifyItems: 'center', gap: 3, textShadow: '0 2px 8px rgba(0,0,0,.4)' }}><Icon name="comment" size={27}/><span style={{ fontSize: 11, fontWeight: 850 }}>530</span></button>
-                      <button type="button" onClick={() => setNotice('Partilhar vídeo de Lucie.')} style={{ border: 0, background: 'transparent', color: '#fff', display: 'grid', justifyItems: 'center', gap: 3, textShadow: '0 2px 8px rgba(0,0,0,.4)' }}><Icon name="share" size={27}/><span style={{ fontSize: 11, fontWeight: 850 }}>Enviar</span></button>
-                    </div>
-                    <div style={{ position: 'absolute', zIndex: 2, left: 13, right: 78, bottom: 'calc(94px + env(safe-area-inset-bottom))', display: 'grid', gap: 9, textShadow: '0 2px 7px rgba(0,0,0,.45)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <div style={{ fontSize: 17, fontWeight: 950 }}>@luciem</div>
-                        <span style={{ padding: '5px 9px', borderRadius: 18, background: 'rgba(14,70,42,.85)', fontSize: 10, fontWeight: 850 }}>Français</span>
-                        <button type="button" onClick={() => setFollowed(v => ({...v, luciem: !v.luciem}))} style={{ border: '1px solid #fff', borderRadius: 18, padding: '5px 12px', background: '#fff', color: '#17121b', fontSize: 11, fontWeight: 900, textShadow: 'none' }}>{followed.luciem ? 'Seguindo' : 'Seguir'}</button>
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 650, lineHeight: 1.45 }}>Chorégraphie du week-end, essayez avec moi</div>
-                      <button type="button" onClick={() => setNotice('Planos e benefícios do fã clube de Lucie.')} style={{ width: 'fit-content', border: 0, borderRadius: 14, padding: '12px 17px', background: '#f4df83', color: '#241b10', fontSize: 12, fontWeight: 950, display: 'flex', alignItems: 'center', gap: 8, textShadow: 'none' }}><Icon name="sparkle" size={17}/>Entrar no fã clube</button>
-                    </div>
+                    {mediaPosts.filter(post=>discoveryLanguage==='Todos'||post.language===discoveryLanguage).length===0
+                      ? <div style={{padding:'45px 16px',textAlign:'center',color:'#d7c9df'}}>{mediaDataLoading?'A carregar publicações…':'Ainda não há publicações profissionais nesta descoberta'}</div>
+                      : mediaPosts.filter(post=>discoveryLanguage==='Todos'||post.language===discoveryLanguage).map(post=>{
+                        const author=mediaSuggestions.find(person=>person.user_id===post.user_id);
+                        return <article key={'discovery-'+post.id} style={{marginTop:12,padding:12,borderRadius:16,background:'#2b103b',border:'1px solid #45245b',display:'grid',gap:10}}>
+                          <div style={{display:'flex',alignItems:'center',gap:9}}>
+                            <div style={{width:42,height:42,borderRadius:50,background:'#eee',overflow:'hidden',display:'grid',placeItems:'center',color:'#555'}}>{author?.avatar_url?<img src={author.avatar_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:String(author?.display_name||'').trim().split(/\\s+/).map(p=>p[0]).join('').slice(0,2)}</div>
+                            <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:900}}>{author?.display_name || (post.user_id===user?.id?displayName:'')}</div><div style={{fontSize:11,color:'#c8b6d2'}}>@{author?.username || (post.user_id===user?.id?rawUsername:'')} · {post.language||''}</div></div>
+                            {author&&<button type="button" onClick={()=>toggleMediaFollow(author.user_id)} style={{border:0,borderRadius:18,padding:'7px 12px',background:mediaFollowIds.includes(author.user_id)?'#482451':'#ff3fa3',color:'#fff',fontSize:11,fontWeight:900}}>{mediaFollowIds.includes(author.user_id)?'Seguindo':'Seguir'}</button>}
+                          </div>
+                          {post.caption&&<div style={{fontSize:13,lineHeight:1.5}}>{post.caption}</div>}
+                          {post.media_type==='video'?<video src={post.media_url} controls playsInline style={{width:'100%',maxHeight:'62vh',objectFit:'contain',background:'#000',borderRadius:12}}/>:<img src={post.media_url} alt={post.caption||'Publicação'} style={{width:'100%',maxHeight:'62vh',objectFit:'contain',background:'#000',borderRadius:12}}/>}
+                        </article>;
+                      })}
                   </div>
                 )}
               </div>
@@ -948,7 +900,22 @@ export default function MediaHome() {
             <div style={{height:126,display:'grid',gridTemplateColumns:'1fr 1fr 1fr',alignItems:'center',justifyItems:'center'}}><button type="button" onClick={()=>galleryInputRef.current?.click()} style={{display:'grid',justifyItems:'center',gap:7,border:0,background:'transparent',color:'#fff'}}><span style={{width:56,height:56,borderRadius:14,background:'linear-gradient(135deg,#ff55b8,#843cff)',display:'grid',placeItems:'center'}}><Icon name="photo" size={25}/></span><span style={{fontSize:15}}>Galeria</span></button><button type="button" aria-label="Capturar" onClick={()=>captureInputRef.current?.click()} style={{width:82,height:82,borderRadius:50,border:'8px solid #fff',background:'#FF2E7A'}}/><button type="button" aria-label="Trocar câmara" onClick={()=>setCameraFacing(v=>v==='environment'?'user':'environment')} style={{display:'grid',justifyItems:'center',gap:6,border:0,background:'transparent',color:'#fff'}}><span style={{fontSize:28}}>⇄</span><span style={{fontSize:12}}>Trocar câmara</span></button></div>
           </div>}
           {createStep===2 && selectedMedia && <div style={{position:'absolute',inset:0,display:'grid',gridTemplateRows:'80px 1fr 300px',background:'#000'}}><div style={{display:'flex',alignItems:'center',padding:'max(12px,env(safe-area-inset-top)) 16px 0'}}><button type="button" onClick={()=>{setCreateOpen(false);setCreateStep(1);setSelectedMedia(null);}} style={{width:40,height:40,borderRadius:50,border:0,background:'#111',color:'#fff',fontSize:24}}>×</button></div><div style={{background:'#fff',display:'grid',placeItems:'center',overflow:'hidden'}}>{selectedMedia.type==='video'?<video src={selectedMedia.url} controls playsInline style={{width:'80%',maxHeight:'100%',objectFit:'contain'}}/>:<img src={selectedMedia.url} alt="Pré-visualização" style={{width:'80%',maxHeight:'100%',objectFit:'contain'}}/>}</div><div style={{background:'#000',display:'flex',alignItems:'flex-end',gap:10,padding:'16px 16px max(18px,env(safe-area-inset-bottom))'}}><button type="button" onClick={()=>{setCreateStep(1);galleryInputRef.current?.click();}} style={{width:'48%',height:60,border:0,borderRadius:20,background:'#2A1A4A',color:'#fff',fontSize:20,fontWeight:900}}>Trocar</button><button type="button" onClick={()=>setCreateStep(3)} style={{width:'48%',height:60,border:0,borderRadius:20,background:'#FFD966',color:'#000',fontSize:20,fontWeight:900}}>Seguinte</button></div></div>}
-          {createStep===3 && selectedMedia && <div style={{position:'absolute',inset:0,overflowY:'auto',background:'#1A0B2E',padding:'max(14px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom))',display:'flex',flexDirection:'column',gap:18}}><div style={{display:'flex',alignItems:'center',gap:12}}><button type="button" onClick={()=>setCreateStep(2)} style={{width:42,height:42,border:0,borderRadius:50,background:'#2A1A4A',color:'#fff',fontSize:23}}>‹</button><div style={{fontSize:26,fontWeight:900}}>Nova publicação</div></div><div style={{height:260,borderRadius:'0 0 24px 24px',background:'#fff',display:'grid',placeItems:'center',overflow:'hidden'}}>{selectedMedia.type==='video'?<video src={selectedMedia.url} controls playsInline style={{width:'80%',maxHeight:'100%',objectFit:'contain'}}/>:<img src={selectedMedia.url} alt="Mídia escolhida" style={{width:'80%',maxHeight:'100%',objectFit:'contain'}}/>}</div><div style={{display:'grid',gap:8}}><label style={{color:'#aaa',fontSize:18,fontWeight:900}}>Legenda</label><textarea value={captionText} onChange={e=>setCaptionText(e.target.value)} placeholder="Escreva uma legenda" style={{height:120,resize:'vertical',border:0,borderRadius:20,padding:16,background:'#2A1A4A',color:'#fff',fontSize:18,outline:'none'}}/></div><div style={{display:'grid',gap:9}}><label style={{color:'#aaa',fontSize:18,fontWeight:900}}>Hashtags</label><input value={hashtagText} onChange={e=>setHashtagText(e.target.value)} placeholder="#fãclube #angola" style={{height:60,border:0,borderRadius:20,padding:'0 16px',background:'#2A1A4A',color:'#fff',fontSize:18,outline:'none'}}/><div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>{['#fãclube','#angola','#música'].map(tag=><button key={tag} type="button" onClick={()=>setHashtagText(v=>(v.trim()+' '+tag).trim())} style={{border:0,borderRadius:22,padding:'9px 4px',background:'#2A1A4A',color:'#fff',fontSize:14}}>{tag}</button>)}</div><div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>{['#novo','#bastidores'].map(tag=><button key={tag} type="button" onClick={()=>setHashtagText(v=>(v.trim()+' '+tag).trim())} style={{border:0,borderRadius:22,padding:'9px 4px',background:'#2A1A4A',color:'#fff',fontSize:14}}>{tag}</button>)}</div></div><button type="button" onClick={()=>{const post={id:Date.now(),url:selectedMedia.url,type:selectedMedia.type,caption:captionText,tags:hashtagText};setPublishedMedia(prev=>[post,...prev]);setCreateOpen(false);setCreateStep(1);setActiveNav('Explorar');setExploreTab('Explorar');setCaptionText('');setHashtagText('');setSelectedMedia(null);setNotice('Publicação adicionada ao feed e ao perfil.');}} style={{marginTop:'auto',width:'100%',height:64,border:0,borderRadius:20,background:'#FF2E7A',color:'#fff',fontSize:22,fontWeight:900}}>Publicar</button></div>}
+          {createStep===3 && selectedMedia && <div style={{position:'absolute',inset:0,overflowY:'auto',background:'#1A0B2E',padding:'max(14px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom))',display:'flex',flexDirection:'column',gap:18}}><div style={{display:'flex',alignItems:'center',gap:12}}><button type="button" onClick={()=>setCreateStep(2)} style={{width:42,height:42,border:0,borderRadius:50,background:'#2A1A4A',color:'#fff',fontSize:23}}>‹</button><div style={{fontSize:26,fontWeight:900}}>Nova publicação</div></div><div style={{height:260,borderRadius:'0 0 24px 24px',background:'#fff',display:'grid',placeItems:'center',overflow:'hidden'}}>{selectedMedia.type==='video'?<video src={selectedMedia.url} controls playsInline style={{width:'80%',maxHeight:'100%',objectFit:'contain'}}/>:<img src={selectedMedia.url} alt="Mídia escolhida" style={{width:'80%',maxHeight:'100%',objectFit:'contain'}}/>}</div><div style={{display:'grid',gap:8}}><label style={{color:'#aaa',fontSize:18,fontWeight:900}}>Legenda</label><textarea value={captionText} onChange={e=>setCaptionText(e.target.value)} placeholder="Escreva uma legenda" style={{height:120,resize:'vertical',border:0,borderRadius:20,padding:16,background:'#2A1A4A',color:'#fff',fontSize:18,outline:'none'}}/></div><div style={{display:'grid',gap:9}}><label style={{color:'#aaa',fontSize:18,fontWeight:900}}>Hashtags</label><input value={hashtagText} onChange={e=>setHashtagText(e.target.value)} placeholder="#fãclube #angola" style={{height:60,border:0,borderRadius:20,padding:'0 16px',background:'#2A1A4A',color:'#fff',fontSize:18,outline:'none'}}/><div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>{['#fãclube','#angola','#música'].map(tag=><button key={tag} type="button" onClick={()=>setHashtagText(v=>(v.trim()+' '+tag).trim())} style={{border:0,borderRadius:22,padding:'9px 4px',background:'#2A1A4A',color:'#fff',fontSize:14}}>{tag}</button>)}</div><div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>{['#novo','#bastidores'].map(tag=><button key={tag} type="button" onClick={()=>setHashtagText(v=>(v.trim()+' '+tag).trim())} style={{border:0,borderRadius:22,padding:'9px 4px',background:'#2A1A4A',color:'#fff',fontSize:14}}>{tag}</button>)}</div></div><button type="button" onClick={async()=>{
+              if(!user?.id||!temAcessoPremium){setNotice('A publicação profissional exige plano ativo e aprovação da Administração.');return;}
+              try{
+                const extension=(selectedMedia.file?.name||'').split('.').pop()?.toLowerCase()|| (selectedMedia.type==='video'?'mp4':'jpg');
+                const path=user.id+'/'+Date.now()+'.'+extension;
+                const {error:uploadError}=await supabase.storage.from('media-posts').upload(path,selectedMedia.file,{upsert:false,contentType:selectedMedia.file?.type||undefined});
+                if(uploadError)throw uploadError;
+                const {data:publicMedia}=supabase.storage.from('media-posts').getPublicUrl(path);
+                const {error:insertError}=await supabase.from('media_posts').insert({user_id:user.id,media_url:publicMedia.publicUrl,media_type:selectedMedia.type==='video'?'video':'image',caption:captionText.trim()||null,hashtags:hashtagText.trim()||null,language:mediaProfile?.interface_language||null,status:'published'});
+                if(insertError){await supabase.storage.from('media-posts').remove([path]);throw insertError;}
+                const {data:posts,error:postsError}=await supabase.from('media_posts').select('id,user_id,media_url,media_type,caption,hashtags,language,created_at').eq('status','published').order('created_at',{ascending:false});
+                if(postsError)throw postsError;
+                setMediaPosts(posts||[]);
+                setCreateOpen(false);setCreateStep(1);setActiveNav('Explorar');setExploreTab('Explorar');setCaptionText('');setHashtagText('');setSelectedMedia(null);setNotice('Publicação guardada.');
+              }catch(error){console.error('Erro ao publicar na Mídia:',error);setNotice('Não foi possível publicar: '+error.message);}
+            }} style={{marginTop:'auto',width:'100%',height:64,border:0,borderRadius:20,background:'#FF2E7A',color:'#fff',fontSize:22,fontWeight:900}}>Publicar</button></div>}
         </div>}
       </main>
     </>
