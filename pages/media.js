@@ -501,11 +501,11 @@ export default function MediaHome() {
                 </div>}
                 {exploreTab === 'Explorar' ? (
                   <div style={{ display: 'grid', gap: 18 }}>
-                    {temAcessoPremium && <div style={{display:'flex',alignItems:'center',gap:9,padding:12,borderRadius:15,background:'#2b103b',border:'1px solid #45245b'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:9,padding:12,borderRadius:15,background:'#2b103b',border:'1px solid #45245b'}}>
                       <div style={{width:38,height:38,borderRadius:50,background:'#F2F2F2',display:'grid',placeItems:'center',overflow:'hidden',color:'#777',fontWeight:900}}>{profileAvatarUrl?<img src={profileAvatarUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:profileInitials || null}</div>
                       <button type="button" onClick={()=>{if(!user){router.push('/login?next=/media');return;}setCaptureMode('Foto');setCreateStep(1);setSelectedMedia(null);setCreateOpen(true);}} style={{flex:1,minWidth:0,padding:'11px 13px',border:0,borderRadius:20,background:'#3a1b4a',color:'#cdbed7',fontSize:12,textAlign:'left'}}>{user?'No que estás a pensar?':'Entra para criar uma publicação'}</button>
                       <button aria-label="Adicionar foto ou vídeo" type="button" onClick={()=>{if(!user){router.push('/login?next=/media');return;}setCaptureMode('Foto');setCreateStep(1);setSelectedMedia(null);setCreateOpen(true);}} style={{border:0,background:'transparent',color:'#ff75bb',display:'grid',placeItems:'center'}}><Icon name="photo" size={22}/></button>
-                    </div>}
+                    </div>
                     {mediaSuggestions.length>0 ? <div>
                       <div style={{fontSize:14,fontWeight:900,marginBottom:10}}>Sugestões de pessoas</div>
                       <div style={{display:'flex',gap:12,overflowX:'auto',paddingBottom:4}}>
