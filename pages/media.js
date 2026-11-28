@@ -78,6 +78,8 @@ export default function MediaHome() {
   const [profileLinks, setProfileLinks] = useState([]);
   const [profileEmail, setProfileEmail] = useState('');
   const [showEmail, setShowEmail] = useState(false);
+  const [profileLanguageDraft, setProfileLanguageDraft] = useState('');
+  const [profileLanguageOptions, setProfileLanguageOptions] = useState([]);
   const [profileCoverColor, setProfileCoverColor] = useState('#E84A8A');
   const [profileAvatarPreview, setProfileAvatarPreview] = useState('');
   const [profileAvatarFile, setProfileAvatarFile] = useState(null);
@@ -218,6 +220,18 @@ export default function MediaHome() {
     setFollowingCount(current=>Math.max(0,current+(alreadyFollowing?-1:1)));
   }
 
+  useEffect(()=>{
+    let cancelled=false;
+    async function loadCountryLanguages(){
+      if(!profileEditing||!temAcessoPremium||!mediaProfile?.country_id){setProfileLanguageOptions([]);return;}
+      const {data,error}=await supabase.from('country_languages').select('language_id,languages(name,code)').eq('country_id',mediaProfile.country_id).eq('is_active',true);
+      if(error){console.error('Erro ao carregar idiomas do país:',error);return;}
+      if(!cancelled)setProfileLanguageOptions((data||[]).map(row=>row.languages).filter(Boolean));
+    }
+    loadCountryLanguages();
+    return()=>{cancelled=true;};
+  },[profileEditing,temAcessoPremium,mediaProfile?.country_id]);
+
   async function signOut() {
     await supabase.auth.signOut();
     await router.replace('/login');
@@ -303,6 +317,12 @@ export default function MediaHome() {
             <textarea value={profileBio} maxLength={150} onChange={e=>setProfileBio(e.target.value)} style={{height:150,resize:'vertical',border:0,borderRadius:20,padding:16,background:'#F2F2F2',color:'#000',fontSize:20,lineHeight:1.45}}/>
             <div style={{fontSize:17,color:'#888'}}>{profileBio.length}/150</div>
           </div>
+          {temAcessoPremium && profileLanguageOptions.length>0 && <div style={{display:'grid',gap:8,marginBottom:20}}>
+            <label style={{fontSize:19,fontWeight:900,color:'#666'}}>Idioma</label>
+            <select value={profileLanguageDraft} onChange={e=>setProfileLanguageDraft(e.target.value)} style={{height:64,border:0,borderRadius:20,padding:'0 16px',background:'#F2F2F2',color:'#000',fontSize:20}}>
+              {profileLanguageOptions.map(lang=><option key={lang.code} value={lang.name}>{lang.name}</option>)}
+            </select>
+          </div>}
           {temAcessoPremium && <div style={{display:'grid',gap:8,marginBottom:20}}>
             <label style={{fontSize:19,fontWeight:900,color:'#666'}}>Links (máximo 2)</label>
             {profileLinks.map((link,i)=><div key={'profile-link-'+i} style={{display:'flex',gap:10,alignItems:'center'}}>
@@ -342,11 +362,11 @@ export default function MediaHome() {
                 const { error: uploadError } = await supabase.storage.from('avatars').upload(user.id + '.jpg', jpegBlob, { upsert:true, contentType:'image/jpeg' });
                 if (uploadError) throw uploadError;
                 const { data: publicAvatar } = supabase.storage.from('avatars').getPublicUrl(user.id + '.jpg');
-                avatarUrl = publicAvatar.publicUrl;
+                avatarUrl = publicAvatar.publicUrl + '?v=' + Date.now();
                 const { error: avatarError } = await supabase.from('profiles').update({ avatar_url: avatarUrl }).eq('id',user.id);
                 if (avatarError) throw avatarError;
               }
-              const { data: authData, error: authError } = await supabase.auth.updateUser({data:{media_display_name:profileName.trim(),media_username:cleanUsername,media_bio:profileBio,media_links:temAcessoPremium?cleanLinks:(mediaProfile?.social_links||[]),media_cover_color:profileCoverColor}});
+              const { data: authData, error: authError } = await supabase.auth.updateUser({data:{media_display_name:profileName.trim(),media_username:cleanUsername,media_bio:profileBio,media_links:temAcessoPremium?cleanLinks:(mediaProfile?.social_links||[]),media_cover_color:profileCoverColor,media_interface_language:temAcessoPremium?profileLanguageDraft:mediaProfile?.interface_language}});
               if (authError) throw authError;
               const { error: profileError } = await supabase.from('profiles').update({
                 name:profileName.trim(),username:cleanUsername || null,show_email:showEmail,avatar_url:avatarUrl || null
@@ -354,12 +374,12 @@ export default function MediaHome() {
               if (profileError) throw profileError;
               const { error: mediaError } = await supabase.from('media_profiles').update({
                 display_name:profileName.trim(),username:cleanUsername || null,bio:profileBio.trim() || null,
-                social_links:temAcessoPremium?cleanLinks:(mediaProfile?.social_links||[]),email:user.email || null
+                social_links:temAcessoPremium?cleanLinks:(mediaProfile?.social_links||[]),interface_language:temAcessoPremium?profileLanguageDraft:mediaProfile?.interface_language,email:user.email || null
               }).eq('user_id',user.id);
               if (mediaError) throw mediaError;
               setUser(authData.user || user);
               setProfileAvatarUrl(avatarUrl || '');
-              setMediaProfile(prev=>({...prev,display_name:profileName.trim(),username:cleanUsername || null,bio:profileBio.trim() || null,social_links:temAcessoPremium?cleanLinks:(prev?.social_links||[]),email:user.email || null,show_email:showEmail}));
+              setMediaProfile(prev=>({...prev,display_name:profileName.trim(),username:cleanUsername || null,bio:profileBio.trim() || null,social_links:temAcessoPremium?cleanLinks:(prev?.social_links||[]),interface_language:temAcessoPremium?profileLanguageDraft:prev?.interface_language,email:user.email || null,show_email:showEmail}));
               setProfileName(profileName.trim());
               setProfileUsername(cleanUsername);
               setProfileAvatarFile(null);setProfileAvatarPreview('');
@@ -435,7 +455,7 @@ export default function MediaHome() {
                 <button type="button" onClick={()=>setPlansOpen(true)} style={{width:'100%',border:0,borderRadius:13,padding:13,background:'#ff3fa3',color:'#fff',fontSize:13,fontWeight:950,marginTop:8,marginBottom:18}}>Ver planos</button>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:9,marginBottom:18}}>
                   <button type="button" onClick={()=>selectNav('Mensagens')} style={{border:'1px solid #4a2a5c',borderRadius:12,padding:11,background:'#2b103b',color:'#fff',fontSize:12,fontWeight:850,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="message" size={16}/>Mensagens</button>
-                  <button type="button" onClick={()=>{setProfileEditing(true);setProfileName(displayName);setProfileUsername(rawUsername);setProfileBio(mediaProfile?.bio||metadata.media_bio||'');setProfileLinks(Array.isArray(mediaProfile?.social_links)?mediaProfile.social_links:metadata.media_links||[]);setProfileEmail(user?.email||'');setShowEmail(Boolean(mediaProfile?.show_email));setProfileCoverColor(metadata.media_cover_color||'#E84A8A');setProfileAvatarPreview('');}} style={{border:'1px solid #4a2a5c',borderRadius:12,padding:11,background:'#2b103b',color:'#fff',fontSize:12,fontWeight:850,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="edit" size={16}/>Editar perfil</button>
+                  <button type="button" onClick={()=>{setProfileEditing(true);setProfileName(displayName);setProfileUsername(rawUsername);setProfileBio(mediaProfile?.bio||metadata.media_bio||'');setProfileLinks(Array.isArray(mediaProfile?.social_links)?mediaProfile.social_links:metadata.media_links||[]);setProfileEmail(user?.email||'');setShowEmail(Boolean(mediaProfile?.show_email));setProfileLanguageDraft(profileLanguage);setProfileCoverColor(metadata.media_cover_color||'#E84A8A');setProfileAvatarPreview('');}} style={{border:'1px solid #4a2a5c',borderRadius:12,padding:11,background:'#2b103b',color:'#fff',fontSize:12,fontWeight:850,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="edit" size={16}/>Editar perfil</button>
                 </div>
                 {temAcessoPremium && <div style={{display:'grid',gap:9,marginBottom:19}}>
                   <button type="button" onClick={()=>{setExplorePublishOpen(true);setExplorePhotos([]);setExploreCaption('');}} style={{width:'100%',border:0,borderRadius:13,padding:13,background:'#f4df83',color:'#241b10',fontSize:13,fontWeight:950,display:'flex',alignItems:'center',justifyContent:'center',gap:9}}><Icon name="globe" size={18}/>Publicar no explore</button>
