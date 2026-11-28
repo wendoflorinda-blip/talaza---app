@@ -498,6 +498,7 @@ export default function MediaHome() {
                   <div style={{ fontSize: 12, color: '#555' }}>@{metadata.media_username || 'marakiala'} · fala Português</div>
                   <div style={{ fontSize: 12, color: '#555', display: 'flex', alignItems: 'center', gap: 5 }}>⌖ Luanda, Angola</div>
                   <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5, color: '#111' }}>{metadata.media_bio || 'Bastidores, ensaios e música nova toda semana. Entre no meu fã clube.'}</div>
+                  {(Array.isArray(metadata.media_links) ? metadata.media_links : []).filter(Boolean).map((profileLink, linkIndex) => { const linkUrl = /^https?:\/\//i.test(profileLink) ? profileLink : `https://${profileLink}`; return <a key={'profile-link-view-'+linkIndex} href={linkUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#2876D2', fontSize: 13, fontWeight: 800, textDecoration: 'none', overflowWrap: 'anywhere' }}>{profileLink}</a>; })}
                   <button type="button" style={{ display: 'flex', alignItems: 'center', gap: 8, width: 'fit-content', border: 0, borderRadius: 20, background: '#E6C65A', color: '#111', padding: '10px 16px', fontWeight: 950, fontSize: 15 }}><CrownIcon size={18}/>Perfil profissional</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginTop: 19, marginBottom: 18, textAlign: 'center' }}>
