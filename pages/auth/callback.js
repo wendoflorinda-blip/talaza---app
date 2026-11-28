@@ -202,16 +202,37 @@ export default function AuthCallback() {
               ? pending.media_niches.join(' · ')
               : 'Geral',
             languages: Array.isArray(pending.media_content_languages) ? pending.media_content_languages : [],
+            username: String(source.username || pending.media_username || metadata.media_username || '').replace(/^@+/, '').trim().toLowerCase() || null,
+            email: user.email || null,
             bio: null,
             social_links: {},
             application_status: 'submitted',
             review_notes: null,
             updated_at: new Date().toISOString(),
           };
-          if (!existingApplication?.id) {
-            const { error: applicationInsertError } = await supabase.from('media_applications').insert(applicationData);
+          let applicationId = existingApplication?.id || null;
+          if (!applicationId) {
+            const { data: insertedApplication, error: applicationInsertError } = await supabase.from('media_applications').insert(applicationData).select('id').single();
             if (applicationInsertError) throw applicationInsertError;
+            applicationId = insertedApplication.id;
+          } else {
+            const { error: applicationUpdateError } = await supabase.from('media_applications').update({
+              username: applicationData.username, email: applicationData.email, display_name: applicationData.display_name,
+              country_id: applicationData.country_id, languages: applicationData.languages, content_category: applicationData.content_category,
+              updated_at: applicationData.updated_at
+            }).eq('id', applicationId).eq('user_id', user.id);
+            if (applicationUpdateError) throw applicationUpdateError;
           }
+          const mediaProfileData = {
+            user_id: user.id, application_id: applicationId, display_name: applicationData.display_name,
+            username: applicationData.username, email: user.email || null, country_id: source.country_id,
+            province_id: source.province_id, content_category: applicationData.content_category, languages: applicationData.languages,
+            status: 'active', gender: String(source.gender || '').toLowerCase() || null, tipo_conta: 'creator',
+            interface_language: pending.media_interface_language || null,
+            niches: Array.isArray(pending.media_niches) ? pending.media_niches : [],
+          };
+          const { error: mediaProfileError } = await supabase.from('media_profiles').upsert(mediaProfileData, { onConflict: 'user_id', ignoreDuplicates: true });
+          if (mediaProfileError) throw mediaProfileError;
 
           // Criar/sincronizar Comercial somente depois de atualizar metadata e confirmar candidatura.
           const { data: commercialSync, error: commercialSyncError } = await supabase.rpc('sync_media_creator_commercial_profile');
