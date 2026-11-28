@@ -71,13 +71,6 @@ create table if not exists public.media_posts (
 create index if not exists media_posts_created_at_idx on public.media_posts(created_at desc);
 create index if not exists media_posts_user_id_idx on public.media_posts(user_id);
 alter table public.media_posts enable row level security;
-drop policy if exists "Published Mídia posts visible to active professional profiles" on public.media_posts;
-create policy "Published Mídia posts visible to active professional profiles" on public.media_posts
-for select to authenticated using(
- status='published' and exists(
-  select 1 from public.media_discovery_profiles dp where dp.user_id=media_posts.user_id
- )
-);
 drop policy if exists "Owners create own Mídia posts while professional" on public.media_posts;
 create policy "Owners create own Mídia posts while professional" on public.media_posts
 for insert to authenticated with check(
@@ -149,3 +142,10 @@ where mp.status='active' and mp.is_professional=true
  and mp.approved_by is not null and mp.approved_at is not null;
 revoke all on public.media_discovery_profiles from anon;
 grant select on public.media_discovery_profiles to authenticated;
+drop policy if exists "Published Mídia posts visible to active professional profiles" on public.media_posts;
+create policy "Published Mídia posts visible to active professional profiles" on public.media_posts
+for select to authenticated using(
+ status='published' and exists(
+  select 1 from public.media_discovery_profiles dp where dp.user_id=media_posts.user_id
+ )
+);
