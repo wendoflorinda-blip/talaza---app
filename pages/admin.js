@@ -50,6 +50,9 @@ export default function Admin() {
   const [expandedVendorId, setExpandedVendorId] = useState('');
   const [businessFilter, setBusinessFilter] = useState('pending');
   const [subscriptionRequests, setSubscriptionRequests] = useState([]);
+  const [mediaProfessionalPayments, setMediaProfessionalPayments] = useState([]);
+  const [mediaProfessionalProofUrls, setMediaProfessionalProofUrls] = useState({});
+  const [reviewingMediaPaymentId, setReviewingMediaPaymentId] = useState('');
   const [paymentHistoryById, setPaymentHistoryById] = useState({});
   const [opportunityAccessLoadError, setOpportunityAccessLoadError] = useState('');
   const [opportunityAccessPlanIds, setOpportunityAccessPlanIds] = useState([]);
@@ -199,6 +202,7 @@ export default function Admin() {
     await loadVendorPlanRows();
     await loadPaymentResubmissions();
     await loadSubscriptionRequests();
+    await loadMediaProfessionalPayments();
     await loadGirassolReactivations();
     await loadCommunityReports();
     await loadPendingCommunityPosts();
@@ -408,6 +412,54 @@ export default function Admin() {
         readyBusinessIds.has(business.id)
       );
     }).map(business => ({ ...business, is_admin_store: adminBusinessIds.has(business.id) })));
+  }
+
+  async function loadMediaProfessionalPayments() {
+    const planId = 'f8dae010-62c6-439c-985f-8053bf168dfd';
+    const { data, error } = await supabase.from('payment_submissions').select('*')
+      .eq('plan_id',planId).is('business_id',null).is('event_id',null).is('job_post_id',null).is('premium_promotion_id',null)
+      .order('created_at',{ascending:false});
+    if (error) {
+      console.error('Erro ao carregar pagamentos profissionais da Mídia:',error);
+      setMessage('Não foi possível carregar pagamentos da Mídia: '+error.message);
+      setMediaProfessionalPayments([]);
+      return;
+    }
+    const rows = data || [];
+    const userIds = [...new Set(rows.map(row=>row.user_id).filter(Boolean))];
+    const { data: profiles, error: profilesError } = userIds.length
+      ? await supabase.from('media_profiles').select('user_id,display_name,username,email').in('user_id',userIds)
+      : { data:[], error:null };
+    if (profilesError) console.error('Erro ao carregar perfis associados aos pagamentos da Mídia:',profilesError);
+    const profileByUser = Object.fromEntries((profiles||[]).map(profile=>[profile.user_id,profile]));
+    const proofUrls = {};
+    await Promise.all(rows.map(async row=>{
+      const path = row.proof_url || row.proof_image_url || row.proof_file_url;
+      if (!path) return;
+      const { data: signed, error: signedError } = await supabase.storage.from('media-payment-proofs').createSignedUrl(path,300);
+      if (!signedError && signed?.signedUrl) proofUrls[row.id] = signed.signedUrl;
+      else if (signedError) console.warn('Não foi possível abrir comprovativo Mídia:',signedError.message);
+    }));
+    setMediaProfessionalProofUrls(proofUrls);
+    setMediaProfessionalPayments(rows.map(row=>({...row,mediaProfile:profileByUser[row.user_id]||null})));
+  }
+
+  async function reviewMediaProfessionalPayment(request, approved) {
+    if (reviewingMediaPaymentId) return;
+    const reason = approved ? null : window.prompt('Indica o motivo da recusa deste pagamento da Mídia:');
+    if (!approved && !String(reason||'').trim()) return;
+    setReviewingMediaPaymentId(request.id);
+    try {
+      const { error } = await supabase.rpc('admin_review_media_professional_payment',{
+        p_payment_id:request.id,p_approved:approved,p_rejection_reason:reason || null
+      });
+      if (error) throw error;
+      await loadMediaProfessionalPayments();
+      alert(approved ? 'Pagamento aprovado. O Perfil Profissional foi ativado.' : 'Pagamento recusado. O perfil continua normal.');
+    } catch(error) {
+      console.error('Erro ao analisar pagamento profissional da Mídia:',error);
+      alert('Não foi possível analisar este pagamento: '+(error.message||'erro inesperado.'));
+    } finally { setReviewingMediaPaymentId(''); }
   }
 
   async function loadSubscriptionRequests() {
@@ -1600,6 +1652,7 @@ export default function Admin() {
       loadVendorPlanRows(),
       loadPaymentResubmissions(),
       loadSubscriptionRequests(),
+      loadMediaProfessionalPayments(),
       loadGirassolReactivations(),
       loadCommunityReports(),
       loadPendingCommunityPosts(),
@@ -1719,6 +1772,7 @@ export default function Admin() {
               ['gestao-perfis', 'Gestão de Perfis', 0], ['vistos-admin', 'Vistos', 0],
               ['trocas-email', 'Trocas de e-mail pendentes', emailChangeRequests.filter(item => item.status === 'Pendente - Por confirmar').length],
               ['pagamentos', 'Pagamentos e hospedagem', subscriptionRequests.filter(item => String(item.status || '').toLowerCase() === 'pending' && !item.premium_promotion_id && (item.business_id || item.event_id || item.job_post_id)).length],
+              ['pagamentos-midia', 'Pagamentos da Mídia', mediaProfessionalPayments.filter(item => ['pending','submitted'].includes(String(item.status||'').toLowerCase())).length],
               ['reenvios', 'Reenvios', resubmissions.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
               ['acessos-oportunidades', 'Acessos às Oportunidades', subscriptionRequests.filter(item => opportunityAccessPlanIds.includes(String(item.plan_id || '')) && (['pending','submitted'].includes(String(item.status || '').trim().toLowerCase()) || (String(item.status || '').trim().toLowerCase() === 'approved' && !(paymentHistoryById[item.id] || []).some(row => row.action === 'approved' && String(row.reason || '').startsWith('Acesso Oportunidades ativado:')) && !opportunityAccessByPayment[item.id]?.active))).length],
               ['girassol', 'Reactivação Girassol', girassolReactivations.filter(item => String(item.status || '').toLowerCase() === 'pending').length],
@@ -1740,6 +1794,7 @@ export default function Admin() {
                   setActiveAdminSection(key);
                   if (key === 'novidades-pendentes') loadPendingBusinessUpdates();
                   if (key === 'reenvios') loadPaymentResubmissions();
+                  if (key === 'pagamentos-midia') loadMediaProfessionalPayments();
                 }}
                 aria-pressed={activeAdminSection === key}
                 style={{
@@ -2349,6 +2404,36 @@ export default function Admin() {
               })}
             </div>
           )}
+        </section>
+
+        <section id="pagamentos-midia" style={{ marginTop:0, display:activeAdminSection==='pagamentos-midia'?'block':'none' }}>
+          <div style={styles.titleRow}>
+            <div><h2 style={styles.title}>Pagamentos do Perfil Profissional — MÍDIA TALAZA</h2><p style={styles.description}>Os pagamentos ficam pendentes. O acesso profissional só é ativado depois da aprovação administrativa.</p></div>
+            <div style={styles.counter}>{mediaProfessionalPayments.filter(item=>['pending','submitted'].includes(String(item.status||'').toLowerCase())).length} por analisar</div>
+          </div>
+          {mediaProfessionalPayments.length===0 ? <div style={styles.empty}><div style={styles.emptyIcon}>◇</div><h2>Sem pagamentos da Mídia</h2><p>Quando um Criador enviar o comprovativo do plano Perfil Profissional, o pedido aparecerá aqui.</p></div> :
+            <div style={styles.list}>{mediaProfessionalPayments.map(request=>{
+              const pending=['pending','submitted'].includes(String(request.status||'').toLowerCase());
+              const profile=request.mediaProfile||{};
+              return <article key={request.id} style={styles.card}>
+                <div style={styles.cardTop}><div style={styles.logoPlaceholder}>👑</div><div style={{flex:1,minWidth:0}}>
+                  <h3 style={styles.businessName}>{profile.display_name || profile.username || request.user_id}</h3>
+                  <div style={styles.meta}>{profile.username ? '@'+String(profile.username).replace(/^@+/,'')+' · ' : ''}{profile.email || ''}</div>
+                  <div style={styles.meta}>{request.created_at ? new Date(request.created_at).toLocaleString('pt-AO') : ''}</div>
+                </div><span style={pending?styles.pending:styles.paymentStatus}>{request.status}</span></div>
+                <div style={styles.details}>
+                  <p><strong>Plano:</strong> Perfil Profissional</p>
+                  <p><strong>Valor:</strong> {Number(request.amount).toLocaleString('pt-AO')} Kz</p>
+                  <p><strong>Número Express:</strong> {request.express_sender_phone || '—'}</p>
+                  {mediaProfessionalProofUrls[request.id] ? <p><a href={mediaProfessionalProofUrls[request.id]} target="_blank" rel="noreferrer" style={{color:'#075B4E',fontWeight:800}}>Abrir comprovativo ↗</a></p> : <p>Comprovativo indisponível.</p>}
+                  {request.notes && <p><strong>Observação:</strong> {request.notes}</p>}
+                </div>
+                {pending && <div style={styles.actions}>
+                  <button type="button" disabled={reviewingMediaPaymentId===request.id} style={styles.reject} onClick={()=>reviewMediaProfessionalPayment(request,false)}>Rejeitar</button>
+                  <button type="button" disabled={reviewingMediaPaymentId===request.id} style={styles.approve} onClick={()=>reviewMediaProfessionalPayment(request,true)}>{reviewingMediaPaymentId===request.id?'A analisar…':'Aprovar e ativar Perfil Profissional'}</button>
+                </div>}
+              </article>;
+            })}</div>}
         </section>
 
         <section id="acessos-oportunidades" style={{ marginTop:0, display:activeAdminSection==='acessos-oportunidades'?'block':'none' }}>
