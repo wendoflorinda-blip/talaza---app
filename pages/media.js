@@ -159,7 +159,7 @@ export default function MediaHome() {
   const followingCount = 0;
   const fanclubCount = 0;
   const socialLinks = mediaProfile?.social_links || metadata.media_links;
-  const profileBio = mediaProfile?.bio || metadata.media_bio || '';
+  const profileBioValue = mediaProfile?.bio || metadata.media_bio || '';
   const profileLink = typeof socialLinks === 'string' ? socialLinks : Array.isArray(socialLinks) ? (typeof socialLinks[0] === 'string' ? socialLinks[0] : socialLinks[0]?.url || socialLinks[0]?.link || '') : socialLinks?.url || socialLinks?.website || '';
   const pagouPlano = Boolean(mediaProfile?.plan_id && mediaProfile?.plan_paid_at);
   const aprovadoPelaAdmin = Boolean(mediaProfile?.is_professional && mediaProfile?.professional_status === 'approved' && mediaProfile?.approved_by && mediaProfile?.approved_at);
@@ -362,9 +362,9 @@ export default function MediaHome() {
                     {profileTitle}
                     {temAcessoPremium && <span style={{padding:'4px 8px',borderRadius:12,background:'#f4df83',color:'#5b4210',fontSize:10,fontWeight:950}}>Perfil profissional</span>}
                   </div>
-                  {username && <div style={{ fontSize: 12, color: '#555555' }}>{username}{profileLanguage ? ' · ' + profileLanguage : ''}</div>}
+                  {username && displayName && <div style={{ fontSize: 12, color: '#555555' }}>{username}{profileLanguage ? ' · ' + profileLanguage : ''}</div>}
                   {profileLocation && <div style={{ fontSize: 12, color: '#555555', marginTop: 4 }}>⌖ {profileLocation}</div>}
-                  {profileBio?.trim() && <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5, color: '#111111' }}>{profileBio}</div>}
+                  {profileBioValue?.trim() && <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 5, color: '#111111' }}>{profileBioValue}</div>}
                   {profileLink && <a href={/^https?:\/\//i.test(profileLink) ? profileLink : `https://${profileLink}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#1674c4', marginTop: 4, display:'inline-flex', alignItems:'center', gap:6 }}><Icon name="link" size={15}/>{profileLink}</a>}
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:temAcessoPremium?'repeat(3,1fr)':'repeat(2,1fr)', gap:6, marginTop:19, marginBottom:18, textAlign:'center' }}>
